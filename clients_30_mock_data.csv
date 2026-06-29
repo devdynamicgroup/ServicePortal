@@ -1,0 +1,31 @@
+Full Name,Address,Consent Signed,Created,Current Filter,Email,Follow-up Notes,LINE ID,Last Assessment,Latest Water Score,Lifetime Value (฿),Next Follow-up,Package History,Phone,Property Age (yr),Property Type,Source,Staff Notes,Stage,Status,Total Assessments,Upsell Interest,Water Concerns
+อานนท์ ศรีสุข,ปทุมธานี,true,2026-02-15,Cold Lead,user0@water.co.th,-,line0_41,2026-05-7,63,17909,2026-07-4,Premium,0837415211,10,บ้านเดี่ยว,Website,-,Lead,Inactive,4,Medium,น้ำกระด้าง
+พิมพ์ชนก วงศ์ดี,นนทบุรี,true,2026-01-12,Loyal Customer,user1@water.co.th,-,line1_96,2026-05-10,79,17877,2026-07-2,Premium,0838107843,4,คอนโด,Website,-,Lead,Pending,3,High,มีกลิ่น
+กฤษณ์ ไชโย,ชลบุรี,false,2026-01-15,Loyal Customer,user2@water.co.th,-,line2_70,2026-05-16,73,38392,2026-07-1,Standard,0905566323,8,บ้านเดี่ยว,Ads,-,Consulting,Active,3,Low,ตะกอน
+ณภัทร รุ่งเรือง,ปทุมธานี,true,2026-02-19,Needs Follow-up,user3@water.co.th,-,line3_26,2026-05-24,80,30314,2026-07-3,Premium,0850297311,9,คอนโด,Facebook,-,Lead,Pending,1,High,ตะกอน
+ฐิตา กาญจนา,ชลบุรี,true,2026-02-22,Loyal Customer,user4@water.co.th,-,line4_68,2026-05-24,68,51045,2026-07-5,Standard,0857313047,9,คอนโด,Referral,-,Lead,Pending,5,Medium,คลอรีน
+สมชาย ดีมาก,ระยอง,true,2026-02-20,VIP,user5@water.co.th,-,line5_22,2026-05-12,74,37426,2026-07-4,Standard,0811634753,6,บ้านเดี่ยว,Facebook,-,Customer,Pending,4,Medium,น้ำกระด้าง
+กัญญา แสงทอง,นนทบุรี,false,2026-03-19,Needs Follow-up,user6@water.co.th,-,line6_52,2026-05-2,83,44224,2026-07-9,Basic,0813960494,11,คอนโด,Website,-,Lead,Active,4,Medium,มีกลิ่น
+ภาวัต นนทร์,นนทบุรี,false,2026-02-18,Loyal Customer,user7@water.co.th,-,line7_23,2026-05-18,73,22580,2026-07-7,Basic,0856681678,8,ทาวน์โฮม,Ads,-,Consulting,Pending,5,Low,คลอรีน
+อรอนงค์ ลี,นนทบุรี,true,2026-01-21,Warm Lead,user8@water.co.th,-,line8_31,2026-05-3,74,56336,2026-07-3,Standard,0824612319,7,คอนโด,Facebook,-,Consulting,Inactive,4,High,มีกลิ่น
+ธีรภัทร วงศ์ดี,ชลบุรี,true,2026-03-22,Loyal Customer,user9@water.co.th,-,line9_96,2026-05-12,61,41098,2026-07-5,Premium,0801334790,7,คอนโด,Ads,-,Customer,Active,1,Medium,ตะกอน
+ชลลดา พรมมา,ชลบุรี,true,2026-02-25,VIP,user10@water.co.th,-,line10_48,2026-05-6,72,16547,2026-07-2,Premium,0823166228,7,ทาวน์โฮม,Facebook,-,Consulting,Active,5,Low,คลอรีน
+จิรภัทร ทองดี,สมุทรปราการ,true,2026-02-26,VIP,user11@water.co.th,-,line11_74,2026-05-19,88,11359,2026-07-10,Premium,0827066756,12,ทาวน์โฮม,Ads,-,Customer,Pending,5,High,มีกลิ่น
+สุดา เปรมใจ,นนทบุรี,false,2026-03-19,Warm Lead,user12@water.co.th,-,line12_99,2026-05-25,78,26187,2026-07-14,Basic,0883861467,11,คอนโด,Referral,-,Consulting,Active,4,Low,มีกลิ่น
+รัชดา แก้วใจ,ระยอง,true,2026-02-28,Warm Lead,user13@water.co.th,-,line13_45,2026-05-19,65,57553,2026-07-14,Basic,0894466780,2,ทาวน์โฮม,Referral,-,Customer,Pending,5,Low,มีกลิ่น
+เอกกฤต พลชัย,ระยอง,true,2026-03-19,Needs Follow-up,user14@water.co.th,-,line14_69,2026-05-7,75,42570,2026-07-11,Basic,0959125392,4,บ้านเดี่ยว,Website,-,Consulting,Inactive,3,Low,น้ำกระด้าง
+ณัฐพงศ์ ศรีชัย,ปทุมธานี,false,2026-03-10,Cold Lead,user15@water.co.th,-,line15_67,2026-05-13,86,49031,2026-07-8,Basic,0861519511,10,บ้านเดี่ยว,Ads,-,Customer,Active,1,Low,มีกลิ่น
+พนิดา ใจดี,สมุทรปราการ,true,2026-03-23,Loyal Customer,user16@water.co.th,-,line16_97,2026-05-27,66,50132,2026-07-6,Basic,0837887255,12,บ้านเดี่ยว,Facebook,-,Customer,Pending,3,Low,คลอรีน
+ศักดา รุ่งโรจน์,ชลบุรี,true,2026-01-14,Warm Lead,user17@water.co.th,-,line17_63,2026-05-11,68,17553,2026-07-15,Standard,0800629097,3,ทาวน์โฮม,Referral,-,Customer,Pending,4,Low,ตะกอน
+วิภาวี ทองคำ,สมุทรปราการ,false,2026-02-20,High Value,user18@water.co.th,-,line18_50,2026-05-5,70,53858,2026-07-12,Basic,0807903799,9,คอนโด,Facebook,-,Customer,Pending,1,Low,มีกลิ่น
+ธนวัฒน์ ม่วงดี,สมุทรปราการ,false,2026-02-21,VIP,user19@water.co.th,-,line19_92,2026-05-26,89,15148,2026-07-5,Standard,0986089671,6,คอนโด,Website,-,Lead,Inactive,4,Low,มีกลิ่น
+อภิชาติ คำดี,นนทบุรี,false,2026-03-27,High Value,user20@water.co.th,-,line20_90,2026-05-3,80,23765,2026-07-10,Standard,0997970447,4,ทาวน์โฮม,Website,-,Consulting,Active,5,High,มีกลิ่น
+วริศา พูลทรัพย์,นนทบุรี,false,2026-02-11,Warm Lead,user21@water.co.th,-,line21_26,2026-05-24,65,58777,2026-07-7,Premium,0978188461,12,ทาวน์โฮม,Ads,-,Consulting,Pending,2,Medium,คลอรีน
+นภัสสร บุญมี,ระยอง,true,2026-01-17,Loyal Customer,user22@water.co.th,-,line22_78,2026-05-12,87,18087,2026-07-2,Premium,0825364751,8,ทาวน์โฮม,Website,-,Customer,Inactive,1,Low,ตะกอน
+ชัชวาล วัฒนะ,กรุงเทพฯ,false,2026-01-13,Needs Follow-up,user23@water.co.th,-,line23_38,2026-05-27,67,38143,2026-07-9,Standard,0845338175,2,คอนโด,Ads,-,Lead,Inactive,2,Medium,มีกลิ่น
+อิทธิพล สุขเกษม,กรุงเทพฯ,false,2026-01-10,High Value,user24@water.co.th,-,line24_41,2026-05-5,66,23180,2026-07-8,Basic,0965755745,9,บ้านเดี่ยว,Website,-,Consulting,Active,1,Low,ตะกอน
+เกศรินทร์ แก้วดี,ชลบุรี,true,2026-03-16,Needs Follow-up,user25@water.co.th,-,line25_87,2026-05-16,74,48121,2026-07-2,Standard,0842249823,5,บ้านเดี่ยว,Referral,-,Lead,Pending,4,High,คลอรีน
+วีรภัทร จิตดี,ระยอง,false,2026-02-27,High Value,user26@water.co.th,-,line26_43,2026-05-14,77,31941,2026-07-8,Standard,0908096727,10,คอนโด,Website,-,Consulting,Pending,3,Low,ตะกอน
+จุฑามาศ ศรีทอง,ปทุมธานี,false,2026-03-18,Warm Lead,user27@water.co.th,-,line27_14,2026-05-9,77,22120,2026-07-4,Standard,0874998860,4,ทาวน์โฮม,Ads,-,Lead,Active,1,Low,น้ำกระด้าง
+ปรีชา แสนดี,ระยอง,true,2026-02-20,Loyal Customer,user28@water.co.th,-,line28_73,2026-05-19,87,13354,2026-07-11,Basic,0873302945,6,บ้านเดี่ยว,Referral,-,Lead,Active,4,Low,น้ำกระด้าง
+กนกวรรณ นาคทอง,กรุงเทพฯ,false,2026-02-13,Loyal Customer,user29@water.co.th,-,line29_47,2026-05-26,83,35455,2026-07-1,Basic,0928319658,8,บ้านเดี่ยว,Facebook,-,Customer,Pending,3,Medium,ตะกอน
