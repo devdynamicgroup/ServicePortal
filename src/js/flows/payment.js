@@ -73,11 +73,11 @@ function getPaymentMarkup() {
     <div class="section-title pay-sec-gap" data-i18n="pay.method">Payment Method</div>
     <div class="pay-method-list pay-method-exact">
       <button class="pay-method sel" id="pm-cash" type="button" onclick="selPayMethod('cash')">
-        <span class="pm-icon cash"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 10.5h.01M18 13.5h.01"/></svg></span>
+        <span class="pm-icon cash"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 10.5h.01M18 13.5h.01"/></svg></span>
         <span class="pm-body"><span class="pm-name" data-i18n="pay.cash">Cash</span><span class="pm-sub" id="pm-cash-amt">&#3647;0</span></span>
       </button>
       <button class="pay-method" id="pm-bank" type="button" onclick="selPayMethod('bank')">
-        <span class="pm-icon bank"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10h18L12 4 3 10Z"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 18h18M2 21h20"/></svg></span>
+        <span class="pm-icon bank"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><path d="M3 10h18L12 4 3 10Z"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 18h18M2 21h20"/></svg></span>
         <span class="pm-body">
           <span class="pm-name" data-i18n="pay.bank">Bank Transfer</span>
           <span class="pm-account-row" onclick="event.stopPropagation();copyBankAccount()">
@@ -86,8 +86,8 @@ function getPaymentMarkup() {
           </span>
         </span>
         <span class="pm-actions">
-          <span class="pm-icon-btn" role="button" aria-label="View account" onclick="event.stopPropagation();showToast('Account: 986-4-89945-7')"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span>
-          <span class="pm-icon-btn" role="button" aria-label="Copy account" onclick="event.stopPropagation();copyBankAccount()"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></span>
+          <span class="pm-icon-btn" role="button" aria-label="View account" onclick="event.stopPropagation();showToast('Account: 986-4-89945-7')"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span>
+          <span class="pm-icon-btn" role="button" aria-label="Copy account" onclick="event.stopPropagation();copyBankAccount()"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></span>
         </span>
       </button>
     </div>

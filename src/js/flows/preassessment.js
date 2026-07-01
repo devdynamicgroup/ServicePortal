@@ -6,7 +6,7 @@ let propertySuggestion = null;
 
 const PREASSESS_REQUIRED_FIELDS = [
   'ci-fname', 'ci-lname', 'ci-phone', 'ci-line', 'ci-email',
-  'ci-city', 'ci-postal', 'ci-addr', 'ci-proptype', 'ci-propage',
+  'ci-city', 'ci-addr', 'ci-proptype', 'ci-propage',
   'ci-filter', 'ci-source'
 ];
 
@@ -15,7 +15,7 @@ const PREASSESS_FIELD_LABELS = {
   'ci-lname': 'Last name',
   'ci-phone': 'Mobile number',
   'ci-line': 'LINE ID',
-  'ci-email': 'Gmail address',
+  'ci-email': 'Email address',
   'ci-city': 'Province / city',
   'ci-postal': 'Postal code',
   'ci-addr': 'Address',
@@ -92,8 +92,8 @@ function validatePreassessment({ showErrors = false } = {}) {
   }
 
   const email = getFieldValue('ci-email').toLowerCase();
-  if (email && !/^[^\s@]+@gmail\.com$/.test(email)) {
-    errors.push('Email must end with @gmail.com');
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.push('Email format is invalid');
     invalidIds.add('ci-email');
   }
 
