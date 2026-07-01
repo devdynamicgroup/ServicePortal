@@ -1,0 +1,104 @@
+══════════════════════════════════════ -->
+<div id="s-score" class="screen">
+  <div class="hdr">
+    <button class="hdr-back" type="button" onclick="goBack('s-assess')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <span class="hdr-title" data-i18n="score.title">Water Score</span>
+    <button class="hdr-action" type="button" onclick="shareScore()" data-i18n="score.share">Share Score</button>
+  </div>
+
+  <div class="content-bare score-scroll">
+    <div class="score-hero" id="score-hero">
+      <div class="score-gauge-area">
+        <div class="score-gauge-inner" id="score-gauge-wrap">
+          <div class="gauge-ambient" id="gauge-ambient"></div>
+          <svg class="gauge-svg" viewBox="0 0 240 240" aria-hidden="true">
+            <defs>
+              <linearGradient id="gauge-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#6ee7b7"/>
+                <stop offset="55%" stop-color="#34d399"/>
+                <stop offset="100%" stop-color="#2e9b6f"/>
+              </linearGradient>
+              <linearGradient id="gauge-track-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3f1f1f"/>
+                <stop offset="100%" stop-color="#1c1917"/>
+              </linearGradient>
+              <filter id="gauge-soft-glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="4" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+              <filter id="gauge-tip-glow" x="-100%" y="-100%" width="300%" height="300%">
+                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <circle class="gauge-ring-outer" cx="120" cy="120" r="104" fill="none" stroke="rgba(255,255,255,.04)" stroke-width="1"/>
+            <circle id="score-arc-track" cx="120" cy="120" r="100" fill="none" stroke="url(#gauge-track-grad)" stroke-width="7" stroke-linecap="round" opacity=".55"/>
+            <circle id="score-arc-glow" cx="120" cy="120" r="100" fill="none" stroke="url(#gauge-grad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="628.32" stroke-dashoffset="628.32" transform="rotate(-90 120 120)" opacity=".22" filter="url(#gauge-soft-glow)"/>
+            <circle id="score-arc" cx="120" cy="120" r="100" fill="none" stroke="url(#gauge-grad)" stroke-width="7" stroke-linecap="round" stroke-dasharray="628.32" stroke-dashoffset="628.32" transform="rotate(-90 120 120)" filter="url(#gauge-soft-glow)"/>
+            <circle id="score-arc-tip" cx="120" cy="20" r="4" fill="#6ee7b7" opacity="0" filter="url(#gauge-tip-glow)"/>
+          </svg>
+          <div class="score-gauge-text">
+            <div class="score-prelabel"><span data-i18n="score.prelabel">Preliminary Score</span><br><span data-i18n="score.prelabelSub">Based on 8 on-site readings</span></div>
+            <div class="score-big" id="gauge-val">—</div>
+            <div class="score-band-pill" id="gauge-band">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="score-msg score-reveal" id="gauge-message"></div>
+      <div class="score-divider"></div>
+      <div class="score-findings-title score-reveal" data-i18n="score.findings">Key Findings</div>
+      <div id="gauge-findings"></div>
+    </div>
+
+    <div class="score-readings">
+      <div class="score-readings-hdr">
+        <span data-i18n="score.readings">Readings</span>
+        <a href="#" onclick="event.preventDefault();showToast('DWQI standard based on WHO guidelines')" data-i18n="score.viewStandard">View Our Standard</a>
+      </div>
+      <div class="readings-card">
+        <div class="readings-tabs" id="score-tap-tabs"></div>
+        <div class="readings-table-hdr">
+          <span data-i18n="score.param">Parameter</span><span data-i18n="score.result">Result</span><span data-i18n="score.standard">Standard</span><span data-i18n="score.status">Status</span>
+        </div>
+        <div id="score-readings-rows"></div>
+      </div>
+    </div>
+
+    <section class="wq-standard-section">
+      <div class="wq-standard-card">
+        <h3 class="wq-standard-title" data-i18n="score.wqTitle">Water Quality</h3>
+        <div class="wq-scale-row">
+          <div class="wq-scale-bar" aria-hidden="true"></div>
+          <ul class="wq-scale-labels">
+            <li><strong>90+</strong> <span data-i18n="score.band.exceptional">Exceptional</span></li>
+            <li><strong>80+</strong> <span data-i18n="score.band.international">International</span></li>
+            <li><strong>65+</strong> <span data-i18n="score.band.good">Good</span></li>
+            <li><strong>50+</strong> <span data-i18n="score.band.fair">Fair</span></li>
+            <li><strong>0+</strong> <span data-i18n="score.band.attention">Needs Attention</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="wq-about">
+        <h4 class="wq-about-title" data-i18n="score.aboutTitle">About This Standard</h4>
+        <p data-i18n="score.aboutP1">The values shown are based on the DWQI (Drinking Water Quality Index) — an international framework derived from WHO guidelines that evaluates your water across multiple parameters at once.</p>
+        <p><strong data-i18n="score.thaiDiffTitle">How it differs from Thai standards:</strong></p>
+        <p data-i18n="score.aboutP2">Thailand's official standard (กรมอนามัย / MWA) allows higher limits on some parameters — for example, free chlorine up to 1.5 mg/L vs. WHO's ≤ 0.5 mg/L. Your tap water may meet Thai regulations but still score low on the DWQI.</p>
+        <p data-i18n="score.aboutP3">We use the DWQI because it reflects what's considered safe and comfortable for long-term daily use.</p>
+      </div>
+    </section>
+  </div>
+
+  <div class="foot">
+    <button class="btn btn-secondary btn-draft" type="button" onclick="showPkgSheet()" data-i18n="common.upgrade">Upgrade</button>
+    <button class="btn btn-primary" type="button" onclick="completeScore()" data-i18n="common.complete">Complete</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     S6 · PAYMENT

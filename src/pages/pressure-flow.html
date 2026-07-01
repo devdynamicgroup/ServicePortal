@@ -1,0 +1,23 @@
+══════════════════════════════════════ -->
+<div id="s-pressure" class="screen">
+  <div class="hdr">
+    <button class="hdr-back" type="button" onclick="goBack('s-assess')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <span class="hdr-title">Pressure &amp; Flow</span>
+  </div>
+  <div class="content gap12">
+    <div class="card gap12">
+      <div class="row2">
+        <div class="field"><label>Static Pressure (PSI)</label><input class="inp" id="p-static" type="number" inputmode="decimal" placeholder="45"></div>
+        <div class="field"><label>Dynamic Pressure (PSI)</label><input class="inp" id="p-dynamic" type="number" inputmode="decimal" placeholder="38"></div>
+      </div>
+      <div class="field"><label>Flow Rate (L/min)</label><input class="inp" id="p-flow" type="number" inputmode="decimal" placeholder="9.5"></div>
+    </div>
+  </div>
+  <div class="foot">
+    <button class="btn btn-ghost" onclick="goBack('s-assess')">Cancel</button>
+    <button class="btn btn-primary" onclick="completeSub('pressure-check','s-assess')">Complete</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     S4f · INFRASTRUCTURE

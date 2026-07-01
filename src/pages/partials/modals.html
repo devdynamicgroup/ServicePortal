@@ -1,0 +1,85 @@
+<div id="modal-root"></div>
+
+<!-- Camera capture -->
+<div id="camera-overlay" class="camera-overlay hidden">
+  <div class="camera-panel">
+    <div class="camera-topbar">
+      <button class="camera-close" type="button" onclick="closeCameraCapture()" aria-label="Close">x</button>
+      <div class="camera-title">Camera</div>
+      <button class="camera-file" type="button" onclick="fallbackPhotoPicker()">Choose File</button>
+    </div>
+    <div class="camera-stage">
+      <video id="camera-video" autoplay playsinline muted></video>
+      <div id="camera-error" class="camera-error hidden">Camera is unavailable. You can choose a photo instead.</div>
+    </div>
+    <div class="camera-actions">
+      <button class="camera-shutter" type="button" onclick="captureCameraFrame()" aria-label="Take photo"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Action sheet (appointment menu) -->
+<div id="action-sheet-overlay" class="modal-overlay hidden" onclick="closeActionSheet()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="action-sheet-title">Appointment</div>
+    <div class="modal-actions" id="action-sheet-actions"></div>
+  </div>
+</div>
+
+<!-- Search modal -->
+<div id="search-overlay" class="modal-overlay center hidden" onclick="closeSearchModal()">
+  <div class="modal-sheet center" onclick="event.stopPropagation()" style="width:100%">
+    <div class="modal-title">Search Appointments</div>
+    <input class="inp search-inp" id="search-input" placeholder="Search by name or address..." oninput="filterAppointments(this.value)">
+    <div id="search-results"></div>
+    <button class="btn btn-ghost" type="button" style="width:100%;margin-top:12px" onclick="closeSearchModal()">Close</button>
+  </div>
+</div>
+
+<!-- Notifications -->
+<div id="notif-overlay" class="modal-overlay hidden" onclick="closeNotifModal()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Notifications</div>
+    <div class="notif-item"><div class="notif-title">New appointment</div><div class="notif-sub">Vasinee K. - Today 11:00 AM</div></div>
+    <div class="notif-item"><div class="notif-title">Changed appointment</div><div class="notif-sub">Maetud T. rescheduled to 2:00 PM</div></div>
+    <div class="notif-item"><div class="notif-title">Upcoming in 1 hour</div><div class="notif-sub">Saranya C. at 9:00 AM</div></div>
+  </div>
+</div>
+
+<!-- Language -->
+<div id="lang-overlay" class="modal-overlay hidden" onclick="closeLangModal()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title" data-i18n="lang.title">Language</div>
+    <div class="lang-opt sel" id="lang-en" onclick="setLanguage('en')"><span data-i18n="lang.en">English</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+    <div class="lang-opt" id="lang-th" onclick="setLanguage('th')"><span data-i18n="lang.th">Thai</span><span></span></div>
+  </div>
+</div>
+
+<!-- Sign out confirm -->
+<div id="signout-overlay" class="modal-overlay hidden" onclick="closeSignoutModal()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Sign out?</div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.5">You will need to sign in again to access appointments.</p>
+    <div class="row" style="gap:10px">
+      <button class="btn btn-secondary" type="button" style="flex:1" onclick="closeSignoutModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" style="flex:1" onclick="confirmSignout()">Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- Month picker -->
+<div id="month-overlay" class="modal-overlay hidden" onclick="closeMonthPicker()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="month-nav">
+      <button class="month-nav-btn" type="button" onclick="shiftMonth(-1)" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <div class="modal-title" id="month-picker-title">July 2026</div>
+      <button class="month-nav-btn" type="button" onclick="shiftMonth(1)" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+    <div class="month-grid" id="month-grid"></div>
+  </div>
+</div>

@@ -1,0 +1,34 @@
+══════════════════════════════════════ -->
+<div id="s-feedback" class="screen">
+  <div class="hdr">
+    <button class="hdr-back" type="button" onclick="goBack('s-job')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <span class="hdr-title" data-i18n="fb.title">Client Feedback</span>
+    <button class="hdr-action" type="button" onclick="shareReportLink()" data-i18n="fb.share">Share Link</button>
+  </div>
+  <div class="content">
+    <div class="card" style="padding:16px;border-radius:var(--radius-lg)">
+      <div style="font-size:17px;font-weight:600;margin-bottom:40px" data-i18n="fb.experience">How was your experience?</div>
+      <div class="stars" style="justify-content:space-between;margin-bottom:40px">
+        <button class="star-btn active" type="button" onclick="setRating(1)"><img src="https://www.figma.com/api/mcp/asset/cf61ee1d-a909-4937-b938-23f808172386" alt="1 star"></button>
+        <button class="star-btn active" type="button" onclick="setRating(2)"><img src="https://www.figma.com/api/mcp/asset/cf61ee1d-a909-4937-b938-23f808172386" alt="2 stars"></button>
+        <button class="star-btn active" type="button" onclick="setRating(3)"><img src="https://www.figma.com/api/mcp/asset/cf61ee1d-a909-4937-b938-23f808172386" alt="3 stars"></button>
+        <button class="star-btn" type="button" onclick="setRating(4)"><img src="https://www.figma.com/api/mcp/asset/cf61ee1d-a909-4937-b938-23f808172386" alt="4 stars"></button>
+        <button class="star-btn" type="button" onclick="setRating(5)"><img src="https://www.figma.com/api/mcp/asset/cf61ee1d-a909-4937-b938-23f808172386" alt="5 stars"></button>
+      </div>
+      <div class="field fb-textarea-wrap">
+        <label data-i18n="fb.thoughts">Your thoughts (optional)</label>
+        <textarea class="inp" id="fb-comment" data-i18n-placeholder="fb.commentPh" placeholder="What was most helpful about today's visit?" style="min-height:100px"></textarea>
+        <button type="button" class="ai-suggest" onclick="aiSuggestFeedback()">AI Suggest</button>
+      </div>
+      <div class="consent-row" style="margin-top:32px">
+        <img src="https://www.figma.com/api/mcp/asset/0b3813c7-9d7e-41c8-ad3d-8bd8d155b280" alt="" id="fb-consent-icon" style="cursor:pointer" onclick="toggleFbConsent()">
+        <p style="font-size:14px;line-height:1.4;color:var(--text)" data-i18n="fb.consent">I'm happy for Water Motion to use my feedback anonymously. Data may be used for city-wide benchmarking.</p>
+        <input type="checkbox" id="fb-consent" checked class="hidden">
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <button class="btn btn-secondary btn-complete-narrow" type="button" onclick="completeFeedback()" data-i18n="common.complete">Complete</button>
+    <button class="btn btn-primary btn-google" type="button" onclick="openGoogleReview()" data-i18n="fb.google">Leave Google Review</button>
+  </div>
+</div>

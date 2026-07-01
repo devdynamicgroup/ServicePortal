@@ -1,0 +1,151 @@
+     S3 · PRE-ASSESSMENT FORM
+══════════════════════════════════════ -->
+<div id="s-preassess" class="screen">
+  <div class="hdr">
+    <button class="hdr-back" type="button" onclick="goBack('s-job')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <span class="hdr-title" data-i18n="preassess.title">Pre-assessment Form</span>
+    <button class="hdr-action" type="button" onclick="sendClientLink()" data-i18n="preassess.sendLink">Send Link</button>
+  </div>
+  <div class="content-consent gap12 preassess-form">
+    <div class="section-title" data-i18n="preassess.clientDetails">Client Details</div>
+    <div class="card gap12">
+      <div class="field"><label data-i18n="preassess.fname">First Name</label><input class="inp" id="ci-fname" placeholder="John"></div>
+      <div class="field"><label data-i18n="preassess.lname">Last Name</label><input class="inp" id="ci-lname" placeholder="Doe"></div>
+      <div class="row2">
+        <div class="field"><label data-i18n="preassess.phone">Mobile Number</label><input class="inp" id="ci-phone" type="tel" inputmode="tel" placeholder="081-234-5678"></div>
+        <div class="field"><label data-i18n="preassess.line">Line ID</label><input class="inp" id="ci-line" placeholder="johndoe"></div>
+      </div>
+      <div class="field"><label data-i18n="preassess.email">Email</label><input class="inp" id="ci-email" type="email" inputmode="email" placeholder="johndoe@example.com"></div>
+      <div>
+        <div class="owner-q" data-i18n="preassess.ownerQ">Owner will be present during assessment.</div>
+        <div class="radio-row owner-radios" id="owner-radios">
+          <label class="radio-item sel" data-val="yes">
+            <span class="radio-dot" aria-hidden="true"></span>
+            <input type="radio" name="owner" value="yes" checked>
+            <span data-i18n="preassess.yes">Yes</span>
+          </label>
+          <label class="radio-item" data-val="maybe-no">
+            <span class="radio-dot" aria-hidden="true"></span>
+            <input type="radio" name="owner" value="maybe-no">
+            <span data-i18n="preassess.maybeNo">Maybe / No</span>
+          </label>
+        </div>
+      </div>
+      <div id="contact-person-wrap" class="hidden">
+        <div class="row2">
+          <div class="field"><label data-i18n="preassess.contact">Contact Person</label><input class="inp" id="ci-contact" placeholder="K.Fon"></div>
+          <div class="field"><label data-i18n="preassess.phone">Mobile Number</label><input class="inp" id="ci-contact-ph" type="tel" placeholder="082-345-6789"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title" data-i18n="preassess.propertyDetails">Property Details</div>
+    <div class="card gap12">
+      <div class="field">
+        <label data-i18n="preassess.city">City</label>
+        <select class="inp" id="ci-city">
+          <option selected>Bangkok</option>
+          <option>Chiang Mai</option>
+          <option>Phuket</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field postal-wrap">
+        <label data-i18n="preassess.postal">Postal Code</label>
+        <input class="inp" id="ci-postal" inputmode="numeric" placeholder="Enter postal code" autocomplete="off" oninput="filterPostal(this.value);suggestProperty()" onfocus="filterPostal(this.value);suggestProperty()">
+        <div class="postal-dropdown hidden" id="postal-dropdown"></div>
+      </div>
+      <div class="field"><label data-i18n="preassess.addr">Address</label><input class="inp" id="ci-addr" placeholder="Enter address" oninput="suggestProperty()" onfocus="suggestProperty()"></div>
+      <div class="field">
+        <label><span data-i18n="preassess.maps">Google Maps Link</span> <span class="label-opt" data-i18n="preassess.mapsOpt">(optional)</span></label>
+        <input class="inp" id="ci-maps" placeholder="Paste link from Google Maps" oninput="suggestProperty()" onfocus="suggestProperty()">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label data-i18n="preassess.proptype">Property Type</label>
+          <select class="inp" id="ci-proptype"><option value="">Please select</option><option>Single House</option><option>Townhome</option><option>Twin House</option><option>Apartment</option><option>Condominium</option><option>Other</option></select>
+        </div>
+        <div class="field">
+          <label data-i18n="preassess.propage">Property Age</label>
+          <select class="inp" id="ci-propage"><option value="">Please select</option><option>0–5 yrs</option><option>5–10 yrs</option><option>10–20 yrs</option><option>20+ yrs</option><option>Not sure</option></select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label data-i18n="preassess.members">Household Members</label>
+          <div class="ms-wrap" id="ms-members" data-max="0">
+            <button type="button" class="inp ms-trigger" onclick="toggleMs('ms-members')">
+              <span class="ms-value ms-placeholder">Please select</span>
+              <svg class="ms-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="ms-menu hidden">
+              <label class="ms-opt"><input type="checkbox" value="Adults only"> Adults only</label>
+              <label class="ms-opt"><input type="checkbox" value="Child under 3"> Child under 3</label>
+              <label class="ms-opt"><input type="checkbox" value="Children 3–12"> Children 3–12</label>
+              <label class="ms-opt"><input type="checkbox" value="Elderly family member"> Elderly family member</label>
+              <label class="ms-opt"><input type="checkbox" value="Health concerns"> Someone with allergies, sensitive skin, or health concerns</label>
+              <label class="ms-opt"><input type="checkbox" value="Pets"> Pets</label>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label data-i18n="preassess.filter">Current Filter</label>
+          <select class="inp" id="ci-filter"><option value="">Please select</option><option>Drinking water filter</option><option>RO system</option><option>Whole-house filter</option><option>Building/condo filter</option><option>None</option><option>Not sure</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label data-i18n="preassess.concerns">Water Concerns</label>
+        <div class="ms-wrap" id="ms-concerns" data-max="3">
+          <button type="button" class="inp ms-trigger" onclick="toggleMs('ms-concerns')">
+            <span class="ms-value ms-placeholder">Please select</span>
+            <svg class="ms-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="ms-menu hidden">
+            <label class="ms-opt"><input type="checkbox" value="Taste or smell"> Taste or smell</label>
+            <label class="ms-opt"><input type="checkbox" value="Chlorine"> Chlorine</label>
+            <label class="ms-opt"><input type="checkbox" value="Heavy metals"> Heavy metals or contaminants</label>
+            <label class="ms-opt"><input type="checkbox" value="Bacteria"> Bacteria / safety for drinking</label>
+            <label class="ms-opt"><input type="checkbox" value="Hard water"> Hard water / scale on fixtures</label>
+            <label class="ms-opt"><input type="checkbox" value="Skin or hair"> Skin or hair issues</label>
+            <label class="ms-opt"><input type="checkbox" value="Appliance damage"> Appliance damage</label>
+            <label class="ms-opt"><input type="checkbox" value="Not sure"> Not sure — just want to know</label>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label data-i18n="preassess.source">How did you find us?</label>
+        <select class="inp" id="ci-source"><option value="">Please select</option><option>Instagram</option><option>Facebook</option><option>Google Search</option><option>Google Maps</option><option>LINE</option><option>AI recommendation</option><option>Friend / Family</option><option>Building / Condo</option><option>Real estate agent</option><option>Saw team on-site</option><option>Other</option></select>
+      </div>
+    </div>
+
+    <div class="pkg-sec-head">
+      <div class="section-title pkg-sec-title" data-i18n="preassess.package">Package</div>
+      <button class="pkg-view-link" type="button" onclick="showPkgSheet()" data-i18n="preassess.viewPackages">View Packages</button>
+    </div>
+    <div class="pkg-row">
+      <div class="pkg-opt sel" id="pkg-ess" onclick="selPkg('essential')">
+        <div class="po-price">Free</div>
+        <div class="po-name">Essential</div>
+        <div class="po-desc" data-i18n="preassess.pkg.ess.desc">On-site tests · Results same day</div>
+      </div>
+      <div class="pkg-opt" id="pkg-full" onclick="selPkg('full')">
+        <div class="po-price">฿5,000</div>
+        <div class="po-name">Full Assessment</div>
+        <div class="po-desc" data-i18n="preassess.pkg.full.desc">On-site &amp; Lab analysis · Full report in 7 days</div>
+      </div>
+    </div>
+
+    <label class="consent-label">
+      <input type="checkbox" id="ci-consent" onchange="updatePreassessBtn()">
+      <span class="cl-text" data-i18n="preassess.consent">By completing this form, you agree to Water Motion's Terms &amp; Conditions and consent to an on-site assessment at your property. Data may be used for city-wide benchmarking.</span>
+    </label>
+  </div>
+  <div id="property-suggest-bar" class="property-suggest-bar hidden"></div>
+  <div class="foot">
+    <button class="btn btn-secondary btn-draft" type="button" onclick="saveDraft()" data-i18n="common.saveDraft">Save Draft</button>
+    <button class="btn btn-primary" id="btn-preassess-done" disabled type="button" onclick="completePreassess()" data-i18n="common.complete">Complete</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     S4 · WATER ASSESSMENT

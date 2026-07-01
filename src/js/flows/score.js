@@ -1,0 +1,189 @@
+function getScoreStyle(wq) {
+  if (wq >= 90) return { band: t('score.band.exceptional'), pill: '#5b8def', pillText: '#fff', arc: '#5b8def', glow: 'rgba(91,141,239,.35)' };
+  if (wq >= 80) return { band: t('score.band.international'), pill: '#2e9b6f', pillText: '#0c0a09', arc: '#2e9b6f', glow: 'rgba(46,155,111,.4)' };
+  if (wq >= 65) return { band: t('score.band.good'), pill: '#d9a441', pillText: '#0c0a09', arc: '#d9a441', glow: 'rgba(217,164,65,.35)' };
+  if (wq >= 50) return { band: t('score.band.fair'), pill: '#c48a3a', pillText: '#0c0a09', arc: '#c48a3a', glow: 'rgba(196,138,58,.35)' };
+  return { band: t('score.band.attention'), pill: '#f07b7b', pillText: '#0c0a09', arc: '#f07b7b', glow: 'rgba(240,123,123,.35)' };
+}
+
+function animateScoreNumber(el, target) {
+  if (!el) return;
+  const dur = 1100;
+  const t0 = performance.now();
+  function step(t) {
+    const p = Math.min((t - t0) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(target * ease);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function calcAndShowScore() {
+  const ph = parseFloat(document.getElementById('m-ph').value) || 7.2;
+  const tds = parseFloat(document.getElementById('m-tds').value) || 450;
+  const turb = parseFloat(document.getElementById('m-turb').value) || 1.2;
+  const orp = parseFloat(document.getElementById('m-orp').value) || 320;
+  const fcl = parseFloat(document.getElementById('m-free-cl').value) || 2.1;
+  const do_ = parseFloat(document.getElementById('m-do').value) || 6.8;
+
+  const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
+  const pHs = ph >= 6.5 && ph <= 8.5 ? 100 : ph >= 6 && ph <= 9 ? 70 : ph >= 5.5 && ph <= 9.5 ? 40 : 15;
+  const tdss = tds <= 300 ? 100 : tds <= 600 ? 100 - (tds - 300) / 300 * 20 : tds <= 1000 ? 80 - (tds - 600) / 400 * 30 : clamp(50 - (tds - 1000) / 30);
+  const turbs = turb <= 1 ? 100 : turb <= 5 ? 100 - (turb - 1) / 4 * 30 : turb <= 10 ? 70 - (turb - 5) / 5 * 40 : clamp(30 - (turb - 10) * 3);
+  const orps = orp >= 200 && orp <= 600 ? 100 : orp < 200 ? clamp(orp / 200 * 100) : clamp(100 - (orp - 600) / 10);
+  const cls = fcl >= 0.2 && fcl <= 0.5 ? 100 : fcl <= 1 ? 80 : fcl <= 2 ? 50 : 25;
+  const dos = do_ >= 6 ? 100 : clamp(do_ / 6 * 100);
+
+  const wq = Math.round((pHs + tdss + turbs + orps + cls + dos) / 6);
+  S.scoreVal = wq;
+  S.scoreBaseReadings = { ph, tds, chlorine: fcl, turbidity: turb, orp, do: do_, temp: parseFloat(document.getElementById('m-temp')?.value) || 28 };
+
+  const style = getScoreStyle(wq);
+  const arcLen = 628.32;
+  const offset = arcLen * (1 - wq / 100);
+  const arcEl = document.getElementById('score-arc');
+  const glowEl = document.getElementById('score-arc-glow');
+  const tipEl = document.getElementById('score-arc-tip');
+  const grad = document.getElementById('gauge-grad');
+  const ambient = document.getElementById('gauge-ambient');
+  const hero = document.getElementById('score-hero');
+  const gaugeWrap = document.getElementById('score-gauge-wrap');
+
+  const tipAngle = (-90 + (wq / 100) * 360) * (Math.PI / 180);
+  const tipX = 120 + 100 * Math.cos(tipAngle);
+  const tipY = 120 + 100 * Math.sin(tipAngle);
+
+  if (arcEl) {
+    arcEl.style.strokeDashoffset = arcLen;
+    if (glowEl) glowEl.style.strokeDashoffset = arcLen;
+    requestAnimationFrame(() => {
+      arcEl.style.strokeDashoffset = offset;
+      if (glowEl) glowEl.style.strokeDashoffset = offset;
+      if (tipEl && wq > 0) {
+        tipEl.setAttribute('cx', tipX.toFixed(2));
+        tipEl.setAttribute('cy', tipY.toFixed(2));
+        tipEl.setAttribute('fill', style.arc);
+        tipEl.style.opacity = '0.9';
+      }
+    });
+  }
+  if (grad) {
+    const stops = grad.querySelectorAll('stop');
+    if (stops.length >= 2) {
+      const endColor = wq >= 80 ? '#6ee7b7' : wq >= 65 ? '#fcd34d' : '#fca5a5';
+      stops[0].setAttribute('stop-color', style.arc);
+      stops[1].setAttribute('stop-color', endColor);
+      if (stops[2]) stops[2].setAttribute('stop-color', style.arc);
+    }
+  }
+  if (ambient) ambient.style.background = `radial-gradient(circle, ${style.glow} 0%, transparent 68%)`;
+  if (hero) {
+    hero.className = 'score-hero score-live';
+    hero.dataset.tier = wq >= 80 ? 'high' : wq >= 50 ? 'mid' : 'low';
+  }
+  if (gaugeWrap) {
+    gaugeWrap.classList.remove('gauge-pop');
+    void gaugeWrap.offsetWidth;
+    gaugeWrap.classList.add('gauge-pop');
+  }
+
+  animateScoreNumber(document.getElementById('gauge-val'), wq);
+
+  const bandEl = document.getElementById('gauge-band');
+  if (bandEl) {
+    bandEl.textContent = style.band;
+    bandEl.style.background = style.pill;
+    bandEl.style.color = style.pillText;
+    bandEl.classList.remove('pill-pop');
+    void bandEl.offsetWidth;
+    bandEl.classList.add('pill-pop');
+  }
+
+  const msgMain = wq >= 80 ? t('score.msg.high') : wq >= 65 ? t('score.msg.good') : wq >= 50 ? t('score.msg.borderline') : t('score.msg.low');
+  const msgSub = wq >= 50 ? t('score.msg.sub') : t('score.msg.subShort');
+  document.getElementById('gauge-message').innerHTML = `<span>${msgMain} </span><span class="muted-part">${msgSub}</span>`;
+
+  const findings = [];
+  if (fcl > 0.5) findings.push({ label: 'High chlorine', val: fcl + ' mg/L' });
+  if (turb > 5) findings.push({ label: 'High turbidity', val: turb + ' NTU' });
+  if (fcl < 0.2) findings.push({ label: 'Low chlorine', val: fcl + ' mg/L' });
+  if (ph < 6.5 || ph > 8.5) findings.push({ label: 'pH out of range', val: ph });
+  if (tds > 600) findings.push({ label: 'High TDS', val: tds + ' mg/L' });
+  const arrowSvg = '<svg class="fc-arrow" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M6 2v8M6 2l3 3M6 2L3 5" stroke="#f07b7b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+  document.getElementById('gauge-findings').innerHTML = findings.length
+    ? findings.map((f, i) => `<div class="finding-card score-reveal" style="animation-delay:${120 + i * 80}ms">${arrowSvg}<span>${f.label}</span><span class="fc-val">${f.val}</span></div>`).join('')
+    : `<div class="finding-card score-reveal"><span>${t('score.finding.allOk')}</span></div>`;
+
+  renderScoreReadings();
+}
+
+function scoreTapRows(key) {
+  const base = S.scoreBaseReadings || { ph: 7.2, tds: 450, chlorine: 2.1, turbidity: 1.2, orp: 320, do: 6.8, temp: 28 };
+  const taps = S.taps?.length ? S.taps : ['Tap 1'];
+  const rowsFor = index => {
+    const delta = index - Math.floor(taps.length / 2);
+    return [
+      { p: 'pH', r: (base.ph + delta * 0.08).toFixed(1), std: '6.5 - 8.5', st: 'good' },
+      { p: 'TDS', r: Math.round(base.tds + delta * 18) + ' mg/L', std: '<= 500 mg/L', st: base.tds + delta * 18 <= 500 ? 'good' : 'intl' },
+      { p: 'Chlorine', r: Math.max(0, base.chlorine + delta * 0.12).toFixed(1) + ' mg/L', std: '<= 0.5 mg/L', st: base.chlorine + delta * 0.12 <= 0.5 ? 'good' : 'attn' },
+      { p: 'Turbidity', r: Math.max(0.1, base.turbidity + delta * 0.1).toFixed(1) + ' NTU', std: '<= 1 NTU', st: base.turbidity + delta * 0.1 <= 1 ? 'good' : 'intl' },
+      { p: 'ORP', r: Math.round(base.orp + delta * 9) + ' mV', std: '> 200 mV', st: 'good' },
+      { p: 'DO', r: Math.max(0, base.do - delta * 0.08).toFixed(1) + ' mg/L', std: '> 6 mg/L', st: 'good' },
+      { p: 'Temp', r: Math.max(0, base.temp + delta * 0.2).toFixed(1) + '°C', std: '<= 30°C', st: 'good' }
+    ];
+  };
+
+  if (key !== 'all') return rowsFor(Math.max(0, taps.indexOf(key)));
+
+  const all = taps.map((_, i) => rowsFor(i));
+  return all[0].map((row, rowIndex) => {
+    const values = all.map(rows => parseFloat(rows[rowIndex].r));
+    const avg = values.reduce((sum, n) => sum + n, 0) / values.length;
+    const unit = row.r.replace(/^[\d.]+\s?/, '');
+    const precision = row.p === 'pH' || row.p === 'Chlorine' || row.p === 'Turbidity' || row.p === 'DO' || row.p === 'Temp' ? 1 : 0;
+    const display = precision ? avg.toFixed(1) : Math.round(avg);
+    const st = all.some(rows => rows[rowIndex].st === 'attn') ? 'attn' : all.some(rows => rows[rowIndex].st === 'intl') ? 'intl' : 'good';
+    return { ...row, r: `${display}${unit ? ' ' + unit.trim() : ''}`, st };
+  });
+}
+
+function renderScoreReadings() {
+  const taps = S.taps?.length ? S.taps : ['Tap 1'];
+  const hasMultipleTaps = taps.length > 1;
+  if (!hasMultipleTaps && S.scoreTapFilter === 'all') S.scoreTapFilter = taps[0];
+  if (!S.scoreTapFilter) S.scoreTapFilter = hasMultipleTaps ? 'all' : taps[0];
+
+  const tabs = hasMultipleTaps
+    ? [{ label: `${t('score.allTaps')} (${taps.length})`, key: 'all' }, ...taps.map(tap => ({ label: tap, key: tap }))]
+    : taps.map(tap => ({ label: tap, key: tap }));
+  const tabBar = document.getElementById('score-tap-tabs');
+  if (!tabBar) return;
+  tabBar.innerHTML = tabs.map(tab => `<button type="button" class="readings-tab${S.scoreTapFilter === tab.key ? ' active' : ''}" onclick="setScoreTapFilter('${tab.key}')">${tab.label}</button>`).join('');
+
+  const labels = { good: t('score.status.good'), attn: t('score.status.attn'), intl: t('score.status.intl') };
+  const rows = scoreTapRows(S.scoreTapFilter);
+  document.getElementById('score-readings-rows').innerHTML = rows.map(r => `
+    <div class="reading-row">
+      <span class="reading-param">${r.p}</span>
+      <span class="reading-result">${r.r}</span>
+      <span class="reading-standard">${r.std}</span>
+      <span class="reading-status"><span class="status-dot ${r.st}"></span>${labels[r.st]}</span>
+    </div>`).join('');
+}
+
+function setScoreTapFilter(key) {
+  S.scoreTapFilter = key;
+  renderScoreReadings();
+}
+
+function shareScore() {
+  showToast('Score link copied - share with client');
+}
+
+function completeScore() {
+  S.stepsDone.score = true;
+  saveActiveJobState();
+  renderJobSteps();
+  goScreen('s-job');
+}

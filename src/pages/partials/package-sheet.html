@@ -1,0 +1,28 @@
+<!-- ══════════════════════════════════════
+     PACKAGE SHEET
+══════════════════════════════════════ -->
+<div id="pkg-overlay" class="hidden" onclick="hidePkgSheet()" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:40"></div>
+<div id="pkg-sheet" class="hidden" style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:390px;background:var(--surface);border-radius:20px 20px 0 0;padding:20px 16px calc(24px + env(safe-area-inset-bottom));z-index:41;max-height:80vh;overflow-y:auto">
+  <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px"></div>
+  <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">Package Details</h3>
+  <div class="pkg-detail-card" id="pkg-detail-ess" onclick="selPkgFromSheet('essential')">
+    <div class="pkg-detail-title">Essential — Free</div>
+    <ul>
+      <li>On-site Water Quality testing (all taps)</li>
+      <li>Visual + chemistry assessment</li>
+      <li>Multi-tap Water Score</li>
+      <li>Shareable digital report — same day</li>
+    </ul>
+  </div>
+  <div class="pkg-detail-card" id="pkg-detail-full" onclick="selPkgFromSheet('full')">
+    <div class="pkg-detail-title">Full Assessment — ฿5,000</div>
+    <ul>
+      <li>Everything in Essential</li>
+      <li>Lab trace-element panel (hardness, iron, manganese, nitrate, nitrite)</li>
+      <li>Pressure &amp; Flow measurement</li>
+      <li>Infrastructure inspection</li>
+      <li>Full report in 7 days</li>
+    </ul>
+  </div>
+  <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="hidePkgSheet()">Close</button>
+</div>

@@ -1,0 +1,31 @@
+══════════════════════════════════════ -->
+<div id="s-infra" class="screen">
+  <div class="hdr">
+    <button class="hdr-back" type="button" onclick="goBack('s-assess')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <span class="hdr-title">Infrastructure</span>
+  </div>
+  <div class="content gap12">
+    <div class="card gap12">
+      <div class="field">
+        <label>Scale Buildup (0 = none · 10 = severe)</label>
+        <input class="inp" id="i-scale" type="number" inputmode="decimal" min="0" max="10" placeholder="3">
+      </div>
+      <div class="field">
+        <label>Pipe Condition (0 = failed · 10 = excellent)</label>
+        <input class="inp" id="i-pipe" type="number" inputmode="decimal" min="0" max="10" placeholder="7">
+      </div>
+      <div class="field">
+        <label>Filter Condition (0 = replace · 10 = new)</label>
+        <input class="inp" id="i-filter" type="number" inputmode="decimal" min="0" max="10" placeholder="6">
+      </div>
+      <div class="field"><label>Notes</label><textarea class="inp" id="i-notes" placeholder="Describe condition of pipes, joints, filter..."></textarea></div>
+    </div>
+  </div>
+  <div class="foot">
+    <button class="btn btn-ghost" onclick="goBack('s-assess')">Cancel</button>
+    <button class="btn btn-primary" onclick="completeSub('infra-check','s-assess')">Complete</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     S5 · WATER SCORE

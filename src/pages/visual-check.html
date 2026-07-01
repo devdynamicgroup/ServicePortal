@@ -1,0 +1,54 @@
+══════════════════════════════════════ -->
+<div id="s-visual" class="screen">
+  <div class="hdr">
+    <button class="hdr-back" type="button" onclick="goBack('s-assess')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <span class="hdr-title">Visual Check</span>
+  </div>
+  <div class="content gap12">
+    <div class="sec-label">Water Colour</div>
+    <div class="seg" id="seg-colour">
+      <div class="seg-opt sel" onclick="selSeg(this,'colour')">Clear</div>
+      <div class="seg-opt" onclick="selSeg(this,'colour')">Slight Tint</div>
+      <div class="seg-opt" onclick="selSeg(this,'colour')">Yellow / Brown</div>
+    </div>
+    <div class="sec-label" style="margin-top:16px">Smell</div>
+    <div class="seg" id="seg-smell">
+      <div class="seg-opt sel" onclick="selSeg(this,'smell')">None</div>
+      <div class="seg-opt" onclick="selSeg(this,'smell')">Chlorine</div>
+      <div class="seg-opt" onclick="selSeg(this,'smell')">Earthy / Musty</div>
+      <div class="seg-opt" onclick="selSeg(this,'smell')">Sulphur</div>
+      <div class="seg-opt" onclick="selSeg(this,'smell')">Metallic</div>
+      <div class="seg-opt" onclick="selSeg(this,'smell')">Other</div>
+    </div>
+    <div class="field" style="margin-top:4px"><label>Note <span style="color:var(--muted);font-weight:400">(optional)</span></label><textarea class="inp" id="visual-note" placeholder="Any observations..."></textarea></div>
+    <div>
+      <div style="font-size:13px;font-weight:500;margin-bottom:8px;color:#374151">Photo <span style="color:var(--muted);font-weight:400">(optional)</span></div>
+      <div class="photo-capture">
+        <div class="photo-box">
+          <img id="vis-photo-preview" src="" style="display:none" alt="">
+          <span class="pb-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78716c" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+          <span class="pb-label">No photo attached</span>
+          <span class="photo-status hidden">Photo added</span>
+          <input type="file" id="vis-photo-input" accept="image/*" onchange="previewPhoto(this,'vis-photo-preview')">
+        </div>
+        <div class="photo-actions">
+          <button class="photo-action-btn camera" type="button" onclick="event.stopPropagation();openCameraCapture('vis-photo-input','vis-photo-preview')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Camera
+          </button>
+          <button class="photo-action-btn upload" type="button" onclick="event.stopPropagation();openPhotoCapture('vis-photo-input')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <button class="btn btn-ghost" onclick="goBack('s-assess')">Cancel</button>
+    <button class="btn btn-primary" onclick="completeSub('visual-check','s-assess')">Complete</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     S4c · METER READINGS
