@@ -4,6 +4,7 @@ const path = require('path');
 
 const root = __dirname;
 const port = Number(process.env.PORT) || 3000;
+const bindHost = process.env.BIND_HOST || '0.0.0.0';
 
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -92,8 +93,8 @@ function listen(nextPort) {
     throw error;
   });
 
-  server.listen(nextPort, '127.0.0.1', () => {
-    console.log(`Water Motion app running at http://127.0.0.1:${nextPort}`);
+  server.listen(nextPort, bindHost, () => {
+    console.log(`Water Motion app running at http://${bindHost}:${nextPort}`);
   });
 }
 

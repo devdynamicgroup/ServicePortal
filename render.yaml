@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: water-motion-service-portal
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BIND_HOST
+        value: 0.0.0.0
+      - key: NODE_VERSION
+        value: 22
