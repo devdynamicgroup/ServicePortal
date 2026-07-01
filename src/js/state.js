@@ -37,22 +37,20 @@ const STEP_ICONS = {
   feedback: 'https://www.figma.com/api/mcp/asset/bbcef7df-4008-4afb-b404-899bf4227094'
 };
 const POSTAL_DATA = [
-  { label:'คลองตันเหนือ เขตวัฒนา 10110', code:'10110' },
-  { label:'คลองตัน เขตวัฒนา 10110', code:'10110' },
-  { label:'พระโขนงเหนือ เขตวัฒนา 10110', code:'10110' },
-  { label:'พระโขนง เขตคลองเตย 10110', code:'10110' },
-  { label:'คลองเตย เขตคลองเตย 10110', code:'10110' },
-  { label:'มหาพฤฒาราม เขตบางรัก 10500', code:'10500' },
-  { label:'สีลม เขตบางรัก 10500', code:'10500' },
-  { label:'สุริยวงศ์ เขตบางรัก 10500', code:'10500' },
-  { label:'ลุมพินี เขตปทุมวัน 10330', code:'10330' },
-  { label:'ปทุมวัน เขตปทุมวัน 10330', code:'10330' },
-  { label:'อารีย์ เขตพญาไท 10400', code:'10400' },
-  { label:'สามเสนใน เขตพญาไท 10400', code:'10400' }
+  { label:'Khlong Tan Nuea, Watthana, Bangkok 10110', labelTh:'คลองตันเหนือ เขตวัฒนา กรุงเทพมหานคร 10110', code:'10110', city:'Bangkok' },
+  { label:'Khlong Tan, Khlong Toei, Bangkok 10110', labelTh:'คลองเตย เขตคลองเตย กรุงเทพมหานคร 10110', code:'10110', city:'Bangkok' },
+  { label:'Silom, Bang Rak, Bangkok 10500', labelTh:'สีลม เขตบางรัก กรุงเทพมหานคร 10500', code:'10500', city:'Bangkok' },
+  { label:'Lumphini, Pathum Wan, Bangkok 10330', labelTh:'ลุมพินี เขตปทุมวัน กรุงเทพมหานคร 10330', code:'10330', city:'Bangkok' },
+  { label:'Ari, Phaya Thai, Bangkok 10400', labelTh:'อารีย์ เขตพญาไท กรุงเทพมหานคร 10400', code:'10400', city:'Bangkok' },
+  { label:'Mueang Chiang Mai, Chiang Mai 50000', labelTh:'เมืองเชียงใหม่ จังหวัดเชียงใหม่ 50000', code:'50000', city:'Chiang Mai' },
+  { label:'Mueang Phuket, Phuket 83000', labelTh:'เมืองภูเก็ต จังหวัดภูเก็ต 83000', code:'83000', city:'Phuket' },
+  { label:'Mueang Chonburi, Chonburi 20000', labelTh:'เมืองชลบุรี จังหวัดชลบุรี 20000', code:'20000', city:'Chonburi' },
+  { label:'Mueang Nonthaburi, Nonthaburi 11000', labelTh:'เมืองนนทบุรี จังหวัดนนทบุรี 11000', code:'11000', city:'Nonthaburi' },
+  { label:'Mueang Pathum Thani, Pathum Thani 12000', labelTh:'เมืองปทุมธานี จังหวัดปทุมธานี 12000', code:'12000', city:'Pathum Thani' },
+  { label:'Mueang Samut Prakan, Samut Prakan 10270', labelTh:'เมืองสมุทรปราการ จังหวัดสมุทรปราการ 10270', code:'10270', city:'Samut Prakan' }
 ];
 const JOBS = [
-  { id:1, name:'Saranya C.', addr:'12 Sukhumvit Soi 11, Wattana', timeStart:'9:00AM', timeEnd:'10:00AM', day:0, pkg:'essential', status:'in_progress', meta:'Single house · 5–10 yrs · Owner–present' },
-  { id:2, name:'Vasinee K.', addr:'111 Ari Sampan Soi 4, Samsen', timeStart:'11:00AM', timeEnd:'12:00PM', day:0, pkg:'essential', status:'new', meta:'Single house · 20+ yrs · Owner–present' },
-  { id:3, name:'Maetud T.', addr:'19 Navin Village, Sathorn', timeStart:'2:00PM', timeEnd:'3:00PM', day:0, pkg:'full', status:'new', meta:'Townhome · 1–5 yrs · Owner–away', contact:'K.Fon' },
+  { id:1, name:'Saranya C.', addr:'12 Sukhumvit Soi 11, Wattana', timeStart:'9:00AM', timeEnd:'10:00AM', day:0, pkg:'essential', status:'in_progress', meta:'Single house - 5-10 yrs - Owner present' },
+  { id:2, name:'Vasinee K.', addr:'111 Ari Sampan Soi 4, Samsen', timeStart:'11:00AM', timeEnd:'12:00PM', day:0, pkg:'essential', status:'new', meta:'Single house - 20+ yrs - Owner present' },
+  { id:3, name:'Maetud T.', addr:'19 Navin Village, Sathorn', timeStart:'2:00PM', timeEnd:'3:00PM', day:0, pkg:'full', status:'new', meta:'Townhome - 1-5 yrs - Owner away', contact:'K.Fon' },
 ];
-

@@ -42,13 +42,15 @@
     <div class="section-title" data-i18n="preassess.propertyDetails">Property Details</div>
     <div class="card gap12">
       <div class="field">
-        <label data-i18n="preassess.city">City</label>
-        <select class="inp" id="ci-city">
-          <option selected>Bangkok</option>
-          <option>Chiang Mai</option>
-          <option>Phuket</option>
-          <option>Other</option>
-        </select>
+        <label data-i18n="preassess.city">Province / City</label>
+        <div class="province-picker" id="province-picker">
+          <input type="hidden" id="ci-city" value="Bangkok">
+          <button class="province-trigger" id="province-trigger" type="button" onclick="toggleProvincePicker()">
+            <span id="province-display">Bangkok</span>
+            <svg class="province-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="province-menu hidden" id="province-menu"></div>
+        </div>
       </div>
       <div class="field postal-wrap">
         <label data-i18n="preassess.postal">Postal Code</label>
@@ -63,35 +65,33 @@
       <div class="row2">
         <div class="field">
           <label data-i18n="preassess.proptype">Property Type</label>
-          <select class="inp" id="ci-proptype"><option value="">Please select</option><option>Single House</option><option>Townhome</option><option>Twin House</option><option>Apartment</option><option>Condominium</option><option>Other</option></select>
+          <select class="inp" id="ci-proptype"><option value="">Please select</option><option value="Single House">Single House</option><option value="Townhome">Townhome</option><option value="Twin House">Twin House</option><option value="Apartment">Apartment</option><option value="Condominium">Condominium</option><option value="Other">Other</option></select>
         </div>
         <div class="field">
           <label data-i18n="preassess.propage">Property Age</label>
-          <select class="inp" id="ci-propage"><option value="">Please select</option><option>0–5 yrs</option><option>5–10 yrs</option><option>10–20 yrs</option><option>20+ yrs</option><option>Not sure</option></select>
+          <select class="inp" id="ci-propage"><option value="">Please select</option><option value="0-5 yrs">0-5 yrs</option><option value="5-10 yrs">5-10 yrs</option><option value="10-20 yrs">10-20 yrs</option><option value="20+ yrs">20+ yrs</option><option value="Not sure">Not sure</option></select>
         </div>
       </div>
-      <div class="row2">
-        <div class="field">
-          <label data-i18n="preassess.members">Household Members</label>
-          <div class="ms-wrap" id="ms-members" data-max="0">
-            <button type="button" class="inp ms-trigger" onclick="toggleMs('ms-members')">
-              <span class="ms-value ms-placeholder">Please select</span>
-              <svg class="ms-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div class="ms-menu hidden">
-              <label class="ms-opt"><input type="checkbox" value="Adults only"> Adults only</label>
-              <label class="ms-opt"><input type="checkbox" value="Child under 3"> Child under 3</label>
-              <label class="ms-opt"><input type="checkbox" value="Children 3–12"> Children 3–12</label>
-              <label class="ms-opt"><input type="checkbox" value="Elderly family member"> Elderly family member</label>
-              <label class="ms-opt"><input type="checkbox" value="Health concerns"> Someone with allergies, sensitive skin, or health concerns</label>
-              <label class="ms-opt"><input type="checkbox" value="Pets"> Pets</label>
-            </div>
+      <div class="field">
+        <label data-i18n="preassess.members">Household Members</label>
+        <div class="ms-wrap" id="ms-members" data-max="0">
+          <button type="button" class="inp ms-trigger" onclick="toggleMs('ms-members')">
+            <span class="ms-value ms-placeholder">Please select</span>
+            <svg class="ms-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="ms-menu hidden">
+            <label class="ms-opt"><input type="checkbox" value="Adults only"> Adults only</label>
+            <label class="ms-opt"><input type="checkbox" value="Child under 3"> Child under 3</label>
+            <label class="ms-opt"><input type="checkbox" value="Children 3-12"> Children 3-12</label>
+            <label class="ms-opt"><input type="checkbox" value="Elderly family member"> Elderly family member</label>
+            <label class="ms-opt"><input type="checkbox" value="Health concerns"> Someone with allergies, sensitive skin, or health concerns</label>
+            <label class="ms-opt"><input type="checkbox" value="Pets"> Pets</label>
           </div>
         </div>
-        <div class="field">
-          <label data-i18n="preassess.filter">Current Filter</label>
-          <select class="inp" id="ci-filter"><option value="">Please select</option><option>Drinking water filter</option><option>RO system</option><option>Whole-house filter</option><option>Building/condo filter</option><option>None</option><option>Not sure</option></select>
-        </div>
+      </div>
+      <div class="field">
+        <label data-i18n="preassess.filter">Current Filter</label>
+        <select class="inp" id="ci-filter"><option value="">Please select</option><option value="Drinking water filter">Drinking water filter</option><option value="RO system">RO system</option><option value="Whole-house filter">Whole-house filter</option><option value="Building/condo filter">Building/condo filter</option><option value="None">None</option><option value="Not sure">Not sure</option></select>
       </div>
       <div class="field">
         <label data-i18n="preassess.concerns">Water Concerns</label>
@@ -108,13 +108,13 @@
             <label class="ms-opt"><input type="checkbox" value="Hard water"> Hard water / scale on fixtures</label>
             <label class="ms-opt"><input type="checkbox" value="Skin or hair"> Skin or hair issues</label>
             <label class="ms-opt"><input type="checkbox" value="Appliance damage"> Appliance damage</label>
-            <label class="ms-opt"><input type="checkbox" value="Not sure"> Not sure — just want to know</label>
+            <label class="ms-opt"><input type="checkbox" value="Not sure"> Not sure - just want to know</label>
           </div>
         </div>
       </div>
       <div class="field">
         <label data-i18n="preassess.source">How did you find us?</label>
-        <select class="inp" id="ci-source"><option value="">Please select</option><option>Instagram</option><option>Facebook</option><option>Google Search</option><option>Google Maps</option><option>LINE</option><option>AI recommendation</option><option>Friend / Family</option><option>Building / Condo</option><option>Real estate agent</option><option>Saw team on-site</option><option>Other</option></select>
+        <select class="inp" id="ci-source"><option value="">Please select</option><option value="Instagram">Instagram</option><option value="Facebook">Facebook</option><option value="Google Search">Google Search</option><option value="Google Maps">Google Maps</option><option value="LINE">LINE</option><option value="AI recommendation">AI recommendation</option><option value="Friend / Family">Friend / Family</option><option value="Building / Condo">Building / Condo</option><option value="Real estate agent">Real estate agent</option><option value="Saw team on-site">Saw team on-site</option><option value="Other">Other</option></select>
       </div>
     </div>
 
@@ -126,12 +126,12 @@
       <div class="pkg-opt sel" id="pkg-ess" onclick="selPkg('essential')">
         <div class="po-price">Free</div>
         <div class="po-name">Essential</div>
-        <div class="po-desc" data-i18n="preassess.pkg.ess.desc">On-site tests · Results same day</div>
+        <div class="po-desc" data-i18n="preassess.pkg.ess.desc">On-site tests - Results same day</div>
       </div>
       <div class="pkg-opt" id="pkg-full" onclick="selPkg('full')">
-        <div class="po-price">฿5,000</div>
+        <div class="po-price">&#3647;5,000</div>
         <div class="po-name">Full Assessment</div>
-        <div class="po-desc" data-i18n="preassess.pkg.full.desc">On-site &amp; Lab analysis · Full report in 7 days</div>
+        <div class="po-desc" data-i18n="preassess.pkg.full.desc">On-site &amp; Lab analysis - Full report in 7 days</div>
       </div>
     </div>
 

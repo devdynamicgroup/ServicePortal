@@ -35,9 +35,20 @@ function renderJobSteps() {
 
 /* ── Pre-assessment ──────────────────────────── */
 function updatePreassessBtn() {
+  if (typeof validatePreassessment === 'function') {
+    validatePreassessment({ showErrors: false });
+    return;
+  }
   document.getElementById('btn-preassess-done').disabled = !document.getElementById('ci-consent').checked;
 }
 function completePreassess() {
+  if (typeof validatePreassessment === 'function') {
+    const result = validatePreassessment({ showErrors: true });
+    if (!result.valid) {
+      showToast(result.errors[0] || 'Please complete required fields');
+      return;
+    }
+  }
   S.stepsDone.preassess = true;
   saveActiveJobState();
   renderJobSteps();
@@ -49,7 +60,7 @@ function selPkg(p) {
   document.getElementById('pkg-ess')?.classList.toggle('sel', p === 'essential');
   document.getElementById('pkg-full')?.classList.toggle('sel', p === 'full');
   syncPkgSheetSelection();
-  updatePaymentScreen();
+  if (document.getElementById('s-payment') || S.screen === 's-payment') updatePaymentScreen();
   updateAssessScreen();
 }
 function updatePayToggle() {

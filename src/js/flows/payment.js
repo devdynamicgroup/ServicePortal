@@ -1,4 +1,5 @@
 const BANK_ACCOUNT = '986-4-89945-7';
+const BAHT = String.fromCharCode(3647);
 
 function appAssetPath(assetPath) {
   const pathName = window.location.pathname;
@@ -11,30 +12,107 @@ function appAssetPath(assetPath) {
 }
 
 function updatePaymentScreen() {
-  const screen = document.getElementById('s-payment');
+  const screen = ensurePaymentScreen();
   if (!screen) {
     console.error('Payment screen markup missing (#s-payment not found)');
     return;
   }
 
-  const isFull = S.pkg === 'full';
-  const cashAmount = isFull ? '฿5,000' : '฿0';
-
-  const setText = (id, value) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
-  };
-
-  setText('pm-cash-amt', cashAmount);
+  const cashAmount = S.pkg === 'full' ? `${BAHT}5,000` : `${BAHT}0`;
+  const amt = document.getElementById('pm-cash-amt');
+  if (amt) amt.textContent = cashAmount;
 
   if (typeof updatePayToggle === 'function') updatePayToggle();
   selPayMethod(S.payMethod || 'cash');
 
   const slipSub = document.getElementById('slip-sub');
-  if (slipSub && !S.paymentSlipPhoto) slipSub.textContent = t('pay.uploadSub');
+  if (slipSub && !S.paymentSlipPhoto) {
+    slipSub.textContent = typeof t === 'function'
+      ? t('pay.uploadSub')
+      : 'Photo of transfer confirmation or cash receipt';
+  }
 
   const logo = document.getElementById('ktb-logo');
-  if (logo) logo.src = appAssetPath('src/assets/ktb-logo.png?v=4');
+  if (logo) logo.src = appAssetPath('src/assets/ktb-logo.png?v=5');
+}
+
+function ensurePaymentScreen() {
+  let screen = document.getElementById('s-payment');
+  if (screen) return screen;
+
+  const app = document.getElementById('app');
+  if (!app) return null;
+
+  app.insertAdjacentHTML('beforeend', getPaymentMarkup());
+  screen = document.getElementById('s-payment');
+  if (screen && S.screen === 's-payment') screen.classList.add('active');
+  return screen;
+}
+
+function getPaymentMarkup() {
+  return `
+<div id="s-payment" class="screen pay-screen">
+  <div class="hdr">
+    <button class="hdr-back" type="button" onclick="goBack('s-job')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <span class="hdr-title" data-i18n="pay.title">Payment</span>
+  </div>
+  <div class="content pay-content">
+    <div class="section-title" data-i18n="pay.selectedPkg">Selected Package</div>
+    <div class="pkg-row pay-pkg-row">
+      <button class="pkg-opt" id="pay-toggle-ess" type="button" onclick="selPkg('essential')">
+        <div class="po-price" data-i18n="pay.free">Free</div>
+        <div class="po-name">Essential</div>
+        <div class="po-desc" data-i18n="pay.pkg.ess.desc">On-site tests - Results same day</div>
+      </button>
+      <button class="pkg-opt" id="pay-toggle-full" type="button" onclick="selPkg('full')">
+        <div class="po-price">&#3647;5,000</div>
+        <div class="po-name">Full Assessment</div>
+        <div class="po-desc" data-i18n="pay.pkg.full.desc">On-site &amp; Lab analysis - Full report in 7 days</div>
+      </button>
+    </div>
+    <div class="section-title pay-sec-gap" data-i18n="pay.method">Payment Method</div>
+    <div class="pay-method-list pay-method-exact">
+      <button class="pay-method sel" id="pm-cash" type="button" onclick="selPayMethod('cash')">
+        <span class="pm-icon cash"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 10.5h.01M18 13.5h.01"/></svg></span>
+        <span class="pm-body"><span class="pm-name" data-i18n="pay.cash">Cash</span><span class="pm-sub" id="pm-cash-amt">&#3647;0</span></span>
+      </button>
+      <button class="pay-method" id="pm-bank" type="button" onclick="selPayMethod('bank')">
+        <span class="pm-icon bank"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10h18L12 4 3 10Z"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 18h18M2 21h20"/></svg></span>
+        <span class="pm-body">
+          <span class="pm-name" data-i18n="pay.bank">Bank Transfer</span>
+          <span class="pm-account-row" onclick="event.stopPropagation();copyBankAccount()">
+            <img class="kt-logo-img" id="ktb-logo" src="src/assets/ktb-logo.png" width="20" height="20" alt="">
+            <span class="pm-account-no">986-4-89945-7</span>
+          </span>
+        </span>
+        <span class="pm-actions">
+          <span class="pm-icon-btn" role="button" aria-label="View account" onclick="event.stopPropagation();showToast('Account: 986-4-89945-7')"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span>
+          <span class="pm-icon-btn" role="button" aria-label="Copy account" onclick="event.stopPropagation();copyBankAccount()"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></span>
+        </span>
+      </button>
+    </div>
+    <div class="section-title pay-sec-gap" data-i18n="pay.record">Payment Record</div>
+    <div class="slip-upload-card" id="slip-upload-card">
+      <div class="slip-upload-body">
+        <div class="ut-title" data-i18n="pay.uploadTitle">Upload slip or receipt</div>
+        <div class="ut-sub" id="slip-sub">Photo of transfer confirmation or cash receipt</div>
+      </div>
+      <div class="slip-preview-frame" onclick="openPhotoCapture('slip-input')">
+        <img id="slip-preview" src="" style="display:none" alt="">
+        <svg class="slip-cam-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </div>
+      <input type="file" id="slip-input" accept="image/*" onchange="handleSlipUpload(this)">
+    </div>
+    <div class="photo-actions slip-actions">
+      <button class="photo-action-btn camera" type="button" onclick="openCameraCapture('slip-input','slip-preview')"><span data-i18n="pay.camera">Camera</span></button>
+      <button class="photo-action-btn upload" type="button" onclick="openPhotoCapture('slip-input')"><span data-i18n="pay.upload">Upload</span></button>
+    </div>
+  </div>
+  <div class="foot">
+    <button class="btn btn-secondary btn-draft" type="button" onclick="saveDraft()" data-i18n="common.saveDraft">Save Draft</button>
+    <button class="btn btn-primary" type="button" onclick="completePayment()" data-i18n="common.complete">Complete</button>
+  </div>
+</div>`;
 }
 
 function selPayMethod(m) {
@@ -66,7 +144,7 @@ async function copyBankAccount() {
 
 function completePayment() {
   S.stepsDone.payment = true;
-  saveActiveJobState();
+  if (typeof saveActiveJobState === 'function') saveActiveJobState();
   renderJobSteps();
   goScreen('s-job');
 }

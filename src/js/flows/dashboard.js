@@ -25,6 +25,7 @@ function addCaseForSelectedDay() {
     meta: `Case ${sameDayJobs.length + 1} for this day · Owner-present`
   });
   ensureJobDraft(JOBS[JOBS.length - 1]);
+  persistJobs();
   renderCalendar();
   showToast(`Added case for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
 }
@@ -51,6 +52,7 @@ function addNextDayAppt() {
     meta: 'New appointment · Owner–present'
   });
   ensureJobDraft(JOBS[JOBS.length - 1]);
+  persistJobs();
   renderCalendar();
   showToast(`Added for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
 }
@@ -68,8 +70,8 @@ function renderCalendar() {
     const chip = document.createElement('div');
     let cls = 'day-chip';
     if(d.getTime()===today.getTime()) cls += ' today';
-    if(i===S.selDay) cls += ' sel';
-    if((isPast || isWeekend) && !hasJobs) cls += ' muted weekend';
+    if (i === S.selDay) cls += ' sel';
+    if (i !== S.selDay && (isPast || isWeekend) && !hasJobs) cls += ' muted weekend';
     chip.className = cls;
     chip.innerHTML = `<span class="dc-dow">${DOW[i]}</span><span class="dc-d">${d.getDate()}</span><span class="dc-dot"></span>`;
     if(!hasJobs && !(d.getTime()===today.getTime())) chip.querySelector('.dc-dot').style.visibility = 'hidden';
@@ -90,7 +92,7 @@ function statusLabel(s) {
 }
 function renderJobs(filter) {
   const q = (filter ?? S.searchQuery).toLowerCase().trim();
-  let jobs = JOBS.filter(j => j.day === S.selDay);
+  let jobs = JOBS.filter(j => j.day === S.selDay && j.status !== 'cancelled');
   if(q) jobs = jobs.filter(j => j.name.toLowerCase().includes(q) || j.addr.toLowerCase().includes(q));
   const list = document.getElementById('appt-list');
   document.getElementById('appt-count').textContent = q ? `${t('dash.results')} (${jobs.length})` : t('dash.appointments');
@@ -128,7 +130,7 @@ function showApptMenu(id) {
   const actions = [
     { label:'Start assessment', fn:()=>{ closeActionSheet(); openJob(id); } },
     { label:'Reschedule', fn:()=>{ closeActionSheet(); showToast('Reschedule request sent'); } },
-    { label:'Cancel', fn:()=>{ closeActionSheet(); showToast('Appointment cancelled'); }, danger:true },
+    { label:'Cancel case', fn:()=>{ closeActionSheet(); cancelCase(id); }, danger:true },
     { label:'Contact', fn:()=>{ closeActionSheet(); showToast('Calling '+job.name); } },
     { label:'Pre-assessment form', fn:()=>{ closeActionSheet(); openJob(id); goScreen('s-preassess'); } }
   ];
@@ -137,16 +139,28 @@ function showApptMenu(id) {
   document.getElementById('action-sheet-overlay').classList.remove('hidden');
 }
 function closeActionSheet(){ document.getElementById('action-sheet-overlay').classList.add('hidden'); }
+function cancelCase(id = S.activeJob?.id) {
+  const job = JOBS.find(j => j.id === id);
+  if (!job) return;
+  if (!confirm(`Cancel case for ${job.name}?`)) return;
+  const index = JOBS.findIndex(j => j.id === id);
+  if (index >= 0) JOBS.splice(index, 1);
+  if (S.activeJob?.id === id) S.activeJob = null;
+  persistJobs();
+  renderCalendar();
+  goScreen('s-dash');
+  showToast('Case cancelled');
+}
 function openSearchModal(){ document.getElementById('search-overlay').classList.remove('hidden'); document.getElementById('search-input').value=S.searchQuery; document.getElementById('search-input').focus(); filterAppointments(S.searchQuery); }
 function closeSearchModal(){ document.getElementById('search-overlay').classList.add('hidden'); }
-function filterAppointments(q){ S.searchQuery=q; renderJobs(q); const jobs=JOBS.filter(j=>j.day===S.selDay&&(j.name.toLowerCase().includes(q.toLowerCase())||j.addr.toLowerCase().includes(q.toLowerCase()))); document.getElementById('search-results').innerHTML=jobs.map(j=>`<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${j.id})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('')||'<p style="color:var(--muted);font-size:14px">No matches</p>'; }
+function filterAppointments(q){ S.searchQuery=q; renderJobs(q); const jobs=JOBS.filter(j=>j.status!=='cancelled'&&j.day===S.selDay&&(j.name.toLowerCase().includes(q.toLowerCase())||j.addr.toLowerCase().includes(q.toLowerCase()))); document.getElementById('search-results').innerHTML=jobs.map(j=>`<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${j.id})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('')||'<p style="color:var(--muted);font-size:14px">No matches</p>'; }
 function openNotifModal(){ document.getElementById('notif-overlay').classList.remove('hidden'); }
 function closeNotifModal(){ document.getElementById('notif-overlay').classList.add('hidden'); }
 function openLangModal(){ document.getElementById('lang-overlay').classList.remove('hidden'); }
 function closeLangModal(){ document.getElementById('lang-overlay').classList.add('hidden'); }
 function openSignoutModal(){ document.getElementById('signout-overlay').classList.remove('hidden'); }
 function closeSignoutModal(){ document.getElementById('signout-overlay').classList.add('hidden'); }
-function confirmSignout(){ closeSignoutModal(); S.activeJob=null; goScreen('s-login'); showToast('Signed out'); }
+function confirmSignout(){ closeSignoutModal(); S.activeJob=null; localStorage.removeItem('wm-session'); goScreen('s-login'); showToast('Signed out'); }
 function openMonthPicker(){ S.monthPickerDate=new Date(weekBase); S.monthPickerDate.setDate(weekBase.getDate()+S.selDay); renderMonthGrid(); document.getElementById('month-overlay').classList.remove('hidden'); }
 function closeMonthPicker(){ document.getElementById('month-overlay').classList.add('hidden'); }
 function shiftMonth(dir){ S.monthPickerDate.setMonth(S.monthPickerDate.getMonth()+dir); renderMonthGrid(); }

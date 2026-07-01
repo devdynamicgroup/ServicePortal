@@ -11,6 +11,11 @@ function completeJob() {
   const required = ['preassess','assess','score','payment','feedback'];
   const all = required.every(k => S.stepsDone[k]);
   if(!all){ showToast('Complete all steps first'); return; }
+  if (S.activeJob) {
+    S.activeJob.status = 'done';
+    persistJobs();
+    renderCalendar();
+  }
   showToast('Job complete'); goScreen('s-dash');
 }
 function showToast(msg) {

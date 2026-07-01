@@ -46,7 +46,14 @@ function writeField(id, value) {
   const el = document.getElementById(id);
   if (!el || value === undefined) return;
   if (el.type === 'checkbox') el.checked = !!value;
-  else el.value = value;
+  else {
+    el.value = value;
+    if (el.tagName === 'SELECT') {
+      [...el.options].forEach(option => {
+        option.selected = option.value === value || option.textContent === value;
+      });
+    }
+  }
 }
 
 function readMsValues(wrapId) {
@@ -172,6 +179,12 @@ function loadJobState(job) {
   writeMsValues('ms-members', draft.msMembers);
   writeMsValues('ms-concerns', draft.msConcerns);
 
+  if (typeof setProvinceValue === 'function') {
+    setProvinceValue(draft.fields['ci-city'] || 'Bangkok');
+  }
+  if (typeof updateProvinceOptions === 'function') updateProvinceOptions();
+  if (typeof updatePreassessmentOptionText === 'function') updatePreassessmentOptionText();
+
   if (typeof selPkg === 'function') selPkg(S.pkg);
   if (typeof updatePreassessBtn === 'function') updatePreassessBtn();
   if (typeof setRating === 'function') setRating(S.rating);
@@ -205,6 +218,147 @@ function loadJobsFromStorage() {
     JOBS.splice(0, JOBS.length, ...saved);
     return true;
   } catch {
+    return false;
+  }
+}
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let value = '';
+  let quoted = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+
+    if (ch === '"' && quoted && next === '"') {
+      value += '"';
+      i++;
+    } else if (ch === '"') {
+      quoted = !quoted;
+    } else if (ch === ',' && !quoted) {
+      row.push(value);
+      value = '';
+    } else if ((ch === '\n' || ch === '\r') && !quoted) {
+      if (ch === '\r' && next === '\n') i++;
+      row.push(value);
+      if (row.some(cell => cell.trim())) rows.push(row);
+      row = [];
+      value = '';
+    } else {
+      value += ch;
+    }
+  }
+
+  if (value || row.length) {
+    row.push(value);
+    if (row.some(cell => cell.trim())) rows.push(row);
+  }
+
+  const headers = rows.shift()?.map(h => h.trim()) || [];
+  return rows.map(cells => headers.reduce((record, header, index) => {
+    record[header] = (cells[index] || '').trim();
+    return record;
+  }, {}));
+}
+
+function splitClientName(fullName) {
+  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return { fname: '', lname: '' };
+  return { fname: parts[0], lname: parts.slice(1).join(' ') };
+}
+
+function mapCsvPackage(value) {
+  const text = (value || '').toLowerCase();
+  return text.includes('premium') || text.includes('full') ? 'full' : 'essential';
+}
+
+function mapCsvPropertyType(value) {
+  const text = (value || '').toLowerCase();
+  if (text.includes('condo')) return 'Condominium';
+  if (text.includes('town')) return 'Townhome';
+  if (text.includes('apartment')) return 'Apartment';
+  return 'Single House';
+}
+
+function mapCsvPropertyAge(value) {
+  const years = parseInt(value, 10);
+  if (Number.isNaN(years)) return 'Not sure';
+  if (years <= 5) return '0-5 yrs';
+  if (years <= 10) return '5-10 yrs';
+  if (years <= 20) return '10-20 yrs';
+  return '20+ yrs';
+}
+
+function mapCsvFilter(value) {
+  const text = (value || '').toLowerCase();
+  if (text.includes('loyal') || text.includes('vip') || text.includes('premium')) return 'Whole-house filter';
+  if (text.includes('lead') || text.includes('follow')) return 'Not sure';
+  return 'None';
+}
+
+function jobFromClientRecord(record, index) {
+  const { fname, lname } = splitClientName(record['Full Name']);
+  const pkg = mapCsvPackage(record['Package History']);
+  const day = index % 7;
+  const slot = Math.floor(index / 7);
+  const hour = Math.min(17, 9 + slot);
+  const id = 1000 + index + 1;
+  const status = (record.Status || '').toLowerCase() === 'active' ? 'in_progress' : 'new';
+  const propertyType = mapCsvPropertyType(record['Property Type']);
+  const propertyAge = mapCsvPropertyAge(record['Property Age (yr)']);
+  const source = record.Source || '';
+  const concern = record['Water Concerns'] || '';
+
+  const job = {
+    id,
+    name: lname ? `${fname} ${lname.charAt(0).toUpperCase()}.` : fname || `CSV Client ${index + 1}`,
+    addr: record.Address || 'Address to confirm',
+    timeStart: `${String(hour).padStart(2, '0')}:00`,
+    timeEnd: `${String(Math.min(18, hour + 1)).padStart(2, '0')}:00`,
+    day,
+    pkg,
+    status,
+    meta: [propertyType, propertyAge, record.Stage || 'CSV lead'].filter(Boolean).join(' - '),
+    csvSource: true
+  };
+
+  job.draft = defaultJobDraft(job);
+  job.draft.fields = {
+    'ci-fname': fname,
+    'ci-lname': lname,
+    'ci-phone': record.Phone || '',
+    'ci-line': record['LINE ID'] || '',
+    'ci-email': record.Email || '',
+    'ci-city': record.Address || 'Bangkok',
+    'ci-postal': '',
+    'ci-addr': record.Address || '',
+    'ci-proptype': propertyType,
+    'ci-propage': propertyAge,
+    'ci-filter': mapCsvFilter(record['Current Filter']),
+    'ci-source': source,
+    'ci-consent': String(record['Consent Signed']).toLowerCase() === 'true'
+  };
+  job.draft.msConcerns = concern ? [concern] : [];
+  job.draft.pkg = pkg;
+
+  return job;
+}
+
+async function loadJobsFromCsv() {
+  try {
+    const response = await fetch('clients_30_mock_data.csv', { cache: 'no-store' });
+    if (!response.ok) return false;
+    const records = parseCsvRows(await response.text());
+    const jobs = records.map(jobFromClientRecord);
+    if (!jobs.length) return false;
+    JOBS.splice(0, JOBS.length, ...jobs);
+    persistJobs();
+    localStorage.setItem('wm-jobs-source', 'csv');
+    return true;
+  } catch (error) {
+    console.warn('Could not load CSV jobs', error);
     return false;
   }
 }

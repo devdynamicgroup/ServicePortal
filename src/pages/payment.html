@@ -1,4 +1,3 @@
-══════════════════════════════════════ -->
 <div id="s-payment" class="screen pay-screen">
   <div class="hdr">
     <button class="hdr-back" type="button" onclick="goBack('s-job')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
@@ -11,27 +10,27 @@
       <button class="pkg-opt" id="pay-toggle-ess" type="button" onclick="selPkg('essential')">
         <div class="po-price" data-i18n="pay.free">Free</div>
         <div class="po-name">Essential</div>
-        <div class="po-desc" data-i18n="pay.pkg.ess.desc">On-site tests · Results same day</div>
+        <div class="po-desc" data-i18n="pay.pkg.ess.desc">On-site tests - Results same day</div>
       </button>
       <button class="pkg-opt" id="pay-toggle-full" type="button" onclick="selPkg('full')">
-        <div class="po-price">฿5,000</div>
+        <div class="po-price">&#3647;5,000</div>
         <div class="po-name">Full Assessment</div>
-        <div class="po-desc" data-i18n="pay.pkg.full.desc">On-site &amp; Lab analysis · Full report in 7 days</div>
+        <div class="po-desc" data-i18n="pay.pkg.full.desc">On-site &amp; Lab analysis - Full report in 7 days</div>
       </button>
     </div>
 
     <div class="section-title pay-sec-gap" data-i18n="pay.method">Payment Method</div>
-    <div class="pay-method-list">
+    <div class="pay-method-list pay-method-exact">
       <button class="pay-method sel" id="pm-cash" type="button" onclick="selPayMethod('cash')">
-        <span class="pm-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 10h.01M18 10h.01"/></svg></span>
+        <span class="pm-icon cash"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 10.5h.01M18 13.5h.01"/></svg></span>
         <span class="pm-body">
           <span class="pm-name" data-i18n="pay.cash">Cash</span>
-          <span class="pm-sub" id="pm-cash-amt">฿0</span>
+          <span class="pm-sub" id="pm-cash-amt">&#3647;0</span>
         </span>
       </button>
 
       <button class="pay-method" id="pm-bank" type="button" onclick="selPayMethod('bank')">
-        <span class="pm-icon bank"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-4h6v4"/></svg></span>
+        <span class="pm-icon bank"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10h18L12 4 3 10Z"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 18h18M2 21h20"/></svg></span>
         <span class="pm-body">
           <span class="pm-name" data-i18n="pay.bank">Bank Transfer</span>
           <span class="pm-account-row" onclick="event.stopPropagation();copyBankAccount()">
@@ -40,12 +39,12 @@
           </span>
         </span>
         <span class="pm-actions">
-          <button class="pm-icon-btn" type="button" aria-label="View account" onclick="event.stopPropagation();showToast('Account: 986-4-89945-7')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          </button>
-          <button class="pm-icon-btn" type="button" aria-label="Copy account" onclick="event.stopPropagation();copyBankAccount()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-          </button>
+          <span class="pm-icon-btn" role="button" aria-label="View account" onclick="event.stopPropagation();showToast('Account: 986-4-89945-7')">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </span>
+          <span class="pm-icon-btn" role="button" aria-label="Copy account" onclick="event.stopPropagation();copyBankAccount()">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+          </span>
         </span>
       </button>
     </div>
@@ -79,6 +78,3 @@
     <button class="btn btn-primary" type="button" onclick="completePayment()" data-i18n="common.complete">Complete</button>
   </div>
 </div>
-
-<!-- ══════════════════════════════════════
-     S7 · CLIENT FEEDBACK
