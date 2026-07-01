@@ -43,6 +43,16 @@ function handleRequest(req, res) {
     return;
   }
 
+  if (req.url.split('?')[0] === '/api/auth-config') {
+    send(res, 200, JSON.stringify({
+      provider: process.env.AUTH_PROVIDER || 'supabase',
+      supabaseUrl: process.env.SUPABASE_URL || '',
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+      redirectUrl: process.env.AUTH_REDIRECT_URL || ''
+    }), 'application/json; charset=utf-8');
+    return;
+  }
+
   if (req.url.split('?')[0] === '/favicon.ico') {
     res.writeHead(204, { 'Cache-Control': 'max-age=86400' });
     res.end();

@@ -5,10 +5,12 @@ function sendClientLink() {
 let propertySuggestion = null;
 
 const PREASSESS_REQUIRED_FIELDS = [
-  'ci-fname', 'ci-lname', 'ci-phone', 'ci-line', 'ci-email',
+  'ci-fname', 'ci-lname',
   'ci-city', 'ci-addr', 'ci-proptype', 'ci-propage',
   'ci-filter', 'ci-source'
 ];
+
+const PREASSESS_SELECT_IDS = new Set(['ci-proptype', 'ci-propage', 'ci-filter', 'ci-source']);
 
 const PREASSESS_FIELD_LABELS = {
   'ci-fname': 'First name',
@@ -35,11 +37,38 @@ function getFieldValue(id) {
   const el = document.getElementById(id);
   if (!el) return '';
   if (el.type === 'checkbox') return el.checked;
-  if (el.tagName === 'SELECT') {
-    const selected = [...el.options].find(option => option.selected);
-    return (el.value || selected?.value || selected?.textContent || S.activeJob?.draft?.fields?.[id] || '').trim();
+  if (el.tagName === 'SELECT') return (el.value || '').trim();
+  if (id === 'ci-city') {
+    return (el.value || S.activeJob?.draft?.fields?.[id] || 'Bangkok').trim();
   }
   return (el.value || S.activeJob?.draft?.fields?.[id] || '').trim();
+}
+
+function isEmptyFieldValue(id, value) {
+  if (value === false || value === 0) return false;
+  if (!value) return true;
+  if (PREASSESS_SELECT_IDS.has(id)) return !value || value === 'Please select' || value === 'กรุณาเลือก';
+  return false;
+}
+
+function preassessFieldLabel(id) {
+  const map = {
+    'ci-fname': 'preassess.fname',
+    'ci-lname': 'preassess.lname',
+    'ci-phone': 'preassess.phone',
+    'ci-line': 'preassess.line',
+    'ci-email': 'preassess.email',
+    'ci-city': 'preassess.city',
+    'ci-postal': 'preassess.postal',
+    'ci-addr': 'preassess.addr',
+    'ci-proptype': 'preassess.proptype',
+    'ci-propage': 'preassess.propage',
+    'ci-filter': 'preassess.filter',
+    'ci-source': 'preassess.source',
+    'ci-contact': 'preassess.contact'
+  };
+  const key = map[id];
+  return key && typeof t === 'function' ? t(key) : (PREASSESS_FIELD_LABELS[id] || id);
 }
 
 function setFieldInvalid(id, invalid) {
@@ -53,15 +82,11 @@ function setFieldInvalid(id, invalid) {
 function validatePhoneField(id, errors) {
   const digits = digitsOnly(getFieldValue(id));
   if (!digits) {
-    errors.push(`${PREASSESS_FIELD_LABELS[id]} is required`);
+    errors.push(typeof t === 'function' ? t('preassess.err.phoneRequired') : `${PREASSESS_FIELD_LABELS[id]} is required`);
     return false;
   }
-  if (digits.length > 10) {
-    errors.push(`${PREASSESS_FIELD_LABELS[id]} must not exceed 10 digits`);
-    return false;
-  }
-  if (digits.length < 9) {
-    errors.push(`${PREASSESS_FIELD_LABELS[id]} must be at least 9 digits`);
+  if (digits.length !== 10) {
+    errors.push(typeof t === 'function' ? t('preassess.err.phoneExact') : 'Mobile number must be exactly 10 digits');
     return false;
   }
   return true;
@@ -77,8 +102,8 @@ function validatePreassessment({ showErrors = false } = {}) {
 
   PREASSESS_REQUIRED_FIELDS.forEach(id => {
     const value = getFieldValue(id);
-    if (!value || value === 'Please select') {
-      errors.push(`${PREASSESS_FIELD_LABELS[id]} is required`);
+    if (isEmptyFieldValue(id, value)) {
+      errors.push(`${preassessFieldLabel(id)} — ${t('preassess.err.isRequired')}`);
       invalidIds.add(id);
     }
   });
@@ -87,19 +112,22 @@ function validatePreassessment({ showErrors = false } = {}) {
 
   const lineId = getFieldValue('ci-line');
   if (lineId && !validateLineId(lineId)) {
-    errors.push('LINE ID can use 4-30 letters, numbers, dot, underscore, or dash');
+    errors.push(typeof t === 'function' ? t('preassess.err.lineId') : 'LINE ID can use 4-30 letters, numbers, dot, underscore, or dash');
     invalidIds.add('ci-line');
   }
 
   const email = getFieldValue('ci-email').toLowerCase();
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    errors.push('Email format is invalid');
+  if (!email) {
+    errors.push(`${preassessFieldLabel('ci-email')} — ${t('preassess.err.isRequired')}`);
+    invalidIds.add('ci-email');
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.push(typeof t === 'function' ? t('preassess.err.email') : 'Email format is invalid');
     invalidIds.add('ci-email');
   }
 
   const postal = digitsOnly(getFieldValue('ci-postal'));
   if (postal && postal.length !== 5) {
-    errors.push('Postal code must be 5 digits');
+    errors.push(typeof t === 'function' ? t('preassess.err.postal') : 'Postal code must be 5 digits');
     invalidIds.add('ci-postal');
   }
 
@@ -107,7 +135,7 @@ function validatePreassessment({ showErrors = false } = {}) {
   if (owner !== 'yes') {
     ['ci-contact', 'ci-contact-ph'].forEach(id => {
       if (!getFieldValue(id)) {
-        errors.push(`${PREASSESS_FIELD_LABELS[id]} is required`);
+        errors.push(`${preassessFieldLabel(id)} — ${t('preassess.err.isRequired')}`);
         invalidIds.add(id);
       }
     });
@@ -117,11 +145,11 @@ function validatePreassessment({ showErrors = false } = {}) {
   }
 
   if (!getFieldValue('ci-consent')) {
-    errors.push('Consent is required');
+    errors.push(typeof t === 'function' ? t('preassess.err.consent') : 'Consent is required');
     invalidIds.add('ci-consent');
   }
 
-  [...PREASSESS_REQUIRED_FIELDS, 'ci-contact', 'ci-contact-ph', 'ci-consent'].forEach(id => {
+  [...PREASSESS_REQUIRED_FIELDS, 'ci-email', 'ci-line', 'ci-postal', 'ci-contact', 'ci-contact-ph', 'ci-consent'].forEach(id => {
     setFieldInvalid(id, invalidIds.has(id) && showErrors);
   });
 
@@ -135,11 +163,20 @@ function updatePreassessmentCompletionState() {
 }
 
 function initPreassessmentValidation() {
-  const ids = [...PREASSESS_REQUIRED_FIELDS, 'ci-contact', 'ci-contact-ph', 'ci-consent'];
+  const ids = ['ci-fname', 'ci-lname', 'ci-phone', 'ci-email', 'ci-line', 'ci-postal', ...PREASSESS_REQUIRED_FIELDS, 'ci-contact', 'ci-contact-ph', 'ci-consent'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     ['input', 'change', 'blur'].forEach(evt => el.addEventListener(evt, updatePreassessmentCompletionState));
+  });
+  ['ci-phone', 'ci-contact-ph'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      const digits = digitsOnly(el.value).slice(0, 10);
+      if (el.value !== digits) el.value = digits;
+      updatePreassessmentCompletionState();
+    });
   });
   document.querySelectorAll('#owner-radios input').forEach(el => {
     el.addEventListener('change', updatePreassessmentCompletionState);
