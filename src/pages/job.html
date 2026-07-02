@@ -1,28 +1,27 @@
-<div id="s-job" class="screen">
-  <div class="hdr">
-    <button class="hdr-back" type="button" onclick="goBack('s-dash')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <div style="flex:1;min-width:0">
-      <div class="hdr-title" id="job-client-name" style="font-size:15px">—</div>
-      <div style="font-size:12px;color:var(--muted)" id="job-time-range">—</div>
-    </div>
-    <div class="hdr-icons">
-      <button class="hdr-cancel-pill" type="button" onclick="cancelCase()" data-i18n="dash.cancelCase">Cancel</button>
-      <button class="hdr-icon-btn" type="button" aria-label="Call" onclick="showToast('Calling client…')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></button>
-      <button class="hdr-icon-btn" type="button" aria-label="Chat" onclick="showToast('Open LINE chat')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
-    </div>
-  </div>
-  <div class="content">
-    <div class="job-intro">
-      <div class="job-intro-row">
-        <span style="font-size:16px;font-weight:600" data-i18n="job.currentJob">Current Job</span>
-        <span class="tag" id="job-pkg-tag">Essential</span>
-      </div>
-      <div class="job-intro-sub" data-i18n="job.workThrough">Work through each step below</div>
-    </div>
-    <div id="job-steps"></div>
-  </div>
-  <div class="foot">
-    <button class="btn btn-secondary btn-draft" type="button" onclick="saveDraft()" data-i18n="common.saveDraft">Save Draft</button>
-    <button class="btn btn-primary" type="button" onclick="completeJob()" data-i18n="common.complete">Complete</button>
-  </div>
-</div>
+<div id="s-job" class="screen">
+  <div class="hdr">
+    <button class="hdr-back" type="button" onclick="goBack('s-dash')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <div style="flex:1;min-width:0">
+      <div class="hdr-title" id="job-client-name" style="font-size:15px">—</div>
+      <div style="font-size:12px;color:var(--muted)" id="job-time-range">—</div>
+    </div>
+    <div class="hdr-icons">
+      <button class="hdr-icon-btn" type="button" aria-label="Call" onclick="showToast('Calling client…')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></button>
+      <button class="hdr-icon-btn" type="button" aria-label="Chat" onclick="showToast('Open LINE chat')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="job-intro">
+      <div class="job-intro-row">
+        <span style="font-size:16px;font-weight:600" data-i18n="job.currentJob">Current Job</span>
+        <span class="tag" id="job-pkg-tag">Essential</span>
+      </div>
+      <div class="job-intro-sub" data-i18n="job.workThrough">Work through each step below</div>
+    </div>
+    <div id="job-steps"></div>
+  </div>
+  <div class="foot">
+    <button class="btn btn-secondary btn-draft" type="button" onclick="saveDraft()" data-i18n="common.saveDraft">Save Draft</button>
+    <button class="btn btn-primary" type="button" onclick="completeJob()" data-i18n="common.complete">Complete</button>
+  </div>
+</div>

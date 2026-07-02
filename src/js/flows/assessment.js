@@ -162,13 +162,16 @@ function selSeg(el, group) {
 }
 
 function openPhotoStudio(inputId, previewId) {
-  openCameraCapture(inputId, previewId);
+  if (!inputId) return;
+  openCameraCapture(inputId, previewId || null);
 }
 
 function handlePhotoFile(input, previewId) {
   const file = input.files?.[0];
-  if (!file) return;
+  if (!file || !previewId) return;
   setPhotoPreview(previewId, URL.createObjectURL(file));
+  closeCameraCapture();
+  showToast('Photo uploaded');
 }
 
 function openPhotoCapture(inputId) {
@@ -180,6 +183,19 @@ function openPhotoCapture(inputId) {
   input.removeAttribute('capture');
   input.value = '';
   input.click();
+}
+
+function waitForVideoFrame(video, timeoutMs = 4000) {
+  if (video.videoWidth && video.videoHeight) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Camera timeout')), timeoutMs);
+    const done = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    video.addEventListener('loadedmetadata', done, { once: true });
+    video.addEventListener('loadeddata', done, { once: true });
+  });
 }
 const CameraCapture = {
   stream: null,
@@ -195,13 +211,15 @@ async function openCameraCapture(inputId, previewId) {
   const video = document.getElementById('camera-video');
   const error = document.getElementById('camera-error');
   if (!overlay || !video) {
-    showToast('Camera not available on this device');
+    if (inputId) openPhotoCapture(inputId);
+    else showToast('Camera not available on this device');
     return;
   }
 
   closeTransientOverlays?.();
   error?.classList.add('hidden');
   overlay.classList.remove('hidden');
+  stopCameraStream();
 
   try {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera API unavailable');
@@ -212,6 +230,7 @@ async function openCameraCapture(inputId, previewId) {
     CameraCapture.stream = stream;
     video.srcObject = stream;
     await video.play();
+    await waitForVideoFrame(video).catch(() => {});
   } catch (errorObj) {
     console.warn(errorObj);
     error?.classList.remove('hidden');
@@ -230,16 +249,27 @@ function closeCameraCapture() {
   document.getElementById('camera-overlay')?.classList.add('hidden');
 }
 
-function fallbackPhotoPicker() {
+function fallbackPhotoPicker(event) {
+  event?.stopPropagation?.();
+  event?.preventDefault?.();
   const inputId = CameraCapture.inputId;
   closeCameraCapture();
   if (inputId) openPhotoCapture(inputId);
 }
 
-function captureCameraFrame() {
+async function captureCameraFrame() {
   const video = document.getElementById('camera-video');
-  if (!video || !video.videoWidth || !video.videoHeight) {
-    showToast('Camera not ready — try again');
+  if (!video) return;
+
+  try {
+    await waitForVideoFrame(video, 2500);
+  } catch {
+    showToast('Camera not ready — try upload instead');
+    return;
+  }
+
+  if (!video.videoWidth || !video.videoHeight) {
+    showToast('Camera not ready — try upload instead');
     return;
   }
 
@@ -258,9 +288,12 @@ function captureCameraFrame() {
   closeCameraCapture();
 }
 
-document.addEventListener('click', event => {
+document.addEventListener('change', event => {
   const input = event.target;
-  if (input?.matches?.('input[type="file"][accept^="image"]')) input.value = '';
+  if (!input?.matches?.('input[type="file"][accept^="image"]')) return;
+  if (input.id === 'slip-input') return;
+  const previewId = input.dataset.previewId;
+  if (previewId && typeof handlePhotoFile === 'function') handlePhotoFile(input, previewId);
 }, true);
 
 function previewPhoto(input, previewId) {
@@ -306,6 +339,7 @@ function handleSlipUpload(input) {
   S.paymentSlipPhoto = url;
   S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
   setPhotoPreview('slip-preview', url);
+  closeCameraCapture();
   showToast(typeof t === 'function' ? t('pay.uploaded') : 'Photo attached');
 }
 

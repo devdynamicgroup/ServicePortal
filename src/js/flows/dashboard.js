@@ -69,6 +69,8 @@ function renderCalendar() {
     const isWeekend = i >= 5;
     const chip = document.createElement('div');
     let cls = 'day-chip';
+    const isHoliday = i === 2 || i === 6;
+    if (isHoliday) cls += ' holiday';
     if(d.getTime()===today.getTime()) cls += ' today';
     if (i === S.selDay) cls += ' sel';
     if (i !== S.selDay && (isPast || isWeekend) && !hasJobs) cls += ' muted weekend';
@@ -83,7 +85,6 @@ function renderCalendar() {
   renderJobs();
 }
 const PIN_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
-const MENU_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
 const NOTIFICATIONS = [
   { type: 'schedule', title: 'New appointment', sub: 'Vasinee K. - Today 11:00 AM' },
   { type: 'schedule', title: 'Changed appointment', sub: 'Maetud T. rescheduled to 2:00 PM' },
@@ -125,25 +126,11 @@ function renderJobs(filter) {
       <div class="ac-addr">${PIN_SVG}<span>${j.addr}</span></div>
       <div class="ac-meta">
         <span>${j.meta}${j.contact ? '<br>' + t('dash.contact') + ': ' + j.contact : ''}</span>
-        <button class="ac-menu" type="button" onclick="event.stopPropagation();showApptMenu(${j.id})" aria-label="More">${MENU_SVG}</button>
+        <button class="ac-cancel-btn" type="button" onclick="event.stopPropagation();cancelCase(${j.id})">${t('dash.cancelCase')}</button>
       </div>
     </div>`).join('');
 }
 
-function showApptMenu(id) {
-  const job = JOBS.find(j=>j.id===id);
-  S.actionJobId = id;
-  document.getElementById('action-sheet-title').textContent = job.name;
-  const actions = [
-    { label: t('dash.menu.start'), fn: () => { closeActionSheet(); openJob(id); } },
-    { label: t('dash.menu.reschedule'), fn: () => { closeActionSheet(); showToast('Reschedule request sent'); } },
-    { label: t('dash.menu.contact'), fn: () => { closeActionSheet(); showToast('Calling ' + job.name); } },
-    { label: t('dash.menu.preassess'), fn: () => { closeActionSheet(); openJob(id); goScreen('s-preassess'); } }
-  ];
-  document.getElementById('action-sheet-actions').innerHTML = actions.map(a=>`<button class="modal-action${a.danger?' danger':''}" type="button">${a.label}</button>`).join('');
-  document.getElementById('action-sheet-actions').querySelectorAll('.modal-action').forEach((btn,i)=>btn.onclick=actions[i].fn);
-  document.getElementById('action-sheet-overlay').classList.remove('hidden');
-}
 function closeActionSheet(){ document.getElementById('action-sheet-overlay').classList.add('hidden'); }
 function cancelCase(id = S.activeJob?.id) {
   const job = JOBS.find(j => j.id === id);

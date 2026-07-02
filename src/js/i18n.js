@@ -120,7 +120,7 @@ const I18N = {
     'preassess.concerns': 'Water Concerns',
     'preassess.source': 'How did you find us?',
     'preassess.selectPh': 'Please select',
-    'preassess.consent': "I consent to the on-site assessment and Water Motion Terms & Conditions.",
+    'preassess.consent': "By completing this form, you agree to Water Motion's <a href=\"#\" onclick=\"event.preventDefault();showToast('Terms &amp; Conditions')\">Terms &amp; Conditions</a> and consent to an on-site assessment at your property. Data may be used for city-wide benchmarking.",
     'preassess.pkg.ess.desc': 'On-site tests - Results same day',
     'preassess.pkg.full.desc': 'On-site & Lab analysis - Full report in 7 days',
     'preassess.lineOpt': 'optional',
@@ -134,7 +134,7 @@ const I18N = {
 
     'assess.title': 'Water Assessment',
 
-    'photo.tapHint': 'Tap to take or upload photo',
+    'photo.tapHint': 'Tap to capture or upload',
 
     'notif.title': 'Notifications',
     'notif.all': 'All',
@@ -331,7 +331,7 @@ const I18N = {
     'preassess.concerns': 'ข้อกังวลเรื่องน้ำ',
     'preassess.source': 'รู้จักเราจากช่องทางใด',
     'preassess.selectPh': 'กรุณาเลือก',
-    'preassess.consent': 'ยินยอมให้เข้าประเมินหน้างานและยอมรับข้อกำหนดของ Water Motion',
+    'preassess.consent': 'เมื่อกรอกแบบฟอร์มนี้ ถือว่าคุณยอมรับ <a href="#" onclick="event.preventDefault();showToast(\'Terms &amp; Conditions\')">ข้อกำหนดและเงื่อนไข</a> ของ Water Motion และยินยอมให้เข้าประเมินหน้างานที่ทรัพย์สินของคุณ ข้อมูลอาจถูกใช้เพื่อการเปรียบเทียบเชิงพื้นที่',
     'preassess.pkg.ess.desc': 'ทดสอบหน้างาน - ได้ผลวันเดียวกัน',
     'preassess.pkg.full.desc': 'หน้างานและห้องแล็บ - รายงานภายใน 7 วัน',
     'preassess.lineOpt': 'ไม่บังคับ',
@@ -345,7 +345,7 @@ const I18N = {
 
     'assess.title': 'ประเมินน้ำ',
 
-    'photo.tapHint': 'แตะเพื่อถ่ายหรืออัปโหลดรูป',
+    'photo.tapHint': 'แตะเพื่อถ่ายหรืออัปโหลด',
 
     'notif.title': 'การแจ้งเตือน',
     'notif.all': 'ทั้งหมด',

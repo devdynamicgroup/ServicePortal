@@ -17,7 +17,9 @@ function slipAttachedLabel() {
 
 function openSlipPicker(event) {
   event?.preventDefault();
-  if (typeof openPhotoCapture === 'function') openPhotoCapture('slip-input');
+  event?.stopPropagation();
+  if (typeof openPhotoStudio === 'function') openPhotoStudio('slip-input', 'slip-preview');
+  else if (typeof openPhotoCapture === 'function') openPhotoCapture('slip-input');
 }
 
 function updatePaymentScreen() {
@@ -111,7 +113,7 @@ function getPaymentMarkup() {
         <img id="slip-preview" src="" style="display:none" alt="">
         <svg class="slip-cam-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </div>
-      <input type="file" id="slip-input" accept="image/*" onchange="handleSlipUpload(this)">
+      <input type="file" id="slip-input" accept="image/*" data-preview-id="slip-preview" onchange="handleSlipUpload(this)">
     </div>
   </div>
   <div class="foot">
