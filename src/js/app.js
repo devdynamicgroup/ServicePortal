@@ -49,8 +49,10 @@ window.goScreen = function(id) {
     if (id === 's-preassess') {
       if (typeof updateProvinceOptions === 'function') updateProvinceOptions();
       if (typeof updatePreassessmentOptionText === 'function') updatePreassessmentOptionText();
+      if (typeof updatePackageVisibility === 'function') updatePackageVisibility();
       if (typeof updatePreassessmentCompletionState === 'function') updatePreassessmentCompletionState();
     }
+    if (id === 's-payment' && typeof updatePaymentScreen === 'function') updatePaymentScreen();
   } catch (error) {
     console.error('Screen hook error:', id, error);
     showToast('Could not refresh this screen');

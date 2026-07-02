@@ -11,6 +11,15 @@ function appAssetPath(assetPath) {
   return `${appBase}${assetPath}`;
 }
 
+function slipAttachedLabel() {
+  return typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
+}
+
+function openSlipPicker(event) {
+  event?.preventDefault();
+  if (typeof openPhotoCapture === 'function') openPhotoCapture('slip-input');
+}
+
 function updatePaymentScreen() {
   const screen = ensurePaymentScreen();
   if (!screen) {
@@ -23,6 +32,7 @@ function updatePaymentScreen() {
   if (amt) amt.textContent = cashAmount;
 
   if (typeof updatePayToggle === 'function') updatePayToggle();
+  else if (typeof updatePackageVisibility === 'function') updatePackageVisibility();
   selPayMethod(S.payMethod || 'cash');
 
   const slipSub = document.getElementById('slip-sub');
@@ -92,20 +102,16 @@ function getPaymentMarkup() {
       </button>
     </div>
     <div class="section-title pay-sec-gap" data-i18n="pay.record">Payment Record</div>
-    <div class="slip-upload-card" id="slip-upload-card">
+    <div class="slip-upload-card" id="slip-upload-card" onclick="openSlipPicker(event)">
       <div class="slip-upload-body">
         <div class="ut-title" data-i18n="pay.uploadTitle">Upload slip or receipt</div>
         <div class="ut-sub" id="slip-sub">Photo of transfer confirmation or cash receipt</div>
       </div>
-      <div class="slip-preview-frame" onclick="openPhotoCapture('slip-input')">
+      <div class="slip-preview-frame">
         <img id="slip-preview" src="" style="display:none" alt="">
         <svg class="slip-cam-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </div>
       <input type="file" id="slip-input" accept="image/*" onchange="handleSlipUpload(this)">
-    </div>
-    <div class="photo-actions slip-actions">
-      <button class="photo-action-btn camera" type="button" onclick="openCameraCapture('slip-input','slip-preview')"><span data-i18n="pay.camera">Camera</span></button>
-      <button class="photo-action-btn upload" type="button" onclick="openPhotoCapture('slip-input')"><span data-i18n="pay.upload">Upload</span></button>
     </div>
   </div>
   <div class="foot">

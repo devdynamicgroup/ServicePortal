@@ -125,7 +125,7 @@ function renderJobs(filter) {
       <div class="ac-addr">${PIN_SVG}<span>${j.addr}</span></div>
       <div class="ac-meta">
         <span>${j.meta}${j.contact ? '<br>' + t('dash.contact') + ': ' + j.contact : ''}</span>
-        <button class="ac-menu" type="button" onclick="event.stopPropagation();showApptMenu(${j.id})">${MENU_SVG}</button>
+        <button class="ac-cancel" type="button" onclick="event.stopPropagation();cancelCase(${j.id})">${t('dash.cancelCase')}</button>
       </div>
     </div>`).join('');
 }
@@ -137,7 +137,6 @@ function showApptMenu(id) {
   const actions = [
     { label:'Start assessment', fn:()=>{ closeActionSheet(); openJob(id); } },
     { label:'Reschedule', fn:()=>{ closeActionSheet(); showToast('Reschedule request sent'); } },
-    { label:'Cancel case', fn:()=>{ closeActionSheet(); cancelCase(id); }, danger:true },
     { label:'Contact', fn:()=>{ closeActionSheet(); showToast('Calling '+job.name); } },
     { label:'Pre-assessment form', fn:()=>{ closeActionSheet(); openJob(id); goScreen('s-preassess'); } }
   ];

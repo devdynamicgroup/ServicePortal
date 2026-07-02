@@ -62,12 +62,26 @@ function completePreassess() {
   renderJobSteps();
   goScreen('s-job');
 }
+function updatePackageVisibility() {
+  const isFull = S.pkg === 'full';
+  document.getElementById('pkg-ess')?.classList.toggle('hidden', isFull);
+  document.getElementById('pay-toggle-ess')?.classList.toggle('hidden', isFull);
+  document.querySelectorAll('.pkg-row').forEach(row => {
+    row.classList.toggle('pkg-row-single', isFull);
+  });
+  if (isFull) {
+    document.getElementById('pkg-full')?.classList.add('sel');
+    document.getElementById('pay-toggle-full')?.classList.add('sel');
+  }
+}
+
 function selPkg(p) {
   S.pkg = p;
   if (S.activeJob) S.activeJob.pkg = p;
   document.getElementById('pkg-ess')?.classList.toggle('sel', p === 'essential');
   document.getElementById('pkg-full')?.classList.toggle('sel', p === 'full');
   syncPkgSheetSelection();
+  updatePackageVisibility();
   if (document.getElementById('s-payment') || S.screen === 's-payment') updatePaymentScreen();
   updateAssessScreen();
 }
@@ -76,6 +90,7 @@ function updatePayToggle() {
   const full = document.getElementById('pay-toggle-full');
   if(ess) ess.classList.toggle('sel', S.pkg==='essential');
   if(full) full.classList.toggle('sel', S.pkg==='full');
+  updatePackageVisibility();
 }
 function showPkgSheet() {
   document.getElementById('pkg-overlay').classList.remove('hidden');

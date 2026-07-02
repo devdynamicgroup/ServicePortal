@@ -279,7 +279,7 @@ function setPhotoPreview(previewId, src, options = {}) {
     slipCard.classList.add('has-photo');
     slipCard.querySelector('.slip-cam-icon')?.classList.add('hidden');
     const sub = slipCard.querySelector('#slip-sub');
-    if (sub) sub.textContent = S.paymentSlipSource || 'Slip attached';
+    if (sub) sub.textContent = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
   }
   const taskKey = PHOTO_ID_TASKS[previewId];
   if (taskKey) {
@@ -294,14 +294,14 @@ function handleSlipUpload(input) {
   if (!file) return;
   const url = URL.createObjectURL(file);
   S.paymentSlipPhoto = url;
-  S.paymentSlipSource = file.name ? `Uploaded: ${file.name}` : 'Slip uploaded';
+  S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
   setPhotoPreview('slip-preview', url);
-  showToast('Slip uploaded');
+  showToast(typeof t === 'function' ? t('pay.uploaded') : 'Photo attached');
 }
 
 function handleSlipCapture(dataUrl) {
   S.paymentSlipPhoto = dataUrl;
-  S.paymentSlipSource = 'Captured from camera';
+  S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
   setPhotoPreview('slip-preview', dataUrl);
-  showToast('Slip captured');
+  showToast(typeof t === 'function' ? t('pay.uploaded') : 'Photo attached');
 }

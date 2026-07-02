@@ -143,7 +143,7 @@ function restoreSlipPreview() {
 
   if (S.paymentSlipPhoto) {
     if (typeof setPhotoPreview === 'function') setPhotoPreview('slip-preview', S.paymentSlipPhoto);
-    if (sub) sub.textContent = S.paymentSlipSource || 'Slip attached';
+    if (sub) sub.textContent = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
     return;
   }
 
@@ -197,6 +197,7 @@ function loadJobState(job) {
   if (typeof updatePreassessmentOptionText === 'function') updatePreassessmentOptionText();
   if (typeof updatePreassessmentCompletionState === 'function') updatePreassessmentCompletionState();
   if (typeof selPkg === 'function') selPkg(S.pkg);
+  else if (typeof updatePackageVisibility === 'function') updatePackageVisibility();
   if (typeof setRating === 'function') setRating(S.rating);
   if (typeof selPayMethod === 'function') selPayMethod(S.payMethod);
   restoreSlipPreview();
