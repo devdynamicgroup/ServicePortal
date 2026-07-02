@@ -166,12 +166,20 @@ function openPhotoStudio(inputId, previewId) {
   openCameraCapture(inputId, previewId || null);
 }
 
+function readImageFile(file, onLoad) {
+  const reader = new FileReader();
+  reader.onload = () => onLoad(reader.result);
+  reader.readAsDataURL(file);
+}
+
 function handlePhotoFile(input, previewId) {
   const file = input.files?.[0];
   if (!file || !previewId) return;
-  setPhotoPreview(previewId, URL.createObjectURL(file));
-  closeCameraCapture();
-  showToast('Photo uploaded');
+  readImageFile(file, src => {
+    setPhotoPreview(previewId, src);
+    closeCameraCapture();
+    showToast('Photo uploaded');
+  });
 }
 
 function openPhotoCapture(inputId) {
@@ -299,8 +307,10 @@ document.addEventListener('change', event => {
 function previewPhoto(input, previewId) {
   const file = input.files[0];
   if (!file) return;
-  setPhotoPreview(previewId, URL.createObjectURL(file));
-  showToast('Photo uploaded');
+  readImageFile(file, src => {
+    setPhotoPreview(previewId, src);
+    showToast('Photo uploaded');
+  });
 }
 
 function setPhotoPreview(previewId, src, options = {}) {
@@ -335,12 +345,13 @@ function setPhotoPreview(previewId, src, options = {}) {
 function handleSlipUpload(input) {
   const file = input.files?.[0];
   if (!file) return;
-  const url = URL.createObjectURL(file);
-  S.paymentSlipPhoto = url;
-  S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
-  setPhotoPreview('slip-preview', url);
-  closeCameraCapture();
-  showToast(typeof t === 'function' ? t('pay.uploaded') : 'Photo attached');
+  readImageFile(file, src => {
+    S.paymentSlipPhoto = src;
+    S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
+    setPhotoPreview('slip-preview', src);
+    closeCameraCapture();
+    showToast(typeof t === 'function' ? t('pay.uploaded') : 'Photo attached');
+  });
 }
 
 function handleSlipCapture(dataUrl) {

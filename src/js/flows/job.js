@@ -66,11 +66,9 @@ function completePreassess() {
 }
 function updatePackageVisibility() {
   const isFull = S.pkg === 'full';
-  document.getElementById('pkg-ess')?.classList.toggle('hidden', isFull);
-  document.getElementById('pay-toggle-ess')?.classList.toggle('hidden', isFull);
-  document.querySelectorAll('.pkg-row').forEach(row => {
-    row.classList.toggle('pkg-row-single', isFull);
-  });
+  document.getElementById('pkg-ess')?.classList.remove('hidden');
+  document.getElementById('pay-toggle-ess')?.classList.remove('hidden');
+  document.querySelectorAll('.pkg-row').forEach(row => row.classList.remove('pkg-row-single'));
   if (isFull) {
     document.getElementById('pkg-full')?.classList.add('sel');
     document.getElementById('pay-toggle-full')?.classList.add('sel');
