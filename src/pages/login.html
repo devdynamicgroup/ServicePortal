@@ -1,124 +1,41 @@
-
-<!-- ══════════════════════════════════════
-     S0 · LOGIN
-══════════════════════════════════════ -->
-<div id="s-login" class="screen active">
-  <div class="login-screen">
-    <div class="login-topbar">
-      <button class="login-signup-pill" id="login-signup-pill" type="button" onclick="showSignupPanel()" data-i18n="login.signup">Sign up</button>
-      <div class="login-lang">
-        <button class="lang-btn sel" type="button" onclick="setLanguage('en')">En</button>
-        <button class="lang-btn" type="button" onclick="setLanguage('th')">Th</button>
-      </div>
-    </div>
-
-    <div class="login-body">
-      <div class="login-brand-block">
-        <img class="login-logo-img" src="https://www.figma.com/api/mcp/asset/07f522fa-90f9-426a-a58a-28ffb301712e" alt="Water Motion" width="81" height="32">
-        <div>
-          <h1 class="login-headline" data-i18n="login.headline">Know your home's water.</h1>
-          <p class="login-subtitle" id="login-subtitle" data-i18n="login.subtitle">Log in to your account</p>
-        </div>
-        <span class="login-auth-badge hidden" id="login-auth-badge" data-i18n="login.authBadge">Secure sign-in</span>
-      </div>
-
-      <div class="login-card">
-        <div class="form-error hidden" id="login-error"></div>
-
-        <div class="login-panel" data-panel="signin">
-          <div class="login-fields">
-            <div class="field">
-              <label data-i18n="login.email">Email</label>
-              <input class="inp" id="l-user" type="email" inputmode="email" autocomplete="username" data-i18n-placeholder="login.emailPh" placeholder="you@watermotion.co" value="kittichai@watermotion.local">
-            </div>
-            <div class="field">
-              <label data-i18n="login.password">Password</label>
-              <input class="inp" id="l-pass" type="password" autocomplete="current-password" data-i18n-placeholder="login.passPh" placeholder="Enter your password" value="password">
-            </div>
-          </div>
-          <div class="login-cta">
-            <button class="btn btn-primary btn-login" type="button" onclick="doLogin()" data-i18n="login.signin">Sign In</button>
-            <button class="forgot" type="button" onclick="showForgotPanel()" data-i18n="login.forgot">Forgot Password?</button>
-          </div>
-        </div>
-
-        <div class="login-panel hidden" data-panel="signup">
-          <button class="login-back" type="button" onclick="showSignInPanel()" aria-label="Back">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            <span data-i18n="login.backSignIn">Back to sign in</span>
-          </button>
-          <h2 class="login-panel-title" data-i18n="login.signupTitle">Create your account</h2>
-          <p class="login-panel-sub" data-i18n="login.signupSub">Register to access appointments and field tools.</p>
-          <div class="login-fields">
-            <div class="field">
-              <label data-i18n="login.name">Full name</label>
-              <input class="inp" id="l-reg-name" type="text" autocomplete="name" data-i18n-placeholder="login.namePh" placeholder="Your name">
-            </div>
-            <div class="field">
-              <label data-i18n="login.email">Email</label>
-              <input class="inp" id="l-reg-email" type="email" inputmode="email" autocomplete="email" data-i18n-placeholder="login.emailPh" placeholder="you@watermotion.co">
-            </div>
-            <div class="field">
-              <label data-i18n="login.password">Password</label>
-              <input class="inp" id="l-reg-pass" type="password" autocomplete="new-password" data-i18n-placeholder="login.newPassPh" placeholder="At least 8 characters">
-            </div>
-            <div class="field">
-              <label data-i18n="login.confirmPass">Confirm password</label>
-              <input class="inp" id="l-reg-pass-confirm" type="password" autocomplete="new-password" data-i18n-placeholder="login.confirmPassPh" placeholder="Re-enter password">
-            </div>
-          </div>
-          <div class="login-cta">
-            <button class="btn btn-primary btn-login" type="button" onclick="doSignUp()" data-i18n="login.createAccount">Create account</button>
-            <p class="login-switch">
-              <span data-i18n="login.haveAccount">Already have an account?</span>
-              <button class="login-switch-link" type="button" onclick="showSignInPanel()" data-i18n="login.signInLink">Sign in</button>
-            </p>
-          </div>
-        </div>
-
-        <div class="login-panel hidden" data-panel="forgot">
-          <button class="login-back" type="button" onclick="showSignInPanel()" aria-label="Back">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            <span data-i18n="login.backSignIn">Back to sign in</span>
-          </button>
-          <h2 class="login-panel-title" data-i18n="login.forgotTitle">Reset your password</h2>
-          <p class="login-panel-sub" data-i18n="login.forgotSub">Enter your email and we will send you a reset link.</p>
-          <div class="login-fields">
-            <div class="field">
-              <label data-i18n="login.email">Email</label>
-              <input class="inp" id="l-forgot-email" type="email" inputmode="email" autocomplete="email" data-i18n-placeholder="login.emailPh" placeholder="you@watermotion.co">
-            </div>
-          </div>
-          <div class="login-cta">
-            <button class="btn btn-primary btn-login" type="button" onclick="requestPasswordReset()" data-i18n="login.sendReset">Send reset link</button>
-          </div>
-        </div>
-
-        <div class="login-panel hidden" data-panel="reset">
-          <h2 class="login-panel-title" data-i18n="login.resetTitle">Set a new password</h2>
-          <p class="login-panel-sub" data-i18n="login.resetSub">Choose a strong password with at least 8 characters.</p>
-          <div class="login-fields">
-            <div class="field">
-              <label data-i18n="login.newPass">New password</label>
-              <input class="inp" id="l-new-pass" type="password" autocomplete="new-password" data-i18n-placeholder="login.newPassPh" placeholder="At least 8 characters">
-            </div>
-            <div class="field">
-              <label data-i18n="login.confirmPass">Confirm password</label>
-              <input class="inp" id="l-new-pass-confirm" type="password" autocomplete="new-password" data-i18n-placeholder="login.confirmPassPh" placeholder="Re-enter password">
-            </div>
-          </div>
-          <div class="login-cta">
-            <button class="btn btn-primary btn-login" type="button" onclick="confirmPasswordReset()" data-i18n="login.savePass">Save password</button>
-          </div>
-        </div>
-      </div>
-
-      <p class="login-mode-hint" id="login-mode-hint" data-i18n="login.demoHint">Demo mode: use the pre-filled credentials when Supabase is not configured.</p>
-    </div>
-
-    <footer class="login-footer"><span>© 2026 Water Motion</span><span>version 1.0.0</span></footer>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════
-     S1 · APPOINTMENTS DASHBOARD
+<!-- Login -->
+<div id="s-login" class="screen active">
+  <div class="login-screen">
+    <div class="login-topbar">
+      <div class="login-lang">
+        <button class="lang-btn sel" type="button" onclick="setLanguage('en')">En</button>
+        <button class="lang-btn" type="button" onclick="setLanguage('th')">Th</button>
+      </div>
+    </div>
+
+    <div class="login-body">
+      <div class="login-brand-block">
+        <img class="login-logo-img" src="https://www.figma.com/api/mcp/asset/07f522fa-90f9-426a-a58a-28ffb301712e" alt="Water Motion" width="81" height="32">
+        <div>
+          <h1 class="login-headline" data-i18n="login.headline">Know your home's water.</h1>
+          <p class="login-subtitle" data-i18n="login.subtitle">Log in to your account</p>
+        </div>
+      </div>
+
+      <div class="login-card">
+        <div class="form-error hidden" id="login-error"></div>
+        <div class="login-fields">
+          <div class="field">
+            <label data-i18n="login.username">Username</label>
+            <input class="inp" id="l-user" type="text" autocomplete="username" data-i18n-placeholder="login.userPh" placeholder="Enter your username" value="kittichai">
+          </div>
+          <div class="field">
+            <label data-i18n="login.password">Password</label>
+            <input class="inp" id="l-pass" type="password" autocomplete="current-password" data-i18n-placeholder="login.passPh" placeholder="Enter your password" value="password">
+          </div>
+        </div>
+        <div class="login-cta">
+          <button class="btn btn-primary btn-login" type="button" onclick="doLogin()" data-i18n="login.signin">Sign In</button>
+          <button class="forgot" type="button" onclick="forgotPassword()" data-i18n="login.forgot">Forgot Password?</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="login-footer"><span>© 2026 Water Motion</span><span>version 1.0.0</span></footer>
+  </div>
+</div>

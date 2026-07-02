@@ -12,3 +12,7 @@ services:
         value: 0.0.0.0
       - key: NODE_VERSION
         value: 22
+      - key: IT_SUPPORT_CONTACT
+        value: IT Support: 02-000-0000
+      - key: IT_SUPPORT_LINE
+        value: '@watermotion-it'

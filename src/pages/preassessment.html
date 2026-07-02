@@ -136,11 +136,12 @@
     </div>
 
     <label class="consent-label">
-      <input type="checkbox" id="ci-consent" onchange="updatePreassessBtn()">
-      <span class="cl-text" data-i18n="preassess.consent">By completing this form, you agree to Water Motion's Terms &amp; Conditions and consent to an on-site assessment at your property. Data may be used for city-wide benchmarking.</span>
+      <input type="checkbox" id="ci-consent">
+      <span class="cl-text" data-i18n="preassess.consent">I consent to the on-site assessment and Water Motion Terms &amp; Conditions.</span>
     </label>
   </div>
   <div id="property-suggest-bar" class="property-suggest-bar hidden"></div>
+  <p class="preassess-blocker hidden" id="preassess-blocker"></p>
   <div class="foot">
     <button class="btn btn-secondary btn-draft" type="button" onclick="saveDraft()" data-i18n="common.saveDraft">Save Draft</button>
     <button class="btn btn-primary" id="btn-preassess-done" disabled type="button" onclick="completePreassess()" data-i18n="common.complete">Complete</button>

@@ -12,6 +12,7 @@ const TASK_PHOTO_IDS = {
   meter: 'meter-photo-preview',
   chlorine: 'cl-photo-preview'
 };
+const PHOTO_ID_TASKS = Object.fromEntries(Object.entries(TASK_PHOTO_IDS).map(([key, id]) => [id, key]));
 const CHECK_SVG = '<svg viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>';
 
 function ensureTapData() {
@@ -45,6 +46,23 @@ function switchTap(i) {
   S.activeTap = i;
   renderTapTabs();
   renderAssessList();
+}
+
+function restoreTaskPhoto(previewId) {
+  ensureTapData();
+  const key = PHOTO_ID_TASKS[previewId];
+  const photo = key ? S.tapData[S.activeTap]?.photos?.[key] : null;
+  if (photo) setPhotoPreview(previewId, photo, { silent: true });
+}
+
+function restoreCurrentPhotoScreen(screenId) {
+  const map = {
+    's-photo': 'tap-photo-preview',
+    's-visual': 'vis-photo-preview',
+    's-meter': 'meter-photo-preview',
+    's-chlorine': 'cl-photo-preview'
+  };
+  if (map[screenId]) restoreTaskPhoto(map[screenId]);
 }
 
 function addTap() {
@@ -243,7 +261,7 @@ function previewPhoto(input, previewId) {
   showToast('Photo uploaded');
 }
 
-function setPhotoPreview(previewId, src) {
+function setPhotoPreview(previewId, src, options = {}) {
   const img = document.getElementById(previewId);
   if (!img) return;
   img.src = src;
@@ -262,6 +280,12 @@ function setPhotoPreview(previewId, src) {
     slipCard.querySelector('.slip-cam-icon')?.classList.add('hidden');
     const sub = slipCard.querySelector('#slip-sub');
     if (sub) sub.textContent = S.paymentSlipSource || 'Slip attached';
+  }
+  const taskKey = PHOTO_ID_TASKS[previewId];
+  if (taskKey) {
+    ensureTapData();
+    S.tapData[S.activeTap].photos[taskKey] = src;
+    if (!options.silent) saveActiveJobState?.();
   }
 }
 

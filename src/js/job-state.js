@@ -44,16 +44,24 @@ function readField(id) {
 
 function writeField(id, value) {
   const el = document.getElementById(id);
-  if (!el || value === undefined) return;
-  if (el.type === 'checkbox') el.checked = !!value;
-  else {
-    el.value = value;
-    if (el.tagName === 'SELECT') {
-      [...el.options].forEach(option => {
-        option.selected = option.value === value || option.textContent === value;
-      });
-    }
+  if (!el) return;
+  const empty = value === undefined || value === null || value === '';
+  if (el.type === 'checkbox') {
+    el.checked = empty ? false : !!value;
+    return;
   }
+  if (el.tagName === 'SELECT') {
+    const next = empty ? '' : String(value);
+    let matched = false;
+    [...el.options].forEach(option => {
+      const hit = option.value === next || (!option.value && !next) || option.textContent === next;
+      option.selected = hit;
+      if (hit) matched = true;
+    });
+    el.value = matched ? (el.options[el.selectedIndex]?.value ?? next) : '';
+    return;
+  }
+  el.value = empty ? '' : value;
 }
 
 function readMsValues(wrapId) {
@@ -92,8 +100,7 @@ function syncJobMetaFromDraft(job, draft) {
   if (contact && draft.owner !== 'yes') job.contact = contact;
   else delete job.contact;
 
-  const started = Object.values(draft.stepsDone).some(Boolean);
-  if (started && job.status === 'new') job.status = 'in_progress';
+  if (S.activeJob?.id === job.id && job.status !== 'done') job.status = 'in_progress';
 }
 
 function saveActiveJobState() {
@@ -182,11 +189,14 @@ function loadJobState(job) {
   if (typeof setProvinceValue === 'function') {
     setProvinceValue(draft.fields['ci-city'] || 'Bangkok');
   }
+  if (typeof setPostalForProvince === 'function') {
+    const city = draft.fields['ci-city'] || 'Bangkok';
+    if (!draft.fields['ci-postal']) setPostalForProvince(city, true);
+  }
   if (typeof updateProvinceOptions === 'function') updateProvinceOptions();
   if (typeof updatePreassessmentOptionText === 'function') updatePreassessmentOptionText();
-
+  if (typeof updatePreassessmentCompletionState === 'function') updatePreassessmentCompletionState();
   if (typeof selPkg === 'function') selPkg(S.pkg);
-  if (typeof updatePreassessBtn === 'function') updatePreassessBtn();
   if (typeof setRating === 'function') setRating(S.rating);
   if (typeof selPayMethod === 'function') selPayMethod(S.payMethod);
   restoreSlipPreview();

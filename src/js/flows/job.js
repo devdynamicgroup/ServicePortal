@@ -2,6 +2,10 @@ function openJob(id) {
   if (S.activeJob && S.activeJob.id !== id) saveActiveJobState();
   S.activeJob = JOBS.find(j => j.id === id);
   if (!S.activeJob) return;
+  JOBS.forEach(job => {
+    if (job.id !== id && job.status === 'in_progress') job.status = 'new';
+  });
+  if (S.activeJob.status !== 'done') S.activeJob.status = 'in_progress';
   loadJobState(S.activeJob);
   updateJobHeader(S.activeJob);
   renderJobSteps();
@@ -18,9 +22,11 @@ function renderJobSteps() {
     { id: 'preassess', title: t('job.step.preassess.title'), sub: t('job.step.preassess.sub'), screen: 's-preassess' },
     { id: 'assess', title: t('job.step.assess.title'), sub: t('job.step.assess.sub'), screen: 's-assess' },
     { id: 'score', title: t('job.step.score.title'), sub: t('job.step.score.sub'), screen: 's-score' },
-    { id: 'payment', title: t('job.step.payment.title'), sub: t('job.step.payment.sub'), screen: 's-payment' },
     { id: 'feedback', title: t('job.step.feedback.title'), sub: t('job.step.feedback.sub'), screen: 's-feedback' },
   ];
+  if (S.pkg === 'full') {
+    steps.splice(3, 0, { id: 'payment', title: t('job.step.payment.title'), sub: t('job.step.payment.sub'), screen: 's-payment' });
+  }
   container.innerHTML = steps.map(s => `
     <div class="step-card ${S.stepsDone[s.id]?'done':''}" onclick="goScreen('${s.screen}')">
       <div class="step-icon-circle"><img src="${STEP_ICONS[s.id]}" alt=""></div>
@@ -36,16 +42,18 @@ function renderJobSteps() {
 /* ── Pre-assessment ──────────────────────────── */
 function updatePreassessBtn() {
   if (typeof validatePreassessment === 'function') {
-    validatePreassessment({ showErrors: false });
-    return;
+    validatePreassessment({ showErrors: true });
   }
-  document.getElementById('btn-preassess-done').disabled = !document.getElementById('ci-consent').checked;
 }
 function completePreassess() {
   if (typeof validatePreassessment === 'function') {
     const result = validatePreassessment({ showErrors: true });
     if (!result.valid) {
-      showToast(result.errors[0] || 'Please complete required fields');
+      const first = result.errors[0] || t('preassess.err.fixThese');
+      showToast(first);
+      const firstInvalid = result.invalidIds?.values().next().value;
+      const target = firstInvalid && document.getElementById(firstInvalid);
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
   }

@@ -43,11 +43,13 @@ window.goScreen = function(id) {
   _origGoScreen(id);
   try {
     if (id === 's-assess') renderAssessList();
+    if (typeof restoreCurrentPhotoScreen === 'function') restoreCurrentPhotoScreen(id);
     if (id === 's-score') calcAndShowScore();
     if (id === 's-payment') updatePaymentScreen();
     if (id === 's-preassess') {
       if (typeof updateProvinceOptions === 'function') updateProvinceOptions();
       if (typeof updatePreassessmentOptionText === 'function') updatePreassessmentOptionText();
+      if (typeof updatePreassessmentCompletionState === 'function') updatePreassessmentCompletionState();
     }
   } catch (error) {
     console.error('Screen hook error:', id, error);

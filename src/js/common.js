@@ -8,7 +8,9 @@ function saveDraft() {
 }
 function completeJob() {
   if (S.activeJob) saveActiveJobState();
-  const required = ['preassess','assess','score','payment','feedback'];
+  const required = S.pkg === 'full'
+    ? ['preassess','assess','score','payment','feedback']
+    : ['preassess','assess','score','feedback'];
   const all = required.every(k => S.stepsDone[k]);
   if(!all){ showToast('Complete all steps first'); return; }
   if (S.activeJob) {

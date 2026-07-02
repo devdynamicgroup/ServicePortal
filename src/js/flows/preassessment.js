@@ -1,5 +1,33 @@
 function sendClientLink() {
-  showToast(S.lang === 'th' ? 'ส่งลิงก์ให้ลูกค้าทาง LINE แล้ว' : 'Link sent to client via LINE');
+  const jobId = S.activeJob?.id || 'new';
+  const link = `${window.location.origin}${window.location.pathname}?preassessment=${jobId}`;
+  const title = 'Send pre-assessment link';
+  const actions = [
+    {
+      label: 'Send to LINE',
+      fn: async () => {
+        closeActionSheet();
+        if (navigator.share) {
+          await navigator.share({ title: 'Water Motion pre-assessment', text: 'Please complete this form before the visit.', url: link }).catch(() => {});
+        } else {
+          window.open(`https://line.me/R/msg/text/?${encodeURIComponent(link)}`, '_blank');
+        }
+        showToast('Ready to send via LINE');
+      }
+    },
+    {
+      label: 'Copy link',
+      fn: async () => {
+        closeActionSheet();
+        await navigator.clipboard?.writeText(link).catch(() => {});
+        showToast('Link copied');
+      }
+    }
+  ];
+  document.getElementById('action-sheet-title').textContent = title;
+  document.getElementById('action-sheet-actions').innerHTML = actions.map(a => `<button class="modal-action" type="button">${a.label}</button>`).join('');
+  document.getElementById('action-sheet-actions').querySelectorAll('.modal-action').forEach((btn, i) => btn.onclick = actions[i].fn);
+  document.getElementById('action-sheet-overlay').classList.remove('hidden');
 }
 
 let propertySuggestion = null;
@@ -37,10 +65,12 @@ function getFieldValue(id) {
   const el = document.getElementById(id);
   if (!el) return '';
   if (el.type === 'checkbox') return el.checked;
-  if (el.tagName === 'SELECT') return (el.value || '').trim();
-  if (id === 'ci-city') {
-    return (el.value || S.activeJob?.draft?.fields?.[id] || 'Bangkok').trim();
+  if (el.tagName === 'SELECT') {
+    const selected = [...el.options].find(option => option.selected);
+    return (el.value || selected?.value || selected?.textContent || S.activeJob?.draft?.fields?.[id] || '').trim();
   }
+  if (id === 'ci-phone' || id === 'ci-contact-ph') return digitsOnly(el.value);
+  if (id === 'ci-city') return (el.value || 'Bangkok').trim();
   return (el.value || S.activeJob?.draft?.fields?.[id] || '').trim();
 }
 
@@ -75,7 +105,9 @@ function setFieldInvalid(id, invalid) {
   const el = document.getElementById(id);
   if (!el) return;
   el.classList.toggle('invalid', invalid);
-  const wrap = el.closest('.field') || el.closest('.province-picker')?.closest('.field');
+  const wrap = el.closest('.field')
+    || el.closest('.province-picker')?.closest('.field')
+    || el.closest('.consent-label');
   wrap?.classList.toggle('field-invalid', invalid);
 }
 
@@ -93,10 +125,12 @@ function validatePhoneField(id, errors) {
 }
 
 function validateLineId(value) {
-  return /^[A-Za-z0-9._-]{4,30}$/.test(value);
+  const text = (value || '').trim();
+  if (!text) return true;
+  return text.length <= 50;
 }
 
-function validatePreassessment({ showErrors = false } = {}) {
+function validatePreassessment({ showErrors = true } = {}) {
   const errors = [];
   const invalidIds = new Set();
 
@@ -112,7 +146,7 @@ function validatePreassessment({ showErrors = false } = {}) {
 
   const lineId = getFieldValue('ci-line');
   if (lineId && !validateLineId(lineId)) {
-    errors.push(typeof t === 'function' ? t('preassess.err.lineId') : 'LINE ID can use 4-30 letters, numbers, dot, underscore, or dash');
+    errors.push(typeof t === 'function' ? t('preassess.err.lineIdLong') : 'LINE ID is too long');
     invalidIds.add('ci-line');
   }
 
@@ -149,17 +183,26 @@ function validatePreassessment({ showErrors = false } = {}) {
     invalidIds.add('ci-consent');
   }
 
-  [...PREASSESS_REQUIRED_FIELDS, 'ci-email', 'ci-line', 'ci-postal', 'ci-contact', 'ci-contact-ph', 'ci-consent'].forEach(id => {
-    setFieldInvalid(id, invalidIds.has(id) && showErrors);
-  });
+  const trackedIds = [...PREASSESS_REQUIRED_FIELDS, 'ci-phone', 'ci-email', 'ci-line', 'ci-postal', 'ci-contact', 'ci-contact-ph', 'ci-consent'];
+  trackedIds.forEach(id => setFieldInvalid(id, showErrors && invalidIds.has(id)));
 
   const btn = document.getElementById('btn-preassess-done');
-  if (btn) btn.disabled = errors.length > 0;
-  return { valid: errors.length === 0, errors };
+  const blocker = document.getElementById('preassess-blocker');
+  if (btn) btn.disabled = false;
+  if (blocker) {
+    if (errors.length && showErrors) {
+      blocker.innerHTML = `<strong>${t('preassess.err.fixThese')}</strong>${errors.map(msg => `<div>${msg}</div>`).join('')}`;
+      blocker.classList.remove('hidden');
+    } else {
+      blocker.innerHTML = '';
+      blocker.classList.add('hidden');
+    }
+  }
+  return { valid: errors.length === 0, errors, invalidIds };
 }
 
 function updatePreassessmentCompletionState() {
-  validatePreassessment({ showErrors: false });
+  validatePreassessment({ showErrors: true });
 }
 
 function initPreassessmentValidation() {
@@ -181,6 +224,8 @@ function initPreassessmentValidation() {
   document.querySelectorAll('#owner-radios input').forEach(el => {
     el.addEventListener('change', updatePreassessmentCompletionState);
   });
+  const consent = document.getElementById('ci-consent');
+  if (consent) consent.addEventListener('change', updatePreassessmentCompletionState);
   updatePreassessmentCompletionState();
 }
 
@@ -263,6 +308,12 @@ const THAI_PROVINCES = [
   ['Yala', 'ยะลา'],
   ['Yasothon', 'ยโสธร']
 ].map(([en, th]) => ({ en, th }));
+
+const SERVICE_PROVINCES = ['Bangkok', 'Nonthaburi', 'Pathum Thani', 'Samut Prakan', 'Samut Sakhon', 'Nakhon Pathom'];
+
+function serviceProvinces() {
+  return THAI_PROVINCES.filter(p => SERVICE_PROVINCES.includes(p.en));
+}
 
 const PROPERTY_SUGGESTIONS = [
   { label:'12 Sukhumvit Soi 11, Wattana, Bangkok 10110', code:'10110', city:'Bangkok', propertyType:'Single House', propertyAge:'5-10 yrs' },
@@ -429,7 +480,8 @@ function provinceName(en) {
 function setProvinceValue(value) {
   const el = document.getElementById('ci-city');
   if (!el) return;
-  const province = THAI_PROVINCES.find(p => p.en === value || p.th === value) || THAI_PROVINCES[0];
+  const allowed = serviceProvinces();
+  const province = allowed.find(p => p.en === value || p.th === value) || allowed[0];
   el.value = province.en;
   document.getElementById('province-display')?.replaceChildren(document.createTextNode(provinceName(province.en)));
 }
@@ -448,7 +500,7 @@ function updateProvinceOptions() {
   const current = el.value || 'Bangkok';
   setProvinceValue(current);
   if (!menu) return;
-  menu.innerHTML = THAI_PROVINCES.map(p => `
+  menu.innerHTML = serviceProvinces().map(p => `
     <button class="province-option${p.en === el.value ? ' sel' : ''}" type="button" onclick="selectProvince('${p.en.replace(/'/g, '\\\'')}')">
       <span class="province-option-main">${S.lang === 'th' ? p.th : p.en}</span>
       <span class="province-option-sub">${DEFAULT_POSTAL_CODES[p.en] || ''}</span>
@@ -471,6 +523,7 @@ function closeProvincePicker() {
 }
 
 function selectProvince(provinceEn) {
+  if (!SERVICE_PROVINCES.includes(provinceEn)) provinceEn = 'Bangkok';
   setProvinceValue(provinceEn);
   setPostalForProvince(provinceEn, true);
   closeProvincePicker();
@@ -541,24 +594,8 @@ function renderPropertySuggestion(match) {
   if (!bar) return;
 
   propertySuggestion = match || null;
-  if (!match) {
-    bar.classList.add('hidden');
-    bar.innerHTML = '';
-    return;
-  }
-
-  const label = S.lang === 'th' && match.labelTh ? match.labelTh : match.label;
-  const area = label.replace(match.code, '').replace(/^[\s,./-]+/, '').trim();
-  const meta = [provinceName(match.city), match.propertyType, match.propertyAge].filter(Boolean).join(' - ');
-  bar.innerHTML = `
-    <div class="ps-copy">
-      <div class="ps-title">${S.lang === 'th' ? 'แนะนำข้อมูลสถานที่' : 'Suggested property details'}</div>
-      <div class="ps-sub">${match.code} ${area}${meta ? ' - ' + meta : ''}</div>
-    </div>
-    <button class="ps-dismiss" type="button" onclick="dismissPropertySuggestion()" aria-label="Dismiss">x</button>
-    <button class="ps-use" type="button" onclick="applyPropertySuggestion()">${S.lang === 'th' ? 'ใช้ข้อมูลนี้' : 'Use'}</button>
-  `;
-  bar.classList.remove('hidden');
+  bar.classList.add('hidden');
+  bar.innerHTML = '';
 }
 
 function suggestProperty() {
@@ -603,6 +640,7 @@ function selectPostal(label) {
   document.getElementById('ci-postal').value = code;
   document.getElementById('ci-addr').value = label;
   if (match?.city) setProvinceValue(match.city);
+  else setProvinceValue('Bangkok');
   document.getElementById('postal-dropdown').classList.add('hidden');
   renderPropertySuggestion(null);
   updatePreassessmentCompletionState();

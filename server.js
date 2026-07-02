@@ -5,6 +5,10 @@ const path = require('path');
 const root = __dirname;
 const port = Number(process.env.PORT) || 3000;
 const bindHost = process.env.BIND_HOST || '0.0.0.0';
+const defaultUsers = [
+  { username: 'kittichai', password: 'password', name: 'Kittichai T.', role: 'Water Quality Specialist' },
+  { username: 'admin', password: 'admin123', name: 'Admin', role: 'Operations' }
+];
 
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -28,6 +32,84 @@ function send(res, status, body, type = 'text/plain; charset=utf-8') {
   res.end(body);
 }
 
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > 1024 * 1024) {
+        req.destroy();
+        reject(new Error('Request body too large'));
+      }
+    });
+    req.on('end', () => resolve(body));
+    req.on('error', reject);
+  });
+}
+
+function getAuthUsers() {
+  try {
+    const parsed = JSON.parse(process.env.AUTH_USERS_JSON || '[]');
+    if (Array.isArray(parsed) && parsed.length) return parsed;
+  } catch (error) {
+    console.warn('Invalid AUTH_USERS_JSON', error.message);
+  }
+  return defaultUsers;
+}
+
+async function handleApiRequest(req, res) {
+  const urlPath = req.url.split('?')[0];
+
+  if (urlPath === '/api/auth-config' && req.method === 'GET') {
+    send(res, 200, JSON.stringify({
+      provider: 'fixed',
+      forgotPasswordMode: 'it-contact',
+      itContact: process.env.IT_SUPPORT_CONTACT || 'IT Support: 02-000-0000',
+      itLine: process.env.IT_SUPPORT_LINE || '@watermotion-it'
+    }), 'application/json; charset=utf-8');
+    return true;
+  }
+
+  if (urlPath === '/api/auth/login' && req.method === 'POST') {
+    try {
+      const payload = JSON.parse(await readBody(req) || '{}');
+      const username = String(payload.username || '').trim().toLowerCase();
+      const password = String(payload.password || '');
+      const user = getAuthUsers().find(item =>
+        String(item.username || '').toLowerCase() === username &&
+        String(item.password || '') === password
+      );
+
+      if (!user) {
+        send(res, 401, JSON.stringify({ error: 'Username or password is incorrect' }), 'application/json; charset=utf-8');
+        return true;
+      }
+
+      send(res, 200, JSON.stringify({
+        user: {
+          username: user.username,
+          name: user.name || user.username,
+          role: user.role || 'Field Specialist'
+        }
+      }), 'application/json; charset=utf-8');
+      return true;
+    } catch {
+      send(res, 400, JSON.stringify({ error: 'Invalid login request' }), 'application/json; charset=utf-8');
+      return true;
+    }
+  }
+
+  if (urlPath === '/api/auth/forgot-password' && req.method === 'POST') {
+    send(res, 200, JSON.stringify({
+      message: process.env.IT_SUPPORT_CONTACT || 'Please contact IT Support: 02-000-0000',
+      line: process.env.IT_SUPPORT_LINE || '@watermotion-it'
+    }), 'application/json; charset=utf-8');
+    return true;
+  }
+
+  return false;
+}
+
 function resolvePath(urlPath) {
   const decoded = decodeURIComponent(urlPath.split('?')[0]);
   const requested = decoded === '/' ? '/index.html' : decoded;
@@ -37,19 +119,11 @@ function resolvePath(urlPath) {
   return fullPath;
 }
 
-function handleRequest(req, res) {
+async function handleRequest(req, res) {
+  if (await handleApiRequest(req, res)) return;
+
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     send(res, 405, 'Method Not Allowed');
-    return;
-  }
-
-  if (req.url.split('?')[0] === '/api/auth-config') {
-    send(res, 200, JSON.stringify({
-      provider: process.env.AUTH_PROVIDER || 'supabase',
-      supabaseUrl: process.env.SUPABASE_URL || '',
-      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
-      redirectUrl: process.env.AUTH_REDIRECT_URL || ''
-    }), 'application/json; charset=utf-8');
     return;
   }
 

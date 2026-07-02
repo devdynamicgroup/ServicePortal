@@ -84,6 +84,13 @@ function renderCalendar() {
 }
 const PIN_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
 const MENU_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
+const NOTIFICATIONS = [
+  { type: 'schedule', title: 'New appointment', sub: 'Vasinee K. - Today 11:00 AM' },
+  { type: 'schedule', title: 'Changed appointment', sub: 'Maetud T. rescheduled to 2:00 PM' },
+  { type: 'service', title: 'Upcoming service', sub: 'Saranya C. starts in 1 hour' },
+  { type: 'billing', title: 'Payment pending', sub: 'Full Assessment payment needs confirmation' }
+];
+let notifFilter = 'all';
 function statusLabel(s) {
   if (s === 'in_progress') return t('dash.status.in_progress');
   if (s === 'overdue') return t('dash.status.overdue');
@@ -154,7 +161,25 @@ function cancelCase(id = S.activeJob?.id) {
 function openSearchModal(){ document.getElementById('search-overlay').classList.remove('hidden'); document.getElementById('search-input').value=S.searchQuery; document.getElementById('search-input').focus(); filterAppointments(S.searchQuery); }
 function closeSearchModal(){ document.getElementById('search-overlay').classList.add('hidden'); }
 function filterAppointments(q){ S.searchQuery=q; renderJobs(q); const jobs=JOBS.filter(j=>j.status!=='cancelled'&&j.day===S.selDay&&(j.name.toLowerCase().includes(q.toLowerCase())||j.addr.toLowerCase().includes(q.toLowerCase()))); document.getElementById('search-results').innerHTML=jobs.map(j=>`<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${j.id})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('')||'<p style="color:var(--muted);font-size:14px">No matches</p>'; }
-function openNotifModal(){ document.getElementById('notif-overlay').classList.remove('hidden'); }
+function renderNotifications() {
+  const list = document.getElementById('notif-list');
+  if (!list) return;
+  document.querySelectorAll('.notif-filter-btn').forEach(btn => {
+    btn.classList.toggle('sel', btn.dataset.type === notifFilter);
+  });
+  const items = notifFilter === 'all'
+    ? NOTIFICATIONS
+    : NOTIFICATIONS.filter(item => item.type === notifFilter);
+  list.innerHTML = items.map(item => `
+    <div class="notif-item">
+      <span class="notif-type">${item.type}</span>
+      <div class="notif-title">${item.title}</div>
+      <div class="notif-sub">${item.sub}</div>
+    </div>
+  `).join('');
+}
+function setNotifFilter(type) { notifFilter = type || 'all'; renderNotifications(); }
+function openNotifModal(){ notifFilter = notifFilter || 'all'; renderNotifications(); document.getElementById('notif-overlay').classList.remove('hidden'); }
 function closeNotifModal(){ document.getElementById('notif-overlay').classList.add('hidden'); }
 function openLangModal(){ document.getElementById('lang-overlay').classList.remove('hidden'); }
 function closeLangModal(){ document.getElementById('lang-overlay').classList.add('hidden'); }

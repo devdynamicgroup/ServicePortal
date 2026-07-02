@@ -42,9 +42,13 @@
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
     <div class="modal-title">Notifications</div>
-    <div class="notif-item"><div class="notif-title">New appointment</div><div class="notif-sub">Vasinee K. - Today 11:00 AM</div></div>
-    <div class="notif-item"><div class="notif-title">Changed appointment</div><div class="notif-sub">Maetud T. rescheduled to 2:00 PM</div></div>
-    <div class="notif-item"><div class="notif-title">Upcoming in 1 hour</div><div class="notif-sub">Saranya C. at 9:00 AM</div></div>
+    <div class="notif-filter" id="notif-filter">
+      <button class="notif-filter-btn sel" type="button" data-type="all" onclick="setNotifFilter('all')">All</button>
+      <button class="notif-filter-btn" type="button" data-type="schedule" onclick="setNotifFilter('schedule')">Schedule</button>
+      <button class="notif-filter-btn" type="button" data-type="service" onclick="setNotifFilter('service')">Service</button>
+      <button class="notif-filter-btn" type="button" data-type="billing" onclick="setNotifFilter('billing')">Billing</button>
+    </div>
+    <div id="notif-list"></div>
   </div>
 </div>
 
