@@ -599,6 +599,52 @@ function renderPropertySuggestion(match) {
 
 function suggestProperty() {}
 
+function addressSuggestionPool() {
+  const fromJobs = (Array.isArray(JOBS) ? JOBS : [])
+    .map(job => ({ label: job?.addr || '', code: '', city: 'Bangkok' }))
+    .filter(item => item.label);
+  return [...PROPERTY_SUGGESTIONS, ...fromJobs];
+}
+
+function filterAddressSuggest(query) {
+  const dd = document.getElementById('address-dropdown');
+  if (!dd) return;
+  const q = (query || '').trim();
+  if (q.length < 2) {
+    dd.classList.add('hidden');
+    return;
+  }
+
+  const scored = addressSuggestionPool()
+    .map(item => ({ item, score: scorePropertyMatch(item, q) }))
+    .filter(entry => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+
+  if (!scored.length) {
+    dd.classList.add('hidden');
+    return;
+  }
+
+  dd.innerHTML = scored.map(({ item }) => {
+    const label = S.lang === 'th' && item.labelTh ? item.labelTh : item.label;
+    const safeLabel = (label || '').replace(/'/g, '\\\'');
+    const safeCity = (item.city || 'Bangkok').replace(/'/g, '\\\'');
+    const safeCode = item.code || '';
+    return `<div class="postal-item" onclick="selectAddressSuggestion('${safeLabel}','${safeCode}','${safeCity}')"><img class="postal-pin" src="${ICON.pin}" alt=""><span class="postal-rest">${label}</span></div>`;
+  }).join('');
+  dd.classList.remove('hidden');
+}
+
+function selectAddressSuggestion(label, code, city) {
+  const addr = document.getElementById('ci-addr');
+  if (addr) addr.value = label;
+  if (code) document.getElementById('ci-postal').value = code;
+  if (city) setProvinceValue(city);
+  document.getElementById('address-dropdown')?.classList.add('hidden');
+  updatePreassessmentCompletionState();
+}
+
 function filterPostal(q) {
   const dd = document.getElementById('postal-dropdown');
   if (!dd) return;
@@ -697,6 +743,7 @@ function initMultiSelect() {
   document.addEventListener('click', e => {
     if (!e.target.closest('.ms-wrap')) document.querySelectorAll('.ms-menu').forEach(m => m.classList.add('hidden'));
     if (!e.target.closest('.postal-wrap')) document.getElementById('postal-dropdown')?.classList.add('hidden');
+    if (!e.target.closest('#ci-addr')) document.getElementById('address-dropdown')?.classList.add('hidden');
     if (!e.target.closest('.province-picker')) closeProvincePicker();
   });
 }

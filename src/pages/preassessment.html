@@ -55,7 +55,11 @@
         <input class="inp" id="ci-postal" inputmode="numeric" placeholder="Enter postal code" autocomplete="off" oninput="filterPostal(this.value)" onfocus="filterPostal(this.value)">
         <div class="postal-dropdown hidden" id="postal-dropdown"></div>
       </div>
-      <div class="field"><label data-i18n="preassess.addr">Address</label><input class="inp" id="ci-addr" placeholder="Enter address"></div>
+      <div class="field postal-wrap">
+        <label data-i18n="preassess.addr">Address</label>
+        <input class="inp" id="ci-addr" placeholder="Enter address" autocomplete="off" oninput="filterAddressSuggest(this.value)" onfocus="filterAddressSuggest(this.value)">
+        <div class="postal-dropdown hidden" id="address-dropdown"></div>
+      </div>
       <div class="field">
         <label><span data-i18n="preassess.maps">Google Maps Link</span> <span class="label-opt" data-i18n="preassess.mapsOpt">(optional)</span></label>
         <input class="inp" id="ci-maps" placeholder="Paste link from Google Maps">
