@@ -4,16 +4,20 @@
 <div id="camera-overlay" class="camera-overlay hidden">
   <div class="camera-panel">
     <div class="camera-topbar">
-      <button class="camera-close" type="button" onclick="closeCameraCapture()" aria-label="Close">x</button>
-      <div class="camera-title">Camera</div>
-      <button class="camera-file" type="button" onclick="fallbackPhotoPicker()">Choose File</button>
+      <button class="camera-close" type="button" onclick="closeCameraCapture()" aria-label="Close">×</button>
+      <div class="camera-title" data-i18n="pay.camera">Camera</div>
+      <span class="camera-top-spacer"></span>
     </div>
     <div class="camera-stage">
       <video id="camera-video" autoplay playsinline muted></video>
-      <div id="camera-error" class="camera-error hidden">Camera is unavailable. You can choose a photo instead.</div>
+      <div id="camera-error" class="camera-error hidden">Camera is unavailable. Tap upload below.</div>
     </div>
     <div class="camera-actions">
+      <button class="camera-upload-btn" type="button" onclick="fallbackPhotoPicker()" aria-label="Upload photo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </button>
       <button class="camera-shutter" type="button" onclick="captureCameraFrame()" aria-label="Take photo"></button>
+      <span class="camera-top-spacer"></span>
     </div>
   </div>
 </div>
@@ -41,12 +45,12 @@
 <div id="notif-overlay" class="modal-overlay hidden" onclick="closeNotifModal()">
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
-    <div class="modal-title">Notifications</div>
+    <div class="modal-title" data-i18n="notif.title">Notifications</div>
     <div class="notif-filter" id="notif-filter">
-      <button class="notif-filter-btn sel" type="button" data-type="all" onclick="setNotifFilter('all')">All</button>
-      <button class="notif-filter-btn" type="button" data-type="schedule" onclick="setNotifFilter('schedule')">Schedule</button>
-      <button class="notif-filter-btn" type="button" data-type="service" onclick="setNotifFilter('service')">Service</button>
-      <button class="notif-filter-btn" type="button" data-type="billing" onclick="setNotifFilter('billing')">Billing</button>
+      <button class="notif-filter-btn sel" type="button" data-type="all" onclick="setNotifFilter('all')" data-i18n="notif.all">All</button>
+      <button class="notif-filter-btn" type="button" data-type="schedule" onclick="setNotifFilter('schedule')" data-i18n="notif.schedule">Schedule</button>
+      <button class="notif-filter-btn" type="button" data-type="service" onclick="setNotifFilter('service')" data-i18n="notif.service">Service</button>
+      <button class="notif-filter-btn" type="button" data-type="billing" onclick="setNotifFilter('billing')" data-i18n="notif.billing">Billing</button>
     </div>
     <div id="notif-list"></div>
   </div>

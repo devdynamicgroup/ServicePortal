@@ -22,7 +22,7 @@ function setLoginMessage(message = '', type = 'error') {
   if (!box) return;
   box.textContent = message;
   box.classList.toggle('hidden', !message);
-  box.classList.toggle('form-success', type === 'success');
+  box.classList.toggle('login-msg-success', type === 'success');
 }
 
 function updateLoggedInUser(user) {
@@ -68,8 +68,9 @@ async function forgotPassword() {
   await loadAuthConfig();
   const contact = [authConfig.itContact, authConfig.itLine ? `LINE: ${authConfig.itLine}` : '']
     .filter(Boolean)
-    .join(' | ');
-  setLoginMessage(`Forgot password? Please contact ${contact}`, 'success');
+    .join(' · ');
+  setLoginMessage('');
+  showToast(contact || t('login.forgotIt'));
 }
 
 function restoreLoginSession() {

@@ -6,6 +6,7 @@ const I18N = {
     'login.password': 'Password',
     'login.signin': 'Sign In',
     'login.forgot': 'Forgot Password?',
+    'login.forgotIt': 'Contact IT Support for password help.',
     'login.email': 'Email',
     'login.emailPh': 'Enter your email',
     'login.userPh': 'Enter your username',
@@ -64,7 +65,10 @@ const I18N = {
     'dash.status.done': 'Done',
     'dash.contact': 'Contact',
     'dash.cancelCase': 'Cancel',
-    'dash.cancelCase': 'Cancel',
+    'dash.menu.start': 'Start assessment',
+    'dash.menu.reschedule': 'Reschedule',
+    'dash.menu.contact': 'Contact',
+    'dash.menu.preassess': 'Pre-assessment form',
 
     'job.currentJob': 'Current Job',
     'job.workThrough': 'Work through each step below',
@@ -86,6 +90,11 @@ const I18N = {
 
     'preassess.title': 'Pre-assessment Form',
     'preassess.sendLink': 'Send Link',
+    'preassess.sendLinkTitle': 'Send pre-assessment link',
+    'preassess.sendLine': 'Send to LINE',
+    'preassess.sendLineReady': 'Ready to send via LINE',
+    'preassess.copyLink': 'Copy link',
+    'preassess.linkCopied': 'Link copied',
     'preassess.clientDetails': 'Client Details',
     'preassess.propertyDetails': 'Property Details',
     'preassess.package': 'Package',
@@ -124,6 +133,17 @@ const I18N = {
     'preassess.err.consent': 'Please accept the terms to continue',
 
     'assess.title': 'Water Assessment',
+
+    'photo.tapHint': 'Tap to take or upload photo',
+
+    'notif.title': 'Notifications',
+    'notif.all': 'All',
+    'notif.schedule': 'Schedule',
+    'notif.service': 'Service',
+    'notif.billing': 'Billing',
+    'notif.type.schedule': 'Schedule',
+    'notif.type.service': 'Service',
+    'notif.type.billing': 'Billing',
 
     'score.title': 'Water Score',
     'score.share': 'Share Score',
@@ -181,6 +201,8 @@ const I18N = {
     'fb.commentPh': "What was most helpful about today's visit?",
     'fb.consent': "I'm happy for Water Motion to use my feedback anonymously. Data may be used for city-wide benchmarking.",
     'fb.google': 'Leave Google Review',
+    'fb.aiSuggest': 'AI Suggest',
+    'fb.suggestUpdated': 'Suggestion updated',
 
     'lang.en': 'English',
     'lang.th': 'Thai',
@@ -195,6 +217,7 @@ const I18N = {
     'login.password': 'รหัสผ่าน',
     'login.signin': 'เข้าสู่ระบบ',
     'login.forgot': 'ลืมรหัสผ่าน?',
+    'login.forgotIt': 'ติดต่อทีม IT เพื่อขอความช่วยเหลือเรื่องรหัสผ่าน',
     'login.email': 'อีเมล',
     'login.emailPh': 'กรอกอีเมลของคุณ',
     'login.userPh': 'กรอกชื่อผู้ใช้',
@@ -253,6 +276,10 @@ const I18N = {
     'dash.status.done': 'เสร็จแล้ว',
     'dash.contact': 'ผู้ติดต่อ',
     'dash.cancelCase': 'ยกเลิก',
+    'dash.menu.start': 'เริ่มประเมิน',
+    'dash.menu.reschedule': 'เลื่อนนัด',
+    'dash.menu.contact': 'ติดต่อ',
+    'dash.menu.preassess': 'แบบฟอร์มก่อนประเมิน',
 
     'job.currentJob': 'งานปัจจุบัน',
     'job.workThrough': 'ดำเนินการตามขั้นตอนด้านล่าง',
@@ -274,6 +301,11 @@ const I18N = {
 
     'preassess.title': 'แบบฟอร์มก่อนประเมิน',
     'preassess.sendLink': 'ส่งลิงก์',
+    'preassess.sendLinkTitle': 'ส่งลิงก์แบบฟอร์มก่อนประเมิน',
+    'preassess.sendLine': 'ส่งไป LINE',
+    'preassess.sendLineReady': 'พร้อมส่งผ่าน LINE',
+    'preassess.copyLink': 'คัดลอกลิงก์',
+    'preassess.linkCopied': 'คัดลอกลิงก์แล้ว',
     'preassess.clientDetails': 'ข้อมูลลูกค้า',
     'preassess.propertyDetails': 'ข้อมูลสถานที่',
     'preassess.package': 'แพ็กเกจ',
@@ -312,6 +344,17 @@ const I18N = {
     'preassess.err.consent': 'กรุณายอมรับเงื่อนไขก่อนดำเนินการต่อ',
 
     'assess.title': 'ประเมินน้ำ',
+
+    'photo.tapHint': 'แตะเพื่อถ่ายหรืออัปโหลดรูป',
+
+    'notif.title': 'การแจ้งเตือน',
+    'notif.all': 'ทั้งหมด',
+    'notif.schedule': 'ตารางนัด',
+    'notif.service': 'บริการ',
+    'notif.billing': 'การเงิน',
+    'notif.type.schedule': 'ตารางนัด',
+    'notif.type.service': 'บริการ',
+    'notif.type.billing': 'การเงิน',
 
     'score.title': 'คะแนนน้ำ',
     'score.share': 'แชร์คะแนน',
@@ -369,6 +412,8 @@ const I18N = {
     'fb.commentPh': 'อะไรคือสิ่งที่มีประโยชน์ที่สุดจากการเยี่ยมครั้งนี้?',
     'fb.consent': 'ฉันยินยอมให้ Water Motion ใช้ความคิดเห็นของฉันแบบไม่ระบุตัวตน ข้อมูลอาจถูกใช้เพื่อการเปรียบเทียบเชิงพื้นที่',
     'fb.google': 'รีวิวบน Google',
+    'fb.aiSuggest': 'AI แนะนำ',
+    'fb.suggestUpdated': 'อัปเดตข้อความแนะนำแล้ว',
 
     'lang.en': 'English',
     'lang.th': 'ไทย',

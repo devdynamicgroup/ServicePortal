@@ -125,7 +125,7 @@ function renderJobs(filter) {
       <div class="ac-addr">${PIN_SVG}<span>${j.addr}</span></div>
       <div class="ac-meta">
         <span>${j.meta}${j.contact ? '<br>' + t('dash.contact') + ': ' + j.contact : ''}</span>
-        <button class="ac-cancel" type="button" onclick="event.stopPropagation();cancelCase(${j.id})">${t('dash.cancelCase')}</button>
+        <button class="ac-menu" type="button" onclick="event.stopPropagation();showApptMenu(${j.id})" aria-label="More">${MENU_SVG}</button>
       </div>
     </div>`).join('');
 }
@@ -135,10 +135,10 @@ function showApptMenu(id) {
   S.actionJobId = id;
   document.getElementById('action-sheet-title').textContent = job.name;
   const actions = [
-    { label:'Start assessment', fn:()=>{ closeActionSheet(); openJob(id); } },
-    { label:'Reschedule', fn:()=>{ closeActionSheet(); showToast('Reschedule request sent'); } },
-    { label:'Contact', fn:()=>{ closeActionSheet(); showToast('Calling '+job.name); } },
-    { label:'Pre-assessment form', fn:()=>{ closeActionSheet(); openJob(id); goScreen('s-preassess'); } }
+    { label: t('dash.menu.start'), fn: () => { closeActionSheet(); openJob(id); } },
+    { label: t('dash.menu.reschedule'), fn: () => { closeActionSheet(); showToast('Reschedule request sent'); } },
+    { label: t('dash.menu.contact'), fn: () => { closeActionSheet(); showToast('Calling ' + job.name); } },
+    { label: t('dash.menu.preassess'), fn: () => { closeActionSheet(); openJob(id); goScreen('s-preassess'); } }
   ];
   document.getElementById('action-sheet-actions').innerHTML = actions.map(a=>`<button class="modal-action${a.danger?' danger':''}" type="button">${a.label}</button>`).join('');
   document.getElementById('action-sheet-actions').querySelectorAll('.modal-action').forEach((btn,i)=>btn.onclick=actions[i].fn);
@@ -171,7 +171,7 @@ function renderNotifications() {
     : NOTIFICATIONS.filter(item => item.type === notifFilter);
   list.innerHTML = items.map(item => `
     <div class="notif-item">
-      <span class="notif-type">${item.type}</span>
+      <span class="notif-type">${t('notif.type.' + item.type)}</span>
       <div class="notif-title">${item.title}</div>
       <div class="notif-sub">${item.sub}</div>
     </div>

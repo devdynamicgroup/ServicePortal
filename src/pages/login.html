@@ -1,4 +1,3 @@
-<!-- Login -->
 <div id="s-login" class="screen active">
   <div class="login-screen">
     <div class="login-topbar">
@@ -11,22 +10,22 @@
     <div class="login-body">
       <div class="login-brand-block">
         <img class="login-logo-img" src="https://www.figma.com/api/mcp/asset/07f522fa-90f9-426a-a58a-28ffb301712e" alt="Water Motion" width="81" height="32">
-        <div>
+        <div class="login-brand-text">
           <h1 class="login-headline" data-i18n="login.headline">Know your home's water.</h1>
           <p class="login-subtitle" data-i18n="login.subtitle">Log in to your account</p>
         </div>
       </div>
 
       <div class="login-form-block">
-        <div class="form-error hidden" id="login-error"></div>
+        <p class="login-msg hidden" id="login-error" role="alert"></p>
         <div class="login-fields">
           <div class="field">
             <label data-i18n="login.username">Username</label>
-            <input class="inp" id="l-user" type="text" autocomplete="username" data-i18n-placeholder="login.emailPh" placeholder="Enter your email">
+            <input class="inp" id="l-user" type="text" autocomplete="username" data-i18n-placeholder="login.emailPh" placeholder="Enter your email" value="kittichai@watermotion.local">
           </div>
           <div class="field">
             <label data-i18n="login.password">Password</label>
-            <input class="inp" id="l-pass" type="password" autocomplete="current-password" data-i18n-placeholder="login.passPh" placeholder="Enter your password">
+            <input class="inp" id="l-pass" type="password" autocomplete="current-password" data-i18n-placeholder="login.passPh" placeholder="Enter your password" value="password">
           </div>
         </div>
         <div class="login-cta">

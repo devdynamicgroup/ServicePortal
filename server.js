@@ -73,7 +73,8 @@ async function handleApiRequest(req, res) {
   if (urlPath === '/api/auth/login' && req.method === 'POST') {
     try {
       const payload = JSON.parse(await readBody(req) || '{}');
-      const username = String(payload.username || '').trim().toLowerCase();
+      const raw = String(payload.username || '').trim().toLowerCase();
+      const username = raw.includes('@') ? raw.split('@')[0] : raw;
       const password = String(payload.password || '');
       const user = getAuthUsers().find(item =>
         String(item.username || '').toLowerCase() === username &&

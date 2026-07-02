@@ -52,13 +52,13 @@
       </div>
       <div class="field postal-wrap">
         <label data-i18n="preassess.postal">Postal Code</label>
-        <input class="inp" id="ci-postal" inputmode="numeric" placeholder="Enter postal code" autocomplete="off" oninput="filterPostal(this.value);suggestProperty()" onfocus="filterPostal(this.value);suggestProperty()">
+        <input class="inp" id="ci-postal" inputmode="numeric" placeholder="Enter postal code" autocomplete="off" oninput="filterPostal(this.value)" onfocus="filterPostal(this.value)">
         <div class="postal-dropdown hidden" id="postal-dropdown"></div>
       </div>
-      <div class="field"><label data-i18n="preassess.addr">Address</label><input class="inp" id="ci-addr" placeholder="Enter address" oninput="suggestProperty()" onfocus="suggestProperty()"></div>
+      <div class="field"><label data-i18n="preassess.addr">Address</label><input class="inp" id="ci-addr" placeholder="Enter address"></div>
       <div class="field">
         <label><span data-i18n="preassess.maps">Google Maps Link</span> <span class="label-opt" data-i18n="preassess.mapsOpt">(optional)</span></label>
-        <input class="inp" id="ci-maps" placeholder="Paste link from Google Maps" oninput="suggestProperty()" onfocus="suggestProperty()">
+        <input class="inp" id="ci-maps" placeholder="Paste link from Google Maps">
       </div>
       <div class="row2">
         <div class="field">
@@ -138,7 +138,6 @@
       <span class="cl-text" data-i18n="preassess.consent">I consent to the on-site assessment and Water Motion Terms &amp; Conditions.</span>
     </label>
   </div>
-  <div id="property-suggest-bar" class="property-suggest-bar hidden"></div>
   <p class="preassess-blocker hidden" id="preassess-blocker"></p>
   <div class="foot">
     <button class="btn btn-secondary btn-draft" type="button" onclick="saveDraft()" data-i18n="common.saveDraft">Save Draft</button>

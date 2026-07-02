@@ -1,10 +1,10 @@
 function sendClientLink() {
   const jobId = S.activeJob?.id || 'new';
   const link = `${window.location.origin}${window.location.pathname}?preassessment=${jobId}`;
-  const title = 'Send pre-assessment link';
+  const title = t('preassess.sendLinkTitle');
   const actions = [
     {
-      label: 'Send to LINE',
+      label: t('preassess.sendLine'),
       fn: async () => {
         closeActionSheet();
         if (navigator.share) {
@@ -12,15 +12,15 @@ function sendClientLink() {
         } else {
           window.open(`https://line.me/R/msg/text/?${encodeURIComponent(link)}`, '_blank');
         }
-        showToast('Ready to send via LINE');
+        showToast(t('preassess.sendLineReady'));
       }
     },
     {
-      label: 'Copy link',
+      label: t('preassess.copyLink'),
       fn: async () => {
         closeActionSheet();
         await navigator.clipboard?.writeText(link).catch(() => {});
-        showToast('Link copied');
+        showToast(t('preassess.linkCopied'));
       }
     }
   ];
@@ -309,7 +309,7 @@ const THAI_PROVINCES = [
   ['Yasothon', 'ยโสธร']
 ].map(([en, th]) => ({ en, th }));
 
-const SERVICE_PROVINCES = ['Bangkok', 'Nonthaburi', 'Pathum Thani', 'Samut Prakan', 'Samut Sakhon', 'Nakhon Pathom'];
+const SERVICE_PROVINCES = ['Bangkok', 'Nonthaburi', 'Pathum Thani', 'Samut Prakan', 'Nakhon Pathom', 'Samut Sakhon', 'Samut Songkhram'];
 
 function serviceProvinces() {
   return THAI_PROVINCES.filter(p => SERVICE_PROVINCES.includes(p.en));
@@ -527,7 +527,6 @@ function selectProvince(provinceEn) {
   setProvinceValue(provinceEn);
   setPostalForProvince(provinceEn, true);
   closeProvincePicker();
-  suggestProperty();
   updatePreassessmentCompletionState();
 }
 
@@ -598,21 +597,12 @@ function renderPropertySuggestion(match) {
   bar.innerHTML = '';
 }
 
-function suggestProperty() {
-  const query = getPropertyQuery();
-  const selectedCity = document.getElementById('ci-city')?.value || 'Bangkok';
-  const candidates = [...PROPERTY_SUGGESTIONS, ...POSTAL_DATA.map(item => ({ ...item, city:item.city || selectedCity }))];
-  const best = candidates
-    .map(item => ({ ...item, score: scorePropertyMatch(item, query) }))
-    .sort((a, b) => b.score - a.score)[0];
-
-  renderPropertySuggestion(best && best.score >= 4 ? best : null);
-}
+function suggestProperty() {}
 
 function filterPostal(q) {
   const dd = document.getElementById('postal-dropdown');
   if (!dd) return;
-  if (!q || q.length < 2) { dd.classList.add('hidden'); suggestProperty(); return; }
+  if (!q || q.length < 2) { dd.classList.add('hidden'); return; }
 
   const search = normalisePropertyText(q);
   const matches = POSTAL_DATA.filter(p => {
@@ -620,7 +610,7 @@ function filterPostal(q) {
     return p.code.includes(q) || normalisePropertyText(label).includes(search);
   });
 
-  if (!matches.length) { dd.classList.add('hidden'); suggestProperty(); return; }
+  if (!matches.length) { dd.classList.add('hidden'); return; }
 
   dd.innerHTML = matches.map(p => {
     const label = S.lang === 'th' && p.labelTh ? p.labelTh : p.label;
@@ -631,7 +621,6 @@ function filterPostal(q) {
     return `<div class="postal-item" onclick="selectPostal('${safeLabel}')"><img class="postal-pin" src="${ICON.pin}" alt=""><span>${codeDisplay} <span class="postal-rest">${rest}</span></span></div>`;
   }).join('');
   dd.classList.remove('hidden');
-  suggestProperty();
 }
 
 function selectPostal(label) {

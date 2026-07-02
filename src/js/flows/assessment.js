@@ -161,6 +161,16 @@ function selSeg(el, group) {
   el.classList.add('sel');
 }
 
+function openPhotoStudio(inputId, previewId) {
+  openCameraCapture(inputId, previewId);
+}
+
+function handlePhotoFile(input, previewId) {
+  const file = input.files?.[0];
+  if (!file) return;
+  setPhotoPreview(previewId, URL.createObjectURL(file));
+}
+
 function openPhotoCapture(inputId) {
   closeCameraCapture?.();
   const input = document.getElementById(inputId);
@@ -237,13 +247,12 @@ function captureCameraFrame() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
 
   if (CameraCapture.inputId === 'slip-input') {
     handleSlipCapture(dataUrl);
   } else if (CameraCapture.previewId) {
     setPhotoPreview(CameraCapture.previewId, dataUrl);
-    showToast('Photo captured');
   }
 
   closeCameraCapture();
@@ -286,6 +295,7 @@ function setPhotoPreview(previewId, src, options = {}) {
     ensureTapData();
     S.tapData[S.activeTap].photos[taskKey] = src;
     if (!options.silent) saveActiveJobState?.();
+    renderAssessList();
   }
 }
 

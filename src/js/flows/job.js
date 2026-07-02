@@ -1,15 +1,17 @@
 function openJob(id) {
   if (S.activeJob && S.activeJob.id !== id) saveActiveJobState();
-  S.activeJob = JOBS.find(j => j.id === id);
-  if (!S.activeJob) return;
   JOBS.forEach(job => {
     if (job.id !== id && job.status === 'in_progress') job.status = 'new';
   });
+  S.activeJob = JOBS.find(j => j.id === id);
+  if (!S.activeJob) return;
   if (S.activeJob.status !== 'done') S.activeJob.status = 'in_progress';
+  persistJobs();
   loadJobState(S.activeJob);
   updateJobHeader(S.activeJob);
   renderJobSteps();
   updateAssessScreen();
+  renderCalendar();
   goScreen('s-job');
 }
 
