@@ -1,20 +1,38 @@
 <div id="s-meter" class="screen">
   <div class="hdr">
     <button class="hdr-back" type="button" onclick="goBack('s-assess')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <span class="hdr-title">Meter Readings</span>
+    <span class="hdr-title" data-i18n="meter.title">Meter Readings</span>
   </div>
   <div class="content gap12">
-    <p class="photo-hint">Photo the meter screen to auto-fill values, or enter readings manually below.</p>
-    <div class="photo-capture">
-      <div class="photo-box" onclick="openPhotoStudio('meter-photo-input','meter-photo-preview')">
-        <img id="meter-photo-preview" src="" style="display:none" alt="">
-        <span class="pb-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
-        <span class="pb-label" data-i18n="photo.tapHint">Tap to take or upload photo</span>
-        <input type="file" id="meter-photo-input" accept="image/*" data-preview-id="meter-photo-preview">
+    <div class="meter-capture-card" id="meter-start">
+      <div class="meter-capture-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      <div class="meter-capture-copy">
+        <div class="meter-capture-title" data-i18n="meter.startTitle">Take a photo of the meter</div>
+        <div class="meter-capture-sub" data-i18n="meter.startSub">We will use mock OCR data for this phase and fill the form automatically.</div>
+      </div>
+      <button class="btn btn-primary meter-primary" type="button" onclick="MeterReadingCapture.takePhoto()" data-i18n="meter.takePhoto">Take Photo</button>
+      <button class="meter-manual-btn" type="button" onclick="MeterReadingCapture.fillManually()" data-i18n="meter.fillManually">Fill Manually</button>
+    </div>
+
+    <div class="meter-processing hidden" id="meter-processing">
+      <div class="meter-spinner"></div>
+      <div>
+        <div class="meter-processing-title" data-i18n="meter.processingTitle">Reading image...</div>
+        <div class="meter-processing-sub" data-i18n="meter.processingSub">Mock OCR is extracting values from the photo.</div>
       </div>
     </div>
-    <div class="sec-label">Enter Readings</div>
-    <div class="card gap12">
+
+    <div class="meter-review hidden" id="meter-review">
+      <div class="meter-photo-preview" id="meter-photo-preview" aria-hidden="true"></div>
+      <div class="meter-review-copy">
+        <div class="meter-review-title" data-i18n="meter.reviewTitle">Review readings</div>
+        <div class="meter-review-sub" id="meter-review-sub" data-i18n="meter.reviewSubOcr">Auto-filled from mock OCR. You can edit every field before saving.</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" type="button" onclick="MeterReadingCapture.takePhoto()" data-i18n="meter.retakePhoto">Retake Photo</button>
+    </div>
+
+    <div class="sec-label meter-form-label hidden" id="meter-form-label" data-i18n="meter.formLabel">Review & Edit Readings</div>
+    <div class="card gap12 hidden" id="meter-form">
       <div class="row2">
         <div class="field"><label>pH</label><input class="inp" id="m-ph" type="number" inputmode="decimal" placeholder="7.0"></div>
         <div class="field"><label>TDS (mg/L)</label><input class="inp" id="m-tds" type="number" inputmode="decimal" placeholder="280"></div>
@@ -35,6 +53,6 @@
   </div>
   <div class="foot">
     <button class="btn btn-ghost" onclick="goBack('s-assess')">Cancel</button>
-    <button class="btn btn-primary" onclick="completeSub('meter-check','s-assess')">Complete</button>
+    <button class="btn btn-primary" id="btn-meter-save" disabled onclick="MeterReadingCapture.save()" data-i18n="meter.save">Save</button>
   </div>
 </div>

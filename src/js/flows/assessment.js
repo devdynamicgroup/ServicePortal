@@ -46,6 +46,7 @@ function switchTap(i) {
   S.activeTap = i;
   renderTapTabs();
   renderAssessList();
+  if (S.screen === 's-meter' && window.MeterReadingCapture) MeterReadingCapture.init();
 }
 
 function restoreTaskPhoto(previewId) {
@@ -59,7 +60,6 @@ function restoreCurrentPhotoScreen(screenId) {
   const map = {
     's-photo': 'tap-photo-preview',
     's-visual': 'vis-photo-preview',
-    's-meter': 'meter-photo-preview',
     's-chlorine': 'cl-photo-preview'
   };
   if (map[screenId]) restoreTaskPhoto(map[screenId]);
@@ -160,6 +160,171 @@ function selSeg(el, group) {
   el.closest('.seg').querySelectorAll('.seg-opt').forEach(o => o.classList.remove('sel'));
   el.classList.add('sel');
 }
+
+const METER_READING_FIELDS = {
+  ph: 'm-ph',
+  tds: 'm-tds',
+  ec: 'm-ec',
+  temp: 'm-temp',
+  turbidity: 'm-turb',
+  orp: 'm-orp',
+  do: 'm-do'
+};
+
+const MOCK_METER_READING_RESULT = {
+  ph: '7.2',
+  tds: '450',
+  ec: '690',
+  temp: '28',
+  turbidity: '1.2',
+  orp: '320',
+  do: '6.8'
+};
+
+const MOCK_METER_PHOTO = 'data:image/svg+xml,' + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" rx="24" fill="#111827"/>
+  <rect x="48" y="52" width="544" height="256" rx="18" fill="#0f172a" stroke="#334155" stroke-width="3"/>
+  <text x="80" y="120" fill="#93c5fd" font-family="Arial, sans-serif" font-size="28" font-weight="700">Mock meter photo</text>
+  <text x="80" y="178" fill="#f8fafc" font-family="Arial, sans-serif" font-size="44" font-weight="700">pH 7.2  TDS 450</text>
+  <text x="80" y="232" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="30">EC 690  Temp 28C</text>
+  <text x="80" y="272" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="30">Turb 1.2  ORP 320  DO 6.8</text>
+</svg>`);
+
+const MeterReadingOcrProvider = {
+  async analyzePhoto() {
+    await new Promise(resolve => setTimeout(resolve, 650));
+    return {
+      source: 'mock-ocr',
+      confidence: 0.92,
+      photo: MOCK_METER_PHOTO,
+      readings: { ...MOCK_METER_READING_RESULT }
+    };
+  }
+};
+
+function getActiveTapRecord() {
+  ensureTapData();
+  const tap = S.tapData[S.activeTap] || (S.tapData[S.activeTap] = { tasks: {}, photos: {} });
+  tap.tasks = tap.tasks || {};
+  tap.photos = tap.photos || {};
+  return tap;
+}
+
+function readMeterReadingFields() {
+  return Object.fromEntries(Object.entries(METER_READING_FIELDS).map(([key, id]) => [key, document.getElementById(id)?.value || '']));
+}
+
+function writeMeterReadingFields(readings = {}) {
+  Object.entries(METER_READING_FIELDS).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = readings[key] ?? '';
+  });
+}
+
+function persistMeterReadings() {
+  const tap = getActiveTapRecord();
+  tap.meterReadings = readMeterReadingFields();
+  saveActiveJobState?.();
+}
+
+function hasStoredMeterReadings(readings) {
+  if (!readings || typeof readings !== 'object') return false;
+  return Object.values(readings).some(value => String(value).trim() !== '');
+}
+
+window.MeterReadingCapture = {
+  provider: MeterReadingOcrProvider,
+  _state: { mode: 'start', source: null, photo: null },
+
+  init() {
+    const tap = getActiveTapRecord();
+    const hasReadings = hasStoredMeterReadings(tap.meterReadings) || !!tap.tasks?.meter;
+    writeMeterReadingFields(tap.meterReadings || {});
+    this.bindFieldPersistence();
+    this.setMode(hasReadings ? 'review' : 'start', {
+      photo: tap.photos?.meter,
+      source: tap.meterSource || (hasReadings ? 'manual' : null)
+    });
+  },
+
+  bindFieldPersistence() {
+    Object.values(METER_READING_FIELDS).forEach(id => {
+      const el = document.getElementById(id);
+      if (!el || el.dataset.meterBound) return;
+      el.dataset.meterBound = 'true';
+      el.addEventListener('input', persistMeterReadings);
+      el.addEventListener('change', persistMeterReadings);
+    });
+  },
+
+  setMode(mode, detail = {}) {
+    this._state = {
+      mode,
+      source: detail.source ?? this._state.source,
+      photo: detail.photo ?? this._state.photo
+    };
+
+    document.getElementById('meter-start')?.classList.toggle('hidden', mode !== 'start');
+    document.getElementById('meter-processing')?.classList.toggle('hidden', mode !== 'processing');
+    document.getElementById('meter-review')?.classList.toggle('hidden', mode !== 'review');
+    document.getElementById('meter-form-label')?.classList.toggle('hidden', mode !== 'review');
+    document.getElementById('meter-form')?.classList.toggle('hidden', mode !== 'review');
+    const saveBtn = document.getElementById('btn-meter-save');
+    if (saveBtn) saveBtn.disabled = mode !== 'review';
+
+    const preview = document.getElementById('meter-photo-preview');
+    const photo = this._state.photo;
+    if (preview && photo) preview.style.backgroundImage = `url("${photo}")`;
+    else if (preview) preview.style.backgroundImage = '';
+
+    this.updateReviewSub();
+  },
+
+  updateReviewSub() {
+    const sub = document.getElementById('meter-review-sub');
+    if (!sub) return;
+    sub.textContent = this._state.source === 'manual' ? t('meter.reviewSubManual') : t('meter.reviewSubOcr');
+  },
+
+  refreshI18n() {
+    if (this._state.mode === 'review') this.updateReviewSub();
+  },
+
+  async takePhoto() {
+    this.setMode('processing');
+    try {
+      const result = await this.provider.analyzePhoto();
+      const tap = getActiveTapRecord();
+      tap.meterReadings = result.readings;
+      tap.meterSource = result.source;
+      tap.photos.meter = result.photo;
+      writeMeterReadingFields(result.readings);
+      this.setMode('review', { photo: result.photo, source: result.source });
+      renderAssessList();
+      saveActiveJobState?.();
+      showToast(t('meter.toastFilled'));
+    } catch (error) {
+      console.error(error);
+      this.setMode('start');
+      showToast(t('meter.toastError'));
+    }
+  },
+
+  fillManually() {
+    const tap = getActiveTapRecord();
+    tap.meterSource = 'manual';
+    tap.meterReadings = tap.meterReadings || readMeterReadingFields();
+    this.setMode('review', { photo: tap.photos?.meter, source: 'manual' });
+    saveActiveJobState?.();
+  },
+
+  save() {
+    persistMeterReadings();
+    completeSub('meter-check','s-assess');
+    saveActiveJobState?.();
+  }
+};
 
 function openPhotoStudio(inputId, previewId) {
   if (!inputId) return;

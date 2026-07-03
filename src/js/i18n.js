@@ -134,6 +134,22 @@ const I18N = {
 
     'assess.title': 'Water Assessment',
 
+    'meter.title': 'Meter Readings',
+    'meter.startTitle': 'Take a photo of the meter',
+    'meter.startSub': 'We will use mock OCR data for this phase and fill the form automatically.',
+    'meter.takePhoto': 'Take Photo',
+    'meter.fillManually': 'Fill Manually',
+    'meter.processingTitle': 'Reading image...',
+    'meter.processingSub': 'Mock OCR is extracting values from the photo.',
+    'meter.reviewTitle': 'Review readings',
+    'meter.reviewSubOcr': 'Auto-filled from mock OCR. You can edit every field before saving.',
+    'meter.reviewSubManual': 'Manual entry mode. Fill or edit every field before saving.',
+    'meter.retakePhoto': 'Retake Photo',
+    'meter.formLabel': 'Review & Edit Readings',
+    'meter.save': 'Save',
+    'meter.toastFilled': 'Mock readings filled',
+    'meter.toastError': 'Could not read image',
+
     'photo.tapHint': 'Tap to capture or upload',
 
     'notif.title': 'Notifications',
@@ -345,6 +361,22 @@ const I18N = {
 
     'assess.title': 'ประเมินน้ำ',
 
+    'meter.title': 'ค่ามิเตอร์',
+    'meter.startTitle': 'ถ่ายรูปหน้าจอมิเตอร์',
+    'meter.startSub': 'เฟสนี้ใช้ mock OCR เติมค่าให้อัตโนมัติ',
+    'meter.takePhoto': 'ถ่ายรูป',
+    'meter.fillManually': 'กรอกข้อมูลเอง',
+    'meter.processingTitle': 'กำลังอ่านภาพ...',
+    'meter.processingSub': 'Mock OCR กำลังดึงค่าจากรูปภาพ',
+    'meter.reviewTitle': 'ตรวจสอบค่าที่อ่านได้',
+    'meter.reviewSubOcr': 'เติมค่าจาก mock OCR แล้ว แก้ไขได้ทุกช่องก่อนบันทึก',
+    'meter.reviewSubManual': 'โหมดกรอกเอง กรอกหรือแก้ไขทุกช่องก่อนบันทึก',
+    'meter.retakePhoto': 'ถ่ายใหม่',
+    'meter.formLabel': 'ตรวจสอบและแก้ไขค่า',
+    'meter.save': 'บันทึก',
+    'meter.toastFilled': 'เติมค่า mock แล้ว',
+    'meter.toastError': 'อ่านภาพไม่สำเร็จ',
+
     'photo.tapHint': 'แตะเพื่อถ่ายหรืออัปโหลด',
 
     'notif.title': 'การแจ้งเตือน',
@@ -457,6 +489,7 @@ function refreshDynamicI18n() {
   if (S.screen === 's-score' && typeof calcAndShowScore === 'function') calcAndShowScore();
   if (typeof updatePaymentScreen === 'function' && document.getElementById('s-payment')) updatePaymentScreen();
   if (typeof updatePreassessBtn === 'function') updatePreassessBtn();
+  if (S.screen === 's-meter' && window.MeterReadingCapture?.refreshI18n) MeterReadingCapture.refreshI18n();
 }
 
 function setLanguage(lang, options = {}) {
