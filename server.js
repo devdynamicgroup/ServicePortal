@@ -57,6 +57,40 @@ function getAuthUsers() {
   return defaultUsers;
 }
 
+const METRO_CITY_MAP = {
+  bangkok: 'Bangkok',
+  'krung thep maha nakhon': 'Bangkok',
+  'krung thep': 'Bangkok',
+  nonthaburi: 'Nonthaburi',
+  'pathum thani': 'Pathum Thani',
+  'samut prakan': 'Samut Prakan',
+  'nakhon pathom': 'Nakhon Pathom',
+  'samut sakhon': 'Samut Sakhon',
+  'samut songkhram': 'Samut Songkhram'
+};
+
+function shortenAddressLabel(displayName) {
+  const parts = String(displayName || '').split(',').map(p => p.trim()).filter(Boolean);
+  if (parts.length <= 4) return parts.join(', ');
+  return parts.slice(0, 4).join(', ');
+}
+
+function mapMetroCity(address) {
+  const raw = [
+    address?.suburb,
+    address?.city,
+    address?.town,
+    address?.municipality,
+    address?.county,
+    address?.state,
+    address?.province
+  ].filter(Boolean).join(' ').toLowerCase();
+  for (const [key, city] of Object.entries(METRO_CITY_MAP)) {
+    if (raw.includes(key)) return city;
+  }
+  return 'Bangkok';
+}
+
 async function handleApiRequest(req, res) {
   const urlPath = req.url.split('?')[0];
 
@@ -115,19 +149,24 @@ async function handleApiRequest(req, res) {
         send(res, 200, '[]', 'application/json; charset=utf-8');
         return true;
       }
-      const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=th&limit=8&q=${encodeURIComponent(q)}&viewbox=100.25,14.25,100.95,13.45&bounded=1`;
-      const response = await fetch(nominatimUrl, {
-        headers: {
-          'User-Agent': 'WaterMotionServicePortal/1.0 (field-app)',
-          'Accept-Language': 'th,en'
-        }
-      });
+      const headers = {
+        'User-Agent': 'WaterMotionServicePortal/1.0 (field-app)',
+        'Accept-Language': 'th,en'
+      };
+      const boundedUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=th&limit=8&q=${encodeURIComponent(q)}&viewbox=100.25,14.25,100.95,13.45&bounded=1`;
+      let response = await fetch(boundedUrl, { headers });
       if (!response.ok) throw new Error(`Nominatim ${response.status}`);
-      const rows = await response.json();
+      let rows = await response.json();
+      if (!Array.isArray(rows) || rows.length === 0) {
+        const openUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=th&limit=8&q=${encodeURIComponent(q)}`;
+        response = await fetch(openUrl, { headers });
+        if (response.ok) rows = await response.json();
+      }
       const mapped = (Array.isArray(rows) ? rows : []).map(row => ({
-        label: row.display_name,
+        label: shortenAddressLabel(row.display_name),
+        labelTh: shortenAddressLabel(row.display_name),
         code: row.address?.postcode || '',
-        city: row.address?.city || row.address?.state || row.address?.province || 'Bangkok'
+        city: mapMetroCity(row.address)
       }));
       send(res, 200, JSON.stringify(mapped), 'application/json; charset=utf-8');
     } catch (error) {

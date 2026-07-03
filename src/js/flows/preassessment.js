@@ -595,11 +595,14 @@ function scorePropertyMatch(item, query) {
   const code = item.code || '';
   let score = 0;
 
+  if (label.includes(q)) score += 12;
+  if (code.startsWith(q)) score += 10;
+
   q.split(' ').filter(Boolean).forEach(part => {
-    if (part.length < 2) return;
+    if (part.length < 1) return;
     if (code.startsWith(part)) score += 6;
     else if (code.includes(part)) score += 4;
-    if (label.includes(part)) score += 3;
+    if (label.includes(part)) score += 4;
   });
 
   return score;
@@ -617,51 +620,70 @@ function renderPropertySuggestion(match) {
 function suggestProperty() {}
 
 function addressSuggestionPool() {
+  const fromPostal = POSTAL_DATA
+    .filter(p => METRO_CITIES.has(p.city))
+    .map(p => ({ label: p.label, labelTh: p.labelTh, code: p.code, city: p.city }));
   const fromJobs = (Array.isArray(JOBS) ? JOBS : [])
     .map(job => ({ label: job?.addr || '', code: '', city: 'Bangkok' }))
     .filter(item => item.label);
-  return [...PROPERTY_SUGGESTIONS, ...fromJobs].filter(item => !item.city || METRO_CITIES.has(item.city));
+  return [...PROPERTY_SUGGESTIONS, ...fromPostal, ...fromJobs].filter(item => !item.city || METRO_CITIES.has(item.city));
 }
 
 function localAddressMatches(query) {
-  const q = (query || '').trim();
+  const q = normalisePropertyText(query);
   if (q.length < 2) return [];
+  const parts = q.split(' ').filter(Boolean);
   return addressSuggestionPool()
-    .map(item => ({ item, score: scorePropertyMatch(item, q) }))
+    .map(item => {
+      const label = normalisePropertyText([item.label, item.labelTh, item.city].filter(Boolean).join(' '));
+      const code = item.code || '';
+      let score = scorePropertyMatch(item, query);
+      if (label.includes(q)) score = Math.max(score, 12);
+      if (code.includes(q)) score = Math.max(score, 10);
+      parts.forEach(part => {
+        if (part.length >= 2 && (label.includes(part) || code.includes(part))) score = Math.max(score, 5);
+      });
+      return { item, score };
+    })
     .filter(entry => entry.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 8)
     .map(entry => entry.item);
 }
 
-function renderAddressDropdown(items) {
+let lastAddressResults = [];
+
+function renderAddressDropdown(items, options = {}) {
   const dd = document.getElementById('address-dropdown');
   if (!dd) return;
-  if (!items.length) {
-    dd.classList.add('hidden');
+  const list = items.length ? items : (options.keepPrevious ? lastAddressResults : []);
+  if (!list.length) {
+    if (!options.loading) dd.classList.add('hidden');
     return;
   }
-  dd.innerHTML = items.map(item => {
+  lastAddressResults = list;
+  dd.innerHTML = list.map(item => {
     const label = S.lang === 'th' && item.labelTh ? item.labelTh : item.label;
     const safeLabel = (label || '').replace(/'/g, '\\\'');
     const safeCity = (item.city || 'Bangkok').replace(/'/g, '\\\'');
     const safeCode = item.code || '';
-    return `<div class="postal-item" onclick="selectAddressSuggestion('${safeLabel}','${safeCode}','${safeCity}')"><img class="postal-pin" src="${ICON.pin}" alt=""><span class="postal-rest">${label}</span></div>`;
+    return `<div class="postal-item" onmousedown="event.preventDefault();selectAddressSuggestion('${safeLabel}','${safeCode}','${safeCity}')"><img class="postal-pin" src="${ICON.pin}" alt=""><span class="postal-rest">${label}</span></div>`;
   }).join('');
   dd.classList.remove('hidden');
 }
 
 function filterAddressSuggest(query) {
-  if (googleMapsReady) return;
   const q = (query || '').trim();
   clearTimeout(addressSearchTimer);
   if (q.length < 2) {
+    lastAddressResults = [];
     document.getElementById('address-dropdown')?.classList.add('hidden');
     return;
   }
 
-  renderAddressDropdown(localAddressMatches(q));
-  addressSearchTimer = setTimeout(() => searchAddressSuggestions(q), 280);
+  const local = localAddressMatches(q);
+  renderAddressDropdown(local, { keepPrevious: true, loading: true });
+  addressSearchTimer = setTimeout(() => searchAddressSuggestions(q), 220);
 }
 
 async function searchAddressSuggestions(query) {
@@ -687,7 +709,7 @@ async function searchAddressSuggestions(query) {
   if (seq !== addressSearchSeq) return;
   const input = document.getElementById('ci-addr');
   if (!input || input.value.trim() !== q) return;
-  renderAddressDropdown([...merged.values()].slice(0, 8));
+  renderAddressDropdown([...merged.values()].slice(0, 8), { keepPrevious: true });
 }
 
 function selectAddressSuggestion(label, code, city) {
@@ -780,6 +802,8 @@ function updateMsDisplay(id) {
   valEl.innerHTML = checked.map(v => `<span class="ms-tag">${preassessChoiceLabel(v)}</span>`).join('');
 }
 
+let dropdownHideTimer = null;
+
 function initMultiSelect() {
   document.querySelectorAll('.ms-wrap').forEach(wrap => {
     const max = parseInt(wrap.dataset.max || '0', 10);
@@ -796,10 +820,20 @@ function initMultiSelect() {
       };
     });
   });
+  document.addEventListener('mousedown', e => {
+    if (e.target.closest('.postal-item')) return;
+    if (!e.target.closest('.postal-wrap')) {
+      clearTimeout(dropdownHideTimer);
+      dropdownHideTimer = setTimeout(() => {
+        document.getElementById('postal-dropdown')?.classList.add('hidden');
+        document.getElementById('address-dropdown')?.classList.add('hidden');
+      }, 180);
+    } else {
+      clearTimeout(dropdownHideTimer);
+    }
+  });
   document.addEventListener('click', e => {
     if (!e.target.closest('.ms-wrap')) document.querySelectorAll('.ms-menu').forEach(m => m.classList.add('hidden'));
-    if (!e.target.closest('.postal-wrap')) document.getElementById('postal-dropdown')?.classList.add('hidden');
-    if (!e.target.closest('#ci-addr')) document.getElementById('address-dropdown')?.classList.add('hidden');
     if (!e.target.closest('.province-picker')) closeProvincePicker();
   });
 }
@@ -867,44 +901,5 @@ function applyGooglePlaceSelection(place) {
 async function initAddressAutocomplete() {
   const input = document.getElementById('ci-addr');
   if (!input || input.dataset.placesReady) return;
-
-  let apiKey = '';
-  try {
-    const res = await fetch('/api/maps-config', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      apiKey = data.apiKey || '';
-    }
-  } catch (error) {
-    console.warn('Could not load maps config', error);
-  }
-
-  if (!apiKey) {
-    input.dataset.placesReady = 'mock';
-    return;
-  }
-
-  try {
-    await loadGoogleMapsScript(apiKey, S.lang);
-    const bounds = new google.maps.LatLngBounds(
-      new google.maps.LatLng(13.45, 100.25),
-      new google.maps.LatLng(14.25, 100.95)
-    );
-    googlePlacesAutocomplete = new google.maps.places.Autocomplete(input, {
-      bounds,
-      strictBounds: true,
-      componentRestrictions: { country: 'th' },
-      fields: ['formatted_address', 'address_components', 'geometry', 'name'],
-      types: ['address']
-    });
-    googlePlacesAutocomplete.addListener('place_changed', () => {
-      const place = googlePlacesAutocomplete.getPlace();
-      if (place) applyGooglePlaceSelection(place);
-    });
-    googleMapsReady = true;
-    input.dataset.placesReady = 'google';
-  } catch (error) {
-    console.warn('Google Places unavailable', error);
-    input.dataset.placesReady = 'mock';
-  }
+  input.dataset.placesReady = 'custom';
 }
