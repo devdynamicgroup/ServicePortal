@@ -108,6 +108,35 @@ async function handleApiRequest(req, res) {
     return true;
   }
 
+  if (urlPath === '/api/address-search' && req.method === 'GET') {
+    try {
+      const q = new URL(req.url, 'http://localhost').searchParams.get('q') || '';
+      if (!q.trim()) {
+        send(res, 200, '[]', 'application/json; charset=utf-8');
+        return true;
+      }
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=th&limit=8&q=${encodeURIComponent(q)}&viewbox=100.25,14.25,100.95,13.45&bounded=1`;
+      const response = await fetch(nominatimUrl, {
+        headers: {
+          'User-Agent': 'WaterMotionServicePortal/1.0 (field-app)',
+          'Accept-Language': 'th,en'
+        }
+      });
+      if (!response.ok) throw new Error(`Nominatim ${response.status}`);
+      const rows = await response.json();
+      const mapped = (Array.isArray(rows) ? rows : []).map(row => ({
+        label: row.display_name,
+        code: row.address?.postcode || '',
+        city: row.address?.city || row.address?.state || row.address?.province || 'Bangkok'
+      }));
+      send(res, 200, JSON.stringify(mapped), 'application/json; charset=utf-8');
+    } catch (error) {
+      console.warn('address-search failed', error.message);
+      send(res, 200, '[]', 'application/json; charset=utf-8');
+    }
+    return true;
+  }
+
   if (urlPath === '/api/maps-config' && req.method === 'GET') {
     send(res, 200, JSON.stringify({
       apiKey: process.env.GOOGLE_MAPS_API_KEY || ''

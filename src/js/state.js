@@ -32,7 +32,10 @@ const POSTAL_DATA = [
   { label:'Mueang Chonburi, Chonburi 20000', labelTh:'เมืองชลบุรี จังหวัดชลบุรี 20000', code:'20000', city:'Chonburi' },
   { label:'Mueang Nonthaburi, Nonthaburi 11000', labelTh:'เมืองนนทบุรี จังหวัดนนทบุรี 11000', code:'11000', city:'Nonthaburi' },
   { label:'Mueang Pathum Thani, Pathum Thani 12000', labelTh:'เมืองปทุมธานี จังหวัดปทุมธานี 12000', code:'12000', city:'Pathum Thani' },
-  { label:'Mueang Samut Prakan, Samut Prakan 10270', labelTh:'เมืองสมุทรปราการ จังหวัดสมุทรปราการ 10270', code:'10270', city:'Samut Prakan' }
+  { label:'Mueang Samut Prakan, Samut Prakan 10270', labelTh:'เมืองสมุทรปราการ จังหวัดสมุทรปราการ 10270', code:'10270', city:'Samut Prakan' },
+  { label:'Pak Kret, Nonthaburi 11000', labelTh:'ปากเกร็ด นนทบุรี 11000', code:'11000', city:'Nonthaburi' },
+  { label:'Mueang Pathum Thani, Pathum Thani 12000', labelTh:'เมืองปทุมธานี ปทุมธานี 12000', code:'12000', city:'Pathum Thani' },
+  { label:'Nakhon Pathom, Nakhon Pathom 73000', labelTh:'นครปฐม นครปฐม 73000', code:'73000', city:'Nakhon Pathom' }
 ];
 const JOBS = [
   { id:1, name:'Saranya C.', addr:'12 Sukhumvit Soi 11, Wattana', timeStart:'9:00AM', timeEnd:'10:00AM', day:0, pkg:'essential', status:'in_progress', meta:'Single house - 5-10 yrs - Owner present' },

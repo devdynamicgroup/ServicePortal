@@ -314,6 +314,8 @@ const METRO_CITIES = new Set(SERVICE_PROVINCES);
 
 let googlePlacesAutocomplete = null;
 let googleMapsReady = false;
+let addressSearchTimer = null;
+let addressSearchSeq = 0;
 
 function serviceProvinces() {
   return THAI_PROVINCES.filter(p => SERVICE_PROVINCES.includes(p.en));
@@ -327,6 +329,12 @@ const PROPERTY_SUGGESTIONS = [
   { label:'Silom / Bang Rak, Bangkok 10500', code:'10500', city:'Bangkok' },
   { label:'Ari / Phaya Thai, Bangkok 10400', code:'10400', city:'Bangkok' },
   { label:'Lumphini / Pathum Wan, Bangkok 10330', code:'10330', city:'Bangkok' },
+  { label:'Thonglor, Watthana, Bangkok 10110', code:'10110', city:'Bangkok' },
+  { label:'On Nut, Suan Luang, Bangkok 10250', code:'10250', city:'Bangkok' },
+  { label:'Bang Na, Bangkok 10260', code:'10260', city:'Bangkok' },
+  { label:'Pak Kret, Nonthaburi 11000', code:'11000', city:'Nonthaburi' },
+  { label:'Mueang Pathum Thani, Pathum Thani 12000', code:'12000', city:'Pathum Thani' },
+  { label:'Mueang Samut Prakan, Samut Prakan 10270', code:'10270', city:'Samut Prakan' },
   { label:'Nimman, Chiang Mai 50000', code:'50000', city:'Chiang Mai' },
   { label:'Mueang Phuket, Phuket 83000', code:'83000', city:'Phuket' }
 ];
@@ -479,19 +487,9 @@ function metroProvinceLabel() {
   return typeof t === 'function' ? t('preassess.metro') : 'Bangkok & Vicinity';
 }
 
-function focusPostalFromMetro() {
-  setProvinceValue('Bangkok');
-  const postal = document.getElementById('ci-postal');
-  if (!postal) return;
-  if (!postal.value.trim()) postal.value = DEFAULT_POSTAL_CODES.Bangkok || '10110';
-  postal.focus();
-  filterPostal(postal.value);
-}
-
 function provinceName(en) {
-  if (!en || METRO_CITIES.has(en)) return metroProvinceLabel();
   const province = THAI_PROVINCES.find(p => p.en === en || p.th === en);
-  if (!province) return en || metroProvinceLabel();
+  if (!province) return en || 'Bangkok';
   return S.lang === 'th' ? province.th : province.en;
 }
 
@@ -501,7 +499,7 @@ function setProvinceValue(value) {
   const metroCity = METRO_CITIES.has(value) ? value : 'Bangkok';
   el.value = metroCity;
   const display = document.getElementById('province-display');
-  if (display) display.textContent = metroProvinceLabel();
+  if (display) display.textContent = provinceName(metroCity);
 }
 
 function setPostalForProvince(provinceEn, force = false) {
@@ -512,17 +510,41 @@ function setPostalForProvince(provinceEn, force = false) {
 }
 
 function updateProvinceOptions() {
-  setProvinceValue(document.getElementById('ci-city')?.value || 'Bangkok');
+  const el = document.getElementById('ci-city');
+  const menu = document.getElementById('province-menu');
+  if (!el) return;
+  setProvinceValue(el.value || 'Bangkok');
+  if (!menu) return;
+  menu.innerHTML = serviceProvinces().map(p => `
+    <button class="province-option${p.en === el.value ? ' sel' : ''}" type="button" onclick="selectProvince('${p.en.replace(/'/g, '\\\'')}')">
+      <span class="province-option-main">${S.lang === 'th' ? p.th : p.en}</span>
+    </button>
+  `).join('');
 }
 
 function toggleProvincePicker() {
-  focusPostalFromMetro();
+  const picker = document.getElementById('province-picker');
+  const menu = document.getElementById('province-menu');
+  if (!picker || !menu) return;
+  updateProvinceOptions();
+  picker.classList.toggle('open');
+  menu.classList.toggle('hidden');
 }
 
-function closeProvincePicker() {}
+function closeProvincePicker() {
+  document.getElementById('province-picker')?.classList.remove('open');
+  document.getElementById('province-menu')?.classList.add('hidden');
+}
 
-function selectProvince() {
-  focusPostalFromMetro();
+function selectProvince(provinceEn) {
+  if (!SERVICE_PROVINCES.includes(provinceEn)) provinceEn = 'Bangkok';
+  setProvinceValue(provinceEn);
+  setPostalForProvince(provinceEn, true);
+  closeProvincePicker();
+  const postal = document.getElementById('ci-postal');
+  postal?.focus();
+  if (postal?.value) filterPostal(postal.value);
+  updatePreassessmentCompletionState();
 }
 
 function updatePreassessmentOptionText() {
@@ -601,28 +623,25 @@ function addressSuggestionPool() {
   return [...PROPERTY_SUGGESTIONS, ...fromJobs].filter(item => !item.city || METRO_CITIES.has(item.city));
 }
 
-function filterAddressSuggest(query) {
-  if (googleMapsReady) return;
-  const dd = document.getElementById('address-dropdown');
-  if (!dd) return;
+function localAddressMatches(query) {
   const q = (query || '').trim();
-  if (q.length < 2) {
-    dd.classList.add('hidden');
-    return;
-  }
-
-  const scored = addressSuggestionPool()
+  if (q.length < 2) return [];
+  return addressSuggestionPool()
     .map(item => ({ item, score: scorePropertyMatch(item, q) }))
     .filter(entry => entry.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
+    .slice(0, 8)
+    .map(entry => entry.item);
+}
 
-  if (!scored.length) {
+function renderAddressDropdown(items) {
+  const dd = document.getElementById('address-dropdown');
+  if (!dd) return;
+  if (!items.length) {
     dd.classList.add('hidden');
     return;
   }
-
-  dd.innerHTML = scored.map(({ item }) => {
+  dd.innerHTML = items.map(item => {
     const label = S.lang === 'th' && item.labelTh ? item.labelTh : item.label;
     const safeLabel = (label || '').replace(/'/g, '\\\'');
     const safeCity = (item.city || 'Bangkok').replace(/'/g, '\\\'');
@@ -630,6 +649,45 @@ function filterAddressSuggest(query) {
     return `<div class="postal-item" onclick="selectAddressSuggestion('${safeLabel}','${safeCode}','${safeCity}')"><img class="postal-pin" src="${ICON.pin}" alt=""><span class="postal-rest">${label}</span></div>`;
   }).join('');
   dd.classList.remove('hidden');
+}
+
+function filterAddressSuggest(query) {
+  if (googleMapsReady) return;
+  const q = (query || '').trim();
+  clearTimeout(addressSearchTimer);
+  if (q.length < 2) {
+    document.getElementById('address-dropdown')?.classList.add('hidden');
+    return;
+  }
+
+  renderAddressDropdown(localAddressMatches(q));
+  addressSearchTimer = setTimeout(() => searchAddressSuggestions(q), 280);
+}
+
+async function searchAddressSuggestions(query) {
+  const seq = ++addressSearchSeq;
+  const q = (query || '').trim();
+  if (q.length < 2) return;
+
+  const merged = new Map();
+  localAddressMatches(q).forEach(item => merged.set(item.label, item));
+
+  try {
+    const res = await fetch(`/api/address-search?q=${encodeURIComponent(q)}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Address search failed');
+    const remote = await res.json();
+    if (seq !== addressSearchSeq) return;
+    (Array.isArray(remote) ? remote : []).forEach(item => {
+      if (item?.label) merged.set(item.label, item);
+    });
+  } catch (error) {
+    console.warn('Online address search unavailable', error);
+  }
+
+  if (seq !== addressSearchSeq) return;
+  const input = document.getElementById('ci-addr');
+  if (!input || input.value.trim() !== q) return;
+  renderAddressDropdown([...merged.values()].slice(0, 8));
 }
 
 function selectAddressSuggestion(label, code, city) {
