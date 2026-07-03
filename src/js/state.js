@@ -17,7 +17,7 @@ const S = {
   stepsDone: { preassess: false, assess: false, score: false, payment: false, feedback: false },
   scoreVal: null,
   scoreDetail: {},
-  googleReviewUrl: ''
+  googleReviewUrl: 'https://g.page/r/Ce0EFhVtUyRpEAE/review'
 };
 
 const KTB_LOGO = 'src/assets/ktb-logo.png';

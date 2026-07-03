@@ -202,19 +202,10 @@ const I18N = {
     'pay.pkg.full.desc': 'On-site & Lab analysis - Full report in 7 days',
 
     'fb.title': 'Client Feedback',
-    'fb.share': 'Share Link',
-    'fb.experience': 'How was your experience?',
-    'fb.thoughts': 'Your thoughts (optional)',
-    'fb.commentPh': "What was most helpful about today's visit?",
-    'fb.consent': "I'm happy for Water Motion to use my feedback anonymously. Data may be used for city-wide benchmarking.",
+    'fb.reviewLead': 'Thank you for choosing Water Motion.',
+    'fb.reviewBody': 'Please share your experience with a Google review at the link below.',
     'fb.google': 'Leave Google Review',
-    'fb.aiSuggest': 'AI Suggest',
-    'fb.suggestUpdated': 'Suggestion updated',
-    'fb.reviewLink': 'Google review link',
-    'fb.reviewLinkPh': 'Link will be added soon',
-    'fb.reviewLinkPending': 'Review link not ready yet',
     'fb.saved': 'Feedback saved',
-    'fb.linkCopied': 'Report link copied — send to client',
 
     'lang.en': 'English',
     'lang.th': 'Thai',
@@ -425,19 +416,10 @@ const I18N = {
     'pay.pkg.full.desc': 'หน้างานและห้องแล็บ - รายงานภายใน 7 วัน',
 
     'fb.title': 'ความคิดเห็นลูกค้า',
-    'fb.share': 'แชร์ลิงก์',
-    'fb.experience': 'ประสบการณ์ของคุณเป็นอย่างไร?',
-    'fb.thoughts': 'ความคิดเห็นเพิ่มเติม (ไม่บังคับ)',
-    'fb.commentPh': 'อะไรคือสิ่งที่มีประโยชน์ที่สุดจากการเยี่ยมครั้งนี้?',
-    'fb.consent': 'ฉันยินยอมให้ Water Motion ใช้ความคิดเห็นของฉันแบบไม่ระบุตัวตน ข้อมูลอาจถูกใช้เพื่อการเปรียบเทียบเชิงพื้นที่',
+    'fb.reviewLead': 'ขอบคุณที่เลือกใช้บริการ Water Motion',
+    'fb.reviewBody': 'กรุณาแชร์ประสบการณ์ของคุณผ่าน Google Review ที่ลิงก์ด้านล่าง',
     'fb.google': 'รีวิวบน Google',
-    'fb.aiSuggest': 'AI แนะนำ',
-    'fb.suggestUpdated': 'อัปเดตข้อความแนะนำแล้ว',
-    'fb.reviewLink': 'ลิงก์รีวิว Google',
-    'fb.reviewLinkPh': 'รอแปะลิงก์ — จะใส่ให้ภายหลัง',
-    'fb.reviewLinkPending': 'ยังไม่มีลิงก์รีวิว',
     'fb.saved': 'บันทึกความคิดเห็นแล้ว',
-    'fb.linkCopied': 'คัดลอกลิงก์รายงานแล้ว — ส่งให้ลูกค้าได้',
 
     'lang.en': 'English',
     'lang.th': 'ไทย',
@@ -481,7 +463,6 @@ function refreshDynamicI18n() {
   if (S.screen === 's-score' && typeof calcAndShowScore === 'function') calcAndShowScore();
   if (typeof updatePaymentScreen === 'function' && document.getElementById('s-payment')) updatePaymentScreen();
   if (typeof updatePreassessBtn === 'function') updatePreassessBtn();
-  if (typeof syncFeedbackReviewLink === 'function') syncFeedbackReviewLink();
 }
 
 function setLanguage(lang, options = {}) {

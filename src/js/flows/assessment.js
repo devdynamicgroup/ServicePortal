@@ -162,6 +162,26 @@ function selSeg(el, group) {
   el.classList.add('sel');
 }
 
+const SCORE_READING_BASE = { ph: 7.2, tds: 450, ec: 690, temp: 28, turbidity: 1.2, orp: 320, do: 6.8, chlorine: 2.1 };
+
+function generateRandomScoreReadings() {
+  const spread = () => (Math.random() * 2 - 1);
+  const d = spread();
+  const freeCl = Math.max(0.05, SCORE_READING_BASE.chlorine * 0.45 + d * 0.18);
+  const totalCl = Math.max(freeCl + 0.05, SCORE_READING_BASE.chlorine * 0.55 + d * 0.22);
+  return {
+    ph: (SCORE_READING_BASE.ph + d * 0.22).toFixed(1),
+    tds: String(Math.round(SCORE_READING_BASE.tds + d * 55)),
+    ec: String(Math.round(SCORE_READING_BASE.ec + d * 75)),
+    temp: String(Math.round(SCORE_READING_BASE.temp + d * 3)),
+    turbidity: Math.max(0.1, +(SCORE_READING_BASE.turbidity + d * 0.35).toFixed(1)),
+    orp: String(Math.round(SCORE_READING_BASE.orp + d * 45)),
+    do: Math.max(0.1, +(SCORE_READING_BASE.do + d * 0.7).toFixed(1)),
+    freeChlorine: freeCl.toFixed(2),
+    totalChlorine: totalCl.toFixed(2)
+  };
+}
+
 const METER_READING_FIELDS = {
   ph: 'm-ph',
   tds: 'm-tds',
@@ -172,14 +192,43 @@ const METER_READING_FIELDS = {
   do: 'm-do'
 };
 
-const MOCK_METER_READING_RESULT = {
-  ph: '7.2',
-  tds: '450',
-  ec: '690',
-  temp: '28',
-  turbidity: '1.2',
-  orp: '320',
-  do: '6.8'
+const CHLORINE_READING_FIELDS = {
+  freeChlorine: 'm-free-cl',
+  totalChlorine: 'm-total-cl'
+};
+
+const PHOTO_SCAN_PROFILES = {
+  'meter-photo-preview': {
+    fields: METER_READING_FIELDS,
+    pick(readings) {
+      return {
+        ph: readings.ph,
+        tds: readings.tds,
+        ec: readings.ec,
+        temp: readings.temp,
+        turbidity: readings.turbidity,
+        orp: readings.orp,
+        do: readings.do
+      };
+    },
+    persist(tap, readings) {
+      tap.meterReadings = readings;
+      tap.meterSource = 'mock-ocr';
+    }
+  },
+  'cl-photo-preview': {
+    fields: CHLORINE_READING_FIELDS,
+    pick(readings) {
+      return {
+        freeChlorine: readings.freeChlorine,
+        totalChlorine: readings.totalChlorine
+      };
+    },
+    persist(tap, readings) {
+      tap.chlorineReadings = readings;
+      tap.chlorineSource = 'mock-ocr';
+    }
+  }
 };
 
 const MOCK_METER_PHOTO = 'data:image/svg+xml,' + encodeURIComponent(`
@@ -195,14 +244,54 @@ const MOCK_METER_PHOTO = 'data:image/svg+xml,' + encodeURIComponent(`
 const MeterReadingOcrProvider = {
   async analyzePhoto(photoSrc) {
     await new Promise(resolve => setTimeout(resolve, 650));
+    const random = generateRandomScoreReadings();
     return {
       source: 'mock-ocr',
-      confidence: 0.92,
+      confidence: 0.85 + Math.random() * 0.1,
       photo: photoSrc || MOCK_METER_PHOTO,
-      readings: { ...MOCK_METER_READING_RESULT }
+      readings: {
+        ph: random.ph,
+        tds: random.tds,
+        ec: random.ec,
+        temp: random.temp,
+        turbidity: random.turbidity,
+        orp: random.orp,
+        do: random.do
+      }
     };
   }
 };
+
+function writeReadingFields(fieldMap, readings = {}) {
+  Object.entries(fieldMap).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = readings[key] ?? '';
+  });
+}
+
+async function processAssessmentPhoto(previewId, photoSrc) {
+  const profile = PHOTO_SCAN_PROFILES[previewId];
+  if (!profile || !photoSrc || processAssessmentPhoto._busy) return;
+  processAssessmentPhoto._busy = true;
+
+  try {
+    showToast(typeof t === 'function' ? t('meter.processingTitle') : 'Reading image...');
+    await new Promise(resolve => setTimeout(resolve, 650));
+
+    const random = generateRandomScoreReadings();
+    const readings = profile.pick(random);
+    writeReadingFields(profile.fields, readings);
+
+    const tap = getActiveTapRecord();
+    profile.persist(tap, readings);
+    saveActiveJobState?.();
+    renderAssessList();
+    showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
+  } finally {
+    processAssessmentPhoto._busy = false;
+  }
+}
+processAssessmentPhoto._busy = false;
 
 function getActiveTapRecord() {
   ensureTapData();
@@ -253,17 +342,8 @@ window.MeterReadingCapture = {
   async processPhoto(photoSrc) {
     if (this._processing || !photoSrc) return;
     this._processing = true;
-    showToast(typeof t === 'function' ? t('meter.processingTitle') : 'Reading image...');
     try {
-      const result = await this.provider.analyzePhoto(photoSrc);
-      const tap = getActiveTapRecord();
-      tap.meterReadings = result.readings;
-      tap.meterSource = result.source;
-      tap.photos.meter = photoSrc;
-      writeMeterReadingFields(result.readings);
-      saveActiveJobState?.();
-      renderAssessList();
-      showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
+      await processAssessmentPhoto('meter-photo-preview', photoSrc);
     } catch (error) {
       console.error(error);
       showToast(typeof t === 'function' ? t('meter.toastError') : 'Could not read image');
@@ -296,7 +376,7 @@ function handlePhotoFile(input, previewId) {
   readImageFile(file, src => {
     setPhotoPreview(previewId, src);
     closeCameraCapture();
-    if (previewId !== 'meter-photo-preview') showToast('Photo uploaded');
+    if (previewId !== 'meter-photo-preview' && previewId !== 'cl-photo-preview') showToast('Photo uploaded');
   });
 }
 
@@ -460,6 +540,11 @@ function setPhotoPreview(previewId, src, options = {}) {
   }
   if (previewId === 'meter-photo-preview' && !options.silent && window.MeterReadingCapture?.processPhoto) {
     MeterReadingCapture.processPhoto(src);
+  } else if (previewId === 'cl-photo-preview' && !options.silent) {
+    processAssessmentPhoto('cl-photo-preview', src).catch(error => {
+      console.error(error);
+      showToast(typeof t === 'function' ? t('meter.toastError') : 'Could not read image');
+    });
   }
 }
 
