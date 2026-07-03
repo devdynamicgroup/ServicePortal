@@ -1,8 +1,12 @@
 function setRating(n) {
   S.rating = n;
-  document.querySelectorAll('.star-btn').forEach((b, i) => b.classList.toggle('active', i < n));
+  document.querySelectorAll('#fb-stars .star-btn, .stars .star-btn').forEach((b, i) => b.classList.toggle('active', i < n));
 }
-function toggleFbConsent() { const cb = document.getElementById('fb-consent'); cb.checked = !cb.checked; }
+
+function toggleFbConsent() {
+  const cb = document.getElementById('fb-consent');
+  cb.checked = !cb.checked;
+}
 
 const FEEDBACK_SUGGESTIONS = [
   'The specialist explained each step clearly and helped us understand what to improve. The visit felt professional and useful.',
@@ -21,12 +25,41 @@ function aiSuggestFeedback() {
   showToast(typeof t === 'function' ? t('fb.suggestUpdated') : 'Suggestion updated');
 }
 
-function openGoogleReview() { window.open('https://www.google.com/maps/search/Water+Motion+Bangkok', '_blank'); }
-function shareReportLink() { showToast('Report link copied — send to client'); }
+function syncFeedbackReviewLink() {
+  const linkEl = document.getElementById('fb-review-link');
+  if (!linkEl) return;
+  linkEl.value = S.googleReviewUrl || '';
+  linkEl.placeholder = typeof t === 'function' ? t('fb.reviewLinkPh') : 'Link will be added soon';
+}
+
+function openFeedbackModal() {
+  setRating(S.rating);
+  syncFeedbackReviewLink();
+  if (typeof applyI18n === 'function') applyI18n(S.lang);
+  document.getElementById('feedback-overlay')?.classList.remove('hidden');
+}
+
+function closeFeedbackModal() {
+  document.getElementById('feedback-overlay')?.classList.add('hidden');
+}
+
+function openGoogleReview() {
+  const url = (S.googleReviewUrl || document.getElementById('fb-review-link')?.value || '').trim();
+  if (!url) {
+    showToast(typeof t === 'function' ? t('fb.reviewLinkPending') : 'Review link not ready yet');
+    return;
+  }
+  window.open(url, '_blank');
+}
+
+function shareReportLink() {
+  showToast(typeof t === 'function' ? t('fb.linkCopied') : 'Report link copied — send to client');
+}
+
 function completeFeedback() {
   S.stepsDone.feedback = true;
   saveActiveJobState();
   renderJobSteps();
-  goScreen('s-job');
-  showToast('Feedback saved');
+  closeFeedbackModal();
+  showToast(typeof t === 'function' ? t('fb.saved') : 'Feedback saved');
 }

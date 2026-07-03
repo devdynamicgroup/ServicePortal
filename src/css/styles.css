@@ -261,21 +261,6 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .photo-box .pb-label{font-size:14px;color:var(--muted);font-weight:500;text-align:center;max-width:220px;line-height:1.4;position:relative;z-index:0}
 .photo-box input[type=file]{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
 .photo-hint{font-size:13px;color:var(--muted);line-height:1.5;padding:0 4px}
-.meter-capture-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px}
-.meter-capture-icon{width:58px;height:58px;border-radius:50%;background:var(--accent-50);color:var(--blue);display:flex;align-items:center;justify-content:center}
-.meter-capture-title{font-size:17px;font-weight:700;color:var(--text);line-height:1.25}
-.meter-capture-sub{font-size:13px;color:var(--muted);line-height:1.45;margin-top:4px}
-.meter-primary{width:100%;margin-top:4px}
-.meter-manual-btn{border:none;background:none;color:var(--blue);font:700 14px inherit;cursor:pointer;padding:6px 0}
-.meter-processing{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;display:flex;align-items:center;gap:12px}
-.meter-spinner{width:28px;height:28px;border-radius:50%;border:3px solid var(--accent-100);border-top-color:var(--blue);animation:meter-spin .8s linear infinite;flex-shrink:0}
-@keyframes meter-spin{to{transform:rotate(360deg)}}
-.meter-processing-title,.meter-review-title{font-size:15px;font-weight:700;color:var(--text);line-height:1.25}
-.meter-processing-sub,.meter-review-sub{font-size:13px;color:var(--muted);line-height:1.4;margin-top:3px}
-.meter-review{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;display:grid;grid-template-columns:72px 1fr auto;gap:12px;align-items:center}
-.meter-photo-preview{width:72px;height:54px;border-radius:6px;background:var(--bg) center/cover no-repeat;border:1px solid var(--border)}
-.meter-review-copy{min-width:0}
-.meter-review .btn-sm{height:34px;padding:0 12px;white-space:nowrap}
 
 /* ─── Notice (icon, no emoji) ──────────────────── */
 .notice{background:var(--accent-50);border-radius:var(--radius-lg);padding:12px 14px;font-size:13px;color:var(--text);display:flex;gap:10px;align-items:flex-start;line-height:1.5}
@@ -410,8 +395,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .search-inp{width:100%;margin-bottom:12px}
 .notif-item{padding:12px 0;border-bottom:1px solid var(--border)}
 .notif-item:last-child{border-bottom:none}
-.notif-filter{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px}
-.notif-filter-btn{min-height:32px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font:600 12px inherit;color:var(--muted);cursor:pointer;padding:0 10px;white-space:normal;line-height:1.2}
+.notif-filter{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+.notif-filter-btn{height:32px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font:600 12px inherit;color:var(--muted);cursor:pointer;padding:0 8px}
 .notif-filter-btn.sel{background:var(--blue);border-color:var(--blue);color:#fff}
 .notif-type{display:inline-block;margin-bottom:6px;padding:2px 7px;border-radius:999px;background:var(--accent-50);color:var(--blue);font-size:11px;font-weight:700;text-transform:capitalize}
 .notif-title{font-weight:600;font-size:14px;margin-bottom:2px}
@@ -576,8 +561,9 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .ai-suggest{position:absolute;right:0;bottom:-22px;font-size:14px;font-weight:600;color:var(--blue);background:none;border:none;cursor:pointer;font-family:inherit}
 .consent-row{display:flex;gap:16px;align-items:flex-start}
 .consent-row img{width:24px;height:24px;flex-shrink:0;margin-top:2px}
-.foot .btn-complete-narrow{width:120px;flex-shrink:0}
-.foot .btn-google{flex:1}
+.feedback-modal .row{margin-top:16px}
+.feedback-modal .btn-complete-narrow{width:120px;flex-shrink:0}
+.feedback-modal .btn-google{flex:1}
 
 /* ─── Radio (pre-assess) ─────────────────────────── */
 .owner-q{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text);line-height:1.4}

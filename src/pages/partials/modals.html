@@ -56,6 +56,42 @@
   </div>
 </div>
 
+<!-- Client Feedback -->
+<div id="feedback-overlay" class="modal-overlay hidden" onclick="closeFeedbackModal()">
+  <div class="modal-sheet feedback-modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title" data-i18n="fb.title">Client Feedback</div>
+    <div class="card" style="padding:16px;border-radius:var(--radius-lg);margin-top:8px">
+      <div style="font-size:17px;font-weight:600;margin-bottom:32px" data-i18n="fb.experience">How was your experience?</div>
+      <div class="stars" id="fb-stars" style="justify-content:space-between;margin-bottom:32px">
+        <button class="star-btn active" type="button" onclick="setRating(1)"><img src="https://www.figma.com/api/mcp/asset/cf61ee1d-a909-4937-b938-23f808172386" alt="1 star"></button>
+        <button class="star-btn active" type="button" onclick="setRating(2)"><img src="https://www.figma.com/api/mcp/asset/cf61ee1d-a909-4937-b938-23f808172386" alt="2 stars"></button>
+        <button class="star-btn active" type="button" onclick="setRating(3)"><img src="https://www.figma.com/api/mcp/asset/cf61ee1d-a909-4937-b938-23f808172386" alt="3 stars"></button>
+        <button class="star-btn" type="button" onclick="setRating(4)"><img src="https://www.figma.com/api/mcp/asset/cf61ee1d-a909-4937-b938-23f808172386" alt="4 stars"></button>
+        <button class="star-btn" type="button" onclick="setRating(5)"><img src="https://www.figma.com/api/mcp/asset/cf61ee1d-a909-4937-b938-23f808172386" alt="5 stars"></button>
+      </div>
+      <div class="field fb-textarea-wrap">
+        <label data-i18n="fb.thoughts">Your thoughts (optional)</label>
+        <textarea class="inp" id="fb-comment" data-i18n-placeholder="fb.commentPh" placeholder="What was most helpful about today's visit?" style="min-height:100px"></textarea>
+        <button type="button" class="ai-suggest" onclick="aiSuggestFeedback()" data-i18n="fb.aiSuggest">AI Suggest</button>
+      </div>
+      <div class="field" style="margin-top:28px">
+        <label data-i18n="fb.reviewLink">Google review link</label>
+        <input class="inp" id="fb-review-link" type="text" readonly data-i18n-placeholder="fb.reviewLinkPh" placeholder="Link will be added soon">
+      </div>
+      <div class="consent-row" style="margin-top:24px">
+        <img src="https://www.figma.com/api/mcp/asset/0b3813c7-9d7e-41c8-ad3d-8bd8d155b280" alt="" id="fb-consent-icon" style="cursor:pointer" onclick="toggleFbConsent()">
+        <p style="font-size:14px;line-height:1.4;color:var(--text)" data-i18n="fb.consent">I'm happy for Water Motion to use my feedback anonymously. Data may be used for city-wide benchmarking.</p>
+        <input type="checkbox" id="fb-consent" checked class="hidden">
+      </div>
+    </div>
+    <div class="row" style="gap:10px">
+      <button class="btn btn-secondary btn-complete-narrow" type="button" onclick="completeFeedback()" data-i18n="common.complete">Complete</button>
+      <button class="btn btn-primary btn-google" type="button" onclick="openGoogleReview()" data-i18n="fb.google">Leave Google Review</button>
+    </div>
+  </div>
+</div>
+
 <!-- Language -->
 <div id="lang-overlay" class="modal-overlay hidden" onclick="closeLangModal()">
   <div class="modal-sheet" onclick="event.stopPropagation()">

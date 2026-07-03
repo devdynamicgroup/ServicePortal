@@ -16,7 +16,8 @@ const S = {
   scoreTapFilter: 'all',
   stepsDone: { preassess: false, assess: false, score: false, payment: false, feedback: false },
   scoreVal: null,
-  scoreDetail: {}
+  scoreDetail: {},
+  googleReviewUrl: ''
 };
 
 const KTB_LOGO = 'src/assets/ktb-logo.png';

@@ -135,19 +135,10 @@ const I18N = {
     'assess.title': 'Water Assessment',
 
     'meter.title': 'Meter Readings',
-    'meter.startTitle': 'Take a photo of the meter',
-    'meter.startSub': 'We will use mock OCR data for this phase and fill the form automatically.',
-    'meter.takePhoto': 'Take Photo',
-    'meter.fillManually': 'Fill Manually',
+    'meter.hint': 'Photo the meter screen to auto-fill values, or enter readings manually below.',
+    'meter.formLabel': 'Enter Readings',
     'meter.processingTitle': 'Reading image...',
-    'meter.processingSub': 'Mock OCR is extracting values from the photo.',
-    'meter.reviewTitle': 'Review readings',
-    'meter.reviewSubOcr': 'Auto-filled from mock OCR. You can edit every field before saving.',
-    'meter.reviewSubManual': 'Manual entry mode. Fill or edit every field before saving.',
-    'meter.retakePhoto': 'Retake Photo',
-    'meter.formLabel': 'Review & Edit Readings',
-    'meter.save': 'Save',
-    'meter.toastFilled': 'Mock readings filled',
+    'meter.toastFilled': 'Readings filled',
     'meter.toastError': 'Could not read image',
 
     'photo.tapHint': 'Tap to capture or upload',
@@ -219,6 +210,11 @@ const I18N = {
     'fb.google': 'Leave Google Review',
     'fb.aiSuggest': 'AI Suggest',
     'fb.suggestUpdated': 'Suggestion updated',
+    'fb.reviewLink': 'Google review link',
+    'fb.reviewLinkPh': 'Link will be added soon',
+    'fb.reviewLinkPending': 'Review link not ready yet',
+    'fb.saved': 'Feedback saved',
+    'fb.linkCopied': 'Report link copied — send to client',
 
     'lang.en': 'English',
     'lang.th': 'Thai',
@@ -362,19 +358,10 @@ const I18N = {
     'assess.title': 'ประเมินน้ำ',
 
     'meter.title': 'ค่ามิเตอร์',
-    'meter.startTitle': 'ถ่ายรูปหน้าจอมิเตอร์',
-    'meter.startSub': 'เฟสนี้ใช้ mock OCR เติมค่าให้อัตโนมัติ',
-    'meter.takePhoto': 'ถ่ายรูป',
-    'meter.fillManually': 'กรอกข้อมูลเอง',
+    'meter.hint': 'ถ่ายรูปหน้าจอมิเตอร์เพื่อเติมค่าอัตโนมัติ หรือกรอกค่าด้านล่างเอง',
+    'meter.formLabel': 'กรอกค่าที่อ่านได้',
     'meter.processingTitle': 'กำลังอ่านภาพ...',
-    'meter.processingSub': 'Mock OCR กำลังดึงค่าจากรูปภาพ',
-    'meter.reviewTitle': 'ตรวจสอบค่าที่อ่านได้',
-    'meter.reviewSubOcr': 'เติมค่าจาก mock OCR แล้ว แก้ไขได้ทุกช่องก่อนบันทึก',
-    'meter.reviewSubManual': 'โหมดกรอกเอง กรอกหรือแก้ไขทุกช่องก่อนบันทึก',
-    'meter.retakePhoto': 'ถ่ายใหม่',
-    'meter.formLabel': 'ตรวจสอบและแก้ไขค่า',
-    'meter.save': 'บันทึก',
-    'meter.toastFilled': 'เติมค่า mock แล้ว',
+    'meter.toastFilled': 'เติมค่าแล้ว',
     'meter.toastError': 'อ่านภาพไม่สำเร็จ',
 
     'photo.tapHint': 'แตะเพื่อถ่ายหรืออัปโหลด',
@@ -446,6 +433,11 @@ const I18N = {
     'fb.google': 'รีวิวบน Google',
     'fb.aiSuggest': 'AI แนะนำ',
     'fb.suggestUpdated': 'อัปเดตข้อความแนะนำแล้ว',
+    'fb.reviewLink': 'ลิงก์รีวิว Google',
+    'fb.reviewLinkPh': 'รอแปะลิงก์ — จะใส่ให้ภายหลัง',
+    'fb.reviewLinkPending': 'ยังไม่มีลิงก์รีวิว',
+    'fb.saved': 'บันทึกความคิดเห็นแล้ว',
+    'fb.linkCopied': 'คัดลอกลิงก์รายงานแล้ว — ส่งให้ลูกค้าได้',
 
     'lang.en': 'English',
     'lang.th': 'ไทย',
@@ -489,7 +481,7 @@ function refreshDynamicI18n() {
   if (S.screen === 's-score' && typeof calcAndShowScore === 'function') calcAndShowScore();
   if (typeof updatePaymentScreen === 'function' && document.getElementById('s-payment')) updatePaymentScreen();
   if (typeof updatePreassessBtn === 'function') updatePreassessBtn();
-  if (S.screen === 's-meter' && window.MeterReadingCapture?.refreshI18n) MeterReadingCapture.refreshI18n();
+  if (typeof syncFeedbackReviewLink === 'function') syncFeedbackReviewLink();
 }
 
 function setLanguage(lang, options = {}) {

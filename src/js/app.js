@@ -40,14 +40,15 @@ if (document.readyState === 'loading') {
 
 const _origGoScreen = goScreen;
 window.goScreen = function(id) {
+  if (id === 's-feedback') {
+    openFeedbackModal();
+    return;
+  }
   _origGoScreen(id);
   try {
     if (id === 's-assess') renderAssessList();
     if (typeof restoreCurrentPhotoScreen === 'function') restoreCurrentPhotoScreen(id);
-    if (id === 's-meter' && window.MeterReadingCapture) {
-      MeterReadingCapture.init();
-      if (typeof applyI18n === 'function') applyI18n(S.lang);
-    }
+    if (id === 's-meter' && window.MeterReadingCapture) MeterReadingCapture.init();
     if (id === 's-score') calcAndShowScore();
     if (id === 's-payment') updatePaymentScreen();
     if (id === 's-preassess') {
