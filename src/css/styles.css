@@ -179,7 +179,7 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .step-card.done .step-done-check{display:flex}
 .step-chevron{color:var(--dim);flex-shrink:0;display:flex;align-items:center}
 .step-card.done .step-chevron{display:none}
-.step-chevron svg{width:16px;height:16px;opacity:.5;color:var(--dim)}
+.step-chevron img{width:16px;height:16px;opacity:.5}
 .job-intro{margin-bottom:12px}
 .job-intro-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .job-intro-sub{font-size:13px;color:var(--muted)}
@@ -594,7 +594,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .province-option:last-child{border-bottom:none}
 .province-option:hover,.province-option.sel{background:var(--accent-50)}
 .province-option-main{font-weight:500;line-height:1.3}
-.province-option-sub{font-size:13px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums}
+.province-option-sub{display:none}
+.pac-container{z-index:200}
 
 /* ─── Section titles ─────────────────────────────── */
 .section-title{font-size:17px;font-weight:600;margin-bottom:12px}

@@ -108,6 +108,13 @@ async function handleApiRequest(req, res) {
     return true;
   }
 
+  if (urlPath === '/api/maps-config' && req.method === 'GET') {
+    send(res, 200, JSON.stringify({
+      apiKey: process.env.GOOGLE_MAPS_API_KEY || ''
+    }), 'application/json; charset=utf-8');
+    return true;
+  }
+
   return false;
 }
 

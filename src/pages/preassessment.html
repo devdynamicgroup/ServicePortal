@@ -41,14 +41,11 @@
     <div class="card gap12">
       <div class="field">
         <label data-i18n="preassess.city">Province / City</label>
-        <div class="province-picker" id="province-picker">
-          <input type="hidden" id="ci-city" value="Bangkok">
-          <button class="province-trigger" id="province-trigger" type="button" onclick="toggleProvincePicker()">
-            <span id="province-display">Bangkok</span>
-            <svg class="province-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="province-menu hidden" id="province-menu"></div>
-        </div>
+        <input type="hidden" id="ci-city" value="Bangkok">
+        <button class="province-trigger" id="province-trigger" type="button" onclick="focusPostalFromMetro()">
+          <span id="province-display" data-i18n="preassess.metro">Bangkok &amp; Vicinity</span>
+          <svg class="province-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
       </div>
       <div class="field postal-wrap">
         <label data-i18n="preassess.postal">Postal Code</label>

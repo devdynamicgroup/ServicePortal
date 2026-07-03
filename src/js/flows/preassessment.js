@@ -310,6 +310,10 @@ const THAI_PROVINCES = [
 ].map(([en, th]) => ({ en, th }));
 
 const SERVICE_PROVINCES = ['Bangkok', 'Nonthaburi', 'Pathum Thani', 'Samut Prakan', 'Nakhon Pathom', 'Samut Sakhon', 'Samut Songkhram'];
+const METRO_CITIES = new Set(SERVICE_PROVINCES);
+
+let googlePlacesAutocomplete = null;
+let googleMapsReady = false;
 
 function serviceProvinces() {
   return THAI_PROVINCES.filter(p => SERVICE_PROVINCES.includes(p.en));
@@ -471,19 +475,33 @@ function normalisePropertyText(value) {
   return (value || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
+function metroProvinceLabel() {
+  return typeof t === 'function' ? t('preassess.metro') : 'Bangkok & Vicinity';
+}
+
+function focusPostalFromMetro() {
+  setProvinceValue('Bangkok');
+  const postal = document.getElementById('ci-postal');
+  if (!postal) return;
+  if (!postal.value.trim()) postal.value = DEFAULT_POSTAL_CODES.Bangkok || '10110';
+  postal.focus();
+  filterPostal(postal.value);
+}
+
 function provinceName(en) {
+  if (!en || METRO_CITIES.has(en)) return metroProvinceLabel();
   const province = THAI_PROVINCES.find(p => p.en === en || p.th === en);
-  if (!province) return en || '';
+  if (!province) return en || metroProvinceLabel();
   return S.lang === 'th' ? province.th : province.en;
 }
 
 function setProvinceValue(value) {
   const el = document.getElementById('ci-city');
   if (!el) return;
-  const allowed = serviceProvinces();
-  const province = allowed.find(p => p.en === value || p.th === value) || allowed[0];
-  el.value = province.en;
-  document.getElementById('province-display')?.replaceChildren(document.createTextNode(provinceName(province.en)));
+  const metroCity = METRO_CITIES.has(value) ? value : 'Bangkok';
+  el.value = metroCity;
+  const display = document.getElementById('province-display');
+  if (display) display.textContent = metroProvinceLabel();
 }
 
 function setPostalForProvince(provinceEn, force = false) {
@@ -494,40 +512,17 @@ function setPostalForProvince(provinceEn, force = false) {
 }
 
 function updateProvinceOptions() {
-  const el = document.getElementById('ci-city');
-  const menu = document.getElementById('province-menu');
-  if (!el) return;
-  const current = el.value || 'Bangkok';
-  setProvinceValue(current);
-  if (!menu) return;
-  menu.innerHTML = serviceProvinces().map(p => `
-    <button class="province-option${p.en === el.value ? ' sel' : ''}" type="button" onclick="selectProvince('${p.en.replace(/'/g, '\\\'')}')">
-      <span class="province-option-main">${S.lang === 'th' ? p.th : p.en}</span>
-      <span class="province-option-sub">${DEFAULT_POSTAL_CODES[p.en] || ''}</span>
-    </button>
-  `).join('');
+  setProvinceValue(document.getElementById('ci-city')?.value || 'Bangkok');
 }
 
 function toggleProvincePicker() {
-  const picker = document.getElementById('province-picker');
-  const menu = document.getElementById('province-menu');
-  if (!picker || !menu) return;
-  updateProvinceOptions();
-  picker.classList.toggle('open');
-  menu.classList.toggle('hidden');
+  focusPostalFromMetro();
 }
 
-function closeProvincePicker() {
-  document.getElementById('province-picker')?.classList.remove('open');
-  document.getElementById('province-menu')?.classList.add('hidden');
-}
+function closeProvincePicker() {}
 
-function selectProvince(provinceEn) {
-  if (!SERVICE_PROVINCES.includes(provinceEn)) provinceEn = 'Bangkok';
-  setProvinceValue(provinceEn);
-  setPostalForProvince(provinceEn, true);
-  closeProvincePicker();
-  updatePreassessmentCompletionState();
+function selectProvince() {
+  focusPostalFromMetro();
 }
 
 function updatePreassessmentOptionText() {
@@ -603,10 +598,11 @@ function addressSuggestionPool() {
   const fromJobs = (Array.isArray(JOBS) ? JOBS : [])
     .map(job => ({ label: job?.addr || '', code: '', city: 'Bangkok' }))
     .filter(item => item.label);
-  return [...PROPERTY_SUGGESTIONS, ...fromJobs];
+  return [...PROPERTY_SUGGESTIONS, ...fromJobs].filter(item => !item.city || METRO_CITIES.has(item.city));
 }
 
 function filterAddressSuggest(query) {
+  if (googleMapsReady) return;
   const dd = document.getElementById('address-dropdown');
   if (!dd) return;
   const q = (query || '').trim();
@@ -640,7 +636,8 @@ function selectAddressSuggestion(label, code, city) {
   const addr = document.getElementById('ci-addr');
   if (addr) addr.value = label;
   if (code) document.getElementById('ci-postal').value = code;
-  if (city) setProvinceValue(city);
+  if (city && METRO_CITIES.has(city)) setProvinceValue(city);
+  else setProvinceValue('Bangkok');
   document.getElementById('address-dropdown')?.classList.add('hidden');
   updatePreassessmentCompletionState();
 }
@@ -652,6 +649,7 @@ function filterPostal(q) {
 
   const search = normalisePropertyText(q);
   const matches = POSTAL_DATA.filter(p => {
+    if (!METRO_CITIES.has(p.city)) return false;
     const label = S.lang === 'th' ? `${p.label} ${p.labelTh || ''}` : `${p.label} ${p.labelTh || ''}`;
     return p.code.includes(q) || normalisePropertyText(label).includes(search);
   });
@@ -766,4 +764,89 @@ function initChipGroups() {
   updateProvinceOptions();
   setPostalForProvince(document.getElementById('ci-city')?.value || 'Bangkok', false);
   updatePreassessmentOptionText();
+  initAddressAutocomplete();
+}
+
+function loadGoogleMapsScript(apiKey, lang) {
+  return new Promise((resolve, reject) => {
+    if (window.google?.maps?.places) {
+      resolve();
+      return;
+    }
+    const existing = document.getElementById('google-maps-sdk');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Google Maps failed to load')), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'google-maps-sdk';
+    script.async = true;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=${lang === 'th' ? 'th' : 'en'}`;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Google Maps failed to load'));
+    document.head.appendChild(script);
+  });
+}
+
+function applyGooglePlaceSelection(place) {
+  const addr = document.getElementById('ci-addr');
+  const postal = document.getElementById('ci-postal');
+  const maps = document.getElementById('ci-maps');
+  if (addr && place.formatted_address) addr.value = place.formatted_address;
+  const postalComp = place.address_components?.find(c => c.types.includes('postal_code'));
+  if (postal && postalComp) postal.value = postalComp.long_name;
+  if (maps && place.geometry?.location) {
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    maps.value = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+  setProvinceValue('Bangkok');
+  document.getElementById('address-dropdown')?.classList.add('hidden');
+  updatePreassessmentCompletionState();
+}
+
+async function initAddressAutocomplete() {
+  const input = document.getElementById('ci-addr');
+  if (!input || input.dataset.placesReady) return;
+
+  let apiKey = '';
+  try {
+    const res = await fetch('/api/maps-config', { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      apiKey = data.apiKey || '';
+    }
+  } catch (error) {
+    console.warn('Could not load maps config', error);
+  }
+
+  if (!apiKey) {
+    input.dataset.placesReady = 'mock';
+    return;
+  }
+
+  try {
+    await loadGoogleMapsScript(apiKey, S.lang);
+    const bounds = new google.maps.LatLngBounds(
+      new google.maps.LatLng(13.45, 100.25),
+      new google.maps.LatLng(14.25, 100.95)
+    );
+    googlePlacesAutocomplete = new google.maps.places.Autocomplete(input, {
+      bounds,
+      strictBounds: true,
+      componentRestrictions: { country: 'th' },
+      fields: ['formatted_address', 'address_components', 'geometry', 'name'],
+      types: ['address']
+    });
+    googlePlacesAutocomplete.addListener('place_changed', () => {
+      const place = googlePlacesAutocomplete.getPlace();
+      if (place) applyGooglePlaceSelection(place);
+    });
+    googleMapsReady = true;
+    input.dataset.placesReady = 'google';
+  } catch (error) {
+    console.warn('Google Places unavailable', error);
+    input.dataset.placesReady = 'mock';
+  }
 }

@@ -109,6 +109,7 @@ const I18N = {
     'preassess.email': 'Email',
     'preassess.contact': 'Contact Person',
     'preassess.city': 'Province / City',
+    'preassess.metro': 'Bangkok & Vicinity',
     'preassess.postal': 'Postal Code',
     'preassess.addr': 'Address',
     'preassess.maps': 'Google Maps Link',
@@ -323,6 +324,7 @@ const I18N = {
     'preassess.email': 'อีเมล',
     'preassess.contact': 'ผู้ติดต่อ',
     'preassess.city': 'จังหวัด / เมือง',
+    'preassess.metro': 'กรุงเทพ-ปริมณฑล',
     'preassess.postal': 'รหัสไปรษณีย์',
     'preassess.addr': 'ที่อยู่',
     'preassess.maps': 'ลิงก์ Google Maps',
@@ -463,6 +465,7 @@ function refreshDynamicI18n() {
   if (S.screen === 's-score' && typeof calcAndShowScore === 'function') calcAndShowScore();
   if (typeof updatePaymentScreen === 'function' && document.getElementById('s-payment')) updatePaymentScreen();
   if (typeof updatePreassessBtn === 'function') updatePreassessBtn();
+  if (typeof updateProvinceOptions === 'function') updateProvinceOptions();
 }
 
 function setLanguage(lang, options = {}) {

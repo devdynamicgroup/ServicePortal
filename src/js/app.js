@@ -1,6 +1,7 @@
 async function initApp() {
   try {
     await loadPagePartials();
+    runInitStep(applyStaticIcons);
     const csvSeedVersion = 'clients-30-v1';
     if (localStorage.getItem('wm-csv-seed-version') !== csvSeedVersion && typeof loadJobsFromCsv === 'function') {
       const loadedCsv = await loadJobsFromCsv();
@@ -55,6 +56,7 @@ window.goScreen = function(id) {
       if (typeof updatePreassessmentOptionText === 'function') updatePreassessmentOptionText();
       if (typeof updatePackageVisibility === 'function') updatePackageVisibility();
       if (typeof updatePreassessmentCompletionState === 'function') updatePreassessmentCompletionState();
+      if (typeof initAddressAutocomplete === 'function') initAddressAutocomplete();
     }
     if (id === 's-payment' && typeof updatePaymentScreen === 'function') updatePaymentScreen();
   } catch (error) {

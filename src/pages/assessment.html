@@ -7,7 +7,7 @@
   <div class="content" style="padding-top:0">
     <div class="tap-bar-wrap">
       <div class="tap-tabs" id="tap-tabs"></div>
-      <button class="tap-add-btn" type="button" onclick="addTap()" title="Add tap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#284dcd" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <button class="tap-add-btn" type="button" onclick="addTap()" title="Add tap"><img src="" data-icon="plus" alt="+"></button>
     </div>
 
     <div class="tap-name-card">
@@ -30,7 +30,7 @@
       <div class="assess-list-row" onclick="goScreen('s-visual')">
         <span id="visual-check" class="li-check assess-check"></span>
         <div class="assess-body"><div class="assess-title">Visual Check</div><div class="assess-sub">Appearance and smell before measuring</div></div>
-        <span class="assess-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></span>
+        <span class="assess-chevron"><img src="" data-icon="chevron" alt="" width="16" height="16"></span>
       </div>
       <div class="assess-list-row" onclick="goScreen('s-meter')">
         <span id="meter-check" class="li-check assess-check"></span>
@@ -47,13 +47,13 @@
     <div class="sec-label-row" id="full-section-label"><span class="sec-label-upper">Full Assessment</span><span class="sec-label-hint">Upgrade to unlock additional tests</span></div>
     <div id="full-section">
       <div class="assess-row locked" id="row-pressure" onclick="requireFull('s-pressure')">
-        <div class="assess-lock"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+        <div class="assess-lock"><img src="" data-icon="lock" alt=""></div>
         <span id="pressure-check" class="li-check assess-check hidden"></span>
         <div class="assess-body"><div class="assess-title assess-title-lock">Pressure &amp; Flow</div><div class="assess-sub">Measure pressure and flow rate</div></div>
         <button type="button" class="upgrade-link" id="btn-upgrade-pf" onclick="event.stopPropagation();showPkgSheet()">Upgrade</button>
       </div>
       <div class="assess-row locked" id="row-infra" onclick="requireFull('s-infra')">
-        <div class="assess-lock"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+        <div class="assess-lock"><img src="" data-icon="lock" alt=""></div>
         <span id="infra-check" class="li-check assess-check hidden"></span>
         <div class="assess-body"><div class="assess-title assess-title-lock">Infrastructure</div><div class="assess-sub">Inspect pipes, joints, and shutoff valves</div></div>
         <button type="button" class="upgrade-link" id="btn-upgrade-inf" onclick="event.stopPropagation();showPkgSheet()">Upgrade</button>
