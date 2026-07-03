@@ -3,7 +3,10 @@ const GOOGLE_REVIEW_URL = 'https://g.page/r/Ce0EFhVtUyRpEAE/review';
 function openFeedbackModal() {
   S.googleReviewUrl = GOOGLE_REVIEW_URL;
   const linkEl = document.getElementById('fb-review-link-display');
-  if (linkEl) linkEl.textContent = GOOGLE_REVIEW_URL;
+  if (linkEl) {
+    linkEl.href = GOOGLE_REVIEW_URL;
+    linkEl.textContent = GOOGLE_REVIEW_URL;
+  }
   if (typeof applyI18n === 'function') applyI18n(S.lang);
   document.getElementById('feedback-overlay')?.classList.remove('hidden');
 }

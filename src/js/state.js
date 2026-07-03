@@ -21,22 +21,6 @@ const S = {
 };
 
 const KTB_LOGO = 'src/assets/ktb-logo.png';
-const CARET_RIGHT = '<img src="https://www.figma.com/api/mcp/asset/8f8f14ee-d74b-416a-b51b-d6e8ec34735b" alt="" width="16" height="16">';
-const ICON = {
-  camera: 'https://www.figma.com/api/mcp/asset/8cb60dca-0412-42cc-9f34-4e298132274c',
-  cameraUpload: 'https://www.figma.com/api/mcp/asset/eb39453e-3204-459a-b196-cbb1fb0648d9',
-  drop: 'https://www.figma.com/api/mcp/asset/a0c8402e-bd80-462d-83a0-452c06a843a8',
-  info: 'https://www.figma.com/api/mcp/asset/ae04e09b-c252-464a-9bd8-567ea2f770c6',
-  pin: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#78716c" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>')
-};
-const BACK_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>';
-const STEP_ICONS = {
-  preassess: 'https://www.figma.com/api/mcp/asset/f620f2ed-7fed-4ee3-b634-cd41f065b118',
-  assess: 'https://www.figma.com/api/mcp/asset/2b27f4ee-3807-4e2e-a003-626b01077771',
-  score: 'https://www.figma.com/api/mcp/asset/a0c8402e-bd80-462d-83a0-452c06a843a8',
-  payment: 'https://www.figma.com/api/mcp/asset/4732c08b-4ab7-4ad4-a251-baa7346141a9',
-  feedback: 'https://www.figma.com/api/mcp/asset/bbcef7df-4008-4afb-b404-899bf4227094'
-};
 const POSTAL_DATA = [
   { label:'Khlong Tan Nuea, Watthana, Bangkok 10110', labelTh:'คลองตันเหนือ เขตวัฒนา กรุงเทพมหานคร 10110', code:'10110', city:'Bangkok' },
   { label:'Khlong Tan, Khlong Toei, Bangkok 10110', labelTh:'คลองเตย เขตคลองเตย กรุงเทพมหานคร 10110', code:'10110', city:'Bangkok' },

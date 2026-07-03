@@ -179,7 +179,7 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .step-card.done .step-done-check{display:flex}
 .step-chevron{color:var(--dim);flex-shrink:0;display:flex;align-items:center}
 .step-card.done .step-chevron{display:none}
-.step-chevron img{width:16px;height:16px;opacity:.5}
+.step-chevron svg{width:16px;height:16px;opacity:.5;color:var(--dim)}
 .job-intro{margin-bottom:12px}
 .job-intro-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .job-intro-sub{font-size:13px;color:var(--muted)}
@@ -565,7 +565,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .feedback-review-card{padding:16px;border-radius:var(--radius-lg);margin-top:8px;display:flex;flex-direction:column;gap:12px}
 .feedback-review-lead{font-size:17px;font-weight:600;color:var(--text);line-height:1.35;margin:0}
 .feedback-review-body{font-size:14px;color:var(--muted);line-height:1.5;margin:0}
-.feedback-review-url{font-size:13px;color:var(--blue);word-break:break-all;line-height:1.45;padding:10px 12px;background:var(--accent-50);border-radius:var(--radius);border:1px solid var(--accent-100)}
+.feedback-review-url{display:block;font-size:13px;color:var(--blue);word-break:break-all;line-height:1.45;padding:10px 12px;background:var(--accent-50);border-radius:var(--radius);border:1px solid var(--accent-100);text-decoration:underline}
 .feedback-review-actions{gap:10px;margin-top:16px}
 
 /* ─── Radio (pre-assess) ─────────────────────────── */

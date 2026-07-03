@@ -15,7 +15,6 @@ async function initApp() {
     runInitStep(updateAssessScreen);
     runInitStep(updatePayToggle);
     runInitStep(() => setLanguage(S.lang, { silent: true }));
-    runInitStep(() => setRating(S.rating));
     if (typeof initAuthUI === 'function') await initAuthUI();
     runInitStep(restoreLoginSession);
   } catch (error) {
