@@ -167,7 +167,10 @@ function renderNotifications() {
   const list = document.getElementById('notif-list');
   if (!list) return;
   document.querySelectorAll('.notif-filter-btn').forEach(btn => {
-    btn.classList.toggle('sel', btn.dataset.type === notifFilter);
+    const type = btn.dataset.type;
+    const count = type === 'all' ? NOTIFICATIONS.length : NOTIFICATIONS.filter(item => item.type === type).length;
+    btn.classList.toggle('sel', type === notifFilter);
+    btn.textContent = `${t('notif.' + type)} (${count})`;
   });
   const items = notifFilter === 'all'
     ? NOTIFICATIONS
