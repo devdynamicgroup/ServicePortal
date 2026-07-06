@@ -144,7 +144,9 @@ async function handleApiRequest(req, res) {
 
   if (urlPath === '/api/address-search' && req.method === 'GET') {
     try {
-      const q = new URL(req.url, 'http://localhost').searchParams.get('q') || '';
+      const params = new URL(req.url, 'http://localhost').searchParams;
+      const q = params.get('q') || '';
+      const province = params.get('province') || '';
       if (!q.trim()) {
         send(res, 200, '[]', 'application/json; charset=utf-8');
         return true;
@@ -153,13 +155,19 @@ async function handleApiRequest(req, res) {
         'User-Agent': 'WaterMotionServicePortal/1.0 (field-app)',
         'Accept-Language': 'th,en'
       };
-      const boundedUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=th&limit=8&q=${encodeURIComponent(q)}&viewbox=100.25,14.25,100.95,13.45&bounded=1`;
+      const searchQuery = province ? `${q}, ${province}, Thailand` : `${q}, Bangkok, Thailand`;
+      const boundedUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=th&limit=10&q=${encodeURIComponent(searchQuery)}&viewbox=100.25,14.25,100.95,13.45&bounded=1`;
       let response = await fetch(boundedUrl, { headers });
       if (!response.ok) throw new Error(`Nominatim ${response.status}`);
       let rows = await response.json();
       if (!Array.isArray(rows) || rows.length === 0) {
-        const openUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=th&limit=8&q=${encodeURIComponent(q)}`;
+        const openUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=th&limit=10&q=${encodeURIComponent(searchQuery)}`;
         response = await fetch(openUrl, { headers });
+        if (response.ok) rows = await response.json();
+      }
+      if (!Array.isArray(rows) || rows.length === 0) {
+        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=th&limit=10&q=${encodeURIComponent(q)}`;
+        response = await fetch(fallbackUrl, { headers });
         if (response.ok) rows = await response.json();
       }
       const mapped = (Array.isArray(rows) ? rows : []).map(row => ({

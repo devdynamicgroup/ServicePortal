@@ -2,6 +2,7 @@ async function initApp() {
   try {
     await loadPagePartials();
     runInitStep(applyStaticIcons);
+    if (typeof syncFeedbackReviewUi === 'function') syncFeedbackReviewUi();
     const csvSeedVersion = 'clients-30-v1';
     if (localStorage.getItem('wm-csv-seed-version') !== csvSeedVersion && typeof loadJobsFromCsv === 'function') {
       const loadedCsv = await loadJobsFromCsv();

@@ -479,6 +479,26 @@ const DEFAULT_POSTAL_CODES = {
   Yasothon: '35000'
 };
 
+const METRO_POSTAL_CODES = {
+  Bangkok: '10110',
+  Nonthaburi: '11000',
+  'Pathum Thani': '12000',
+  'Samut Prakan': '10270',
+  'Nakhon Pathom': '73000',
+  'Samut Sakhon': '74000',
+  'Samut Songkhram': '75000'
+};
+
+function getSelectedProvince() {
+  return document.getElementById('ci-city')?.value || 'Bangkok';
+}
+
+function extractPostalCode(label, code) {
+  if (code && /^\d{5}$/.test(String(code))) return String(code);
+  const match = String(label || '').match(/\b(\d{5})\b/);
+  return match ? match[1] : '';
+}
+
 function normalisePropertyText(value) {
   return (value || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
@@ -505,7 +525,7 @@ function setProvinceValue(value) {
 function setPostalForProvince(provinceEn, force = false) {
   const postal = document.getElementById('ci-postal');
   if (!postal) return;
-  const code = DEFAULT_POSTAL_CODES[provinceEn] || POSTAL_DATA.find(item => item.city === provinceEn)?.code || '';
+  const code = METRO_POSTAL_CODES[provinceEn] || DEFAULT_POSTAL_CODES[provinceEn] || POSTAL_DATA.find(item => item.city === provinceEn)?.code || '';
   if (code && (force || !postal.value.trim())) postal.value = code;
 }
 
@@ -541,9 +561,6 @@ function selectProvince(provinceEn) {
   setProvinceValue(provinceEn);
   setPostalForProvince(provinceEn, true);
   closeProvincePicker();
-  const postal = document.getElementById('ci-postal');
-  postal?.focus();
-  if (postal?.value) filterPostal(postal.value);
   updatePreassessmentCompletionState();
 }
 
@@ -620,13 +637,12 @@ function renderPropertySuggestion(match) {
 function suggestProperty() {}
 
 function addressSuggestionPool() {
+  const province = getSelectedProvince();
   const fromPostal = POSTAL_DATA
-    .filter(p => METRO_CITIES.has(p.city))
+    .filter(p => p.city === province)
     .map(p => ({ label: p.label, labelTh: p.labelTh, code: p.code, city: p.city }));
-  const fromJobs = (Array.isArray(JOBS) ? JOBS : [])
-    .map(job => ({ label: job?.addr || '', code: '', city: 'Bangkok' }))
-    .filter(item => item.label);
-  return [...PROPERTY_SUGGESTIONS, ...fromPostal, ...fromJobs].filter(item => !item.city || METRO_CITIES.has(item.city));
+  return [...PROPERTY_SUGGESTIONS, ...fromPostal]
+    .filter(item => !item.city || item.city === province);
 }
 
 function localAddressMatches(query) {
@@ -656,17 +672,22 @@ let lastAddressResults = [];
 function renderAddressDropdown(items, options = {}) {
   const dd = document.getElementById('address-dropdown');
   if (!dd) return;
+  if (options.loading && !items.length) {
+    dd.innerHTML = `<div class="postal-item postal-loading"><span class="postal-rest">${S.lang === 'th' ? 'กำลังค้นหา...' : 'Searching...'}</span></div>`;
+    dd.classList.remove('hidden');
+    return;
+  }
   const list = items.length ? items : (options.keepPrevious ? lastAddressResults : []);
   if (!list.length) {
-    if (!options.loading) dd.classList.add('hidden');
+    dd.classList.add('hidden');
     return;
   }
   lastAddressResults = list;
   dd.innerHTML = list.map(item => {
     const label = S.lang === 'th' && item.labelTh ? item.labelTh : item.label;
     const safeLabel = (label || '').replace(/'/g, '\\\'');
-    const safeCity = (item.city || 'Bangkok').replace(/'/g, '\\\'');
-    const safeCode = item.code || '';
+    const safeCity = (item.city || getSelectedProvince()).replace(/'/g, '\\\'');
+    const safeCode = (item.code || extractPostalCode(label, '')).replace(/'/g, '\\\'');
     return `<div class="postal-item" onmousedown="event.preventDefault();selectAddressSuggestion('${safeLabel}','${safeCode}','${safeCity}')"><img class="postal-pin" src="${ICON.pin}" alt=""><span class="postal-rest">${label}</span></div>`;
   }).join('');
   dd.classList.remove('hidden');
@@ -682,7 +703,7 @@ function filterAddressSuggest(query) {
   }
 
   const local = localAddressMatches(q);
-  renderAddressDropdown(local, { keepPrevious: true, loading: true });
+  renderAddressDropdown(local, { keepPrevious: false, loading: !local.length });
   addressSearchTimer = setTimeout(() => searchAddressSuggestions(q), 220);
 }
 
@@ -692,10 +713,10 @@ async function searchAddressSuggestions(query) {
   if (q.length < 2) return;
 
   const merged = new Map();
-  localAddressMatches(q).forEach(item => merged.set(item.label, item));
+  const province = getSelectedProvince();
 
   try {
-    const res = await fetch(`/api/address-search?q=${encodeURIComponent(q)}`, { cache: 'no-store' });
+    const res = await fetch(`/api/address-search?q=${encodeURIComponent(q)}&province=${encodeURIComponent(province)}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('Address search failed');
     const remote = await res.json();
     if (seq !== addressSearchSeq) return;
@@ -706,58 +727,33 @@ async function searchAddressSuggestions(query) {
     console.warn('Online address search unavailable', error);
   }
 
+  localAddressMatches(q).forEach(item => {
+    if (!merged.has(item.label)) merged.set(item.label, item);
+  });
+
   if (seq !== addressSearchSeq) return;
   const input = document.getElementById('ci-addr');
   if (!input || input.value.trim() !== q) return;
-  renderAddressDropdown([...merged.values()].slice(0, 8), { keepPrevious: true });
+  renderAddressDropdown([...merged.values()].slice(0, 8), { keepPrevious: false });
 }
 
 function selectAddressSuggestion(label, code, city) {
   const addr = document.getElementById('ci-addr');
   if (addr) addr.value = label;
-  if (code) document.getElementById('ci-postal').value = code;
-  if (city && METRO_CITIES.has(city)) setProvinceValue(city);
-  else setProvinceValue('Bangkok');
+
+  const province = city && METRO_CITIES.has(city) ? city : getSelectedProvince();
+  setProvinceValue(province);
+  setPostalForProvince(province, true);
+
+  const postalCode = extractPostalCode(label, code);
+  const postal = document.getElementById('ci-postal');
+  if (postal && postalCode) postal.value = postalCode;
+
   document.getElementById('address-dropdown')?.classList.add('hidden');
   updatePreassessmentCompletionState();
 }
 
-function filterPostal(q) {
-  const dd = document.getElementById('postal-dropdown');
-  if (!dd) return;
-  if (!q || q.length < 2) { dd.classList.add('hidden'); return; }
-
-  const search = normalisePropertyText(q);
-  const matches = POSTAL_DATA.filter(p => {
-    if (!METRO_CITIES.has(p.city)) return false;
-    const label = S.lang === 'th' ? `${p.label} ${p.labelTh || ''}` : `${p.label} ${p.labelTh || ''}`;
-    return p.code.includes(q) || normalisePropertyText(label).includes(search);
-  });
-
-  if (!matches.length) { dd.classList.add('hidden'); return; }
-
-  dd.innerHTML = matches.map(p => {
-    const label = S.lang === 'th' && p.labelTh ? p.labelTh : p.label;
-    const code = p.code;
-    const rest = label.replace(code, '').replace(/^[\s,./-]+/, '').trim();
-    const safeLabel = label.replace(/'/g, '\\\'');
-    const codeDisplay = code.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'i'), '<span class="postal-match">$1</span>');
-    return `<div class="postal-item" onclick="selectPostal('${safeLabel}')"><img class="postal-pin" src="${ICON.pin}" alt=""><span>${codeDisplay} <span class="postal-rest">${rest}</span></span></div>`;
-  }).join('');
-  dd.classList.remove('hidden');
-}
-
-function selectPostal(label) {
-  const code = (label.match(/\d{5}/) || [''])[0];
-  const match = POSTAL_DATA.find(p => p.label === label || p.labelTh === label || p.code === code);
-  document.getElementById('ci-postal').value = code;
-  document.getElementById('ci-addr').value = label;
-  if (match?.city) setProvinceValue(match.city);
-  else setProvinceValue('Bangkok');
-  document.getElementById('postal-dropdown').classList.add('hidden');
-  renderPropertySuggestion(null);
-  updatePreassessmentCompletionState();
-}
+function filterPostal() {}
 
 function applyPropertySuggestion() {
   if (!propertySuggestion) return;
@@ -766,7 +762,6 @@ function applyPropertySuggestion() {
   document.getElementById('ci-addr').value = S.lang === 'th' && propertySuggestion.labelTh ? propertySuggestion.labelTh : propertySuggestion.label;
   setSelectValue('ci-proptype', propertySuggestion.propertyType);
   setSelectValue('ci-propage', propertySuggestion.propertyAge);
-  document.getElementById('postal-dropdown')?.classList.add('hidden');
   renderPropertySuggestion(null);
   updatePreassessmentCompletionState();
   showToast(S.lang === 'th' ? 'กรอกข้อมูลสถานที่แล้ว' : 'Property details filled');
@@ -825,7 +820,6 @@ function initMultiSelect() {
     if (!e.target.closest('.postal-wrap')) {
       clearTimeout(dropdownHideTimer);
       dropdownHideTimer = setTimeout(() => {
-        document.getElementById('postal-dropdown')?.classList.add('hidden');
         document.getElementById('address-dropdown')?.classList.add('hidden');
       }, 180);
     } else {

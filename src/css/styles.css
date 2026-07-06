@@ -217,6 +217,8 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .postal-item .postal-pin{width:16px;height:16px;flex-shrink:0;margin-top:2px;opacity:.45}
 .postal-item .postal-match{font-weight:600;color:var(--text)}
 .postal-item .postal-rest{color:var(--muted)}
+.postal-item.postal-loading{cursor:default;color:var(--muted)}
+.postal-item.postal-loading:hover{background:transparent}
 .property-suggest-bar{position:absolute;left:12px;right:12px;bottom:calc(var(--bar) + 10px);z-index:24;display:flex;align-items:center;gap:10px;background:#284dcd;color:#fff;border-radius:var(--radius-lg);padding:12px;box-shadow:0 12px 28px rgba(40,77,205,.28)}
 .property-suggest-bar.hidden{display:none!important}
 .property-suggest-bar .ps-copy{flex:1;min-width:0}
@@ -574,6 +576,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .feedback-review-card{padding:16px;border-radius:var(--radius-lg);margin-top:8px;display:flex;flex-direction:column;gap:12px}
 .feedback-review-lead{font-size:17px;font-weight:600;color:var(--text);line-height:1.35;margin:0}
 .feedback-review-body{font-size:14px;color:var(--muted);line-height:1.5;margin:0}
+.feedback-review-qr{display:block;width:160px;height:160px;margin:8px auto 0;border-radius:var(--radius);border:1px solid var(--border);background:#fff;object-fit:contain}
+.inp[readonly]{background:var(--bg);color:var(--text);cursor:default}
 .feedback-review-url{display:block;font-size:13px;color:var(--blue);word-break:break-all;line-height:1.45;padding:10px 12px;background:var(--accent-50);border-radius:var(--radius);border:1px solid var(--accent-100);text-decoration:underline}
 .feedback-review-actions{gap:10px;margin-top:16px}
 
