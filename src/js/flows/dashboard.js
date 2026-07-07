@@ -5,11 +5,44 @@ function getMonday(d) {
 }
 function shiftWeek(dir) { weekBase.setDate(weekBase.getDate() + dir*7); renderCalendar(); }
 
+/* ── Date helpers (job.date is the source of truth) ───────────── */
+// Local calendar date -> 'YYYY-MM-DD' (no timezone shift).
+function formatDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+// Monday=0 ... Sunday=6 for a 'YYYY-MM-DD' string.
+function weekdayFromIso(iso) {
+  const [y, m, d] = String(iso).split('-').map(Number);
+  return (new Date(y, m - 1, d).getDay() + 6) % 7;
+}
+// Actual date shown in calendar cell `i` of the displayed week.
+function cellDate(i) {
+  const d = new Date(weekBase); d.setDate(weekBase.getDate() + i);
+  return formatDate(d);
+}
+// The real date currently selected in the dashboard.
+function selectedDateIso() {
+  return cellDate(S.selDay);
+}
+// A job belongs to a date by its real job.date. Legacy jobs (CSV/mock) that
+// have no date fall back to weekday matching so they still render.
+function jobMatchesDate(job, iso) {
+  if (job.date) return job.date === iso;
+  return job.day === weekdayFromIso(iso);
+}
+function jobsOnDate(iso) {
+  return JOBS.filter(j => j.status !== 'cancelled' && jobMatchesDate(j, iso));
+}
+
 function addCaseForSelectedDay() {
   const dayIndex = S.selDay;
   const d = new Date(weekBase);
   d.setDate(weekBase.getDate() + dayIndex);
-  const sameDayJobs = JOBS.filter(j => j.day === dayIndex);
+  const iso = formatDate(d);
+  const sameDayJobs = jobsOnDate(iso);
   const maxId = JOBS.reduce((m, j) => Math.max(m, j.id), 0);
   const hour = Math.min(17, 9 + sameDayJobs.length);
   const endHour = Math.min(18, hour + 1);
@@ -20,6 +53,7 @@ function addCaseForSelectedDay() {
     timeStart: `${String(hour).padStart(2, '0')}:00`,
     timeEnd: `${String(endHour).padStart(2, '0')}:00`,
     day: dayIndex,
+    date: iso,
     pkg: 'essential',
     status: 'new',
     meta: `Case ${sameDayJobs.length + 1} for this day · Owner-present`
@@ -47,6 +81,7 @@ function addNextDayAppt() {
     timeStart: '9:00AM',
     timeEnd: '10:00AM',
     day: dayIndex,
+    date: formatDate(d),
     pkg: 'essential',
     status: 'new',
     meta: 'New appointment · Owner–present'
@@ -61,10 +96,9 @@ function renderCalendar() {
   const today = new Date(); today.setHours(0,0,0,0);
   const strip = document.getElementById('day-strip');
   strip.innerHTML = '';
-  const jobDays = [...new Set(JOBS.map(j=>j.day))];
   for(let i=0;i<7;i++) {
     const d = new Date(weekBase); d.setDate(weekBase.getDate()+i);
-    const hasJobs = jobDays.includes(i);
+    const hasJobs = jobsOnDate(cellDate(i)).length > 0;
     const isPast = d < today;
     const isWeekend = i >= 5;
     const chip = document.createElement('div');
@@ -101,7 +135,7 @@ function statusLabel(s) {
 }
 function renderJobs(filter) {
   const q = (filter ?? S.searchQuery).toLowerCase().trim();
-  let jobs = JOBS.filter(j => j.day === S.selDay && j.status !== 'cancelled');
+  let jobs = JOBS.filter(j => jobMatchesDate(j, selectedDateIso()) && j.status !== 'cancelled');
   if(q) jobs = jobs.filter(j => j.name.toLowerCase().includes(q) || j.addr.toLowerCase().includes(q));
   const list = document.getElementById('appt-list');
   document.getElementById('appt-count').textContent = q ? `${t('dash.results')} (${jobs.length})` : t('dash.appointments');
@@ -162,7 +196,7 @@ function cancelCase(id = S.activeJob?.id) {
 }
 function openSearchModal(){ document.getElementById('search-overlay').classList.remove('hidden'); document.getElementById('search-input').value=S.searchQuery; document.getElementById('search-input').focus(); filterAppointments(S.searchQuery); }
 function closeSearchModal(){ document.getElementById('search-overlay').classList.add('hidden'); }
-function filterAppointments(q){ S.searchQuery=q; renderJobs(q); const jobs=JOBS.filter(j=>j.status!=='cancelled'&&j.day===S.selDay&&(j.name.toLowerCase().includes(q.toLowerCase())||j.addr.toLowerCase().includes(q.toLowerCase()))); document.getElementById('search-results').innerHTML=jobs.map(j=>`<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${j.id})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('')||'<p style="color:var(--muted);font-size:14px">No matches</p>'; }
+function filterAppointments(q){ S.searchQuery=q; renderJobs(q); const jobs=JOBS.filter(j=>j.status!=='cancelled'&&jobMatchesDate(j,selectedDateIso())&&(j.name.toLowerCase().includes(q.toLowerCase())||j.addr.toLowerCase().includes(q.toLowerCase()))); document.getElementById('search-results').innerHTML=jobs.map(j=>`<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${j.id})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('')||'<p style="color:var(--muted);font-size:14px">No matches</p>'; }
 function renderNotifications() {
   const list = document.getElementById('notif-list');
   if (!list) return;
