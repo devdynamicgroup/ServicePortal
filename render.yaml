@@ -16,3 +16,9 @@ services:
         value: IT Support: 02-000-0000
       - key: IT_SUPPORT_LINE
         value: '@watermotion-it'
+      - key: NOTION_API_KEY
+        sync: false
+      - key: NOTION_DATABASE_ID
+        sync: false
+      - key: CALCOM_API_KEY
+        sync: false

@@ -2,5 +2,9 @@
   "scripts": {
     "start": "node server.js"
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@notionhq/client": "^5.22.0",
+    "dotenv": "^17.4.2"
+  }
 }
