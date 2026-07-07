@@ -96,9 +96,12 @@ function renderCalendar() {
   const today = new Date(); today.setHours(0,0,0,0);
   const strip = document.getElementById('day-strip');
   strip.innerHTML = '';
+  // Gray/muted styling uses the ORIGINAL weekday-based rule (unchanged UI logic).
+  const jobWeekdays = [...new Set(JOBS.map(j => j.day))];
   for(let i=0;i<7;i++) {
     const d = new Date(weekBase); d.setDate(weekBase.getDate()+i);
-    const hasJobs = jobsOnDate(cellDate(i)).length > 0;
+    const weekdayHasJobs = jobWeekdays.includes(i);          // controls gray only
+    const dateHasJobs = jobsOnDate(cellDate(i)).length > 0;  // controls the dot only
     const isPast = d < today;
     const isWeekend = i >= 5;
     const chip = document.createElement('div');
@@ -107,10 +110,10 @@ function renderCalendar() {
     if (isHoliday) cls += ' holiday';
     if(d.getTime()===today.getTime()) cls += ' today';
     if (i === S.selDay) cls += ' sel';
-    if (i !== S.selDay && (isPast || isWeekend) && !hasJobs) cls += ' muted weekend';
+    if (i !== S.selDay && (isPast || isWeekend) && !weekdayHasJobs) cls += ' muted weekend';
     chip.className = cls;
     chip.innerHTML = `<span class="dc-dow">${DOW[i]}</span><span class="dc-d">${d.getDate()}</span><span class="dc-dot"></span>`;
-    if(!hasJobs && !(d.getTime()===today.getTime())) chip.querySelector('.dc-dot').style.visibility = 'hidden';
+    if(!dateHasJobs && !(d.getTime()===today.getTime())) chip.querySelector('.dc-dot').style.visibility = 'hidden';
     chip.onclick = () => { S.selDay = i; renderCalendar(); };
     strip.appendChild(chip);
   }
@@ -135,15 +138,18 @@ function statusLabel(s) {
 }
 function renderJobs(filter) {
   const q = (filter ?? S.searchQuery).toLowerCase().trim();
-  let jobs = JOBS.filter(j => jobMatchesDate(j, selectedDateIso()) && j.status !== 'cancelled');
-  if(q) jobs = jobs.filter(j => j.name.toLowerCase().includes(q) || j.addr.toLowerCase().includes(q));
+  // allJobs stays the untouched source of truth; we only derive a display list.
+  const allJobs = JOBS;
+  let visibleJobs = allJobs.filter(j => jobMatchesDate(j, selectedDateIso()) && j.status !== 'cancelled');
+  if(q) visibleJobs = visibleJobs.filter(j => j.name.toLowerCase().includes(q) || j.addr.toLowerCase().includes(q));
+  console.log({ totalJobs: JOBS.length, visibleJobs: visibleJobs.length });
   const list = document.getElementById('appt-list');
-  document.getElementById('appt-count').textContent = q ? `${t('dash.results')} (${jobs.length})` : t('dash.appointments');
-  if (!jobs.length) {
+  document.getElementById('appt-count').textContent = q ? `${t('dash.results')} (${visibleJobs.length})` : t('dash.appointments');
+  if (!visibleJobs.length) {
     list.innerHTML = `<div class="appt-empty">${q ? t('dash.noMatches') : t('dash.empty')}<span class="appt-empty-hint">${t('dash.emptyHint')}</span></div>`;
     return;
   }
-  list.innerHTML = jobs.map(j => `
+  list.innerHTML = visibleJobs.map(j => `
     <div class="appt-card ${j.pkg === 'full' ? 'stripe-full' : ''}" onclick="openJob(${j.id})">
       <div class="ac-top">
         <div class="ac-left">
@@ -196,7 +202,7 @@ function cancelCase(id = S.activeJob?.id) {
 }
 function openSearchModal(){ document.getElementById('search-overlay').classList.remove('hidden'); document.getElementById('search-input').value=S.searchQuery; document.getElementById('search-input').focus(); filterAppointments(S.searchQuery); }
 function closeSearchModal(){ document.getElementById('search-overlay').classList.add('hidden'); }
-function filterAppointments(q){ S.searchQuery=q; renderJobs(q); const jobs=JOBS.filter(j=>j.status!=='cancelled'&&jobMatchesDate(j,selectedDateIso())&&(j.name.toLowerCase().includes(q.toLowerCase())||j.addr.toLowerCase().includes(q.toLowerCase()))); document.getElementById('search-results').innerHTML=jobs.map(j=>`<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${j.id})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('')||'<p style="color:var(--muted);font-size:14px">No matches</p>'; }
+function filterAppointments(q){ S.searchQuery=q; renderJobs(q); const visibleJobs=JOBS.filter(j=>j.status!=='cancelled'&&jobMatchesDate(j,selectedDateIso())&&(j.name.toLowerCase().includes(q.toLowerCase())||j.addr.toLowerCase().includes(q.toLowerCase()))); document.getElementById('search-results').innerHTML=visibleJobs.map(j=>`<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${j.id})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('')||'<p style="color:var(--muted);font-size:14px">No matches</p>'; }
 function renderNotifications() {
   const list = document.getElementById('notif-list');
   if (!list) return;
