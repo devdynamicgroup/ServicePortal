@@ -15,8 +15,10 @@ const FIELD_ALIASES = {
   waterConcerns: ['Water Concerns', 'waterConcerns'],
   stage: ['Stage', 'stage'],
   status: ['Status', 'status'],
-  appointmentDate: ['Appointment Date', 'Next Follow-up', 'Scheduled Date', 'appointmentDate'],
-  createdDate: ['Created', 'Created 1', 'created_time'],
+  // Appointment date priority: the team's custom "Created 1" field is the real
+  // appointment date and must win. "Created" (Notion's auto created_time) is
+  // intentionally NOT listed here so it can never be used as the appointment.
+  appointmentDate: ['Created 1', 'Next Follow-up', 'Appointment Date', 'Scheduled Date', 'appointmentDate'],
   appointmentStart: ['Appointment Start', 'Time Start', 'Start Time', 'appointmentStart'],
   appointmentEnd: ['Appointment End', 'Time End', 'End Time', 'appointmentEnd']
 };
@@ -67,9 +69,11 @@ function mapFilter(value) {
   return 'None';
 }
 
+// Business status (Active/Pending/Lead/...) is NOT the same as the workflow
+// state. `in_progress` is a workflow state set only when a specialist opens a
+// job, so we never derive it from the Notion status here.
 function mapJobStatus(value) {
   const text = String(value || '').toLowerCase();
-  if (text === 'active' || text === 'in_progress' || text === 'in progress') return 'in_progress';
   if (text === 'done' || text === 'completed') return 'done';
   if (text === 'cancelled' || text === 'canceled') return 'cancelled';
   if (text === 'overdue') return 'overdue';
@@ -99,16 +103,29 @@ function scheduleFromIndex(index) {
   };
 }
 
+// Extract Y-M-D from a Notion date string ('2026-07-09' or full ISO) without
+// letting the host timezone shift the calendar day.
+function isoDateOnly(value) {
+  const m = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+
+// Monday=0 ... Sunday=6, computed in UTC so it never drifts by timezone.
+function weekdayIndex(isoDate) {
+  if (!isoDate) return null;
+  const [y, mo, d] = isoDate.split('-').map(Number);
+  const utc = new Date(Date.UTC(y, mo - 1, d));
+  if (Number.isNaN(utc.getTime())) return null;
+  const jsDay = utc.getUTCDay();
+  return jsDay === 0 ? 6 : jsDay - 1;
+}
+
 function scheduleFromDate(dateValue, index) {
   const fallback = scheduleFromIndex(index);
-  if (!dateValue) return fallback;
-
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return fallback;
-
-  const jsDay = date.getDay();
-  const day = jsDay === 0 ? 6 : jsDay - 1;
-  return { day, timeStart: fallback.timeStart, timeEnd: fallback.timeEnd };
+  const iso = isoDateOnly(dateValue);
+  const day = weekdayIndex(iso);
+  if (day === null) return { ...fallback, date: '' };
+  return { day, timeStart: fallback.timeStart, timeEnd: fallback.timeEnd, date: iso };
 }
 
 function defaultJobDraft(job) {
@@ -142,11 +159,14 @@ function notionPageToJob(page, index) {
   const propertyAge = mapPropertyAge(getPropertyValue(properties, FIELD_ALIASES.propertyAge));
   const source = getPropertyValue(properties, FIELD_ALIASES.source);
   const stage = getPropertyValue(properties, FIELD_ALIASES.stage);
-  const status = mapJobStatus(getPropertyValue(properties, FIELD_ALIASES.status));
+  const rawStatus = getPropertyValue(properties, FIELD_ALIASES.status);
+  const status = mapJobStatus(rawStatus);
   const concern = getPropertyValue(properties, FIELD_ALIASES.waterConcerns);
-  const appointmentDate = getPropertyValue(properties, FIELD_ALIASES.appointmentDate);
-  const createdDate = getPropertyValue(properties, FIELD_ALIASES.createdDate, page.created_time);
-  const schedule = scheduleFromDate(appointmentDate || createdDate, index);
+  const created1 = getPropertyValue(properties, ['Created 1'], null);
+  // finalDate follows the appointment-date priority (Created 1 first). We never
+  // fall back to Notion's created_time, so an unscheduled client stays null.
+  const appointmentDate = getPropertyValue(properties, FIELD_ALIASES.appointmentDate, null);
+  const schedule = scheduleFromDate(appointmentDate, index);
   const timeStart = formatTimeLabel(
     getPropertyValue(properties, FIELD_ALIASES.appointmentStart),
     schedule.timeStart
@@ -164,8 +184,11 @@ function notionPageToJob(page, index) {
     timeStart,
     timeEnd,
     day: schedule.day,
+    date: schedule.date || null,
+    createdTime: page.created_time || '',
     pkg,
     status,
+    rawStatus: rawStatus || '',
     meta: [propertyType, propertyAge, stage || 'Notion'].filter(Boolean).join(' - '),
     notionSource: true
   };
@@ -188,6 +211,11 @@ function notionPageToJob(page, index) {
   };
   job.draft.msConcerns = concern ? [concern] : [];
   job.draft.pkg = pkg;
+
+  // Temporary debug: confirm Created 1 is being used as the appointment date.
+  if (process.env.NOTION_DEBUG_DATES !== 'off') {
+    console.log('[notion:date]', JSON.stringify({ name: job.name, created1, finalDate: job.date }));
+  }
 
   return job;
 }
