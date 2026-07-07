@@ -3,12 +3,18 @@ async function initApp() {
     await loadPagePartials();
     runInitStep(applyStaticIcons);
     if (typeof syncFeedbackReviewUi === 'function') syncFeedbackReviewUi();
-    const csvSeedVersion = 'clients-30-v1';
-    if (localStorage.getItem('wm-csv-seed-version') !== csvSeedVersion && typeof loadJobsFromCsv === 'function') {
-      const loadedCsv = await loadJobsFromCsv();
-      if (loadedCsv) localStorage.setItem('wm-csv-seed-version', csvSeedVersion);
-    } else if (!loadJobsFromStorage() && typeof loadJobsFromCsv === 'function') {
-      await loadJobsFromCsv();
+    let jobsLoaded = false;
+    if (typeof loadJobsFromApi === 'function') {
+      jobsLoaded = await loadJobsFromApi();
+    }
+    if (!jobsLoaded) {
+      const csvSeedVersion = 'clients-30-v1';
+      if (localStorage.getItem('wm-csv-seed-version') !== csvSeedVersion && typeof loadJobsFromCsv === 'function') {
+        const loadedCsv = await loadJobsFromCsv();
+        if (loadedCsv) localStorage.setItem('wm-csv-seed-version', csvSeedVersion);
+      } else if (!loadJobsFromStorage() && typeof loadJobsFromCsv === 'function') {
+        await loadJobsFromCsv();
+      }
     }
     runInitStep(initTaps);
     runInitStep(initOwnerRadios);

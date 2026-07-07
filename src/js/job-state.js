@@ -357,6 +357,23 @@ function jobFromClientRecord(record, index) {
   return job;
 }
 
+async function loadJobsFromApi() {
+  try {
+    const response = await fetch('/api/clients', { cache: 'no-store' });
+    if (!response.ok) return false;
+    const payload = await response.json().catch(() => ({}));
+    const jobs = Array.isArray(payload) ? payload : payload.jobs;
+    if (!Array.isArray(jobs)) return false;
+    JOBS.splice(0, JOBS.length, ...jobs);
+    persistJobs();
+    localStorage.setItem('wm-jobs-source', 'notion');
+    return true;
+  } catch (error) {
+    console.warn('Could not load jobs from Notion API', error);
+    return false;
+  }
+}
+
 async function loadJobsFromCsv() {
   try {
     const response = await fetch('clients_30_mock_data.csv', { cache: 'no-store' });
