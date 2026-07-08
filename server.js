@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 require('./config/env');
 const { handleClientsRoute } = require('./api/clients-routes');
+const { handleGoogleReviewRoute } = require('./api/google-review-routes');
 
 const root = __dirname;
 const port = Number(process.env.PORT) || 3000;
@@ -97,6 +98,7 @@ async function handleApiRequest(req, res) {
   const urlPath = req.url.split('?')[0];
 
   if (await handleClientsRoute(req, res, urlPath)) return true;
+  if (await handleGoogleReviewRoute(req, res, urlPath)) return true;
 
   if (urlPath === '/api/auth-config' && req.method === 'GET') {
     send(res, 200, JSON.stringify({

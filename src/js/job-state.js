@@ -227,6 +227,7 @@ function loadJobsFromStorage() {
     const saved = JSON.parse(raw);
     if (!Array.isArray(saved) || !saved.length) return false;
     JOBS.splice(0, JOBS.length, ...saved);
+    setDataSource(localStorage.getItem('wm-jobs-source') || 'localStorage', { count: saved.length });
     return true;
   } catch {
     return false;
@@ -316,7 +317,8 @@ function jobFromClientRecord(record, index) {
   const slot = Math.floor(index / 7);
   const hour = Math.min(17, 9 + slot);
   const id = 1000 + index + 1;
-  const status = (record.Status || '').toLowerCase() === 'active' ? 'in_progress' : 'new';
+  const rawStatus = (record.Status || '').toLowerCase();
+  const status = rawStatus === 'done' || rawStatus === 'completed' ? 'done' : 'new';
   const propertyType = mapCsvPropertyType(record['Property Type']);
   const propertyAge = mapCsvPropertyAge(record['Property Age (yr)']);
   const source = record.Source || '';
@@ -357,16 +359,44 @@ function jobFromClientRecord(record, index) {
   return job;
 }
 
+function setDataSource(source, detail) {
+  window.__WM_DATA_SOURCE__ = source;
+  try { localStorage.setItem('wm-jobs-source', source); } catch {}
+  console.info(`[Service Portal] job data source = ${source}`, detail || '');
+}
+
+// Remove any cached jobs/CSV seed so the next boot re-fetches cleanly.
+function clearJobsCache() {
+  ['wm-jobs', 'wm-jobs-source', 'wm-csv-seed-version'].forEach(key => {
+    try { localStorage.removeItem(key); } catch {}
+  });
+  console.info('[Service Portal] cleared cached jobs (wm-jobs, wm-jobs-source, wm-csv-seed-version)');
+}
+window.clearJobsCache = clearJobsCache;
+
 async function loadJobsFromApi() {
   try {
     const response = await fetch('/api/clients', { cache: 'no-store' });
-    if (!response.ok) return false;
     const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.ok === false) {
+      console.warn('[Service Portal] /api/clients unavailable', response.status, payload.error || '');
+      return false;
+    }
+
     const jobs = Array.isArray(payload) ? payload : payload.jobs;
-    if (!Array.isArray(jobs)) return false;
+    if (!Array.isArray(jobs) || !jobs.length) {
+      console.warn('[Service Portal] /api/clients returned no jobs');
+      return false;
+    }
+
+    // Notion is authoritative: replace (never merge) so CSV rows cannot mix in.
     JOBS.splice(0, JOBS.length, ...jobs);
     persistJobs();
-    localStorage.setItem('wm-jobs-source', 'notion');
+    setDataSource('notion', {
+      count: jobs.length,
+      dates: jobs.map(j => ({ name: j.name, date: j.date || '(none)', day: j.day })).slice(0, 5)
+    });
     return true;
   } catch (error) {
     console.warn('Could not load jobs from Notion API', error);
@@ -383,7 +413,7 @@ async function loadJobsFromCsv() {
     if (!jobs.length) return false;
     JOBS.splice(0, JOBS.length, ...jobs);
     persistJobs();
-    localStorage.setItem('wm-jobs-source', 'csv');
+    setDataSource('csv', { count: jobs.length });
     return true;
   } catch (error) {
     console.warn('Could not load CSV jobs', error);

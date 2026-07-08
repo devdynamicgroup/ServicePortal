@@ -56,7 +56,7 @@ function addCaseForSelectedDay() {
     date: iso,
     pkg: 'essential',
     status: 'new',
-    meta: `Case ${sameDayJobs.length + 1} for this day · Owner-present`
+    meta: `Case ${sameDayJobs.length + 1} for this day - Owner present`
   });
   ensureJobDraft(JOBS[JOBS.length - 1]);
   persistJobs();
@@ -84,7 +84,7 @@ function addNextDayAppt() {
     date: formatDate(d),
     pkg: 'essential',
     status: 'new',
-    meta: 'New appointment · Owner–present'
+    meta: 'New appointment - Owner present'
   });
   ensureJobDraft(JOBS[JOBS.length - 1]);
   persistJobs();
@@ -96,21 +96,19 @@ function renderCalendar() {
   const today = new Date(); today.setHours(0,0,0,0);
   const strip = document.getElementById('day-strip');
   strip.innerHTML = '';
-  // Gray/muted styling uses the ORIGINAL weekday-based rule (unchanged UI logic).
-  const jobWeekdays = [...new Set(JOBS.map(j => j.day))];
+  // Gray/muted styling is fixed to Sunday (0) and Wednesday (3) only.
+  // It never depends on JOBS / job.day / job.date / job counts.
+  const disabledDays = [0, 3];
   for(let i=0;i<7;i++) {
     const d = new Date(weekBase); d.setDate(weekBase.getDate()+i);
-    const weekdayHasJobs = jobWeekdays.includes(i);          // controls gray only
     const dateHasJobs = jobsOnDate(cellDate(i)).length > 0;  // controls the dot only
-    const isPast = d < today;
-    const isWeekend = i >= 5;
     const chip = document.createElement('div');
     let cls = 'day-chip';
-    const isHoliday = i === 2 || i === 6;
+    const isHoliday = disabledDays.includes(d.getDay());
     if (isHoliday) cls += ' holiday';
     if(d.getTime()===today.getTime()) cls += ' today';
     if (i === S.selDay) cls += ' sel';
-    if (i !== S.selDay && (isPast || isWeekend) && !weekdayHasJobs) cls += ' muted weekend';
+    if (disabledDays.includes(d.getDay())) cls += ' muted weekend';
     chip.className = cls;
     chip.innerHTML = `<span class="dc-dow">${DOW[i]}</span><span class="dc-d">${d.getDate()}</span><span class="dc-dot"></span>`;
     if(!dateHasJobs && !(d.getTime()===today.getTime())) chip.querySelector('.dc-dot').style.visibility = 'hidden';
@@ -149,6 +147,7 @@ function renderJobs(filter) {
     list.innerHTML = `<div class="appt-empty">${q ? t('dash.noMatches') : t('dash.empty')}<span class="appt-empty-hint">${t('dash.emptyHint')}</span></div>`;
     return;
   }
+  console.log("render count", visibleJobs.length);
   list.innerHTML = visibleJobs.map(j => `
     <div class="appt-card ${j.pkg === 'full' ? 'stripe-full' : ''}" onclick="openJob(${j.id})">
       <div class="ac-top">
@@ -170,6 +169,11 @@ function renderJobs(filter) {
         <button class="ac-menu" type="button" onclick="event.stopPropagation();showApptMenu(${j.id})" aria-label="More">${MENU_SVG}</button>
       </div>
     </div>`).join('');
+  console.log({
+    list: document.getElementById('appt-list'),
+    htmlLength: list?.innerHTML.length,
+    firstJob: visibleJobs[0]
+  });
 }
 
 function showApptMenu(id) {

@@ -1,57 +1,26 @@
-const { getNotionConfig } = require('../../config/env');
-const { getNotionClient, isNotionConfigured } = require('./client');
+const {
+  getNotionClient,
+  isNotionConfigured,
+  resolveDataSourceId,
+  getDataSourceSchema
+} = require('./client');
 const { findPropertyKey } = require('./props');
 const { FIELD_ALIASES, notionPageToJob } = require('./mapper');
 
-let resolvedDataSourceId = null;
-
-function isNotFoundError(error) {
-  return error?.code === 'object_not_found' || error?.status === 404;
-}
-
-async function resolveDataSourceId(collectionId) {
-  const notion = getNotionClient();
-  if (!notion) throw new Error('Notion client is not configured');
-  if (!notion.dataSources?.retrieve) return collectionId;
-  if (resolvedDataSourceId) return resolvedDataSourceId;
-
-  try {
-    await notion.dataSources.retrieve({ data_source_id: collectionId });
-    resolvedDataSourceId = collectionId;
-    return resolvedDataSourceId;
-  } catch (error) {
-    if (!isNotFoundError(error) || !notion.databases?.retrieve) throw error;
-  }
-
-  const database = await notion.databases.retrieve({ database_id: collectionId });
-  const dataSourceId = database.data_sources?.[0]?.id;
-  if (!dataSourceId) {
-    throw new Error(`No data source found for Notion database ${collectionId}`);
-  }
-  resolvedDataSourceId = dataSourceId;
-  return resolvedDataSourceId;
-}
-
-async function queryAllPages(databaseId) {
+async function queryAllPages() {
   const notion = getNotionClient();
   if (!notion) throw new Error('Notion client is not configured');
 
+  const dataSourceId = await resolveDataSourceId();
   const pages = [];
   let startCursor;
 
   do {
-    const response = notion.dataSources?.query
-      ? await notion.dataSources.query({
-          data_source_id: await resolveDataSourceId(databaseId),
-          start_cursor: startCursor,
-          page_size: 100,
-          result_type: 'page'
-        })
-      : await notion.databases.query({
-          database_id: databaseId,
-          start_cursor: startCursor,
-          page_size: 100
-        });
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: startCursor,
+      page_size: 100
+    });
     pages.push(...(response.results || []));
     startCursor = response.has_more ? response.next_cursor : undefined;
   } while (startCursor);
@@ -59,35 +28,14 @@ async function queryAllPages(databaseId) {
   return pages;
 }
 
-async function retrieveCollectionSchema(collectionId) {
-  const notion = getNotionClient();
-  if (!notion) throw new Error('Notion client is not configured');
-
-  if (notion.dataSources?.retrieve) {
-    return notion.dataSources.retrieve({ data_source_id: await resolveDataSourceId(collectionId) });
-  }
-
-  return notion.databases.retrieve({ database_id: collectionId });
-}
-
-async function buildCollectionParent(collectionId) {
-  const notion = getNotionClient();
-  if (notion?.dataSources?.query) {
-    return { data_source_id: await resolveDataSourceId(collectionId) };
-  }
-
-  return { database_id: collectionId };
-}
-
 async function getAllClients() {
   if (!isNotionConfigured()) {
     throw new Error('NOTION_API_KEY and NOTION_DATABASE_ID must be configured');
   }
 
-  const { databaseId } = getNotionConfig();
-  const pages = await queryAllPages(databaseId);
+  const pages = await queryAllPages();
   return pages
-    .filter(page => page.object === 'page' && !page.archived)
+    .filter(page => page.object === 'page' && !page.archived && !page.in_trash)
     .map((page, index) => notionPageToJob(page, index));
 }
 
@@ -151,12 +99,11 @@ async function createClient(payload = {}) {
   }
 
   const notion = getNotionClient();
-  const { databaseId } = getNotionConfig();
-  const database = await retrieveCollectionSchema(databaseId);
-  const properties = buildNotionProperties(payload, database.properties || {});
+  const { dataSourceId, properties: schema } = await getDataSourceSchema();
+  const properties = buildNotionProperties(payload, schema);
 
   const page = await notion.pages.create({
-    parent: await buildCollectionParent(databaseId),
+    parent: { type: 'data_source_id', data_source_id: dataSourceId },
     properties
   });
 
@@ -169,9 +116,8 @@ async function updateClient(pageId, payload = {}) {
   }
 
   const notion = getNotionClient();
-  const { databaseId } = getNotionConfig();
-  const database = await retrieveCollectionSchema(databaseId);
-  const properties = buildNotionProperties(payload, database.properties || {});
+  const { properties: schema } = await getDataSourceSchema();
+  const properties = buildNotionProperties(payload, schema);
 
   const page = await notion.pages.update({
     page_id: pageId,
@@ -182,6 +128,7 @@ async function updateClient(pageId, payload = {}) {
 }
 
 function getIntegrationStatus() {
+  const { getNotionConfig } = require('../../config/env');
   const { apiKey, databaseId } = getNotionConfig();
   return {
     configured: Boolean(apiKey && databaseId),
