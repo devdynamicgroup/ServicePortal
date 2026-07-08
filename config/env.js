@@ -1,23 +1,11 @@
-const fs = require('fs');
 const path = require('path');
+const dotenv = require('dotenv');
 
 function loadDotEnv() {
+  if (global.__SERVICE_PORTAL_ENV_LOADED__) return;
   const envPath = path.join(__dirname, '..', '.env');
-  if (!fs.existsSync(envPath)) return;
-
-  const text = fs.readFileSync(envPath, 'utf8');
-  text.split(/\r?\n/).forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) return;
-    const eq = trimmed.indexOf('=');
-    if (eq <= 0) return;
-    const key = trimmed.slice(0, eq).trim();
-    let value = trimmed.slice(eq + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    if (process.env[key] === undefined) process.env[key] = value;
-  });
+  dotenv.config({ path: envPath, quiet: true });
+  global.__SERVICE_PORTAL_ENV_LOADED__ = true;
 }
 
 loadDotEnv();
