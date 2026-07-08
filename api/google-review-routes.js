@@ -30,6 +30,19 @@ function readQuery(req) {
 }
 
 async function handleGoogleBusinessRoute(req, res, urlPath) {
+  if (urlPath === '/api/debug/env' && req.method === 'GET') {
+    sendJson(res, 200, {
+      cwd: process.cwd(),
+      envFile: require('path').resolve('.env'),
+      clientExists: Boolean(String(process.env.GOOGLE_BUSINESS_CLIENT_ID || '').trim()),
+      secretExists: Boolean(String(process.env.GOOGLE_BUSINESS_CLIENT_SECRET || '').trim()),
+      redirectUri: String(process.env.GOOGLE_BUSINESS_REDIRECT_URI || '').trim() || null,
+      clientLength: String(process.env.GOOGLE_BUSINESS_CLIENT_ID || '').trim().length,
+      secretLength: String(process.env.GOOGLE_BUSINESS_CLIENT_SECRET || '').trim().length
+    });
+    return true;
+  }
+
   if (urlPath === '/api/google-business/auth-url' && req.method === 'GET') {
     try {
       console.log('OAuth config', {

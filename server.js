@@ -1,18 +1,26 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
+
+// Load .env BEFORE any route/service imports.
+const envFile = path.join(__dirname, '.env');
+require('dotenv').config({ path: envFile, quiet: true, override: false });
 require('./config/env');
+
+console.log('[ENV DEBUG]', {
+  cwd: process.cwd(),
+  envFile: path.resolve(envFile),
+  envExists: fs.existsSync(envFile),
+  client: process.env.GOOGLE_BUSINESS_CLIENT_ID || null,
+  secret: Boolean(process.env.GOOGLE_BUSINESS_CLIENT_SECRET),
+  redirect: process.env.GOOGLE_BUSINESS_REDIRECT_URI || null
+});
+
 const { handleClientsRoute } = require('./api/clients-routes');
 const { handleGoogleReviewRoute } = require('./api/google-review-routes');
 const { startGoogleReviewScheduler } = require('./services/google-review-scheduler');
 
 const root = __dirname;
-console.log('[env:startup]', {
-  cwd: process.cwd(),
-  clientId: process.env.GOOGLE_BUSINESS_CLIENT_ID || null,
-  redirectUri: process.env.GOOGLE_BUSINESS_REDIRECT_URI || null
-});
 const port = Number(process.env.PORT) || 3000;
 const bindHost = process.env.BIND_HOST || '0.0.0.0';
 const defaultUsers = [
