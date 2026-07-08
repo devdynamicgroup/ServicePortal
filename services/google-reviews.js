@@ -1,9 +1,9 @@
 const crypto = require('crypto');
 const {
   getNotionClient,
-  isNotionConfigured,
-  getDataSourceSchema
+  isNotionConfigured
 } = require('./notion/client');
+const { getNotionConfig } = require('../config/env');
 const { findPropertyKey } = require('./notion/props');
 
 function requireEnv(names) {
@@ -130,10 +130,10 @@ async function reviewExists(notion, dataSourceId, schema, reviewId) {
 }
 
 async function syncReviewsToNotion() {
-  if (!isNotionConfigured()) throw new Error('NOTION_API_KEY and NOTION_DATABASE_ID must be configured');
+  if (!isReviewNotionConfigured()) throw new Error('NOTION_API_KEY and NOTION_FEEDBACK_DATABASE_ID or NOTION_DATABASE_ID must be configured');
   const reviews = await fetchGoogleReviews();
   const notion = getNotionClient();
-  const { dataSourceId, properties: schema } = await getDataSourceSchema();
+  const { dataSourceId, databaseId, properties: schema } = await getReviewDataSourceSchema(notion);
   const results = [];
 
   for (const review of reviews) {
@@ -152,6 +152,8 @@ async function syncReviewsToNotion() {
 
   return {
     source: process.env.GOOGLE_BUSINESS_ACCESS_TOKEN ? 'google-business-profile' : 'google-places',
+    notionDatabaseId: databaseId,
+    notionDataSourceId: dataSourceId,
     total: reviews.length,
     created: results.filter(item => item.status === 'created').length,
     skipped: results.filter(item => item.status === 'skipped').length,
@@ -160,12 +162,68 @@ async function syncReviewsToNotion() {
 }
 
 function getGoogleReviewIntegrationStatus() {
+  const reviewDatabaseId = getReviewDatabaseId();
   return {
-    notionConfigured: isNotionConfigured(),
+    notionConfigured: isReviewNotionConfigured(),
+    reviewDatabaseConfigured: Boolean(getReviewDatabaseId()),
+    hasFeedbackDatabaseId: Boolean(process.env.NOTION_FEEDBACK_DATABASE_ID || process.env.NOTION_REVIEWS_DATABASE_ID),
+    usingFallbackNotionDatabase: Boolean(reviewDatabaseId && reviewDatabaseId === getNotionConfig().databaseId),
     hasGoogleMapsApiKey: Boolean(process.env.GOOGLE_MAPS_API_KEY),
     hasGooglePlaceId: Boolean(process.env.GOOGLE_PLACE_ID),
     hasGoogleBusinessOAuth: Boolean(process.env.GOOGLE_BUSINESS_ACCESS_TOKEN && process.env.GOOGLE_BUSINESS_ACCOUNT_ID && process.env.GOOGLE_BUSINESS_LOCATION_ID)
   };
+}
+
+function getReviewDatabaseId() {
+  const { databaseId } = getNotionConfig();
+  return process.env.NOTION_FEEDBACK_DATABASE_ID
+    || process.env.NOTION_REVIEWS_DATABASE_ID
+    || databaseId;
+}
+
+function isReviewNotionConfigured() {
+  const { apiKey } = getNotionConfig();
+  return Boolean(apiKey && getReviewDatabaseId());
+}
+
+async function getReviewDataSourceSchema(notion) {
+  const databaseId = getReviewDatabaseId();
+  const override = process.env.NOTION_FEEDBACK_DATA_SOURCE_ID || process.env.NOTION_REVIEWS_DATA_SOURCE_ID;
+
+  if (override) {
+    const detail = await notion.dataSources.retrieve({ data_source_id: override });
+    return { databaseId, dataSourceId: override, properties: detail.properties || {} };
+  }
+
+  const database = await notion.databases.retrieve({ database_id: databaseId });
+  const dataSources = database.data_sources || [];
+  if (!dataSources.length) throw new Error('Notion feedback database has no data sources');
+
+  if (dataSources.length === 1) {
+    const dataSourceId = dataSources[0].id;
+    const detail = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+    return { databaseId, dataSourceId, properties: detail.properties || {} };
+  }
+
+  let best = null;
+  let bestScore = -1;
+  for (const ds of dataSources) {
+    const detail = await notion.dataSources.retrieve({ data_source_id: ds.id });
+    const properties = detail.properties || {};
+    const aliases = [
+      ['Google Review ID', 'Review ID', 'Google ID'],
+      ['Review', 'Comment', 'Review Text', 'Feedback'],
+      ['Rating', 'Stars', 'Google Rating'],
+      ['Author', 'Reviewer', 'Reviewer Name']
+    ];
+    const score = aliases.filter(group => findPropertyKey(properties, group)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = { databaseId, dataSourceId: ds.id, properties };
+    }
+  }
+
+  return best;
 }
 
 module.exports = {
