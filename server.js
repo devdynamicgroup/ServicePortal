@@ -4,6 +4,7 @@ const path = require('path');
 require('./config/env');
 const { handleClientsRoute } = require('./api/clients-routes');
 const { handleGoogleReviewRoute } = require('./api/google-review-routes');
+const { startGoogleReviewScheduler } = require('./services/google-review-scheduler');
 
 const root = __dirname;
 const port = Number(process.env.PORT) || 3000;
@@ -269,6 +270,7 @@ function listen(nextPort) {
 
   server.listen(nextPort, bindHost, () => {
     console.log(`Water Motion app running at http://${bindHost}:${nextPort}`);
+    startGoogleReviewScheduler();
   });
 }
 
