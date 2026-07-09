@@ -159,9 +159,12 @@ function weekdayIndex(isoDate) {
   return jsDay === 0 ? 6 : jsDay - 1;
 }
 
-function scheduleFromDate(dateValue, index) {
+function scheduleFromDate(dateValue, index, createdTime) {
   const fallback = scheduleFromIndex(index);
-  const iso = isoDateOnly(dateValue);
+  let iso = isoDateOnly(dateValue);
+  // Unscheduled Notion rows still need a calendar date so new records appear on
+  // the day they were created until Created 1 is filled in Notion.
+  if (!iso) iso = isoDateOnly(createdTime);
   const day = weekdayIndex(iso);
   if (day === null) return { ...fallback, date: '' };
   return { day, timeStart: fallback.timeStart, timeEnd: fallback.timeEnd, date: iso };
@@ -210,7 +213,7 @@ function notionPageToJob(page, index) {
   // finalDate follows the appointment-date priority (Created 1 first). We never
   // fall back to Notion's created_time, so an unscheduled client stays null.
   const appointmentDate = getPropertyValue(properties, FIELD_ALIASES.appointmentDate, null);
-  const schedule = scheduleFromDate(appointmentDate, index);
+  const schedule = scheduleFromDate(appointmentDate, index, page.created_time);
   const timeStart = formatTimeLabel(
     getPropertyValue(properties, FIELD_ALIASES.appointmentStart),
     schedule.timeStart

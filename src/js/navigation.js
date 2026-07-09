@@ -15,9 +15,16 @@ function closeTransientOverlays() {
 }
 
 function goScreen(id) {
-  if (id === 's-dash' && S.activeJob) {
-    saveActiveJobState();
-    if (typeof renderJobs === 'function') renderJobs();
+  if (id === 's-dash') {
+    if (S.activeJob) saveActiveJobState();
+    if (typeof loadJobsFromApi === 'function') {
+      loadJobsFromApi().finally(() => {
+        if (typeof renderCalendar === 'function') renderCalendar();
+        else if (typeof renderJobs === 'function') renderJobs();
+      });
+    } else if (typeof renderJobs === 'function') {
+      renderJobs();
+    }
   }
   closeTransientOverlays();
   document.getElementById(S.screen)?.classList.remove('active');
