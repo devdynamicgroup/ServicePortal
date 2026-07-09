@@ -6,6 +6,10 @@ const FIELD_ALIASES = {
   phone: ['Phone', 'phone', 'Mobile'],
   email: ['Email', 'email'],
   lineId: ['LINE ID', 'LINE', 'Line ID', 'lineId'],
+  lineDisplayName: ['LINE Display Name', 'Line Display Name', 'LINE Name', 'lineDisplayName'],
+  lineUserId: ['LINE User ID', 'Line User ID', 'LINE UID', 'lineUserId'],
+  lineLinked: ['LINE Linked', 'Line Linked', 'lineLinked'],
+  lineLinkedAt: ['LINE Linked At', 'Line Linked At', 'lineLinkedAt'],
   consentSigned: ['Consent Signed', 'Consent', 'consentSigned'],
   packageHistory: ['Package History', 'Package', 'packageHistory'],
   propertyType: ['Property Type', 'propertyType'],
@@ -15,6 +19,29 @@ const FIELD_ALIASES = {
   waterConcerns: ['Water Concerns', 'waterConcerns'],
   stage: ['Stage', 'stage'],
   status: ['Status', 'status'],
+  caseWorkflowStatus: ['Case Workflow Status', 'Workflow Status', 'Case Status', 'caseWorkflowStatus'],
+  serviceStartedAt: ['Service Started At', 'serviceStartedAt'],
+  serviceCompletedAt: ['Service Completed At', 'serviceCompletedAt'],
+  closedAt: ['Closed At', 'closedAt'],
+  completedBy: ['Completed By', 'completedBy'],
+  latestWaterScore: ['Latest Water Score', 'Water Score', 'latestWaterScore'],
+  resultSummary: ['Result Summary', 'resultSummary'],
+  recommendations: ['Recommendations', 'recommendations'],
+  reportUrl: ['Report URL', 'Report Url', 'reportUrl'],
+  publicReportToken: ['Public Report Token', 'Report Token', 'publicReportToken'],
+  feedbackToken: ['Feedback Token', 'feedbackToken'],
+  feedbackUrl: ['Feedback URL', 'Feedback Url', 'feedbackUrl'],
+  feedbackStatus: ['Feedback Status', 'feedbackStatus'],
+  feedbackRating: ['Feedback Rating', 'feedbackRating'],
+  feedbackComment: ['Feedback Comment', 'feedbackComment'],
+  feedbackSubmittedAt: ['Feedback Submitted At', 'feedbackSubmittedAt'],
+  reviewUrl: ['Review URL', 'Google Review URL', 'reviewUrl'],
+  reviewRequestedAt: ['Review Requested At', 'reviewRequestedAt'],
+  reviewStatus: ['Review Status', 'reviewStatus'],
+  resultSentAt: ['Result Sent At', 'resultSentAt'],
+  notificationStatus: ['Notification Status', 'notificationStatus'],
+  lineMessageId: ['LINE Message ID', 'Line Message ID', 'lineMessageId'],
+  lastNotificationError: ['Last Notification Error', 'lastNotificationError'],
   // Appointment date priority: the team's custom "Created 1" field is the real
   // appointment date and must win. "Created" (Notion's auto created_time) is
   // intentionally NOT listed here so it can never be used as the appointment.
@@ -78,6 +105,17 @@ function mapJobStatus(value) {
   if (text === 'cancelled' || text === 'canceled') return 'cancelled';
   if (text === 'overdue') return 'overdue';
   return 'new';
+}
+
+function asBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  const text = String(value || '').trim().toLowerCase();
+  return ['true', 'yes', 'y', '1', 'linked'].includes(text);
+}
+
+function asNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function formatTimeLabel(value, fallback) {
@@ -162,6 +200,11 @@ function notionPageToJob(page, index) {
   const rawStatus = getPropertyValue(properties, FIELD_ALIASES.status);
   const status = mapJobStatus(rawStatus);
   const concern = getPropertyValue(properties, FIELD_ALIASES.waterConcerns);
+  const lineDisplayName = getPropertyValue(properties, FIELD_ALIASES.lineDisplayName)
+    || getPropertyValue(properties, FIELD_ALIASES.lineId);
+  const lineUserId = getPropertyValue(properties, FIELD_ALIASES.lineUserId);
+  const workflowStatus = getPropertyValue(properties, FIELD_ALIASES.caseWorkflowStatus) || status;
+  const latestWaterScore = asNumber(getPropertyValue(properties, FIELD_ALIASES.latestWaterScore));
   const created1 = getPropertyValue(properties, ['Created 1'], null);
   // finalDate follows the appointment-date priority (Created 1 first). We never
   // fall back to Notion's created_time, so an unscheduled client stays null.
@@ -190,7 +233,47 @@ function notionPageToJob(page, index) {
     status,
     rawStatus: rawStatus || '',
     meta: [propertyType, propertyAge, stage || 'Notion'].filter(Boolean).join(' - '),
-    notionSource: true
+    notionSource: true,
+    line: {
+      displayName: lineDisplayName || '',
+      userId: lineUserId || '',
+      linked: asBoolean(getPropertyValue(properties, FIELD_ALIASES.lineLinked)) || Boolean(lineUserId),
+      linkedAt: getPropertyValue(properties, FIELD_ALIASES.lineLinkedAt) || null,
+      pushReady: Boolean(lineUserId)
+    },
+    workflow: {
+      status: workflowStatus,
+      serviceStartedAt: getPropertyValue(properties, FIELD_ALIASES.serviceStartedAt) || null,
+      serviceCompletedAt: getPropertyValue(properties, FIELD_ALIASES.serviceCompletedAt) || null,
+      closedAt: getPropertyValue(properties, FIELD_ALIASES.closedAt) || null,
+      completedBy: getPropertyValue(properties, FIELD_ALIASES.completedBy) || ''
+    },
+    result: {
+      waterScore: latestWaterScore,
+      summary: getPropertyValue(properties, FIELD_ALIASES.resultSummary) || '',
+      recommendations: getPropertyValue(properties, FIELD_ALIASES.recommendations) || '',
+      reportUrl: getPropertyValue(properties, FIELD_ALIASES.reportUrl) || '',
+      publicReportToken: getPropertyValue(properties, FIELD_ALIASES.publicReportToken) || ''
+    },
+    feedback: {
+      token: getPropertyValue(properties, FIELD_ALIASES.feedbackToken) || '',
+      url: getPropertyValue(properties, FIELD_ALIASES.feedbackUrl) || '',
+      status: getPropertyValue(properties, FIELD_ALIASES.feedbackStatus) || 'not_sent',
+      rating: asNumber(getPropertyValue(properties, FIELD_ALIASES.feedbackRating)),
+      comment: getPropertyValue(properties, FIELD_ALIASES.feedbackComment) || '',
+      submittedAt: getPropertyValue(properties, FIELD_ALIASES.feedbackSubmittedAt) || null
+    },
+    review: {
+      url: getPropertyValue(properties, FIELD_ALIASES.reviewUrl) || '',
+      requestedAt: getPropertyValue(properties, FIELD_ALIASES.reviewRequestedAt) || null,
+      status: getPropertyValue(properties, FIELD_ALIASES.reviewStatus) || 'not_requested'
+    },
+    notification: {
+      resultSentAt: getPropertyValue(properties, FIELD_ALIASES.resultSentAt) || null,
+      status: getPropertyValue(properties, FIELD_ALIASES.notificationStatus) || 'not_sent',
+      lineMessageId: getPropertyValue(properties, FIELD_ALIASES.lineMessageId) || '',
+      lastError: getPropertyValue(properties, FIELD_ALIASES.lastNotificationError) || ''
+    }
   };
 
   job.draft = defaultJobDraft(job);
@@ -198,7 +281,7 @@ function notionPageToJob(page, index) {
     'ci-fname': fname,
     'ci-lname': lname,
     'ci-phone': String(getPropertyValue(properties, FIELD_ALIASES.phone) || ''),
-    'ci-line': getPropertyValue(properties, FIELD_ALIASES.lineId),
+    'ci-line': lineDisplayName,
     'ci-email': getPropertyValue(properties, FIELD_ALIASES.email),
     'ci-city': 'Bangkok',
     'ci-postal': '',

@@ -1,4 +1,8 @@
-const { getAllClients, getIntegrationStatus } = require('../services/notion/clients');
+const {
+  getAllClients,
+  getIntegrationStatus,
+  getCaseFlowDatasetStatus
+} = require('../services/notion/clients');
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -9,6 +13,34 @@ function sendJson(res, status, payload) {
 }
 
 async function handleClientsRoute(req, res, urlPath) {
+  if (urlPath === '/api/debug/dataset' && req.method === 'GET') {
+    try {
+      const dataset = await getCaseFlowDatasetStatus();
+      sendJson(res, dataset.configured ? 200 : 503, {
+        ok: dataset.complete,
+        source: 'notion-schema',
+        purpose: 'Check Notion API dataset for close case -> LINE result -> feedback -> Google review flow',
+        dataset,
+        nextApiWork: dataset.complete
+          ? [
+              'POST /api/cases/:id/close',
+              'POST /api/line/send-result',
+              'GET /api/report/:token',
+              'POST /api/feedback/:token'
+            ]
+          : []
+      });
+    } catch (error) {
+      console.warn('GET /api/debug/dataset failed', error.message);
+      sendJson(res, 502, {
+        ok: false,
+        source: 'notion-schema',
+        error: error.message || 'Failed to inspect Notion dataset'
+      });
+    }
+    return true;
+  }
+
   if (urlPath === '/api/clients' && req.method === 'GET') {
     const status = getIntegrationStatus();
     if (!status.configured) {
@@ -79,7 +111,13 @@ async function handleClientsRoute(req, res, urlPath) {
               status: latestClient.status,
               rawStatus: latestClient.rawStatus,
               createdTime: latestClient.createdTime || null,
-              notionId: latestClient.notionId
+              notionId: latestClient.notionId,
+              line: latestClient.line,
+              workflow: latestClient.workflow,
+              result: latestClient.result,
+              feedback: latestClient.feedback,
+              review: latestClient.review,
+              notification: latestClient.notification
             }
           : null,
         dates: jobs.map(job => ({
