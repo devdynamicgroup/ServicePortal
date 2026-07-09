@@ -2,6 +2,7 @@ const {
   syncReviewsToNotion,
   getGoogleReviewIntegrationStatus
 } = require('./google-reviews');
+const { isBusinessProfileConfigured } = require('./google-business');
 
 let timer = null;
 let running = false;
@@ -19,7 +20,7 @@ function getIntervalMs() {
 
 function isReadyToSync() {
   const status = getGoogleReviewIntegrationStatus();
-  return status.notionConfigured && (status.hasGoogleBusinessOAuth || (status.hasGoogleMapsApiKey && status.hasGooglePlaceId));
+  return status.notionConfigured && status.businessProfileConfigured;
 }
 
 async function runGoogleReviewSync(reason = 'schedule') {
@@ -29,14 +30,17 @@ async function runGoogleReviewSync(reason = 'schedule') {
   }
 
   if (!isReadyToSync()) {
-    console.log('[google-reviews] sync waiting for configuration', getGoogleReviewIntegrationStatus());
+    console.log('[google-reviews] sync waiting for configuration', {
+      notionConfigured: getGoogleReviewIntegrationStatus().notionConfigured,
+      businessProfileConfigured: isBusinessProfileConfigured()
+    });
     return null;
   }
 
   running = true;
   try {
     const result = await syncReviewsToNotion();
-    console.log(`[google-reviews] sync ${reason}: ${result.created} created, ${result.skipped} skipped, ${result.total} total`);
+    console.log(`[google-reviews] sync ${reason}: inserted=${result.created}, skipped=${result.skipped}, total=${result.total}`);
     return result;
   } catch (error) {
     console.warn(`[google-reviews] sync ${reason} failed: ${error.message}`);

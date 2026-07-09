@@ -1,86 +1,79 @@
-const crypto = require('crypto');
 const {
   getNotionClient,
   isNotionConfigured
 } = require('./notion/client');
 const { getNotionConfig } = require('../config/env');
 const { findPropertyKey } = require('./notion/props');
+const {
+  listReviews,
+  starRatingToNumber,
+  isBusinessProfileConfigured,
+  recordSyncResult,
+  recordSyncError,
+  getSyncState,
+  getBusinessDebugStatus
+} = require('./google-business');
 
-function requireEnv(names) {
-  const missing = names.filter(name => !process.env[name]);
-  if (missing.length) {
-    const error = new Error(`Missing environment variables: ${missing.join(', ')}`);
+const REQUIRED_NOTION_PROPERTIES = [
+  { name: 'Google Review ID', aliases: ['Google Review ID'] },
+  { name: 'Rating', aliases: ['Rating'] },
+  { name: 'Comment', aliases: ['Comment'] },
+  { name: 'Reviewer', aliases: ['Reviewer'] },
+  { name: 'Review Date', aliases: ['Review Date', 'Date'] }
+];
+
+function log(step, message, extra) {
+  const suffix = extra ? ` ${JSON.stringify(extra)}` : '';
+  console.log(`[google-reviews] ${step}: ${message}${suffix}`);
+}
+
+function getReviewDatabaseId() {
+  const databaseId = process.env.NOTION_FEEDBACK_DATABASE_ID || '';
+  if (!databaseId) {
+    const error = new Error('NOTION_FEEDBACK_DATABASE_ID is required');
     error.statusCode = 400;
     throw error;
   }
+  return databaseId;
 }
 
-function fingerprint(parts) {
-  return crypto.createHash('sha1').update(parts.filter(Boolean).join('|')).digest('hex');
+function isReviewNotionConfigured() {
+  const { apiKey } = getNotionConfig();
+  return Boolean(apiKey && process.env.NOTION_FEEDBACK_DATABASE_ID);
 }
 
-function starRatingToNumber(value) {
-  if (typeof value === 'number') return value;
-  const map = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
-  return map[value] || Number(value) || 0;
+async function getReviewDataSourceSchema(notion) {
+  const databaseId = getReviewDatabaseId();
+  const override = process.env.NOTION_FEEDBACK_DATA_SOURCE_ID;
+
+  if (override) {
+    const detail = await notion.dataSources.retrieve({ data_source_id: override });
+    return { databaseId, dataSourceId: override, properties: detail.properties || {} };
+  }
+
+  const database = await notion.databases.retrieve({ database_id: databaseId });
+  const dataSources = database.data_sources || [];
+  if (!dataSources.length) throw new Error('Notion feedback database has no data sources');
+
+  const dataSourceId = dataSources[0].id;
+  const detail = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+  return { databaseId, dataSourceId, properties: detail.properties || {} };
 }
 
-async function fetchBusinessProfileReviews() {
-  requireEnv(['GOOGLE_BUSINESS_ACCESS_TOKEN', 'GOOGLE_BUSINESS_ACCOUNT_ID', 'GOOGLE_BUSINESS_LOCATION_ID']);
-  const parent = `accounts/${process.env.GOOGLE_BUSINESS_ACCOUNT_ID}/locations/${process.env.GOOGLE_BUSINESS_LOCATION_ID}`;
-  const url = new URL(`https://mybusiness.googleapis.com/v4/${parent}/reviews`);
-  url.searchParams.set('pageSize', process.env.GOOGLE_REVIEWS_PAGE_SIZE || '50');
-  url.searchParams.set('orderBy', 'updateTime desc');
+function validateNotionSchema(schema) {
+  const missing = [];
+  const resolved = {};
 
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${process.env.GOOGLE_BUSINESS_ACCESS_TOKEN}` }
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message || 'Google Business Profile reviews request failed');
+  for (const item of REQUIRED_NOTION_PROPERTIES) {
+    const key = findPropertyKey(schema, item.aliases);
+    if (!key) {
+      missing.push(item.name);
+    } else {
+      resolved[item.name] = key;
+    }
+  }
 
-  return (data.reviews || []).map(review => {
-    const reviewedAt = review.updateTime || review.createTime || new Date().toISOString();
-    return {
-      id: review.reviewId || review.name || fingerprint([review.reviewer?.displayName, review.starRating, review.comment, reviewedAt]),
-      source: 'Google Business Profile',
-      author: review.reviewer?.displayName || 'Google reviewer',
-      rating: starRatingToNumber(review.starRating),
-      text: review.comment || '',
-      reviewedAt,
-      url: review.name ? `https://www.google.com/search?q=${encodeURIComponent(process.env.GOOGLE_BUSINESS_LOCATION_NAME || 'Google review')}` : ''
-    };
-  });
-}
-
-async function fetchPlaceReviews() {
-  requireEnv(['GOOGLE_MAPS_API_KEY', 'GOOGLE_PLACE_ID']);
-  const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
-  url.searchParams.set('place_id', process.env.GOOGLE_PLACE_ID);
-  url.searchParams.set('fields', 'name,rating,user_ratings_total,reviews,url');
-  url.searchParams.set('reviews_sort', 'newest');
-  url.searchParams.set('key', process.env.GOOGLE_MAPS_API_KEY);
-
-  const response = await fetch(url);
-  const data = await response.json();
-  if (!response.ok || data.status !== 'OK') throw new Error(data.error_message || data.status || 'Google Places reviews request failed');
-
-  return (data.result?.reviews || []).map(review => {
-    const reviewedAt = review.time ? new Date(review.time * 1000).toISOString() : new Date().toISOString();
-    return {
-      id: fingerprint([review.author_name, review.rating, review.text, reviewedAt]),
-      source: 'Google Places',
-      author: review.author_name || 'Google reviewer',
-      rating: Number(review.rating) || 0,
-      text: review.text || '',
-      reviewedAt,
-      url: review.author_url || data.result?.url || ''
-    };
-  });
-}
-
-async function fetchGoogleReviews() {
-  if (process.env.GOOGLE_BUSINESS_ACCESS_TOKEN) return fetchBusinessProfileReviews();
-  return fetchPlaceReviews();
+  return { ok: missing.length === 0, missing, resolved };
 }
 
 function text(value) {
@@ -96,50 +89,96 @@ function setProperty(properties, schema, aliases, value) {
   if (type === 'rich_text') properties[key] = { rich_text: text(value) };
   if (type === 'number') properties[key] = { number: Number(value) || 0 };
   if (type === 'url') properties[key] = { url: String(value) };
-  if (type === 'date') properties[key] = { date: { start: String(value) } };
+  if (type === 'date') properties[key] = { date: { start: String(value).slice(0, 10) } };
   if (type === 'select') properties[key] = { select: { name: String(value) } };
 }
 
 function buildReviewProperties(review, schema) {
   const properties = {};
-  setProperty(properties, schema, ['Name', 'Title', 'Review Title'], `${review.rating || '-'} stars - ${review.author}`);
-  setProperty(properties, schema, ['Google Review ID', 'Review ID', 'Google ID'], review.id);
-  setProperty(properties, schema, ['Author', 'Reviewer', 'Reviewer Name'], review.author);
-  setProperty(properties, schema, ['Rating', 'Stars', 'Google Rating'], review.rating);
-  setProperty(properties, schema, ['Review', 'Comment', 'Review Text'], review.text || '(No comment)');
-  setProperty(properties, schema, ['Source', 'Channel'], review.source);
-  setProperty(properties, schema, ['Reviewed At', 'Review Date', 'Date'], review.reviewedAt);
-  setProperty(properties, schema, ['Review URL', 'URL', 'Link'], review.url);
+  const rating = starRatingToNumber(review.starRating);
+  const reviewDate = (review.updateTime || review.createTime || '').slice(0, 10);
+
+  setProperty(properties, schema, ['Google Review ID'], review.reviewId);
+  setProperty(properties, schema, ['Rating'], rating);
+  setProperty(properties, schema, ['Comment'], review.comment || '(No comment)');
+  setProperty(properties, schema, ['Reviewer'], review.reviewerName);
+  setProperty(properties, schema, ['Review Date', 'Date'], reviewDate);
+
   if (!Object.values(properties).some(prop => prop.title)) {
     const titleKey = Object.keys(schema).find(key => schema[key]?.type === 'title');
-    if (titleKey) properties[titleKey] = { title: text(`${review.rating || '-'} stars - ${review.author}`) };
+    if (titleKey) {
+      properties[titleKey] = { title: text(`${rating || '-'} stars - ${review.reviewerName}`) };
+    }
   }
+
   return properties;
 }
 
 async function reviewExists(notion, dataSourceId, schema, reviewId) {
-  const key = findPropertyKey(schema, ['Google Review ID', 'Review ID', 'Google ID']);
+  const key = findPropertyKey(schema, ['Google Review ID']);
   if (!key) return false;
-  if (schema[key]?.type !== 'rich_text') return false;
-  const response = await notion.dataSources.query({
-    data_source_id: dataSourceId,
-    filter: { property: key, rich_text: { equals: reviewId } },
-    page_size: 1
-  });
-  return (response.results || []).length > 0;
+
+  const type = schema[key]?.type;
+  if (type === 'rich_text') {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      filter: { property: key, rich_text: { equals: reviewId } },
+      page_size: 1
+    });
+    return (response.results || []).length > 0;
+  }
+
+  if (type === 'title') {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      filter: { property: key, title: { equals: reviewId } },
+      page_size: 1
+    });
+    return (response.results || []).length > 0;
+  }
+
+  return false;
+}
+
+async function fetchGoogleReviews() {
+  const result = await listReviews({ fetchAll: true });
+  return result.reviews;
 }
 
 async function syncReviewsToNotion() {
-  if (!isReviewNotionConfigured()) throw new Error('NOTION_API_KEY and NOTION_FEEDBACK_DATABASE_ID or NOTION_DATABASE_ID must be configured');
-  const reviews = await fetchGoogleReviews();
+  if (!isReviewNotionConfigured()) {
+    throw new Error('NOTION_API_KEY and NOTION_FEEDBACK_DATABASE_ID must be configured');
+  }
+  if (!isBusinessProfileConfigured()) {
+    throw new Error('Google Business Profile OAuth, account, and location must be configured');
+  }
+
   const notion = getNotionClient();
   const { dataSourceId, databaseId, properties: schema } = await getReviewDataSourceSchema(notion);
+  const schemaCheck = validateNotionSchema(schema);
+  if (!schemaCheck.ok) {
+    const error = new Error(`Notion feedback database is missing required properties: ${schemaCheck.missing.join(', ')}`);
+    error.statusCode = 400;
+    error.missingProperties = schemaCheck.missing;
+    recordSyncError(error);
+    throw error;
+  }
+
+  const reviews = await fetchGoogleReviews();
+  log('sync', 'reviews fetched', { count: reviews.length });
   const results = [];
 
   for (const review of reviews) {
-    const exists = await reviewExists(notion, dataSourceId, schema, review.id);
+    if (!review.reviewId) {
+      log('sync', 'skipped review without reviewId');
+      results.push({ reviewId: null, status: 'skipped', reason: 'missing-review-id' });
+      continue;
+    }
+
+    const exists = await reviewExists(notion, dataSourceId, schema, review.reviewId);
     if (exists) {
-      results.push({ id: review.id, status: 'skipped' });
+      log('sync', 'skipped duplicate', { reviewId: review.reviewId });
+      results.push({ reviewId: review.reviewId, status: 'skipped' });
       continue;
     }
 
@@ -147,11 +186,12 @@ async function syncReviewsToNotion() {
       parent: { type: 'data_source_id', data_source_id: dataSourceId },
       properties: buildReviewProperties(review, schema)
     });
-    results.push({ id: review.id, status: 'created', notionPageId: page.id });
+    log('sync', 'inserted', { reviewId: review.reviewId, notionPageId: page.id });
+    results.push({ reviewId: review.reviewId, status: 'created', notionPageId: page.id });
   }
 
-  return {
-    source: process.env.GOOGLE_BUSINESS_ACCESS_TOKEN ? 'google-business-profile' : 'google-places',
+  const summary = {
+    source: 'google-business-profile',
     notionDatabaseId: databaseId,
     notionDataSourceId: dataSourceId,
     total: reviews.length,
@@ -159,75 +199,65 @@ async function syncReviewsToNotion() {
     skipped: results.filter(item => item.status === 'skipped').length,
     results
   };
+
+  recordSyncResult(summary);
+  log('sync', 'completed', {
+    total: summary.total,
+    inserted: summary.created,
+    skipped: summary.skipped
+  });
+  return summary;
 }
 
 function getGoogleReviewIntegrationStatus() {
-  const reviewDatabaseId = getReviewDatabaseId();
   return {
     notionConfigured: isReviewNotionConfigured(),
-    reviewDatabaseConfigured: Boolean(getReviewDatabaseId()),
-    hasFeedbackDatabaseId: Boolean(process.env.NOTION_FEEDBACK_DATABASE_ID || process.env.NOTION_REVIEWS_DATABASE_ID),
-    usingFallbackNotionDatabase: Boolean(reviewDatabaseId && reviewDatabaseId === getNotionConfig().databaseId),
-    hasGoogleMapsApiKey: Boolean(process.env.GOOGLE_MAPS_API_KEY),
-    hasGooglePlaceId: Boolean(process.env.GOOGLE_PLACE_ID),
-    hasGoogleBusinessOAuth: Boolean(process.env.GOOGLE_BUSINESS_ACCESS_TOKEN && process.env.GOOGLE_BUSINESS_ACCOUNT_ID && process.env.GOOGLE_BUSINESS_LOCATION_ID)
+    reviewDatabaseConfigured: Boolean(process.env.NOTION_FEEDBACK_DATABASE_ID),
+    businessProfileConfigured: isBusinessProfileConfigured(),
+    hasGoogleBusinessClientId: Boolean(process.env.GOOGLE_BUSINESS_CLIENT_ID),
+    hasGoogleBusinessClientSecret: Boolean(process.env.GOOGLE_BUSINESS_CLIENT_SECRET),
+    hasGoogleBusinessRefreshToken: Boolean(process.env.GOOGLE_BUSINESS_REFRESH_TOKEN),
+    hasGoogleBusinessAccountId: Boolean(process.env.GOOGLE_BUSINESS_ACCOUNT_ID),
+    hasGoogleBusinessLocationId: Boolean(process.env.GOOGLE_BUSINESS_LOCATION_ID),
+    schedulerIntervalMinutes: Number(process.env.GOOGLE_REVIEW_SYNC_INTERVAL_MINUTES || 15),
+    lastSync: getSyncState().lastSyncAt,
+    lastError: getSyncState().lastError
   };
 }
 
-function getReviewDatabaseId() {
-  const { databaseId } = getNotionConfig();
-  return process.env.NOTION_FEEDBACK_DATABASE_ID
-    || process.env.NOTION_REVIEWS_DATABASE_ID
-    || databaseId;
-}
+async function getNotionFeedbackDebug() {
+  if (!isReviewNotionConfigured()) {
+    return {
+      databaseConnected: false,
+      error: 'NOTION_API_KEY or NOTION_FEEDBACK_DATABASE_ID is not configured'
+    };
+  }
 
-function isReviewNotionConfigured() {
-  const { apiKey } = getNotionConfig();
-  return Boolean(apiKey && getReviewDatabaseId());
-}
-
-async function getReviewDataSourceSchema(notion) {
+  const notion = getNotionClient();
   const databaseId = getReviewDatabaseId();
-  const override = process.env.NOTION_FEEDBACK_DATA_SOURCE_ID || process.env.NOTION_REVIEWS_DATA_SOURCE_ID;
-
-  if (override) {
-    const detail = await notion.dataSources.retrieve({ data_source_id: override });
-    return { databaseId, dataSourceId: override, properties: detail.properties || {} };
-  }
-
   const database = await notion.databases.retrieve({ database_id: databaseId });
-  const dataSources = database.data_sources || [];
-  if (!dataSources.length) throw new Error('Notion feedback database has no data sources');
+  const databaseTitle = (database.title || []).map(part => part.plain_text).join('') || '(no title)';
+  const { dataSourceId, properties } = await getReviewDataSourceSchema(notion);
+  const schemaCheck = validateNotionSchema(properties);
 
-  if (dataSources.length === 1) {
-    const dataSourceId = dataSources[0].id;
-    const detail = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
-    return { databaseId, dataSourceId, properties: detail.properties || {} };
-  }
-
-  let best = null;
-  let bestScore = -1;
-  for (const ds of dataSources) {
-    const detail = await notion.dataSources.retrieve({ data_source_id: ds.id });
-    const properties = detail.properties || {};
-    const aliases = [
-      ['Google Review ID', 'Review ID', 'Google ID'],
-      ['Review', 'Comment', 'Review Text', 'Feedback'],
-      ['Rating', 'Stars', 'Google Rating'],
-      ['Author', 'Reviewer', 'Reviewer Name']
-    ];
-    const score = aliases.filter(group => findPropertyKey(properties, group)).length;
-    if (score > bestScore) {
-      bestScore = score;
-      best = { databaseId, dataSourceId: ds.id, properties };
-    }
-  }
-
-  return best;
+  return {
+    databaseConnected: true,
+    databaseTitle,
+    databaseId,
+    dataSourceId,
+    schemaReady: schemaCheck.ok,
+    missingProperties: schemaCheck.missing,
+    resolvedProperties: schemaCheck.resolved,
+    properties: Object.entries(properties).map(([name, prop]) => ({ name, type: prop.type }))
+  };
 }
 
 module.exports = {
   fetchGoogleReviews,
   syncReviewsToNotion,
-  getGoogleReviewIntegrationStatus
+  getGoogleReviewIntegrationStatus,
+  getNotionFeedbackDebug,
+  getBusinessDebugStatus,
+  validateNotionSchema,
+  REQUIRED_NOTION_PROPERTIES
 };

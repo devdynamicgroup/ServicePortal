@@ -61,6 +61,25 @@ function completePreassess() {
   }
   S.stepsDone.preassess = true;
   saveActiveJobState();
+  if (S.publicPreassessment) {
+    document.querySelector('#s-preassess .content-consent')?.classList.add('hidden');
+    document.getElementById('preassess-blocker')?.classList.add('hidden');
+    document.querySelector('#s-preassess .foot')?.classList.add('hidden');
+    const title = document.querySelector('#s-preassess .hdr-title');
+    if (title) title.textContent = S.lang === 'th' ? 'ส่งข้อมูลเรียบร้อย' : 'Submitted';
+    const screen = document.getElementById('s-preassess');
+    const done = document.createElement('div');
+    done.className = 'content';
+    done.innerHTML = `
+      <div class="card gap12" style="margin-top:16px">
+        <h2 style="margin:0">${S.lang === 'th' ? 'ขอบคุณสำหรับข้อมูล' : 'Thank you'}</h2>
+        <p style="margin:0;color:var(--muted)">${S.lang === 'th' ? 'ทีม Water Motion ได้รับข้อมูล pre-assessment แล้ว' : 'Water Motion has received your pre-assessment details.'}</p>
+      </div>
+    `;
+    screen?.appendChild(done);
+    showToast(S.lang === 'th' ? 'ส่งข้อมูลเรียบร้อย' : 'Submitted');
+    return;
+  }
   renderJobSteps();
   goScreen('s-job');
 }

@@ -24,11 +24,67 @@ async function initApp() {
     runInitStep(updatePayToggle);
     runInitStep(() => setLanguage(S.lang, { silent: true }));
     if (typeof initAuthUI === 'function') await initAuthUI();
+    if (typeof openPublicPreassessmentIfRequested === 'function' && openPublicPreassessmentIfRequested()) return;
     if (typeof restoreLoginSession === 'function') await restoreLoginSession();
   } catch (error) {
     document.getElementById('app').innerHTML = '<div class="content"><div class="card">Unable to load app pages. Please run this app through a local web server.</div></div>';
     console.error(error);
   }
+}
+
+function getPreassessmentRequestId() {
+  const params = new URLSearchParams(window.location.search);
+  return (params.get('preassessment') || '').trim();
+}
+
+function findPreassessmentJob(id) {
+  if (!id) return null;
+  return JOBS.find(job =>
+    String(job.id) === String(id)
+    || String(job.notionId || '') === String(id)
+    || String(job.result?.publicReportToken || '') === String(id)
+    || String(job.feedback?.token || '') === String(id)
+  ) || null;
+}
+
+function configurePublicPreassessmentView() {
+  document.body.classList.add('public-preassessment-mode');
+  document.querySelector('#s-preassess .hdr-back')?.classList.add('hidden');
+  document.querySelector('#s-preassess .hdr-action')?.classList.add('hidden');
+  document.querySelector('#s-preassess .btn-draft')?.classList.add('hidden');
+  const done = document.getElementById('btn-preassess-done');
+  if (done) done.textContent = S.lang === 'th' ? 'ส่งข้อมูล' : 'Submit';
+}
+
+function showPublicPreassessmentError(id) {
+  const app = document.getElementById('app');
+  if (!app) return;
+  app.innerHTML = `
+    <div class="content">
+      <div class="card gap12">
+        <h2 style="margin:0">Pre-assessment link not found</h2>
+        <p style="margin:0;color:var(--muted)">We could not find pre-assessment ID ${id || ''}. Please contact Water Motion.</p>
+      </div>
+    </div>
+  `;
+}
+
+function openPublicPreassessmentIfRequested() {
+  const id = getPreassessmentRequestId();
+  if (!id) return false;
+
+  S.publicPreassessment = true;
+  const job = findPreassessmentJob(id);
+  if (!job) {
+    showPublicPreassessmentError(id);
+    return true;
+  }
+
+  S.activeJob = job;
+  loadJobState(job);
+  configurePublicPreassessmentView();
+  goScreen('s-preassess');
+  return true;
 }
 
 function runInitStep(fn) {
