@@ -107,6 +107,7 @@ async function handleLineRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/line/webhook' && req.method === 'POST') {
+    console.log('LINE WEBHOOK HIT');
     const rawBody = await readRawBody(req);
     const signature = req.headers['x-line-signature'];
 
