@@ -56,7 +56,6 @@ async function doLogin() {
 
     setLoginMessage('');
     updateLoggedInUser(data.user);
-    renderCalendar();
     goScreen('s-dash');
   } catch (error) {
     setLoginMessage(error.message || 'Could not sign in');
@@ -73,14 +72,13 @@ async function forgotPassword() {
   showToast(contact || t('login.forgotIt'));
 }
 
-function restoreLoginSession() {
+async function restoreLoginSession() {
   try {
     const raw = localStorage.getItem('wm-session');
     if (!raw) return false;
     const session = JSON.parse(raw);
     if (!session.user) return false;
     updateLoggedInUser(session.user);
-    renderCalendar();
     goScreen('s-dash');
     return true;
   } catch {

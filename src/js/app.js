@@ -24,7 +24,7 @@ async function initApp() {
     runInitStep(updatePayToggle);
     runInitStep(() => setLanguage(S.lang, { silent: true }));
     if (typeof initAuthUI === 'function') await initAuthUI();
-    runInitStep(restoreLoginSession);
+    if (typeof restoreLoginSession === 'function') await restoreLoginSession();
   } catch (error) {
     document.getElementById('app').innerHTML = '<div class="content"><div class="card">Unable to load app pages. Please run this app through a local web server.</div></div>';
     console.error(error);

@@ -380,15 +380,26 @@ async function loadJobsFromApi() {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok || payload.ok === false) {
-      console.warn('[Service Portal] /api/clients unavailable', response.status, payload.error || '');
+      console.warn('[Service Portal] GET /api/clients failed', {
+        status: response.status,
+        ok: payload.ok,
+        error: payload.error || null
+      });
       return false;
     }
 
     const jobs = Array.isArray(payload) ? payload : payload.jobs;
     if (!Array.isArray(jobs) || !jobs.length) {
-      console.warn('[Service Portal] /api/clients returned no jobs');
+      console.warn('[Service Portal] GET /api/clients returned no jobs', payload);
       return false;
     }
+
+    const july9 = jobs.filter(j => j.date === '2026-07-09');
+    console.info('[Service Portal] GET /api/clients ok', {
+      status: response.status,
+      count: jobs.length,
+      july9: july9.map(j => ({ name: j.name, date: j.date, status: j.status }))
+    });
 
     // Notion is authoritative: replace (never merge) so CSV rows cannot mix in.
     JOBS.splice(0, JOBS.length, ...jobs);
@@ -399,7 +410,7 @@ async function loadJobsFromApi() {
     });
     return true;
   } catch (error) {
-    console.warn('Could not load jobs from Notion API', error);
+    console.warn('[Service Portal] GET /api/clients error', error);
     return false;
   }
 }

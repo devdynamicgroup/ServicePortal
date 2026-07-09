@@ -37,8 +37,5 @@ const POSTAL_DATA = [
   { label:'Mueang Pathum Thani, Pathum Thani 12000', labelTh:'เมืองปทุมธานี ปทุมธานี 12000', code:'12000', city:'Pathum Thani' },
   { label:'Nakhon Pathom, Nakhon Pathom 73000', labelTh:'นครปฐม นครปฐม 73000', code:'73000', city:'Nakhon Pathom' }
 ];
-const JOBS = [
-  { id:1, name:'Saranya C.', addr:'12 Sukhumvit Soi 11, Wattana', timeStart:'9:00AM', timeEnd:'10:00AM', day:0, pkg:'essential', status:'in_progress', meta:'Single house - 5-10 yrs - Owner present' },
-  { id:2, name:'Vasinee K.', addr:'111 Ari Sampan Soi 4, Samsen', timeStart:'11:00AM', timeEnd:'12:00PM', day:0, pkg:'essential', status:'new', meta:'Single house - 20+ yrs - Owner present' },
-  { id:3, name:'Maetud T.', addr:'19 Navin Village, Sathorn', timeStart:'2:00PM', timeEnd:'3:00PM', day:0, pkg:'full', status:'new', meta:'Townhome - 1-5 yrs - Owner away', contact:'K.Fon' },
-];
+// Populated from GET /api/clients (Notion), with CSV/localStorage fallback in app.js.
+const JOBS = [];

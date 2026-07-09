@@ -23,14 +23,30 @@ function cellDate(i) {
   const d = new Date(weekBase); d.setDate(weekBase.getDate() + i);
   return formatDate(d);
 }
+function compareJobsBySchedule(a, b) {
+  const dateCmp = String(a.date || '').localeCompare(String(b.date || ''));
+  if (dateCmp) return dateCmp;
+  return String(a.timeStart || '').localeCompare(String(b.timeStart || ''));
+}
 // The real date currently selected in the dashboard.
 function selectedDateIso() {
   return cellDate(S.selDay);
 }
+// Prefer job.date; fall back to Notion createdTime when date is unset.
+function jobDateIso(job) {
+  const fromDate = isoDateOnly(job?.date);
+  if (fromDate) return fromDate;
+  return isoDateOnly(job?.createdTime);
+}
+function isoDateOnly(value) {
+  const m = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
 // A job belongs to a date by its real job.date. Legacy jobs (CSV/mock) that
 // have no date fall back to weekday matching so they still render.
 function jobMatchesDate(job, iso) {
-  if (job.date) return job.date === iso;
+  const jobIso = jobDateIso(job);
+  if (jobIso) return jobIso === iso;
   return job.day === weekdayFromIso(iso);
 }
 function jobsOnDate(iso) {
@@ -95,6 +111,10 @@ function renderCalendar() {
   const DOW = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
   const today = new Date(); today.setHours(0,0,0,0);
   const strip = document.getElementById('day-strip');
+  if (!strip) {
+    renderJobs();
+    return;
+  }
   strip.innerHTML = '';
   // Gray/muted styling is fixed to Sunday (0) and Wednesday (3) only.
   // It never depends on JOBS / job.day / job.date / job counts.
@@ -136,18 +156,57 @@ function statusLabel(s) {
 }
 function renderJobs(filter) {
   const q = (filter ?? S.searchQuery).toLowerCase().trim();
-  // allJobs stays the untouched source of truth; we only derive a display list.
-  const allJobs = JOBS;
-  let visibleJobs = allJobs.filter(j => jobMatchesDate(j, selectedDateIso()) && j.status !== 'cancelled');
-  if(q) visibleJobs = visibleJobs.filter(j => j.name.toLowerCase().includes(q) || j.addr.toLowerCase().includes(q));
-  console.log({ totalJobs: JOBS.length, visibleJobs: visibleJobs.length });
+  const activeJobs = JOBS.filter(j => j.status !== 'cancelled');
+  const selected = selectedDateIso();
+  let visibleJobs = activeJobs.filter(j => jobMatchesDate(j, selected));
+  if (!visibleJobs.length) visibleJobs = activeJobs.slice();
+  visibleJobs.sort((a, b) => {
+    const aSel = jobMatchesDate(a, selected) ? 0 : 1;
+    const bSel = jobMatchesDate(b, selected) ? 0 : 1;
+    if (aSel !== bSel) return aSel - bSel;
+    const dateCmp = String(b.date || '').localeCompare(String(a.date || ''));
+    if (dateCmp) return dateCmp;
+    return String(a.timeStart || '').localeCompare(String(b.timeStart || ''));
+  });
+
+  if (q) {
+    visibleJobs = visibleJobs.filter(j =>
+      String(j.name || '').toLowerCase().includes(q) ||
+      String(j.addr || '').toLowerCase().includes(q)
+    );
+  }
+
   const list = document.getElementById('appt-list');
-  document.getElementById('appt-count').textContent = q ? `${t('dash.results')} (${visibleJobs.length})` : t('dash.appointments');
+  const countEl = document.getElementById('appt-count');
+  const dash = document.getElementById('s-dash');
+  const dashActive = !!dash?.classList.contains('active');
+  const july9InJobs = activeJobs.filter(j => jobDateIso(j) === '2026-07-09').map(j => j.name);
+  const july9Visible = visibleJobs.filter(j => jobDateIso(j) === '2026-07-09').map(j => j.name);
+
+  console.info('[Service Portal] renderJobs', {
+    jobsLen: JOBS.length,
+    activeLen: activeJobs.length,
+    visibleLen: visibleJobs.length,
+    selected,
+    screen: S.screen,
+    dashActive,
+    listExists: !!list,
+    july9InJobs,
+    july9Visible,
+    search: q || null
+  });
+
+  if (!list || !countEl) return;
+
+  countEl.textContent = q
+    ? `${t('dash.results')} (${visibleJobs.length})`
+    : `${t('dash.appointments')} (${visibleJobs.length})`;
+
   if (!visibleJobs.length) {
     list.innerHTML = `<div class="appt-empty">${q ? t('dash.noMatches') : t('dash.empty')}<span class="appt-empty-hint">${t('dash.emptyHint')}</span></div>`;
     return;
   }
-  console.log("render count", visibleJobs.length);
+
   list.innerHTML = visibleJobs.map(j => `
     <div class="appt-card ${j.pkg === 'full' ? 'stripe-full' : ''}" onclick="openJob(${j.id})">
       <div class="ac-top">
@@ -169,11 +228,6 @@ function renderJobs(filter) {
         <button class="ac-menu" type="button" onclick="event.stopPropagation();showApptMenu(${j.id})" aria-label="More">${MENU_SVG}</button>
       </div>
     </div>`).join('');
-  console.log({
-    list: document.getElementById('appt-list'),
-    htmlLength: list?.innerHTML.length,
-    firstJob: visibleJobs[0]
-  });
 }
 
 function showApptMenu(id) {
@@ -206,7 +260,18 @@ function cancelCase(id = S.activeJob?.id) {
 }
 function openSearchModal(){ document.getElementById('search-overlay').classList.remove('hidden'); document.getElementById('search-input').value=S.searchQuery; document.getElementById('search-input').focus(); filterAppointments(S.searchQuery); }
 function closeSearchModal(){ document.getElementById('search-overlay').classList.add('hidden'); }
-function filterAppointments(q){ S.searchQuery=q; renderJobs(q); const visibleJobs=JOBS.filter(j=>j.status!=='cancelled'&&jobMatchesDate(j,selectedDateIso())&&(j.name.toLowerCase().includes(q.toLowerCase())||j.addr.toLowerCase().includes(q.toLowerCase()))); document.getElementById('search-results').innerHTML=visibleJobs.map(j=>`<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${j.id})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('')||'<p style="color:var(--muted);font-size:14px">No matches</p>'; }
+function filterAppointments(q){
+  S.searchQuery = q;
+  renderJobs(q);
+  const needle = q.toLowerCase();
+  const visibleJobs = JOBS
+    .filter(j => j.status !== 'cancelled')
+    .filter(j =>
+      String(j.name || '').toLowerCase().includes(needle) ||
+      String(j.addr || '').toLowerCase().includes(needle)
+    );
+  document.getElementById('search-results').innerHTML = visibleJobs.map(j => `<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${j.id})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('') || '<p style="color:var(--muted);font-size:14px">No matches</p>';
+}
 function renderNotifications() {
   const list = document.getElementById('notif-list');
   if (!list) return;
