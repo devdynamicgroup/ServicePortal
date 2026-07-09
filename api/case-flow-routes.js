@@ -138,6 +138,8 @@ function customerFeedbackHtml(feedback) {
   const clientName = escapeHtml(feedback.clientName || 'Water Motion customer');
   const reviewUrl = escapeHtml(feedback.reviewUrl || 'https://g.page/r/Ce0EFhVtUyRpEBM/review');
   const alreadySubmitted = feedback.feedbackStatus === 'submitted';
+  const submittedRating = Number(feedback.rating);
+  const initialReviewShown = alreadySubmitted && Number.isFinite(submittedRating) && submittedRating >= 4;
 
   return `<!doctype html>
 <html lang="en">
@@ -165,7 +167,8 @@ function customerFeedbackHtml(feedback) {
   button.submit:disabled{opacity:.55;cursor:not-allowed}
   .thanks{display:${alreadySubmitted ? 'block' : 'none'}}
   .form-wrap{display:${alreadySubmitted ? 'none' : 'block'}}
-  .review-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;font-weight:800}
+  .review-link{display:${initialReviewShown ? 'inline-flex' : 'none'};align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;font-weight:800}
+  .low-detail{display:${alreadySubmitted && !initialReviewShown ? 'block' : 'none'};padding:12px 14px;border-radius:8px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;margin-top:12px}
   .meta{font-size:13px;color:var(--muted);margin-top:14px}
 </style>
 <body>
@@ -196,8 +199,9 @@ function customerFeedbackHtml(feedback) {
       </div>
       <div class="thanks" id="thanks">
         <h1>Thank you</h1>
-        <p>Your feedback has been saved. If you are happy with the service, you can leave a Google review too.</p>
+        <p id="thanks-message">${initialReviewShown ? 'Your feedback has been saved. If you are happy with the service, you can leave a Google review too.' : 'Your feedback has been saved. We would like to understand more so our team can follow up properly.'}</p>
         <a class="review-link" href="${reviewUrl}" target="_blank" rel="noopener noreferrer">Open Google Review</a>
+        <div class="low-detail" id="low-detail">Please add any details in your comment, or contact Water Motion directly so we can help resolve the issue.</div>
         <div class="meta">Feedback token: ${token}</div>
       </div>
     </section>
@@ -252,8 +256,18 @@ function customerFeedbackHtml(feedback) {
         setError(data.error || 'Could not submit feedback. Please try again.');
         return;
       }
+      const reviewShown = data.reviewShown !== undefined ? Boolean(data.reviewShown) : selectedRating >= 4;
       const link = document.querySelector('.review-link');
       if (data.reviewUrl && link) link.href = data.reviewUrl;
+      if (link) link.style.display = reviewShown ? 'inline-flex' : 'none';
+      const detail = document.getElementById('low-detail');
+      if (detail) detail.style.display = reviewShown ? 'none' : 'block';
+      const message = document.getElementById('thanks-message');
+      if (message) {
+        message.textContent = reviewShown
+          ? 'Your feedback has been saved. If you are happy with the service, you can leave a Google review too.'
+          : 'Your feedback has been saved. We would like to understand more so our team can follow up properly.';
+      }
       document.getElementById('form-wrap').style.display = 'none';
       document.getElementById('thanks').style.display = 'block';
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -310,8 +324,17 @@ async function handleCaseFlowRoute(req, res, urlPath) {
 
   if (feedbackApiMatch && req.method === 'POST') {
     try {
-      const result = await submitFeedback(decodeURIComponent(feedbackApiMatch[1]), await readJson(req));
-      sendJson(res, 200, result);
+      const token = decodeURIComponent(feedbackApiMatch[1]);
+      const payload = await readJson(req);
+      const rating = Number(payload.rating);
+      const reviewShown = Number.isFinite(rating) && rating >= 4;
+      const result = await submitFeedback(token, payload);
+      console.info('[feedback_submit]', {
+        token,
+        rating: Number.isFinite(rating) ? rating : null,
+        reviewShown
+      });
+      sendJson(res, 200, { ...result, reviewShown });
     } catch (error) {
       sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
     }
