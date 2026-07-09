@@ -4,7 +4,7 @@ const {
   resolveDataSourceId,
   getDataSourceSchema
 } = require('./client');
-const { findPropertyKey } = require('./props');
+const { findPropertyKey, getPropertyValue } = require('./props');
 const { FIELD_ALIASES, notionPageToJob } = require('./mapper');
 
 const CASE_FLOW_REQUIREMENTS = {
@@ -79,6 +79,44 @@ async function getAllClients() {
   return pages
     .filter(page => page.object === 'page' && !page.archived && !page.in_trash)
     .map((page, index) => notionPageToJob(page, index));
+}
+
+async function findClientByFeedbackToken(token) {
+  if (!isNotionConfigured()) return null;
+
+  const normalized = String(token || '').trim().toLowerCase();
+  if (!normalized) return null;
+
+  const notion = getNotionClient();
+  const dataSourceId = await resolveDataSourceId();
+  const { properties } = await getDataSourceSchema();
+  const key = findPropertyKey(properties, FIELD_ALIASES.feedbackToken);
+  if (!key) return null;
+
+  const type = properties[key]?.type;
+  const filter = type === 'title'
+    ? { property: key, title: { equals: normalized } }
+    : type === 'rich_text'
+      ? { property: key, rich_text: { equals: normalized } }
+      : null;
+  if (!filter) return null;
+
+  const result = await notion.dataSources.query({
+    data_source_id: dataSourceId,
+    filter,
+    page_size: 1
+  });
+  const page = result.results?.[0];
+  if (!page) return null;
+
+  return {
+    clientPageId: page.id,
+    clientName: getPropertyValue(page.properties, FIELD_ALIASES.fullName),
+    feedbackToken: getPropertyValue(page.properties, FIELD_ALIASES.feedbackToken) || normalized,
+    tokenProperty: key,
+    databaseId: process.env.NOTION_DATABASE_ID || '',
+    dataSourceId
+  };
 }
 
 async function getClient(pageId) {
@@ -272,6 +310,7 @@ module.exports = {
   getClient,
   createClient,
   updateClient,
+  findClientByFeedbackToken,
   getIntegrationStatus,
   getCaseFlowDatasetStatus,
   CASE_FLOW_REQUIREMENTS

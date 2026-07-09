@@ -1,7 +1,7 @@
 const { getNotionClient } = require('./notion/client');
 const { getNotionConfig } = require('../config/env');
 const { findPropertyKey, getPropertyValue } = require('./notion/props');
-const { updateClient } = require('./notion/clients');
+const { findClientByFeedbackToken, updateClient } = require('./notion/clients');
 
 const FEEDBACK_ALIASES = {
   title: ['Name', 'Client Feedback', 'Feedback', 'Title'],
@@ -194,10 +194,90 @@ function feedbackPageToPayload(page) {
   };
 }
 
+function feedbackLookupDebug(token, extra = {}) {
+  return {
+    id: 'line_token_debug',
+    parsedToken: String(token || '').trim().toLowerCase(),
+    feedbackDatabaseId: getFeedbackDatabaseId() || null,
+    clientsDatabaseId: process.env.NOTION_DATABASE_ID || null,
+    feedbackTokenProperty: 'Feedback Token',
+    ...extra
+  };
+}
+
+function clientMatchToFeedbackPayload(client) {
+  return {
+    pageId: null,
+    feedbackToken: client.feedbackToken,
+    clientPageId: client.clientPageId,
+    clientName: client.clientName,
+    reportUrl: '',
+    feedbackUrl: '',
+    rating: null,
+    comment: '',
+    feedbackStatus: '',
+    reviewUrl: '',
+    reviewStatus: '',
+    reviewRequestedAt: null
+  };
+}
+
 async function getFeedbackByToken(token) {
-  const { dataSourceId, properties: schema } = await getFeedbackDataSourceSchema();
-  const page = await findFeedbackByToken(token, schema, dataSourceId);
-  return page ? feedbackPageToPayload(page) : null;
+  const normalized = String(token || '').trim().toLowerCase();
+  if (!normalized) return null;
+
+  if (isClientFeedbackConfigured()) {
+    try {
+      const { dataSourceId, properties: schema } = await getFeedbackDataSourceSchema();
+      const page = await findFeedbackByToken(normalized, schema, dataSourceId);
+      if (page) {
+        const payload = feedbackPageToPayload(page);
+        console.info('[line_token_debug]', feedbackLookupDebug(normalized, {
+          databaseSearched: 'feedback',
+          feedbackMatches: 1,
+          clientMatches: 0,
+          source: 'feedback_db',
+          clientPageId: payload.clientPageId || null
+        }));
+        return payload;
+      }
+      console.info('[line_token_debug]', feedbackLookupDebug(normalized, {
+        databaseSearched: 'feedback',
+        feedbackMatches: 0,
+        clientMatches: 0,
+        source: null
+      }));
+    } catch (error) {
+      console.warn('[line_token_debug] feedback database lookup failed', error.message);
+    }
+  } else {
+    console.info('[line_token_debug]', feedbackLookupDebug(normalized, {
+      databaseSearched: 'feedback',
+      feedbackDatabaseConfigured: false,
+      feedbackMatches: 0
+    }));
+  }
+
+  const client = await findClientByFeedbackToken(normalized);
+  if (client?.clientPageId) {
+    console.info('[line_token_debug]', feedbackLookupDebug(normalized, {
+      databaseSearched: 'clients',
+      clientsTokenProperty: client.tokenProperty,
+      feedbackMatches: 0,
+      clientMatches: 1,
+      source: 'clients_db',
+      clientPageId: client.clientPageId
+    }));
+    return clientMatchToFeedbackPayload(client);
+  }
+
+  console.info('[line_token_debug]', feedbackLookupDebug(normalized, {
+    databaseSearched: 'clients',
+    feedbackMatches: 0,
+    clientMatches: 0,
+    source: null
+  }));
+  return null;
 }
 
 async function submitFeedback(token, payload = {}) {

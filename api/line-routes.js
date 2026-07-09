@@ -36,9 +36,14 @@ function readRawBody(req) {
   });
 }
 
+function normalizeLineMessageText(text) {
+  return String(text || '').normalize('NFKC').trim();
+}
+
 function extractFeedbackToken(text) {
-  const match = String(text || '').match(/\bfb-[a-z0-9-]+\b/i);
-  return match ? match[0] : '';
+  const normalized = normalizeLineMessageText(text);
+  const match = normalized.match(/\bfb-[a-z0-9-]+\b/i);
+  return match ? match[0].toLowerCase() : '';
 }
 
 async function linkLineUserFromToken(event, token) {
@@ -70,7 +75,14 @@ async function handleLineEvent(event) {
   if (!event || !event.type) return { handled: false };
 
   if (event.type === 'message' && event.message?.type === 'text') {
-    const token = extractFeedbackToken(event.message.text);
+    const messageText = event.message.text;
+    const token = extractFeedbackToken(messageText);
+    console.info('[line_token_debug]', {
+      id: 'line_token_debug',
+      receivedMessageText: messageText,
+      parsedToken: token || null,
+      messageType: event.message?.type
+    });
     if (!token) {
       await sendLineReply(event.replyToken, [{
         type: 'text',
