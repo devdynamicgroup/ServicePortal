@@ -11,12 +11,14 @@ console.log('[ENV DEBUG]', {
   cwd: process.cwd(),
   envFile: path.resolve(envFile),
   envExists: fs.existsSync(envFile),
+  port: Number(process.env.PORT) || 3000,
   client: process.env.GOOGLE_BUSINESS_CLIENT_ID || null,
   secret: Boolean(process.env.GOOGLE_BUSINESS_CLIENT_SECRET),
   redirect: process.env.GOOGLE_BUSINESS_REDIRECT_URI || null
 });
 
 const { handleClientsRoute } = require('./api/clients-routes');
+const { handleCaseFlowRoute } = require('./api/case-flow-routes');
 const { handleGoogleReviewRoute } = require('./api/google-review-routes');
 const { startGoogleReviewScheduler } = require('./services/google-review-scheduler');
 
@@ -113,6 +115,7 @@ async function handleApiRequest(req, res) {
   const urlPath = req.url.split('?')[0];
 
   if (await handleClientsRoute(req, res, urlPath)) return true;
+  if (await handleCaseFlowRoute(req, res, urlPath)) return true;
   if (await handleGoogleReviewRoute(req, res, urlPath)) return true;
 
   if (urlPath === '/api/auth-config' && req.method === 'GET') {
