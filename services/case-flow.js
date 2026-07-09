@@ -106,12 +106,17 @@ async function closeCase(caseId, payload = {}) {
 
   if (lineUserId) {
     const notifyJob = { ...updatedJob, line: { ...updatedJob.line, userId: lineUserId } };
-    lineResult = await sendCaseResultNotification(notifyJob, { reportUrl, feedbackUrl });
+    lineResult = await sendCaseResultNotification(notifyJob, {
+      reportUrl,
+      feedbackUrl,
+      clientId: job.id
+    });
     console.info('[line_close_notify]', {
-      caseId: updatedJob.id,
+      caseId: job.id,
       notionId: updatedJob.notionId,
       lineUserId,
       reportUrl,
+      resultLinkUrl: lineResult.resultLinkUrl || null,
       feedbackUrl: feedbackUrl || null,
       format: lineResult.format || '',
       ok: lineResult.ok,

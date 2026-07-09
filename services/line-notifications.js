@@ -112,18 +112,30 @@ async function sendLineReply(replyToken, messages) {
 }
 
 const WATER_MOTION_BLUE = '#284dcd';
+const WATER_MOTION_MUTED = '#78716c';
+const WATER_MOTION_SURFACE = '#f8fafc';
 
-function buildCaseResultTextMessage({ reportUrl, feedbackUrl }) {
+function publicBaseUrl() {
+  return (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.onrender.com').replace(/\/$/, '');
+}
+
+function buildPreassessmentResultUrl(clientId) {
+  const id = String(clientId ?? '').trim();
+  if (!id) return '';
+  return `${publicBaseUrl()}/?preassessment=${encodeURIComponent(id)}`;
+}
+
+function buildCaseResultTextMessage({ resultLinkUrl, feedbackUrl }) {
   const lines = [
     'ผลตรวจของคุณพร้อมแล้วครับ สามารถดูรายละเอียดได้ที่นี่',
-    reportUrl,
+    resultLinkUrl,
     feedbackUrl ? `ประเมินความพึงพอใจ: ${feedbackUrl}` : ''
   ].filter(Boolean);
 
   return { type: 'text', text: lines.join('\n') };
 }
 
-function buildCaseResultFlexMessage({ reportUrl, feedbackUrl }) {
+function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName }) {
   const footerButtons = [
     {
       type: 'button',
@@ -133,7 +145,7 @@ function buildCaseResultFlexMessage({ reportUrl, feedbackUrl }) {
       action: {
         type: 'uri',
         label: 'ดูผลตรวจ',
-        uri: reportUrl
+        uri: resultLinkUrl
       }
     }
   ];
@@ -142,6 +154,7 @@ function buildCaseResultFlexMessage({ reportUrl, feedbackUrl }) {
     footerButtons.push({
       type: 'button',
       style: 'secondary',
+      color: WATER_MOTION_BLUE,
       height: 'sm',
       action: {
         type: 'uri',
@@ -151,46 +164,99 @@ function buildCaseResultFlexMessage({ reportUrl, feedbackUrl }) {
     });
   }
 
+  const greeting = clientName
+    ? `สวัสดีคุณ ${clientName}`
+    : 'ผลการตรวจน้ำพร้อมแล้ว';
+
   return {
     type: 'flex',
     altText: 'ผลตรวจของคุณพร้อมแล้วครับ',
     contents: {
       type: 'bubble',
       size: 'mega',
+      styles: {
+        header: { backgroundColor: WATER_MOTION_BLUE },
+        body: { backgroundColor: '#ffffff' },
+        footer: { backgroundColor: WATER_MOTION_SURFACE }
+      },
       header: {
         type: 'box',
         layout: 'vertical',
+        spacing: 'sm',
         contents: [
+          {
+            type: 'text',
+            text: 'WATER MOTION',
+            size: 'xs',
+            color: '#bfdbfe',
+            weight: 'bold',
+            letterSpacing: '2px'
+          },
           {
             type: 'text',
             text: 'ผลตรวจของคุณพร้อมแล้วครับ',
             weight: 'bold',
-            size: 'lg',
+            size: 'xl',
             color: '#ffffff',
             wrap: true
           }
         ],
-        backgroundColor: WATER_MOTION_BLUE,
-        paddingAll: '20px'
+        paddingAll: '22px'
       },
       body: {
         type: 'box',
         layout: 'vertical',
+        spacing: 'md',
         contents: [
           {
-            type: 'text',
-            text: 'Water Motion',
-            weight: 'bold',
-            size: 'sm',
-            color: WATER_MOTION_BLUE
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'md',
+            contents: [
+              {
+                type: 'box',
+                layout: 'vertical',
+                width: '4px',
+                backgroundColor: WATER_MOTION_BLUE,
+                cornerRadius: '4px',
+                flex: 0,
+                contents: []
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                flex: 1,
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: greeting,
+                    weight: 'bold',
+                    size: 'md',
+                    color: '#1c1917',
+                    wrap: true
+                  },
+                  {
+                    type: 'text',
+                    text: 'กดปุ่มด้านล่างเพื่อเปิดดูรายละเอียดผลตรวจ และแจ้งความพึงพอใจหลังใช้บริการ',
+                    size: 'sm',
+                    color: WATER_MOTION_MUTED,
+                    wrap: true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: 'separator',
+            color: '#e7e5e1'
           },
           {
             type: 'text',
-            text: 'คุณสามารถดูรายละเอียดผลการตรวจน้ำได้จากปุ่มด้านล่าง',
-            size: 'sm',
-            color: '#78716c',
-            wrap: true,
-            margin: 'md'
+            text: 'Water Motion · บริการตรวจคุณภาพน้ำ',
+            size: 'xs',
+            color: '#a8a29d',
+            align: 'center'
           }
         ],
         paddingAll: '20px'
@@ -212,24 +278,30 @@ async function sendCaseResultNotification(job, payload) {
     return { ok: false, status: 'skipped', reason: 'no_line_user_id', messageId: '' };
   }
 
-  const reportUrl = payload.reportUrl || job.result?.reportUrl || '';
+  const clientId = payload.clientId ?? job.id;
+  const resultLinkUrl = buildPreassessmentResultUrl(clientId);
   const feedbackUrl = payload.feedbackUrl || job.feedback?.url || '';
-  if (!reportUrl) {
-    return { ok: false, status: 'failed', messageId: '', error: 'missing_report_url' };
+  if (!resultLinkUrl) {
+    return { ok: false, status: 'failed', messageId: '', error: 'missing_client_id' };
   }
 
-  const messagePayload = { reportUrl, feedbackUrl };
+  const messagePayload = {
+    resultLinkUrl,
+    feedbackUrl,
+    clientName: String(job.name || '').replace(/\s+\S\.$/, '').trim()
+  };
   const flexMessage = buildCaseResultFlexMessage(messagePayload);
   const textMessage = buildCaseResultTextMessage(messagePayload);
 
   const flexResult = await sendLinePush(userId, [flexMessage]);
   if (flexResult.ok) {
-    return { ...flexResult, format: 'flex' };
+    return { ...flexResult, format: 'flex', resultLinkUrl, clientId: String(clientId) };
   }
 
   console.warn('[line_close_notify] flex push failed, falling back to text', {
     userId,
-    reportUrl,
+    clientId,
+    resultLinkUrl,
     feedbackUrl: feedbackUrl || null,
     error: flexResult.error || flexResult.status
   });
@@ -238,7 +310,9 @@ async function sendCaseResultNotification(job, payload) {
   return {
     ...textResult,
     format: textResult.ok ? 'text' : 'text_failed',
-    flexError: flexResult.error || flexResult.status
+    flexError: flexResult.error || flexResult.status,
+    resultLinkUrl,
+    clientId: String(clientId)
   };
 }
 
@@ -250,6 +324,8 @@ module.exports = {
   verifyLineSignature,
   sendLinePush,
   sendLineReply,
+  publicBaseUrl,
+  buildPreassessmentResultUrl,
   buildCaseResultFlexMessage,
   buildCaseResultTextMessage,
   sendCaseResultNotification
