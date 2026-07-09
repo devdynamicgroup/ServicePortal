@@ -19,6 +19,7 @@ console.log('[ENV DEBUG]', {
 
 const { handleClientsRoute } = require('./api/clients-routes');
 const { handleCaseFlowRoute } = require('./api/case-flow-routes');
+const { handleLineRoute } = require('./api/line-routes');
 const { handleGoogleReviewRoute } = require('./api/google-review-routes');
 const { startGoogleReviewScheduler } = require('./services/google-review-scheduler');
 
@@ -116,6 +117,7 @@ async function handleApiRequest(req, res) {
 
   if (await handleClientsRoute(req, res, urlPath)) return true;
   if (await handleCaseFlowRoute(req, res, urlPath)) return true;
+  if (await handleLineRoute(req, res, urlPath)) return true;
   if (await handleGoogleReviewRoute(req, res, urlPath)) return true;
 
   if (urlPath === '/api/auth-config' && req.method === 'GET') {
