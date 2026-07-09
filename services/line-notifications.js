@@ -112,17 +112,18 @@ async function sendLineReply(replyToken, messages) {
 }
 
 async function sendCaseResultNotification(job, payload) {
-  const score = payload.score ?? job.result?.waterScore ?? '-';
+  const userId = String(job.line?.userId || '').trim();
+  if (!userId) {
+    return { ok: false, status: 'skipped', reason: 'no_line_user_id', messageId: '' };
+  }
+
   const reportUrl = payload.reportUrl || job.result?.reportUrl || '';
-  const feedbackUrl = payload.feedbackUrl || job.feedback?.url || '';
   const text = [
-    'Water Motion: your water assessment result is ready.',
-    `Latest score: ${score}/100`,
-    reportUrl ? `Report: ${reportUrl}` : '',
-    feedbackUrl ? `Feedback: ${feedbackUrl}` : ''
+    'ผลตรวจของคุณพร้อมแล้วครับ สามารถดูรายละเอียดได้ที่นี่',
+    reportUrl
   ].filter(Boolean).join('\n');
 
-  return sendLinePush(job.line?.userId, [{ type: 'text', text }]);
+  return sendLinePush(userId, [{ type: 'text', text }]);
 }
 
 module.exports = {

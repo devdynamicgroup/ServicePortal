@@ -1,6 +1,11 @@
 const crypto = require('crypto');
 const { getAllClients, getClient, updateClient } = require('./notion/clients');
-const { upsertFeedbackRecord, getFeedbackByToken, submitFeedback } = require('./client-feedback');
+const {
+  upsertFeedbackRecord,
+  getFeedbackByToken,
+  submitFeedback,
+  isClientFeedbackConfigured
+} = require('./client-feedback');
 const { sendCaseResultNotification } = require('./line-notifications');
 
 const DEFAULT_REVIEW_URL = 'https://g.page/r/Ce0EFhVtUyRpEBM/review';
@@ -52,7 +57,8 @@ async function closeCase(caseId, payload = {}) {
     || job.result?.recommendations
     || 'Please review the result, submit your satisfaction feedback, then leave a Google review if everything looks good.';
 
-  const updatedJob = await updateClient(job.notionId, {
+  const lineUserId = String(job.line?.userId || '').trim();
+  const closePatch = {
     caseWorkflowStatus: 'completed',
     serviceCompletedAt: now,
     closedAt: now,
@@ -66,29 +72,73 @@ async function closeCase(caseId, payload = {}) {
     feedbackUrl,
     feedbackStatus: 'pending',
     reviewUrl,
-    reviewStatus: 'not_requested',
-    notificationStatus: 'ready'
-  });
-
-  const feedbackRecord = await upsertFeedbackRecord({
-    feedbackToken,
-    title: `Feedback - ${updatedJob.name}`,
-    clientPageId: updatedJob.notionId,
-    clientName: updatedJob.name,
-    clientPhone: clientPhone(updatedJob),
-    caseId: String(updatedJob.id),
-    reportUrl,
-    feedbackUrl,
-    feedbackStatus: 'pending',
-    reviewUrl,
     reviewStatus: 'not_requested'
-  });
+  };
+  if (lineUserId) {
+    closePatch.notificationStatus = 'ready';
+  }
 
-  const lineResult = await sendCaseResultNotification(updatedJob, { score, reportUrl, feedbackUrl });
-  const notificationPatch = lineResult.ok
-    ? { notificationStatus: lineResult.status === 'mock_sent' ? 'sent' : lineResult.status, resultSentAt: now, lineMessageId: lineResult.messageId || '' }
-    : { notificationStatus: 'failed', lastNotificationError: lineResult.error || lineResult.status };
-  const notifiedJob = await updateClient(job.notionId, notificationPatch);
+  const updatedJob = await updateClient(job.notionId, closePatch);
+
+  let feedbackRecord = null;
+  if (isClientFeedbackConfigured()) {
+    try {
+      feedbackRecord = await upsertFeedbackRecord({
+        feedbackToken,
+        title: `Feedback - ${updatedJob.name}`,
+        clientPageId: updatedJob.notionId,
+        clientName: updatedJob.name,
+        clientPhone: clientPhone(updatedJob),
+        caseId: String(updatedJob.id),
+        reportUrl,
+        feedbackUrl,
+        feedbackStatus: 'pending',
+        reviewUrl,
+        reviewStatus: 'not_requested'
+      });
+    } catch (error) {
+      console.warn('[closeCase] feedback record upsert failed', error.message);
+    }
+  }
+
+  let notifiedJob = updatedJob;
+  let lineResult = { ok: false, status: 'skipped', reason: 'no_line_user_id', messageId: '' };
+
+  if (lineUserId) {
+    const notifyJob = { ...updatedJob, line: { ...updatedJob.line, userId: lineUserId } };
+    lineResult = await sendCaseResultNotification(notifyJob, { reportUrl });
+    console.info('[line_close_notify]', {
+      caseId: updatedJob.id,
+      notionId: updatedJob.notionId,
+      lineUserId,
+      reportUrl,
+      ok: lineResult.ok,
+      status: lineResult.status,
+      messageId: lineResult.messageId || '',
+      error: lineResult.error || lineResult.reason || ''
+    });
+
+    const notificationPatch = lineResult.ok
+      ? {
+        notificationStatus: lineResult.status === 'mock_sent' ? 'sent' : lineResult.status,
+        resultSentAt: now,
+        lineMessageId: lineResult.messageId || '',
+        lastNotificationError: ''
+      }
+      : {
+        notificationStatus: 'failed',
+        lastNotificationError: lineResult.error || lineResult.status || lineResult.reason || 'send_failed'
+      };
+    notifiedJob = await updateClient(job.notionId, notificationPatch);
+  } else {
+    console.info('[line_close_notify]', {
+      caseId: updatedJob.id,
+      notionId: updatedJob.notionId,
+      status: 'skipped',
+      reason: 'no_line_user_id',
+      reportUrl
+    });
+  }
 
   return {
     ok: true,
