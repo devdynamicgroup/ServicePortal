@@ -189,8 +189,7 @@ function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName }) 
             text: 'WATER MOTION',
             size: 'xs',
             color: '#bfdbfe',
-            weight: 'bold',
-            letterSpacing: '2px'
+            weight: 'bold'
           },
           {
             type: 'text',
@@ -217,10 +216,11 @@ function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName }) 
                 type: 'box',
                 layout: 'vertical',
                 width: '4px',
+                height: '48px',
                 backgroundColor: WATER_MOTION_BLUE,
                 cornerRadius: '4px',
                 flex: 0,
-                contents: []
+                contents: [{ type: 'filler' }]
               },
               {
                 type: 'box',
