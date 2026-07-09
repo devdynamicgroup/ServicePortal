@@ -111,6 +111,101 @@ async function sendLineReply(replyToken, messages) {
   return { ok: true, status: 'sent' };
 }
 
+const WATER_MOTION_BLUE = '#284dcd';
+
+function buildCaseResultTextMessage({ reportUrl, feedbackUrl }) {
+  const lines = [
+    'ผลตรวจของคุณพร้อมแล้วครับ สามารถดูรายละเอียดได้ที่นี่',
+    reportUrl,
+    feedbackUrl ? `ประเมินความพึงพอใจ: ${feedbackUrl}` : ''
+  ].filter(Boolean);
+
+  return { type: 'text', text: lines.join('\n') };
+}
+
+function buildCaseResultFlexMessage({ reportUrl, feedbackUrl }) {
+  const footerButtons = [
+    {
+      type: 'button',
+      style: 'primary',
+      color: WATER_MOTION_BLUE,
+      height: 'sm',
+      action: {
+        type: 'uri',
+        label: 'ดูผลตรวจ',
+        uri: reportUrl
+      }
+    }
+  ];
+
+  if (feedbackUrl) {
+    footerButtons.push({
+      type: 'button',
+      style: 'secondary',
+      height: 'sm',
+      action: {
+        type: 'uri',
+        label: 'ประเมินความพึงพอใจ',
+        uri: feedbackUrl
+      }
+    });
+  }
+
+  return {
+    type: 'flex',
+    altText: 'ผลตรวจของคุณพร้อมแล้วครับ',
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'ผลตรวจของคุณพร้อมแล้วครับ',
+            weight: 'bold',
+            size: 'lg',
+            color: '#ffffff',
+            wrap: true
+          }
+        ],
+        backgroundColor: WATER_MOTION_BLUE,
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'Water Motion',
+            weight: 'bold',
+            size: 'sm',
+            color: WATER_MOTION_BLUE
+          },
+          {
+            type: 'text',
+            text: 'คุณสามารถดูรายละเอียดผลการตรวจน้ำได้จากปุ่มด้านล่าง',
+            size: 'sm',
+            color: '#78716c',
+            wrap: true,
+            margin: 'md'
+          }
+        ],
+        paddingAll: '20px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: footerButtons,
+        paddingAll: '16px'
+      }
+    }
+  };
+}
+
 async function sendCaseResultNotification(job, payload) {
   const userId = String(job.line?.userId || '').trim();
   if (!userId) {
@@ -118,12 +213,33 @@ async function sendCaseResultNotification(job, payload) {
   }
 
   const reportUrl = payload.reportUrl || job.result?.reportUrl || '';
-  const text = [
-    'ผลตรวจของคุณพร้อมแล้วครับ สามารถดูรายละเอียดได้ที่นี่',
-    reportUrl
-  ].filter(Boolean).join('\n');
+  const feedbackUrl = payload.feedbackUrl || job.feedback?.url || '';
+  if (!reportUrl) {
+    return { ok: false, status: 'failed', messageId: '', error: 'missing_report_url' };
+  }
 
-  return sendLinePush(userId, [{ type: 'text', text }]);
+  const messagePayload = { reportUrl, feedbackUrl };
+  const flexMessage = buildCaseResultFlexMessage(messagePayload);
+  const textMessage = buildCaseResultTextMessage(messagePayload);
+
+  const flexResult = await sendLinePush(userId, [flexMessage]);
+  if (flexResult.ok) {
+    return { ...flexResult, format: 'flex' };
+  }
+
+  console.warn('[line_close_notify] flex push failed, falling back to text', {
+    userId,
+    reportUrl,
+    feedbackUrl: feedbackUrl || null,
+    error: flexResult.error || flexResult.status
+  });
+
+  const textResult = await sendLinePush(userId, [textMessage]);
+  return {
+    ...textResult,
+    format: textResult.ok ? 'text' : 'text_failed',
+    flexError: flexResult.error || flexResult.status
+  };
 }
 
 module.exports = {
@@ -134,5 +250,7 @@ module.exports = {
   verifyLineSignature,
   sendLinePush,
   sendLineReply,
+  buildCaseResultFlexMessage,
+  buildCaseResultTextMessage,
   sendCaseResultNotification
 };
