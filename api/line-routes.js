@@ -1,6 +1,8 @@
 const {
   isLineConfigured,
   isLineWebhookConfigured,
+  getLineChannelSecret,
+  lineSignatureDebug,
   verifyLineSignature,
   sendLineReply
 } = require('../services/line-notifications');
@@ -17,15 +19,19 @@ function sendJson(res, status, payload) {
 
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
-    let body = '';
+    const chunks = [];
+    let total = 0;
     req.on('data', chunk => {
-      body += chunk;
-      if (body.length > 1024 * 1024) {
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      total += buf.length;
+      if (total > 1024 * 1024) {
         req.destroy();
         reject(new Error('Request body too large'));
+        return;
       }
+      chunks.push(buf);
     });
-    req.on('end', () => resolve(body));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }
@@ -100,6 +106,9 @@ async function handleLineRoute(req, res, urlPath) {
       ok: true,
       channelId: process.env.LINE_CHANNEL_ID || null,
       hasChannelSecret: isLineWebhookConfigured(),
+      channelSecretLength: isLineWebhookConfigured()
+        ? getLineChannelSecret().length
+        : 0,
       hasChannelAccessToken: isLineConfigured(),
       webhookUrl: `${(process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '')}/api/line/webhook`
     });
@@ -109,15 +118,19 @@ async function handleLineRoute(req, res, urlPath) {
   if (urlPath === '/api/line/webhook' && req.method === 'POST') {
     console.log('LINE WEBHOOK HIT');
     const rawBody = await readRawBody(req);
-    const signature = req.headers['x-line-signature'];
+    const signatureHeader = req.headers['x-line-signature'];
+    const signature = Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader;
+    const sigDebug = lineSignatureDebug(rawBody, signature);
+    console.log('[line_sig_debug]', sigDebug);
 
     if (isLineWebhookConfigured() && !verifyLineSignature(rawBody, signature)) {
-      sendJson(res, 401, { ok: false, error: 'Invalid LINE signature' });
+      console.warn('[line_sig_debug] signature mismatch', sigDebug);
+      sendJson(res, 401, { ok: false, error: 'Invalid LINE signature', debug: sigDebug });
       return true;
     }
 
     try {
-      const payload = JSON.parse(rawBody || '{}');
+      const payload = JSON.parse(rawBody.length ? rawBody.toString('utf8') : '{}');
       const results = [];
       for (const event of payload.events || []) {
         results.push(await handleLineEvent(event));

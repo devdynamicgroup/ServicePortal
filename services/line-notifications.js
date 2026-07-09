@@ -4,18 +4,59 @@ function isLineConfigured() {
   return Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN);
 }
 
+function normalizeLineChannelSecret(raw) {
+  let secret = String(raw || '').trim();
+  if (
+    (secret.startsWith('"') && secret.endsWith('"')) ||
+    (secret.startsWith("'") && secret.endsWith("'"))
+  ) {
+    secret = secret.slice(1, -1).trim();
+  }
+  return secret;
+}
+
+function getLineChannelSecret() {
+  return normalizeLineChannelSecret(process.env.LINE_CHANNEL_SECRET);
+}
+
 function isLineWebhookConfigured() {
-  return Boolean(process.env.LINE_CHANNEL_SECRET);
+  return Boolean(getLineChannelSecret());
+}
+
+function lineSignatureDebug(rawBody, signature) {
+  const secret = getLineChannelSecret();
+  const sig = String(signature || '').trim();
+  const body = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(String(rawBody || ''), 'utf8');
+  let calculatedLength = 0;
+  if (secret) {
+    calculatedLength = crypto.createHmac('sha256', secret).update(body).digest('base64').length;
+  }
+  return {
+    id: 'line_sig_debug',
+    hasSecret: Boolean(secret),
+    secretLength: secret.length,
+    receivedSignatureLength: sig.length,
+    calculatedSignatureLength: calculatedLength,
+    rawBodyLength: body.length,
+    rawBodyIsBuffer: Buffer.isBuffer(rawBody)
+  };
 }
 
 function verifyLineSignature(rawBody, signature) {
-  const secret = process.env.LINE_CHANNEL_SECRET || '';
-  if (!secret || !signature) return false;
-  const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('base64');
-  const actual = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-  if (actual.length !== expectedBuffer.length) return false;
-  return crypto.timingSafeEqual(actual, expectedBuffer);
+  const secret = getLineChannelSecret();
+  const sig = String(signature || '').trim();
+  if (!secret || !sig) return false;
+
+  const body = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(String(rawBody || ''), 'utf8');
+  const expected = crypto.createHmac('sha256', secret).update(body).digest();
+  let actual;
+  try {
+    actual = Buffer.from(sig, 'base64');
+  } catch {
+    return false;
+  }
+  if (actual.length !== expected.length) return false;
+  return crypto.timingSafeEqual(actual, expected);
 }
 
 async function sendLinePush(userId, messages) {
@@ -87,6 +128,8 @@ async function sendCaseResultNotification(job, payload) {
 module.exports = {
   isLineConfigured,
   isLineWebhookConfigured,
+  getLineChannelSecret,
+  lineSignatureDebug,
   verifyLineSignature,
   sendLinePush,
   sendLineReply,
