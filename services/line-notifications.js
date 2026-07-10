@@ -60,6 +60,8 @@ function verifyLineSignature(rawBody, signature) {
 }
 
 async function sendLinePush(userId, messages, logContext = {}) {
+  const startedMs = Date.now();
+  const startedAt = new Date(startedMs).toISOString();
   if (!userId) {
     return { ok: false, status: 'missing_user_id', messageId: '' };
   }
@@ -82,6 +84,7 @@ async function sendLinePush(userId, messages, logContext = {}) {
     notionId: logContext.notionId || null,
     lineUserId: userId,
     reportUrl: logContext.reportUrl || null,
+    startedAt,
     payloadSummary
   });
 
@@ -102,7 +105,10 @@ async function sendLinePush(userId, messages, logContext = {}) {
     notionId: logContext.notionId || null,
     httpStatus: response.status,
     responseBody: responseBody || null,
-    requestId
+    requestId,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    durationMs: Date.now() - startedMs
   });
 
   if (!response.ok) {
@@ -113,6 +119,8 @@ async function sendLinePush(userId, messages, logContext = {}) {
 }
 
 async function sendLineReply(replyToken, messages) {
+  const startedMs = Date.now();
+  const startedAt = new Date(startedMs).toISOString();
   if (!replyToken || !isLineConfigured()) {
     return { ok: false, status: isLineConfigured() ? 'missing_reply_token' : 'not_configured' };
   }
@@ -128,9 +136,23 @@ async function sendLineReply(replyToken, messages) {
 
   if (!response.ok) {
     const body = await response.text().catch(() => '');
+    console.info('[line_reply] result', {
+      httpStatus: response.status,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedMs,
+      ok: false
+    });
     return { ok: false, status: 'failed', error: body || `LINE ${response.status}` };
   }
 
+  console.info('[line_reply] result', {
+    httpStatus: response.status,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    durationMs: Date.now() - startedMs,
+    ok: true
+  });
   return { ok: true, status: 'sent' };
 }
 

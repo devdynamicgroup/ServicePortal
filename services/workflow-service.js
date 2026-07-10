@@ -300,6 +300,17 @@ async function sendCaseResult(caseId, payload = {}) {
   });
 }
 
+async function markCaseResultNotificationFailed(caseId, error) {
+  const initial = await resolveJob(caseId);
+  if (!initial?.notionId) return { ok: false, reason: 'case_not_found' };
+  const message = error?.message || String(error || 'send_failed');
+  await updateClient(initial.notionId, {
+    notificationStatus: 'failed',
+    lastNotificationError: message
+  });
+  return { ok: true, notionId: initial.notionId };
+}
+
 async function repairCaseResultNotification(caseId, payload = {}) {
   return sendCaseResult(caseId, payload);
 }
@@ -466,6 +477,7 @@ module.exports = {
   linkLineUser,
   closeCase,
   sendCaseResult,
+  markCaseResultNotificationFailed,
   repairCaseResultNotification,
   publishCaseScore,
   recordFeedback,

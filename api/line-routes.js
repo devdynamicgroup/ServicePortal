@@ -7,12 +7,55 @@ const {
   sendLineReply,
   buildCaseResultFlexMessage
 } = require('../services/line-notifications');
-const { linkLineUser, sendCaseResult } = require('../services/workflow-service');
+const {
+  linkLineUser,
+  sendCaseResult,
+  markCaseResultNotificationFailed
+} = require('../services/workflow-service');
 
-const AUTO_RESULT_DELAY_MS = 1500;
+function logErrorStack(error) {
+  return error?.stack || error?.message || String(error);
+}
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+function scheduleBackground(task) {
+  const run = () => {
+    Promise.resolve()
+      .then(() => task())
+      .catch(error => {
+        console.error('[line_background] unhandled', {
+          error: error?.message || String(error),
+          stack: logErrorStack(error)
+        });
+      });
+  };
+
+  // Prefer setImmediate so work runs after the current response I/O turn.
+  // Do not use microtasks here — they can run before the HTTP response is flushed.
+  if (typeof setImmediate === 'function') {
+    setImmediate(run);
+    return;
+  }
+  setTimeout(run, 0);
+}
+
+function runAfterResponse(res, task) {
+  let started = false;
+  const start = () => {
+    if (started) return;
+    started = true;
+    scheduleBackground(task);
+  };
+
+  // sendJson()/res.end() sets writableEnded before we schedule, so this path is normal.
+  if (!res || res.writableEnded || res.finished) {
+    start();
+    return;
+  }
+
+  res.once('finish', start);
+  res.once('close', start);
+  // Last-resort fallback if finish/close never fire.
+  setTimeout(start, 5000);
 }
 
 async function fetchLineDisplayName(userId) {
@@ -127,12 +170,23 @@ async function handleLineEvent(event) {
           : linked.linked
             ? 'เชื่อมต่อ LINE เรียบร้อยแล้ว\nเมื่อผลตรวจพร้อม ระบบจะส่งให้ทาง LINE อัตโนมัติ'
             : 'ไม่พบรหัส fb-xxxx นี้ กรุณาตรวจสอบและลองอีกครั้ง';
-    await sendLineReply(event.replyToken, reusableResultMessage
+    const replyStartedMs = Date.now();
+    const replyStartedAt = new Date(replyStartedMs).toISOString();
+    const replyResult = await sendLineReply(event.replyToken, reusableResultMessage
       ? [
         { type: 'text', text: 'ผลตรวจของคุณพร้อมแล้วครับ' },
         reusableResultMessage
       ]
       : [{ type: 'text', text: replyText }]);
+    console.info('[line_webhook]', {
+      caseId: linked.caseId || linked.feedbackToken || token,
+      lineUserId,
+      replyStartedAt,
+      replySentAt: new Date().toISOString(),
+      replyDurationMs: Date.now() - replyStartedMs,
+      replyStatus: replyResult.status || '',
+      replyOk: Boolean(replyResult.ok)
+    });
 
     if (linked.linked) {
       console.info('[line_link_reply_sent]', {
@@ -142,22 +196,51 @@ async function handleLineEvent(event) {
       });
     }
 
+    let backgroundTask = null;
     if (linked.linked && linked.pendingAutoSend) {
       const caseId = linked.feedbackToken || token;
-      await sleep(AUTO_RESULT_DELAY_MS);
-      console.info('[line_auto_result_trigger]', { caseId, lineUserId });
-      try {
-        await sendCaseResult(caseId);
-      } catch (error) {
-        console.warn('[line_auto_result_trigger] failed', {
-          caseId,
-          lineUserId,
-          error: error.message
-        });
-      }
+      backgroundTask = async () => {
+        const startedMs = Date.now();
+        const startedAt = new Date(startedMs).toISOString();
+        console.info('[line_auto_send]', { caseId, lineUserId, startedAt });
+        try {
+          const result = await sendCaseResult(caseId);
+          console.info('[line_auto_send]', {
+            caseId,
+            lineUserId,
+            startedAt,
+            finishedAt: new Date().toISOString(),
+            durationMs: Date.now() - startedMs,
+            action: result.action || '',
+            notificationStatus: result.case?.notification?.status || '',
+            lineStatus: result.line?.status || '',
+            lineOk: Boolean(result.line?.ok)
+          });
+        } catch (error) {
+          try {
+            await markCaseResultNotificationFailed(caseId, error);
+          } catch (markError) {
+            console.error('[line_auto_send] failed to update notification status', {
+              caseId,
+              lineUserId,
+              error: markError.message,
+              stack: logErrorStack(markError)
+            });
+          }
+          console.error('[line_auto_send]', {
+            caseId,
+            lineUserId,
+            startedAt,
+            finishedAt: new Date().toISOString(),
+            durationMs: Date.now() - startedMs,
+            error: error.message,
+            stack: logErrorStack(error)
+          });
+        }
+      };
     }
 
-    return { handled: true, action: 'link_token', ...linked };
+    return { handled: true, action: 'link_token', backgroundTask, ...linked };
   }
 
   if (event.type === 'follow') {
@@ -203,15 +286,28 @@ async function handleLineRoute(req, res, urlPath) {
     try {
       const payload = JSON.parse(rawBody.length ? rawBody.toString('utf8') : '{}');
       const results = [];
+      const backgroundTasks = [];
       for (const event of payload.events || []) {
         try {
-          results.push(await handleLineEvent(event));
+          const result = await handleLineEvent(event);
+          if (typeof result?.backgroundTask === 'function') {
+            backgroundTasks.push(result.backgroundTask);
+          }
+          if (result && typeof result === 'object') {
+            const publicResult = { ...result };
+            delete publicResult.backgroundTask;
+            results.push(publicResult);
+          } else {
+            results.push(result);
+          }
         } catch (error) {
           if (event?.webhookEventId) processedEvents.delete(String(event.webhookEventId));
           throw error;
         }
       }
       sendJson(res, 200, { ok: true, results });
+      // Always start auto-send AFTER the webhook HTTP 200 has been written.
+      backgroundTasks.forEach(task => runAfterResponse(res, task));
     } catch (error) {
       console.warn('LINE webhook failed', error.message);
       sendJson(res, 500, { ok: false, error: 'Webhook processing failed' });
