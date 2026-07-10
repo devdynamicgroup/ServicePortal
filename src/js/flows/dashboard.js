@@ -13,11 +13,6 @@ function formatDate(d) {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
-// Monday=0 ... Sunday=6 for a 'YYYY-MM-DD' string.
-function weekdayFromIso(iso) {
-  const [y, m, d] = String(iso).split('-').map(Number);
-  return (new Date(y, m - 1, d).getDay() + 6) % 7;
-}
 // Actual date shown in calendar cell `i` of the displayed week.
 function cellDate(i) {
   const d = new Date(weekBase); d.setDate(weekBase.getDate() + i);
@@ -32,22 +27,19 @@ function compareJobsBySchedule(a, b) {
 function selectedDateIso() {
   return cellDate(S.selDay);
 }
-// Prefer job.date; fall back to Notion createdTime when date is unset.
+// Prefer job.date (Notion appointment / Created 1). No createdTime or weekday fallback.
 function jobDateIso(job) {
-  const fromDate = isoDateOnly(job?.date);
-  if (fromDate) return fromDate;
-  return isoDateOnly(job?.createdTime);
+  return isoDateOnly(job?.date);
 }
 function isoDateOnly(value) {
   const m = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
 }
-// A job belongs to a date by its real job.date. Legacy jobs (CSV/mock) that
-// have no date fall back to weekday matching so they still render.
+// A job belongs to a date only when its Notion appointment date matches.
 function jobMatchesDate(job, iso) {
   const jobIso = jobDateIso(job);
-  if (jobIso) return jobIso === iso;
-  return job.day === weekdayFromIso(iso);
+  if (!jobIso || !iso) return false;
+  return jobIso === iso;
 }
 function jobsOnDate(iso) {
   return JOBS.filter(j => j.status !== 'cancelled' && jobMatchesDate(j, iso));
@@ -135,17 +127,16 @@ function renderCalendar() {
   const disabledDays = [0, 3];
   for(let i=0;i<7;i++) {
     const d = new Date(weekBase); d.setDate(weekBase.getDate()+i);
-    const dateHasJobs = jobsOnDate(cellDate(i)).length > 0;  // controls the dot only
+    const dateHasJobs = jobsOnDate(cellDate(i)).length > 0;
     const chip = document.createElement('div');
     let cls = 'day-chip';
     const isHoliday = disabledDays.includes(d.getDay());
-    if (isHoliday) cls += ' holiday';
-    if(d.getTime()===today.getTime()) cls += ' today';
+    if (isHoliday) cls += ' holiday muted';
+    if (dateHasJobs) cls += ' has-jobs';
+    if (d.getTime() === today.getTime()) cls += ' today';
     if (i === S.selDay) cls += ' sel';
-    if (disabledDays.includes(d.getDay())) cls += ' muted weekend';
     chip.className = cls;
     chip.innerHTML = `<span class="dc-dow">${DOW[i]}</span><span class="dc-d">${d.getDate()}</span><span class="dc-dot"></span>`;
-    if(!dateHasJobs && !(d.getTime()===today.getTime())) chip.querySelector('.dc-dot').style.visibility = 'hidden';
     chip.onclick = () => { S.selDay = i; renderCalendar(); };
     strip.appendChild(chip);
   }
@@ -173,15 +164,7 @@ function renderJobs(filter) {
   const activeJobs = JOBS.filter(j => j.status !== 'cancelled');
   const selected = selectedDateIso();
   let visibleJobs = activeJobs.filter(j => jobMatchesDate(j, selected));
-  if (!visibleJobs.length) visibleJobs = activeJobs.slice();
-  visibleJobs.sort((a, b) => {
-    const aSel = jobMatchesDate(a, selected) ? 0 : 1;
-    const bSel = jobMatchesDate(b, selected) ? 0 : 1;
-    if (aSel !== bSel) return aSel - bSel;
-    const dateCmp = String(b.date || '').localeCompare(String(a.date || ''));
-    if (dateCmp) return dateCmp;
-    return String(a.timeStart || '').localeCompare(String(b.timeStart || ''));
-  });
+  visibleJobs.sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
 
   if (q) {
     visibleJobs = visibleJobs.filter(j =>
@@ -192,23 +175,6 @@ function renderJobs(filter) {
 
   const list = document.getElementById('appt-list');
   const countEl = document.getElementById('appt-count');
-  const dash = document.getElementById('s-dash');
-  const dashActive = !!dash?.classList.contains('active');
-  const july9InJobs = activeJobs.filter(j => jobDateIso(j) === '2026-07-09').map(j => j.name);
-  const july9Visible = visibleJobs.filter(j => jobDateIso(j) === '2026-07-09').map(j => j.name);
-
-  console.info('[Service Portal] renderJobs', {
-    jobsLen: JOBS.length,
-    activeLen: activeJobs.length,
-    visibleLen: visibleJobs.length,
-    selected,
-    screen: S.screen,
-    dashActive,
-    listExists: !!list,
-    july9InJobs,
-    july9Visible,
-    search: q || null
-  });
 
   if (!list || !countEl) return;
 

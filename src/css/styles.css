@@ -118,15 +118,16 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .day-chip.today{background:var(--accent-50)}
 .day-chip.today .dc-d{color:var(--blue)}
 .day-chip.holiday.today .dc-d{color:var(--blue)}
-.day-chip.sel{background:#fff}
-.day-chip.sel .dc-dow,.day-chip.sel .dc-d{color:var(--text)}
-.day-chip.holiday.sel .dc-d{color:var(--text)}
-.day-chip.muted:not(.sel) .dc-dow,.day-chip.muted:not(.sel) .dc-d{color:var(--text)}
-.day-chip.muted:not(.sel){opacity:1}
+.day-chip.sel{background:var(--accent-50);border-color:var(--accent-100)}
+.day-chip.sel .dc-dow{color:var(--dim)}
+.day-chip.sel .dc-d{color:var(--blue)}
+.day-chip.holiday.sel .dc-d{color:var(--blue)}
+.day-chip.muted:not(.sel) .dc-dow,.day-chip.muted:not(.sel) .dc-d{color:var(--dim)}
+.day-chip.muted:not(.sel){opacity:.85}
 .day-chip .dc-dow{font-size:10px;font-weight:600;text-transform:uppercase;color:var(--dim)}
 .day-chip .dc-d{font-size:17px;font-weight:600;color:var(--text)}
 .day-chip .dc-dot{width:4px;height:4px;border-radius:50%;background:var(--blue);margin-top:2px;visibility:hidden}
-.day-chip.today .dc-dot,.day-chip.sel .dc-dot{visibility:visible}
+.day-chip.has-jobs .dc-dot,.day-chip.today .dc-dot,.day-chip.sel .dc-dot{visibility:visible}
 .appt-header{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 8px}
 .appt-header h2{font-size:16px;font-weight:600}
 .appt-header-actions{display:flex;align-items:center;gap:8px}
