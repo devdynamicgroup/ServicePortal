@@ -6,8 +6,22 @@ const {
   verifyLineSignature,
   sendLineReply
 } = require('../services/line-notifications');
-const { getFeedbackByToken } = require('../services/client-feedback');
-const { updateClient } = require('../services/notion/clients');
+const { linkLineUser } = require('../services/workflow-service');
+
+const processedEvents = new Map();
+const EVENT_TTL_MS = 10 * 60 * 1000;
+
+function claimEvent(event) {
+  const eventId = String(event?.webhookEventId || '');
+  if (!eventId) return true;
+  const now = Date.now();
+  for (const [id, timestamp] of processedEvents) {
+    if (now - timestamp > EVENT_TTL_MS) processedEvents.delete(id);
+  }
+  if (processedEvents.has(eventId)) return false;
+  processedEvents.set(eventId, now);
+  return true;
+}
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -46,33 +60,11 @@ function extractFeedbackToken(text) {
   return match ? match[0].toLowerCase() : '';
 }
 
-async function linkLineUserFromToken(event, token) {
-  const feedback = await getFeedbackByToken(token);
-  if (!feedback?.clientPageId) {
-    return { linked: false, reason: 'feedback_not_found' };
-  }
-
-  const lineUserId = event.source?.userId || '';
-  if (!lineUserId) {
-    return { linked: false, reason: 'missing_line_user_id' };
-  }
-
-  await updateClient(feedback.clientPageId, {
-    lineUserId,
-    lineLinked: true,
-    lineLinkedAt: new Date().toISOString()
-  });
-
-  return {
-    linked: true,
-    clientPageId: feedback.clientPageId,
-    feedbackToken: token,
-    lineUserId
-  };
-}
-
 async function handleLineEvent(event) {
   if (!event || !event.type) return { handled: false };
+  if (!claimEvent(event)) {
+    return { handled: true, action: 'duplicate_ignored', webhookEventId: event.webhookEventId };
+  }
 
   if (event.type === 'message' && event.message?.type === 'text') {
     const messageText = event.message.text;
@@ -91,12 +83,17 @@ async function handleLineEvent(event) {
       return { handled: true, action: 'asked_for_token' };
     }
 
-    const linked = await linkLineUserFromToken(event, token);
+    const linked = await linkLineUser(token, event.source?.userId || '');
+    const replyText = linked.alreadyLinked
+      ? 'LINE is already connected to this service case.'
+      : linked.reason === 'linked_to_another_user'
+        ? 'This token has already been used by another LINE account. Please contact Water Motion.'
+        : linked.linked
+          ? 'LINE connected. We can send your Water Motion result here.'
+          : 'Could not find that feedback token. Please check the link and try again.';
     await sendLineReply(event.replyToken, [{
       type: 'text',
-      text: linked.linked
-        ? 'LINE connected. We can send your Water Motion result here.'
-        : 'Could not find that feedback token. Please check the link and try again.'
+      text: replyText
     }]);
     return { handled: true, action: 'link_token', ...linked };
   }
@@ -145,12 +142,17 @@ async function handleLineRoute(req, res, urlPath) {
       const payload = JSON.parse(rawBody.length ? rawBody.toString('utf8') : '{}');
       const results = [];
       for (const event of payload.events || []) {
-        results.push(await handleLineEvent(event));
+        try {
+          results.push(await handleLineEvent(event));
+        } catch (error) {
+          if (event?.webhookEventId) processedEvents.delete(String(event.webhookEventId));
+          throw error;
+        }
       }
       sendJson(res, 200, { ok: true, results });
     } catch (error) {
       console.warn('LINE webhook failed', error.message);
-      sendJson(res, 200, { ok: true, warning: error.message });
+      sendJson(res, 500, { ok: false, error: 'Webhook processing failed' });
     }
     return true;
   }

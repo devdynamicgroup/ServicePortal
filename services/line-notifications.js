@@ -119,10 +119,10 @@ function publicBaseUrl() {
   return (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.onrender.com').replace(/\/$/, '');
 }
 
-function buildPreassessmentResultUrl(clientId) {
-  const id = String(clientId ?? '').trim();
-  if (!id) return '';
-  return `${publicBaseUrl()}/?preassessment=${encodeURIComponent(id)}`;
+function buildPreassessmentResultUrl(reportToken) {
+  const token = String(reportToken ?? '').trim();
+  if (!token) return '';
+  return `${publicBaseUrl()}/r/${encodeURIComponent(token)}`;
 }
 
 function buildCaseResultTextMessage({ resultLinkUrl, feedbackUrl }) {
@@ -278,11 +278,11 @@ async function sendCaseResultNotification(job, payload) {
     return { ok: false, status: 'skipped', reason: 'no_line_user_id', messageId: '' };
   }
 
-  const clientId = payload.clientId ?? job.id;
-  const resultLinkUrl = buildPreassessmentResultUrl(clientId);
+  const reportToken = payload.reportToken || job.result?.publicReportToken;
+  const resultLinkUrl = payload.reportUrl || job.result?.reportUrl || buildPreassessmentResultUrl(reportToken);
   const feedbackUrl = payload.feedbackUrl || job.feedback?.url || '';
   if (!resultLinkUrl) {
-    return { ok: false, status: 'failed', messageId: '', error: 'missing_client_id' };
+    return { ok: false, status: 'failed', messageId: '', error: 'missing_report_url' };
   }
 
   const messagePayload = {
@@ -295,12 +295,12 @@ async function sendCaseResultNotification(job, payload) {
 
   const flexResult = await sendLinePush(userId, [flexMessage]);
   if (flexResult.ok) {
-    return { ...flexResult, format: 'flex', resultLinkUrl, clientId: String(clientId) };
+    return { ...flexResult, format: 'flex', resultLinkUrl, reportToken: String(reportToken || '') };
   }
 
   console.warn('[line_close_notify] flex push failed, falling back to text', {
     userId,
-    clientId,
+    reportToken,
     resultLinkUrl,
     feedbackUrl: feedbackUrl || null,
     error: flexResult.error || flexResult.status
@@ -312,7 +312,7 @@ async function sendCaseResultNotification(job, payload) {
     format: textResult.ok ? 'text' : 'text_failed',
     flexError: flexResult.error || flexResult.status,
     resultLinkUrl,
-    clientId: String(clientId)
+    reportToken: String(reportToken || '')
   };
 }
 

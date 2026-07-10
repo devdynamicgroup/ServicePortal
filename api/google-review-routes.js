@@ -45,6 +45,7 @@ async function handleGoogleBusinessRoute(req, res, urlPath) {
 
   if (urlPath === '/api/google-business/auth-url' && req.method === 'GET') {
     try {
+      console.log(req.url);
       console.log('OAuth config', {
         client: Boolean(process.env.GOOGLE_BUSINESS_CLIENT_ID),
         secret: Boolean(process.env.GOOGLE_BUSINESS_CLIENT_SECRET),
@@ -61,8 +62,10 @@ async function handleGoogleBusinessRoute(req, res, urlPath) {
 
   if (urlPath === '/api/google-business/oauth/callback' && req.method === 'GET') {
     try {
+      console.log(req.url);
       const params = readQuery(req);
       const code = params.get('code');
+      console.log({ code });
       const tokens = await exchangeCode(code);
       sendJson(res, 200, {
         ok: true,

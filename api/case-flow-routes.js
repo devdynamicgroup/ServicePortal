@@ -327,8 +327,8 @@ async function handleCaseFlowRoute(req, res, urlPath) {
       const token = decodeURIComponent(feedbackApiMatch[1]);
       const payload = await readJson(req);
       const rating = Number(payload.rating);
-      const reviewShown = Number.isFinite(rating) && rating >= 4;
       const result = await submitFeedback(token, payload);
+      const reviewShown = result.reviewStatus === 'requested';
       console.info('[feedback_submit]', {
         token,
         rating: Number.isFinite(rating) ? rating : null,
