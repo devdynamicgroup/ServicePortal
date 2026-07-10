@@ -271,7 +271,6 @@ function customerFeedbackHtml(feedback) {
   const token = escapeHtml(feedback.feedbackToken);
   const clientName = escapeHtml(feedback.clientName || 'Water Motion customer');
   const doneUrl = escapeHtml(feedbackReportDoneUrl(feedback));
-  const alreadySubmitted = feedback.feedbackStatus === 'submitted';
 
   return `<!doctype html>
 <html lang="en">
@@ -297,8 +296,8 @@ function customerFeedbackHtml(feedback) {
   .actions{margin-top:18px;display:flex;gap:10px;align-items:center}
   button.submit{width:100%;height:48px;border:0;border-radius:8px;background:var(--accent);color:#fff;font-weight:800;font-size:16px;cursor:pointer}
   button.submit:disabled{opacity:.55;cursor:not-allowed}
-  .thanks{display:${alreadySubmitted ? 'block' : 'none'};text-align:center;padding:8px 0 4px}
-  .form-wrap{display:${alreadySubmitted ? 'none' : 'block'}}
+  .thanks{display:none;text-align:center;padding:8px 0 4px}
+  .form-wrap{display:block}
   .success-icon{width:64px;height:64px;margin:0 auto 16px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center}
   .success-icon svg{width:32px;height:32px}
   .thanks h1{margin-bottom:10px}
@@ -336,8 +335,8 @@ function customerFeedbackHtml(feedback) {
         <div class="success-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
-        <h1>Thank you for your feedback.</h1>
-        <p>Your comments help us improve our service.</p>
+        <h1>Thank you!</h1>
+        <p>Your feedback has been received.</p>
         <div class="thanks-actions">
           <a class="btn btn-primary" id="done-link" href="${doneUrl}">Done</a>
         </div>
