@@ -128,7 +128,10 @@ async function handleLineEvent(event) {
             ? 'เชื่อมต่อ LINE เรียบร้อยแล้ว\nเมื่อผลตรวจพร้อม ระบบจะส่งให้ทาง LINE อัตโนมัติ'
             : 'ไม่พบรหัส fb-xxxx นี้ กรุณาตรวจสอบและลองอีกครั้ง';
     await sendLineReply(event.replyToken, reusableResultMessage
-      ? [reusableResultMessage]
+      ? [
+        { type: 'text', text: 'ผลตรวจของคุณพร้อมแล้วครับ' },
+        reusableResultMessage
+      ]
       : [{ type: 'text', text: replyText }]);
 
     if (linked.linked) {
