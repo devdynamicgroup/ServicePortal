@@ -22,6 +22,7 @@ body.public-report-mode #s-score .hdr-back{display:none}
 body.public-report-mode #s-score .foot{flex-direction:column;height:auto;min-height:var(--bar);gap:10px;padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
 body.public-report-mode #s-score .foot .public-report-feedback,
 body.public-report-mode #s-score .foot .public-report-review{flex:1;width:100%;text-decoration:none}
+body.public-report-mode #s-score .score-scroll{padding-bottom:calc(var(--bar) + 116px + env(safe-area-inset-bottom))}
 
 /* ─── Header bar ─────────────────────────────────── */
 .hdr,.dash-topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;height:64px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;flex-shrink:0;width:100%}
@@ -539,7 +540,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .finding-card .fc-arrow{flex-shrink:0}
 .finding-card .fc-val{margin-left:auto;color:#78716c;font-variant-numeric:tabular-nums}
 .score-readings{padding:16px;padding-bottom:8px}
-.score-scroll{padding-bottom:calc(var(--bar)+16px)}
+.score-scroll{padding-bottom:calc(var(--bar) + 24px + env(safe-area-inset-bottom))}
 .wq-standard-section{padding:8px 16px 28px;background:#f5f5f4}
 .wq-standard-card{background:#fff;border:1px solid rgba(231,229,225,.78);border-radius:10px;padding:16px 18px;margin-bottom:18px;box-shadow:0 8px 20px rgba(28,25,23,.045)}
 .wq-standard-title{font-size:17px;font-weight:700;margin-bottom:12px;color:#111827;line-height:1.2}
