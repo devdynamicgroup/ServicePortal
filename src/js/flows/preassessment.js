@@ -1,5 +1,5 @@
 function sendClientLink() {
-  const jobId = S.activeJob?.id || 'new';
+  const jobId = S.activeJob?.id || S.activeJob?.notionId || 'new';
   const link = `${window.location.origin}${window.location.pathname}?preassessment=${jobId}`;
   const title = t('preassess.sendLinkTitle');
   const actions = [

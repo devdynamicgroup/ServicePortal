@@ -100,7 +100,7 @@ function syncJobMetaFromDraft(job, draft) {
   if (contact && draft.owner !== 'yes') job.contact = contact;
   else delete job.contact;
 
-  if (S.activeJob?.id === job.id && job.status !== 'done') job.status = 'in_progress';
+  if (S.activeJob && String(S.activeJob.id) === String(job.id) && job.status !== 'done') job.status = 'in_progress';
 }
 
 function saveActiveJobState() {

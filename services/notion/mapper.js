@@ -191,6 +191,10 @@ function defaultJobDraft(job) {
   };
 }
 
+function compactNotionId(pageId) {
+  return String(pageId || '').replace(/-/g, '');
+}
+
 function notionPageToJob(page, index) {
   const properties = page.properties || {};
   const fullName = getPropertyValue(properties, FIELD_ALIASES.fullName);
@@ -224,8 +228,9 @@ function notionPageToJob(page, index) {
   );
 
   const job = {
-    id: 1000 + index + 1,
+    id: compactNotionId(page.id),
     notionId: page.id,
+    legacyNumericId: index != null ? 1000 + index + 1 : undefined,
     name: lname ? `${fname} ${lname.charAt(0).toUpperCase()}.` : fname || `Client ${index + 1}`,
     addr: address || 'Address to confirm',
     timeStart,
@@ -310,6 +315,7 @@ function notionPageToJob(page, index) {
 module.exports = {
   FIELD_ALIASES,
   notionPageToJob,
+  compactNotionId,
   splitClientName,
   mapPackage,
   mapPropertyType,

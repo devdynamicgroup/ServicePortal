@@ -119,6 +119,44 @@ async function findClientByFeedbackToken(token) {
   };
 }
 
+async function findClientByReportToken(token) {
+  if (!isNotionConfigured()) return null;
+
+  const normalized = String(token || '').trim().toLowerCase();
+  if (!normalized) return null;
+
+  const notion = getNotionClient();
+  const dataSourceId = await resolveDataSourceId();
+  const { properties } = await getDataSourceSchema();
+  const key = findPropertyKey(properties, FIELD_ALIASES.publicReportToken);
+  if (!key) return null;
+
+  const type = properties[key]?.type;
+  const filter = type === 'title'
+    ? { property: key, title: { equals: normalized } }
+    : type === 'rich_text'
+      ? { property: key, rich_text: { equals: normalized } }
+      : null;
+  if (!filter) return null;
+
+  const result = await notion.dataSources.query({
+    data_source_id: dataSourceId,
+    filter,
+    page_size: 1
+  });
+  const page = result.results?.[0];
+  if (!page) return null;
+
+  return {
+    clientPageId: page.id,
+    clientName: getPropertyValue(page.properties, FIELD_ALIASES.fullName),
+    reportToken: getPropertyValue(page.properties, FIELD_ALIASES.publicReportToken) || normalized,
+    tokenProperty: key,
+    databaseId: process.env.NOTION_DATABASE_ID || '',
+    dataSourceId
+  };
+}
+
 async function getClient(pageId) {
   if (!isNotionConfigured()) {
     throw new Error('NOTION_API_KEY and NOTION_DATABASE_ID must be configured');
@@ -127,7 +165,7 @@ async function getClient(pageId) {
   const notion = getNotionClient();
   const page = await notion.pages.retrieve({ page_id: pageId });
   if (!page || page.archived) return null;
-  return notionPageToJob(page, 0);
+  return notionPageToJob(page);
 }
 
 function buildNotionProperties(payload, schemaProperties = {}) {
@@ -227,7 +265,7 @@ async function createClient(payload = {}) {
     properties
   });
 
-  return notionPageToJob(page, 0);
+  return notionPageToJob(page);
 }
 
 async function updateClient(pageId, payload = {}) {
@@ -244,7 +282,7 @@ async function updateClient(pageId, payload = {}) {
     properties
   });
 
-  return notionPageToJob(page, 0);
+  return notionPageToJob(page);
 }
 
 function getIntegrationStatus() {
@@ -311,6 +349,7 @@ module.exports = {
   createClient,
   updateClient,
   findClientByFeedbackToken,
+  findClientByReportToken,
   getIntegrationStatus,
   getCaseFlowDatasetStatus,
   CASE_FLOW_REQUIREMENTS

@@ -2,6 +2,9 @@ const {
   closeCase,
   sendCaseResult,
   repairCaseResultNotification,
+  createCase,
+  submitCustomerPreassessment,
+  createTestCase,
   getReportByToken,
   getFeedbackByToken,
   submitFeedback
@@ -280,6 +283,45 @@ function customerFeedbackHtml(feedback) {
 }
 
 async function handleCaseFlowRoute(req, res, urlPath) {
+  if (urlPath === '/api/cases' && req.method === 'POST') {
+    try {
+      const result = await createCase(await readJson(req));
+      sendJson(res, 201, result);
+    } catch (error) {
+      sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
+    }
+    return true;
+  }
+
+  if (urlPath === '/api/test/create-case' && req.method === 'POST') {
+    const testApiEnabled = process.env.ENABLE_TEST_API === 'true' || process.env.NODE_ENV !== 'production';
+    if (!testApiEnabled) {
+      sendJson(res, 404, { ok: false, error: 'Not found' });
+      return true;
+    }
+    try {
+      const result = await createTestCase(await readJson(req));
+      sendJson(res, 201, result);
+    } catch (error) {
+      sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
+    }
+    return true;
+  }
+
+  const preassessmentMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/preassessment$/);
+  if (preassessmentMatch && req.method === 'POST') {
+    try {
+      const result = await submitCustomerPreassessment(
+        decodeURIComponent(preassessmentMatch[1]),
+        await readJson(req)
+      );
+      sendJson(res, 200, result);
+    } catch (error) {
+      sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
+    }
+    return true;
+  }
+
   const closeMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/close$/);
   if (closeMatch && req.method === 'POST') {
     try {

@@ -1,9 +1,9 @@
 function openJob(id) {
-  if (S.activeJob && S.activeJob.id !== id) saveActiveJobState();
+  if (S.activeJob && String(S.activeJob.id) !== String(id)) saveActiveJobState();
   JOBS.forEach(job => {
-    if (job.id !== id && job.status === 'in_progress') job.status = 'new';
+    if (String(job.id) !== String(id) && job.status === 'in_progress') job.status = 'new';
   });
-  S.activeJob = JOBS.find(j => j.id === id);
+  S.activeJob = JOBS.find(j => String(j.id) === String(id));
   if (!S.activeJob) return;
   if (S.activeJob.status !== 'done') S.activeJob.status = 'in_progress';
   persistJobs();
@@ -59,27 +59,65 @@ function completePreassess() {
       return;
     }
   }
-  S.stepsDone.preassess = true;
   saveActiveJobState();
-  if (S.publicPreassessment) {
+  S.stepsDone.preassess = true;
+
+  const showPublicSuccess = () => {
     document.querySelector('#s-preassess .content-consent')?.classList.add('hidden');
     document.getElementById('preassess-blocker')?.classList.add('hidden');
     document.querySelector('#s-preassess .foot')?.classList.add('hidden');
     const title = document.querySelector('#s-preassess .hdr-title');
     if (title) title.textContent = S.lang === 'th' ? 'ส่งข้อมูลเรียบร้อย' : 'Submitted';
     const screen = document.getElementById('s-preassess');
-    const done = document.createElement('div');
-    done.className = 'content';
-    done.innerHTML = `
-      <div class="card gap12" style="margin-top:16px">
-        <h2 style="margin:0">${S.lang === 'th' ? 'ขอบคุณสำหรับข้อมูล' : 'Thank you'}</h2>
-        <p style="margin:0;color:var(--muted)">${S.lang === 'th' ? 'ทีม Water Motion ได้รับข้อมูล pre-assessment แล้ว' : 'Water Motion has received your pre-assessment details.'}</p>
-      </div>
-    `;
-    screen?.appendChild(done);
+    if (screen && !document.getElementById('preassess-success-card')) {
+      const done = document.createElement('div');
+      done.id = 'preassess-success-card';
+      done.className = 'content';
+      done.innerHTML = `
+        <div class="card gap12" style="margin-top:16px">
+          <h2 style="margin:0">${S.lang === 'th' ? 'ขอบคุณสำหรับข้อมูล' : 'Thank you'}</h2>
+          <p style="margin:0;color:var(--muted)">${S.lang === 'th' ? 'ทีม Water Motion ได้รับข้อมูล pre-assessment แล้ว' : 'Water Motion has received your pre-assessment details.'}</p>
+        </div>
+      `;
+      screen.appendChild(done);
+    }
     showToast(S.lang === 'th' ? 'ส่งข้อมูลเรียบร้อย' : 'Submitted');
+  };
+
+  if (S.publicPreassessment) {
+    const draft = getJobDraft(S.activeJob);
+    const payload = {
+      fields: { ...(draft?.fields || {}) },
+      msConcerns: draft?.msConcerns || [],
+      owner: draft?.owner || 'yes',
+      package: draft?.pkg || S.pkg
+    };
+    const caseRef = S.activeJob?.notionId || S.activeJob?.id;
+    const endpoint = caseRef
+      ? `/api/cases/${encodeURIComponent(caseRef)}/preassessment`
+      : '/api/cases';
+
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) {
+        showToast(data.error || (S.lang === 'th' ? 'ส่งข้อมูลไม่สำเร็จ' : 'Could not submit'));
+        return;
+      }
+      if (data.case) {
+        Object.assign(S.activeJob, data.case);
+        persistJobs();
+      }
+      showPublicSuccess();
+    }).catch(() => {
+      showToast(S.lang === 'th' ? 'ส่งข้อมูลไม่สำเร็จ' : 'Could not submit');
+    });
     return;
   }
+
   renderJobSteps();
   goScreen('s-job');
 }

@@ -8,6 +8,21 @@ const {
 } = require('../services/line-notifications');
 const { linkLineUser } = require('../services/workflow-service');
 
+async function fetchLineDisplayName(userId) {
+  const id = String(userId || '').trim();
+  if (!id || !isLineConfigured()) return '';
+  try {
+    const response = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(id)}`, {
+      headers: { Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` }
+    });
+    if (!response.ok) return '';
+    const profile = await response.json();
+    return String(profile.displayName || '').trim();
+  } catch {
+    return '';
+  }
+}
+
 const processedEvents = new Map();
 const EVENT_TTL_MS = 10 * 60 * 1000;
 
@@ -83,14 +98,18 @@ async function handleLineEvent(event) {
       return { handled: true, action: 'asked_for_token' };
     }
 
-    const linked = await linkLineUser(token, event.source?.userId || '');
+    const linked = await linkLineUser(
+      token,
+      event.source?.userId || '',
+      await fetchLineDisplayName(event.source?.userId || '')
+    );
     const replyText = linked.alreadyLinked
-      ? 'LINE is already connected to this service case.'
+      ? 'บัญชี LINE นี้เชื่อมกับข้อมูลการรับบริการเรียบร้อยแล้ว'
       : linked.reason === 'linked_to_another_user'
-        ? 'This token has already been used by another LINE account. Please contact Water Motion.'
+        ? 'รหัสนี้ถูกเชื่อมกับบัญชี LINE อื่นแล้ว กรุณาติดต่อ Water Motion'
         : linked.linked
-          ? 'LINE connected. We can send your Water Motion result here.'
-          : 'Could not find that feedback token. Please check the link and try again.';
+          ? 'เชื่อมต่อ LINE เรียบร้อยแล้ว ระบบจะส่งผลตรวจมาที่นี่เมื่อพร้อม'
+          : 'ไม่พบรหัส fb-xxxx นี้ กรุณาตรวจสอบและลองอีกครั้ง';
     await sendLineReply(event.replyToken, [{
       type: 'text',
       text: replyText

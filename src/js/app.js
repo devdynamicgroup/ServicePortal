@@ -42,6 +42,7 @@ function findPreassessmentJob(id) {
   return JOBS.find(job =>
     String(job.id) === String(id)
     || String(job.notionId || '') === String(id)
+    || String(job.legacyNumericId || '') === String(id)
     || String(job.result?.publicReportToken || '') === String(id)
     || String(job.feedback?.token || '') === String(id)
   ) || null;

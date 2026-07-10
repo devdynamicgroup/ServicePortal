@@ -53,13 +53,22 @@ function jobsOnDate(iso) {
   return JOBS.filter(j => j.status !== 'cancelled' && jobMatchesDate(j, iso));
 }
 
+function jobIdLiteral(id) {
+  return JSON.stringify(String(id));
+}
+
 function addCaseForSelectedDay() {
   const dayIndex = S.selDay;
   const d = new Date(weekBase);
   d.setDate(weekBase.getDate() + dayIndex);
   const iso = formatDate(d);
   const sameDayJobs = jobsOnDate(iso);
-  const maxId = JOBS.reduce((m, j) => Math.max(m, j.id), 0);
+  const maxId = JOBS.reduce((m, j) => {
+    const legacy = Number(j.legacyNumericId);
+    const numeric = Number(j.id);
+    const candidate = Number.isFinite(legacy) ? legacy : (Number.isFinite(numeric) ? numeric : 0);
+    return Math.max(m, candidate);
+  }, 1000);
   const hour = Math.min(17, 9 + sameDayJobs.length);
   const endHour = Math.min(18, hour + 1);
   JOBS.push({
@@ -89,7 +98,12 @@ function addNextDayAppt() {
   S.selDay = dayIndex;
   const d = new Date(weekBase);
   d.setDate(weekBase.getDate() + dayIndex);
-  const maxId = JOBS.reduce((m, j) => Math.max(m, j.id), 0);
+  const maxId = JOBS.reduce((m, j) => {
+    const legacy = Number(j.legacyNumericId);
+    const numeric = Number(j.id);
+    const candidate = Number.isFinite(legacy) ? legacy : (Number.isFinite(numeric) ? numeric : 0);
+    return Math.max(m, candidate);
+  }, 1000);
   JOBS.push({
     id: maxId + 1,
     name: `New Client ${maxId + 1}`,
@@ -208,7 +222,7 @@ function renderJobs(filter) {
   }
 
   list.innerHTML = visibleJobs.map(j => `
-    <div class="appt-card ${j.pkg === 'full' ? 'stripe-full' : ''}" onclick="openJob(${j.id})">
+    <div class="appt-card ${j.pkg === 'full' ? 'stripe-full' : ''}" onclick="openJob(${jobIdLiteral(j.id)})">
       <div class="ac-top">
         <div class="ac-left">
           <div class="ac-tags">
@@ -225,13 +239,13 @@ function renderJobs(filter) {
       <div class="ac-addr">${PIN_SVG}<span>${j.addr}</span></div>
       <div class="ac-meta">
         <span>${j.meta}${j.contact ? '<br>' + t('dash.contact') + ': ' + j.contact : ''}</span>
-        <button class="ac-menu" type="button" onclick="event.stopPropagation();showApptMenu(${j.id})" aria-label="More">${MENU_SVG}</button>
+        <button class="ac-menu" type="button" onclick="event.stopPropagation();showApptMenu(${jobIdLiteral(j.id)})" aria-label="More">${MENU_SVG}</button>
       </div>
     </div>`).join('');
 }
 
 function showApptMenu(id) {
-  const job = JOBS.find(j=>j.id===id);
+  const job = JOBS.find(j => String(j.id) === String(id));
   S.actionJobId = id;
   document.getElementById('action-sheet-title').textContent = job.name;
   const actions = [
@@ -247,12 +261,12 @@ function showApptMenu(id) {
 
 function closeActionSheet(){ document.getElementById('action-sheet-overlay').classList.add('hidden'); }
 function cancelCase(id = S.activeJob?.id) {
-  const job = JOBS.find(j => j.id === id);
+  const job = JOBS.find(j => String(j.id) === String(id));
   if (!job) return;
   if (!confirm(`Cancel case for ${job.name}?`)) return;
-  const index = JOBS.findIndex(j => j.id === id);
+  const index = JOBS.findIndex(j => String(j.id) === String(id));
   if (index >= 0) JOBS.splice(index, 1);
-  if (S.activeJob?.id === id) S.activeJob = null;
+  if (S.activeJob && String(S.activeJob.id) === String(id)) S.activeJob = null;
   persistJobs();
   renderCalendar();
   goScreen('s-dash');
@@ -270,7 +284,7 @@ function filterAppointments(q){
       String(j.name || '').toLowerCase().includes(needle) ||
       String(j.addr || '').toLowerCase().includes(needle)
     );
-  document.getElementById('search-results').innerHTML = visibleJobs.map(j => `<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${j.id})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('') || '<p style="color:var(--muted);font-size:14px">No matches</p>';
+  document.getElementById('search-results').innerHTML = visibleJobs.map(j => `<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${jobIdLiteral(j.id)})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('') || '<p style="color:var(--muted);font-size:14px">No matches</p>';
 }
 function renderNotifications() {
   const list = document.getElementById('notif-list');

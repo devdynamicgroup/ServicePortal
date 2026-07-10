@@ -76,12 +76,17 @@ async function resolveJob(caseId) {
     try { return await getClient(caseId); } catch { return null; }
   }
   const jobs = await getAllClients();
-  return jobs.find(job => String(job.id) === String(caseId) || String(job.notionId) === String(caseId)) || null;
+  return jobs.find(job =>
+    String(job.id) === String(caseId)
+    || String(job.notionId) === String(caseId)
+    || String(job.legacyNumericId || '') === String(caseId)
+  ) || null;
 }
 
-async function linkLineUser(feedbackToken, lineUserId) {
+async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
   const token = String(feedbackToken || '').trim().toLowerCase();
   const userId = String(lineUserId || '').trim();
+  const displayName = String(lineDisplayName || '').trim();
   const feedback = await getFeedbackByToken(token);
   if (!feedback?.clientPageId) return { linked: false, reason: 'feedback_not_found' };
   if (!userId) return { linked: false, reason: 'missing_line_user_id' };
@@ -98,6 +103,7 @@ async function linkLineUser(feedbackToken, lineUserId) {
     const now = new Date().toISOString();
     await updateClient(feedback.clientPageId, {
       lineUserId: userId,
+      lineDisplayName: displayName,
       lineLinked: true,
       lineLinkedAt: now,
       caseWorkflowStatus: stateAtLeast(job.workflow?.status, 'line_linked') ? job.workflow.status : 'line_linked'
