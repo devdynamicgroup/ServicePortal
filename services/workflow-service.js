@@ -75,6 +75,15 @@ function resolveFeedbackUrl(job, payload = {}) {
   return '';
 }
 
+function resolveReviewUrl(job, payload = {}) {
+  return String(
+    payload.reviewUrl
+    || job?.review?.url
+    || process.env.GOOGLE_REVIEW_URL
+    || DEFAULT_REVIEW_URL
+  ).trim();
+}
+
 function reusableResult(job) {
   const resultLinkUrl = resolveReportUrl(job);
   return {
@@ -233,7 +242,7 @@ async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
   const now = new Date().toISOString();
   const reportToken = job.result?.publicReportToken || '';
   const reportUrl = resolveReportUrl(job, payload);
-  const feedbackUrl = resolveFeedbackUrl(job, payload);
+  const reviewUrl = resolveReviewUrl(job, payload);
 
   if (!reportUrl) {
     const error = new Error('Report URL is missing for this case');
@@ -249,13 +258,13 @@ async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
     lineUserId,
     reportUrl,
     reportToken: reportToken || null,
-    feedbackUrl: feedbackUrl || null,
+    reviewUrl: reviewUrl || null,
     previousNotificationStatus: currentState
   });
 
   const line = await sendCaseResultNotification(job, {
     reportUrl,
-    feedbackUrl,
+    reviewUrl,
     reportToken,
     caseId,
     notionId: job.notionId

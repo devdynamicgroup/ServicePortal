@@ -176,17 +176,17 @@ function resolveResultLinkUrl({ reportToken }) {
   return `${publicBaseUrl()}/r/${encodeURIComponent(token)}`;
 }
 
-function buildCaseResultTextMessage({ resultLinkUrl, feedbackUrl }) {
+function buildCaseResultTextMessage({ resultLinkUrl, reviewUrl }) {
   const lines = [
     'ผลตรวจของคุณพร้อมแล้วครับ สามารถดูรายละเอียดได้ที่นี่',
     resultLinkUrl,
-    feedbackUrl ? `ประเมินความพึงพอใจ: ${feedbackUrl}` : ''
+    reviewUrl ? `รีวิวบน Google: ${reviewUrl}` : ''
   ].filter(Boolean);
 
   return { type: 'text', text: lines.join('\n') };
 }
 
-function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName }) {
+function buildCaseResultFlexMessage({ resultLinkUrl, reviewUrl, clientName }) {
   const footerButtons = [
     {
       type: 'button',
@@ -201,7 +201,7 @@ function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName }) 
     }
   ];
 
-  if (feedbackUrl) {
+  if (reviewUrl) {
     footerButtons.push({
       type: 'button',
       style: 'secondary',
@@ -209,8 +209,8 @@ function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName }) 
       height: 'sm',
       action: {
         type: 'uri',
-        label: 'ประเมินความพึงพอใจ',
-        uri: feedbackUrl
+        label: 'รีวิวบน Google',
+        uri: reviewUrl
       }
     });
   }
@@ -331,14 +331,19 @@ async function sendCaseResultNotification(job, payload) {
 
   const reportToken = payload.reportToken || job.result?.publicReportToken;
   const resultLinkUrl = resolveResultLinkUrl({ reportToken });
-  const feedbackUrl = payload.feedbackUrl || job.feedback?.url || '';
+  const reviewUrl = String(
+    payload.reviewUrl
+    || job.review?.url
+    || process.env.GOOGLE_REVIEW_URL
+    || 'https://g.page/r/Ce0EFhVtUyRpEBM/review'
+  ).trim();
   if (!resultLinkUrl) {
     return { ok: false, status: 'failed', messageId: '', error: 'missing_report_url' };
   }
 
   const messagePayload = {
     resultLinkUrl,
-    feedbackUrl,
+    reviewUrl,
     clientName: String(job.name || '').replace(/\s+\S\.$/, '').trim()
   };
   const flexMessage = buildCaseResultFlexMessage(messagePayload);
@@ -358,7 +363,7 @@ async function sendCaseResultNotification(job, payload) {
     userId,
     reportToken,
     resultLinkUrl,
-    feedbackUrl: feedbackUrl || null,
+    reviewUrl: reviewUrl || null,
     error: flexResult.error || flexResult.status
   });
 

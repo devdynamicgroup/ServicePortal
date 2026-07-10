@@ -33,6 +33,24 @@ function sendHtml(res, status, html) {
   res.end(html);
 }
 
+function sendRedirect(res, location) {
+  res.writeHead(302, {
+    Location: location,
+    'Cache-Control': 'no-store'
+  });
+  res.end();
+}
+
+const DEFAULT_GOOGLE_REVIEW_URL = 'https://g.page/r/Ce0EFhVtUyRpEBM/review';
+
+function resolveGoogleReviewUrl(feedback) {
+  return String(
+    feedback?.reviewUrl
+    || process.env.GOOGLE_REVIEW_URL
+    || DEFAULT_GOOGLE_REVIEW_URL
+  ).trim();
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -523,7 +541,12 @@ async function handleCaseFlowRoute(req, res, urlPath) {
   const feedbackPageMatch = urlPath.match(/^\/f\/([^/]+)$/);
   if (feedbackPageMatch && req.method === 'GET') {
     const feedback = await getFeedbackByToken(decodeURIComponent(feedbackPageMatch[1]));
-    sendHtml(res, feedback ? 200 : 404, customerFeedbackHtml(feedback));
+    if (!feedback) {
+      sendHtml(res, 404, customerFeedbackHtml(null));
+      return true;
+    }
+    // Phase 1: old /f links redirect to Google Review (custom form kept unused).
+    sendRedirect(res, resolveGoogleReviewUrl(feedback));
     return true;
   }
 
