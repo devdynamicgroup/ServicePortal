@@ -125,6 +125,15 @@ function buildPreassessmentResultUrl(reportToken) {
   return `${publicBaseUrl()}/r/${encodeURIComponent(token)}`;
 }
 
+function resolveResultLinkUrl({ reportUrl, reportToken }) {
+  const raw = String(reportUrl || '').trim();
+  const token = String(reportToken || '').trim();
+  if (raw.startsWith('https://') || raw.startsWith('http://')) return raw;
+  if (raw.startsWith('/r/')) return `${publicBaseUrl()}${raw}`;
+  if (token) return `${publicBaseUrl()}/r/${encodeURIComponent(token)}`;
+  return '';
+}
+
 function buildCaseResultTextMessage({ resultLinkUrl, feedbackUrl }) {
   const lines = [
     'ผลตรวจของคุณพร้อมแล้วครับ สามารถดูรายละเอียดได้ที่นี่',
@@ -279,7 +288,10 @@ async function sendCaseResultNotification(job, payload) {
   }
 
   const reportToken = payload.reportToken || job.result?.publicReportToken;
-  const resultLinkUrl = payload.reportUrl || job.result?.reportUrl || buildPreassessmentResultUrl(reportToken);
+  const resultLinkUrl = resolveResultLinkUrl({
+    reportUrl: payload.reportUrl || job.result?.reportUrl,
+    reportToken
+  });
   const feedbackUrl = payload.feedbackUrl || job.feedback?.url || '';
   if (!resultLinkUrl) {
     return { ok: false, status: 'failed', messageId: '', error: 'missing_report_url' };
@@ -326,6 +338,7 @@ module.exports = {
   sendLineReply,
   publicBaseUrl,
   buildPreassessmentResultUrl,
+  resolveResultLinkUrl,
   buildCaseResultFlexMessage,
   buildCaseResultTextMessage,
   sendCaseResultNotification

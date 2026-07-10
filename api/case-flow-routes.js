@@ -1,5 +1,7 @@
 const {
   closeCase,
+  sendCaseResult,
+  repairCaseResultNotification,
   getReportByToken,
   getFeedbackByToken,
   submitFeedback
@@ -282,6 +284,33 @@ async function handleCaseFlowRoute(req, res, urlPath) {
   if (closeMatch && req.method === 'POST') {
     try {
       const result = await closeCase(decodeURIComponent(closeMatch[1]), await readJson(req));
+      sendJson(res, 200, result);
+    } catch (error) {
+      sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
+    }
+    return true;
+  }
+
+  const sendResultMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/send-result$/);
+  if (sendResultMatch && req.method === 'POST') {
+    try {
+      const result = await sendCaseResult(decodeURIComponent(sendResultMatch[1]), await readJson(req));
+      sendJson(res, 200, result);
+    } catch (error) {
+      sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
+    }
+    return true;
+  }
+
+  if (urlPath === '/api/cases/repair-notifications' && req.method === 'POST') {
+    try {
+      const body = await readJson(req);
+      const caseId = body.caseId || body.id;
+      if (!caseId) {
+        sendJson(res, 400, { ok: false, error: 'caseId is required' });
+        return true;
+      }
+      const result = await repairCaseResultNotification(caseId, body);
       sendJson(res, 200, result);
     } catch (error) {
       sendJson(res, error.statusCode || 502, { ok: false, error: error.message });

@@ -48,6 +48,28 @@ function canTransition(from, to) {
   return toRank === fromRank || toRank === fromRank + 1;
 }
 
+function notificationState(job) {
+  return String(job?.notification?.status || 'not_sent').toLowerCase();
+}
+
+function resolveReportUrl(job, payload = {}) {
+  const raw = String(payload.reportUrl || job?.result?.reportUrl || '').trim();
+  const token = String(payload.reportToken || job?.result?.publicReportToken || '').trim();
+  if (raw.startsWith('https://') || raw.startsWith('http://')) return raw;
+  if (raw.startsWith('/r/')) return `${publicBaseUrl()}${raw}`;
+  if (token) return `${publicBaseUrl()}/r/${token}`;
+  return '';
+}
+
+function resolveFeedbackUrl(job, payload = {}) {
+  const raw = String(payload.feedbackUrl || job?.feedback?.url || '').trim();
+  if (raw.startsWith('https://') || raw.startsWith('http://')) return raw;
+  if (raw.startsWith('/f/')) return `${publicBaseUrl()}${raw}`;
+  const token = String(job?.feedback?.token || '').trim();
+  if (token) return `${publicBaseUrl()}/f/${token}`;
+  return '';
+}
+
 async function resolveJob(caseId) {
   if (!caseId) return null;
   if (/^[0-9a-f-]{32,36}$/i.test(caseId)) {
@@ -84,17 +106,139 @@ async function linkLineUser(feedbackToken, lineUserId) {
   });
 }
 
+async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
+  const currentState = notificationState(job);
+  const lineUserId = String(job?.line?.userId || '').trim();
+
+  if (currentState === 'sent') {
+    return {
+      ok: true,
+      idempotent: true,
+      action: 'already_sent',
+      case: job,
+      line: { ok: true, status: 'sent', messageId: job.notification?.lineMessageId || '' }
+    };
+  }
+
+  if (currentState === 'sending') {
+    return {
+      ok: true,
+      idempotent: true,
+      action: 'already_sending',
+      case: job,
+      line: { ok: false, status: 'sending', reason: 'already_sending' }
+    };
+  }
+
+  if (!lineUserId) {
+    return {
+      ok: true,
+      action: 'skipped',
+      case: job,
+      line: { ok: false, status: 'skipped', reason: 'no_line_user_id' }
+    };
+  }
+
+  if (!stateAtLeast(job.workflow?.status, 'completed')) {
+    const error = new Error('Case is not completed yet');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const now = new Date().toISOString();
+  const reportToken = job.result?.publicReportToken || '';
+  const reportUrl = resolveReportUrl(job, payload);
+  const feedbackUrl = resolveFeedbackUrl(job, payload);
+
+  if (!reportUrl) {
+    const error = new Error('Report URL is missing for this case');
+    error.statusCode = 422;
+    throw error;
+  }
+
+  job = await updateClient(job.notionId, { notificationStatus: 'sending' });
+
+  console.info('[line_close_notify] sending', {
+    caseId,
+    notionId: job.notionId,
+    lineUserId,
+    reportUrl,
+    reportToken: reportToken || null,
+    feedbackUrl: feedbackUrl || null,
+    previousNotificationStatus: currentState
+  });
+
+  const line = await sendCaseResultNotification(job, { reportUrl, feedbackUrl, reportToken });
+  const sent = Boolean(line.ok);
+
+  job = await updateClient(job.notionId, sent ? {
+    caseWorkflowStatus: 'result_sent',
+    notificationStatus: 'sent',
+    resultSentAt: now,
+    lineMessageId: line.messageId || '',
+    lastNotificationError: ''
+  } : {
+    notificationStatus: 'failed',
+    lastNotificationError: line.error || line.reason || line.status || 'send_failed'
+  });
+
+  console.info('[line_close_notify] result', {
+    caseId,
+    notionId: job.notionId,
+    ok: sent,
+    status: line.status,
+    format: line.format || '',
+    messageId: line.messageId || '',
+    error: line.error || line.reason || ''
+  });
+
+  return { ok: true, action: sent ? 'sent' : 'failed', case: job, line };
+}
+
+async function sendCaseResult(caseId, payload = {}) {
+  const initial = await resolveJob(caseId);
+  if (!initial?.notionId) {
+    const error = new Error('Case not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return withCaseLock(initial.notionId, async () => {
+    const job = await getClient(initial.notionId);
+    return executeSendCaseResult(job, payload, initial.id);
+  });
+}
+
+async function repairCaseResultNotification(caseId, payload = {}) {
+  return sendCaseResult(caseId, payload);
+}
+
 async function closeCase(caseId, payload = {}) {
   const initial = await resolveJob(caseId);
   if (!initial?.notionId) {
-    const error = new Error('Case not found'); error.statusCode = 404; throw error;
+    const error = new Error('Case not found');
+    error.statusCode = 404;
+    throw error;
   }
 
   return withCaseLock(initial.notionId, async () => {
     let job = await getClient(initial.notionId);
-    const notificationState = String(job.notification?.status || 'not_sent');
-    if (stateAtLeast(job.workflow?.status, 'completed') && ['sending', 'sent'].includes(notificationState)) {
-      return { ok: true, idempotent: true, case: job, line: { ok: notificationState === 'sent', status: notificationState } };
+    const currentState = notificationState(job);
+    const alreadyCompleted = stateAtLeast(job.workflow?.status, 'completed');
+    const lineUserId = String(job.line?.userId || '').trim();
+
+    if (alreadyCompleted && ['sending', 'sent'].includes(currentState)) {
+      return {
+        ok: true,
+        idempotent: true,
+        case: job,
+        line: { ok: currentState === 'sent', status: currentState }
+      };
+    }
+
+    if (alreadyCompleted && ['ready', 'failed', 'not_sent'].includes(currentState) && lineUserId) {
+      const sendResult = await executeSendCaseResult(job, payload, initial.id);
+      return { ...sendResult, repaired: true };
     }
 
     const now = new Date().toISOString();
@@ -104,44 +248,57 @@ async function closeCase(caseId, payload = {}) {
     const feedbackUrl = `${publicBaseUrl()}/f/${feedbackToken}`;
     const reviewUrl = payload.reviewUrl || job.review?.url || process.env.GOOGLE_REVIEW_URL || DEFAULT_REVIEW_URL;
     const score = payload.score ?? job.result?.waterScore ?? job.draft?.scoreVal ?? null;
-    const lineUserId = String(job.line?.userId || '').trim();
 
     job = await updateClient(job.notionId, {
-      caseWorkflowStatus: 'completed', serviceCompletedAt: job.workflow?.serviceCompletedAt || now,
+      caseWorkflowStatus: 'completed',
+      serviceCompletedAt: job.workflow?.serviceCompletedAt || now,
       closedAt: job.workflow?.closedAt || now,
       completedBy: payload.completedBy || payload.staffName || job.workflow?.completedBy || 'Water Motion Specialist',
       latestWaterScore: score,
       resultSummary: payload.resultSummary || job.result?.summary || (score ? `Water score ${score}/100. Please review the full report.` : 'Water assessment report is ready.'),
       recommendations: payload.recommendations || job.result?.recommendations || 'Please review the result and submit your satisfaction feedback.',
-      reportUrl, publicReportToken: reportToken, feedbackToken, feedbackUrl,
+      reportUrl,
+      publicReportToken: reportToken,
+      feedbackToken,
+      feedbackUrl,
       feedbackStatus: job.feedback?.status === 'submitted' ? 'submitted' : 'pending',
-      reviewUrl, reviewStatus: job.review?.status || 'not_requested',
-      notificationStatus: lineUserId ? 'sending' : 'not_sent'
+      reviewUrl,
+      reviewStatus: job.review?.status || 'not_requested',
+      notificationStatus: lineUserId ? 'ready' : 'not_sent'
     });
 
     let feedbackRecord = null;
     if (isClientFeedbackConfigured()) {
       try {
         feedbackRecord = await upsertFeedbackRecord({
-          feedbackToken, title: `Feedback - ${job.name}`, clientPageId: job.notionId,
-          clientName: job.name, clientPhone: job?.draft?.fields?.['ci-phone'] || '',
-          caseId: String(job.id), reportUrl, feedbackUrl, feedbackStatus: 'pending', reviewUrl,
+          feedbackToken,
+          title: `Feedback - ${job.name}`,
+          clientPageId: job.notionId,
+          clientName: job.name,
+          clientPhone: job?.draft?.fields?.['ci-phone'] || '',
+          caseId: String(initial.id),
+          reportUrl,
+          feedbackUrl,
+          feedbackStatus: 'pending',
+          reviewUrl,
           reviewStatus: 'not_requested'
         });
-      } catch (error) { console.warn('[workflow] feedback upsert failed', error.message); }
+      } catch (error) {
+        console.warn('[workflow] feedback upsert failed', error.message);
+      }
     }
 
-    if (!lineUserId) return { ok: true, case: job, feedbackRecord, line: { ok: false, status: 'skipped', reason: 'no_line_user_id' } };
+    if (!lineUserId) {
+      return {
+        ok: true,
+        case: job,
+        feedbackRecord,
+        line: { ok: false, status: 'skipped', reason: 'no_line_user_id' }
+      };
+    }
 
-    const line = await sendCaseResultNotification(job, { reportUrl, feedbackUrl });
-    const sent = Boolean(line.ok);
-    job = await updateClient(job.notionId, sent ? {
-      caseWorkflowStatus: 'result_sent', notificationStatus: 'sent', resultSentAt: now,
-      lineMessageId: line.messageId || '', lastNotificationError: ''
-    } : {
-      notificationStatus: 'failed', lastNotificationError: line.error || line.reason || line.status || 'send_failed'
-    });
-    return { ok: true, case: job, feedbackRecord, line };
+    const sendResult = await executeSendCaseResult(job, { reportUrl, feedbackUrl, reportToken }, initial.id);
+    return { ...sendResult, feedbackRecord };
   });
 }
 
@@ -176,4 +333,14 @@ async function recordFeedback(token, payload = {}) {
   });
 }
 
-module.exports = { WORKFLOW_STATES, stateAtLeast, canTransition, linkLineUser, closeCase, recordFeedback, resolveJob };
+module.exports = {
+  WORKFLOW_STATES,
+  stateAtLeast,
+  canTransition,
+  linkLineUser,
+  closeCase,
+  sendCaseResult,
+  repairCaseResultNotification,
+  recordFeedback,
+  resolveJob
+};

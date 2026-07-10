@@ -1,6 +1,6 @@
 const { getAllClients } = require('./notion/clients');
 const { getFeedbackByToken } = require('./client-feedback');
-const { closeCase, recordFeedback } = require('./workflow-service');
+const { closeCase, recordFeedback, sendCaseResult, repairCaseResultNotification } = require('./workflow-service');
 
 async function getReportByToken(reportToken) {
   const jobs = await getAllClients();
@@ -9,6 +9,8 @@ async function getReportByToken(reportToken) {
 
 module.exports = {
   closeCase,
+  sendCaseResult,
+  repairCaseResultNotification,
   getReportByToken,
   getFeedbackByToken,
   submitFeedback: recordFeedback

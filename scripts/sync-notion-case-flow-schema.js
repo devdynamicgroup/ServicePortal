@@ -15,7 +15,7 @@ const SELECT_OPTIONS = {
   ],
   feedbackStatus: ['not_sent', 'pending', 'submitted'],
   reviewStatus: ['not_requested', 'requested', 'completed'],
-  notificationStatus: ['not_sent', 'ready', 'sent', 'failed']
+  notificationStatus: ['not_sent', 'ready', 'sending', 'sent', 'failed']
 };
 
 const PROPERTY_DEFINITIONS = [
