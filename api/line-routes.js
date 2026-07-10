@@ -157,7 +157,7 @@ async function handleLineEvent(event) {
     const reusableResultMessage = linked.alreadyLinked && linked.resultAvailable
       ? buildCaseResultFlexMessage({
         resultLinkUrl: linked.resultLinkUrl,
-        feedbackUrl: linked.feedbackUrl,
+        reviewUrl: linked.reviewUrl,
         clientName: linked.clientName
       })
       : null;

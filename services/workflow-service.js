@@ -90,6 +90,7 @@ function reusableResult(job) {
     resultAvailable: stateAtLeast(job?.workflow?.status, 'completed') && Boolean(resultLinkUrl),
     resultLinkUrl,
     feedbackUrl: resolveFeedbackUrl(job),
+    reviewUrl: resolveReviewUrl(job),
     clientName: job?.name || '',
     workflowStatus: job?.workflow?.status || '',
     notificationStatus: notificationState(job)
