@@ -4,7 +4,8 @@ const {
   getLineChannelSecret,
   lineSignatureDebug,
   verifyLineSignature,
-  sendLineReply
+  sendLineReply,
+  buildCaseResultFlexMessage
 } = require('../services/line-notifications');
 const { linkLineUser, sendCaseResult } = require('../services/workflow-service');
 
@@ -110,6 +111,13 @@ async function handleLineEvent(event) {
       lineUserId,
       await fetchLineDisplayName(lineUserId)
     );
+    const reusableResultMessage = linked.alreadyLinked && linked.resultAvailable
+      ? buildCaseResultFlexMessage({
+        resultLinkUrl: linked.resultLinkUrl,
+        feedbackUrl: linked.feedbackUrl,
+        clientName: linked.clientName
+      })
+      : null;
     const replyText = linked.alreadyLinked
       ? 'บัญชี LINE นี้เชื่อมกับข้อมูลการรับบริการเรียบร้อยแล้ว'
       : linked.reason === 'linked_to_another_user'
@@ -119,15 +127,15 @@ async function handleLineEvent(event) {
           : linked.linked
             ? 'เชื่อมต่อ LINE เรียบร้อยแล้ว\nเมื่อผลตรวจพร้อม ระบบจะส่งให้ทาง LINE อัตโนมัติ'
             : 'ไม่พบรหัส fb-xxxx นี้ กรุณาตรวจสอบและลองอีกครั้ง';
-    await sendLineReply(event.replyToken, [{
-      type: 'text',
-      text: replyText
-    }]);
+    await sendLineReply(event.replyToken, reusableResultMessage
+      ? [reusableResultMessage]
+      : [{ type: 'text', text: replyText }]);
 
     if (linked.linked) {
       console.info('[line_link_reply_sent]', {
         caseId: linked.caseId || linked.feedbackToken || token,
-        lineUserId
+        lineUserId,
+        reusableResult: Boolean(reusableResultMessage)
       });
     }
 

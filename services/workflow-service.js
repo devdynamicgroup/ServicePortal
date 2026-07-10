@@ -75,6 +75,18 @@ function resolveFeedbackUrl(job, payload = {}) {
   return '';
 }
 
+function reusableResult(job) {
+  const resultLinkUrl = resolveReportUrl(job);
+  return {
+    resultAvailable: stateAtLeast(job?.workflow?.status, 'completed') && Boolean(resultLinkUrl),
+    resultLinkUrl,
+    feedbackUrl: resolveFeedbackUrl(job),
+    clientName: job?.name || '',
+    workflowStatus: job?.workflow?.status || '',
+    notificationStatus: notificationState(job)
+  };
+}
+
 function clientFeedbackRecord(job, feedbackToken = job?.feedback?.token) {
   return {
     created: false,
@@ -141,7 +153,15 @@ async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
     const currentUserId = String(job?.line?.userId || '').trim();
     if (job?.line?.linked || currentUserId) {
       return currentUserId === userId
-        ? { linked: true, alreadyLinked: true, reason: 'already_linked', clientPageId: feedback.clientPageId }
+        ? {
+          linked: true,
+          alreadyLinked: true,
+          reason: 'already_linked',
+          clientPageId: feedback.clientPageId,
+          caseId: job.id,
+          feedbackToken: token,
+          ...reusableResult(job)
+        }
         : { linked: false, reason: 'linked_to_another_user', clientPageId: feedback.clientPageId };
     }
 
@@ -165,7 +185,8 @@ async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
       lineUserId: userId,
       caseId: freshJob.id,
       feedbackToken: token,
-      pendingAutoSend
+      pendingAutoSend,
+      ...reusableResult(freshJob)
     };
   });
 }
