@@ -1,7 +1,7 @@
 const { getNotionClient } = require('./notion/client');
 const { getNotionConfig } = require('../config/env');
 const { findPropertyKey, getPropertyValue } = require('./notion/props');
-const { findClientByFeedbackToken, updateClient } = require('./notion/clients');
+const { findClientByFeedbackToken, getClient, updateClient } = require('./notion/clients');
 
 const FEEDBACK_ALIASES = {
   title: ['Name', 'Client Feedback', 'Feedback', 'Title'],
@@ -187,6 +187,7 @@ function feedbackPageToPayload(page) {
     feedbackUrl: getPropertyValue(properties, FEEDBACK_ALIASES.feedbackUrl),
     rating: getPropertyValue(properties, FEEDBACK_ALIASES.rating, null),
     comment: getPropertyValue(properties, FEEDBACK_ALIASES.comment),
+    submittedAt: getPropertyValue(properties, FEEDBACK_ALIASES.submittedAt, null),
     feedbackStatus: getPropertyValue(properties, FEEDBACK_ALIASES.feedbackStatus),
     reviewUrl: getPropertyValue(properties, FEEDBACK_ALIASES.reviewUrl),
     reviewStatus: getPropertyValue(properties, FEEDBACK_ALIASES.reviewStatus),
@@ -205,20 +206,21 @@ function feedbackLookupDebug(token, extra = {}) {
   };
 }
 
-function clientMatchToFeedbackPayload(client) {
+function clientMatchToFeedbackPayload(client, job) {
   return {
     pageId: null,
     feedbackToken: client.feedbackToken,
     clientPageId: client.clientPageId,
     clientName: client.clientName,
-    reportUrl: '',
-    feedbackUrl: '',
-    rating: null,
-    comment: '',
-    feedbackStatus: '',
-    reviewUrl: '',
-    reviewStatus: '',
-    reviewRequestedAt: null
+    reportUrl: job?.result?.reportUrl || '',
+    feedbackUrl: job?.feedback?.url || '',
+    rating: job?.feedback?.rating ?? null,
+    comment: job?.feedback?.comment || '',
+    submittedAt: job?.feedback?.submittedAt || null,
+    feedbackStatus: job?.feedback?.status || '',
+    reviewUrl: job?.review?.url || '',
+    reviewStatus: job?.review?.status || '',
+    reviewRequestedAt: job?.review?.requestedAt || null
   };
 }
 
@@ -260,6 +262,12 @@ async function getFeedbackByToken(token) {
 
   const client = await findClientByFeedbackToken(normalized);
   if (client?.clientPageId) {
+    let job = null;
+    try {
+      job = await getClient(client.clientPageId);
+    } catch (error) {
+      console.warn('[line_token_debug] client feedback detail lookup failed', error.message);
+    }
     console.info('[line_token_debug]', feedbackLookupDebug(normalized, {
       databaseSearched: 'clients',
       clientsTokenProperty: client.tokenProperty,
@@ -268,7 +276,7 @@ async function getFeedbackByToken(token) {
       source: 'clients_db',
       clientPageId: client.clientPageId
     }));
-    return clientMatchToFeedbackPayload(client);
+    return clientMatchToFeedbackPayload(client, job);
   }
 
   console.info('[line_token_debug]', feedbackLookupDebug(normalized, {
