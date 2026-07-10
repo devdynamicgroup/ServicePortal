@@ -45,9 +45,45 @@ function jobsOnDate(iso) {
   return JOBS.filter(j => j.status !== 'cancelled' && jobMatchesDate(j, iso));
 }
 
-function jobIdLiteral(id) {
-  return JSON.stringify(String(id));
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
+
+function setupDashboardClickDelegation() {
+  if (window.__wmDashboardClicksBound) return;
+  window.__wmDashboardClicksBound = true;
+
+  document.addEventListener('click', event => {
+    const card = event.target.closest('.appt-card[data-job-id]');
+    if (!card) return;
+
+    const jobId = card.dataset.jobId;
+    if (!jobId) return;
+
+    if (event.target.closest('.ac-menu')) {
+      event.preventDefault();
+      event.stopPropagation();
+      showApptMenu(jobId);
+      return;
+    }
+
+    if (card.closest('#search-results')) {
+      closeSearchModal();
+      openJob(jobId);
+      return;
+    }
+
+    if (card.closest('#appt-list')) {
+      openJob(jobId);
+    }
+  });
+}
+
+setupDashboardClickDelegation();
 
 function addCaseForSelectedDay() {
   const dayIndex = S.selDay;
@@ -159,12 +195,54 @@ function statusLabel(s) {
   if (s === 'done') return t('dash.status.done');
   return t('dash.status.new');
 }
+
+function buildApptCard(job) {
+  const pkgFull = job.pkg === 'full';
+  const pkgTag = pkgFull ? t('dash.pkg.full') : t('dash.pkg.essential');
+  const pkgClass = pkgFull ? 'tag-full-assessment' : 'tag-essential';
+  const progressTag = job.status === 'in_progress'
+    ? '<span class="tag tag-progress">' + t('dash.status.in_progress') + '</span>'
+    : '';
+  const contactLine = job.contact
+    ? '<br>' + t('dash.contact') + ': ' + job.contact
+    : '';
+  const stripeClass = pkgFull ? ' stripe-full' : '';
+  const jobId = escapeHtml(job.id);
+
+  return (
+    '<div class="appt-card' + stripeClass + '" data-job-id="' + jobId + '">' +
+      '<div class="ac-top">' +
+        '<div class="ac-left">' +
+          '<div class="ac-tags">' +
+            '<span class="tag ' + pkgClass + '">' + pkgTag + '</span>' +
+            progressTag +
+          '</div>' +
+          '<div class="ac-name">' + escapeHtml(job.name) + '</div>' +
+        '</div>' +
+        '<div class="ac-times">' +
+          '<div class="ac-time-start">' + escapeHtml(job.timeStart) + '</div>' +
+          '<div class="ac-time-end">' + escapeHtml(job.timeEnd) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ac-addr">' + PIN_SVG + '<span>' + escapeHtml(job.addr) + '</span></div>' +
+      '<div class="ac-meta">' +
+        '<span>' + escapeHtml(job.meta) + contactLine + '</span>' +
+        '<button class="ac-menu" type="button" aria-label="More">' + MENU_SVG + '</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
 function renderJobs(filter) {
   const q = (filter ?? S.searchQuery).toLowerCase().trim();
   const activeJobs = JOBS.filter(j => j.status !== 'cancelled');
   const selected = selectedDateIso();
-  let visibleJobs = activeJobs.filter(j => jobMatchesDate(j, selected));
-  visibleJobs.sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
+  let visibleJobs = activeJobs.filter(job => {
+    return jobMatchesDate(job, selected);
+  });
+  visibleJobs.sort((a, b) => {
+    return String(a.timeStart || '').localeCompare(String(b.timeStart || ''));
+  });
 
   if (q) {
     visibleJobs = visibleJobs.filter(j =>
@@ -175,43 +253,24 @@ function renderJobs(filter) {
 
   const list = document.getElementById('appt-list');
   const countEl = document.getElementById('appt-count');
-
   if (!list || !countEl) return;
 
   countEl.textContent = q
-    ? `${t('dash.results')} (${visibleJobs.length})`
-    : `${t('dash.appointments')} (${visibleJobs.length})`;
+    ? t('dash.results') + ' (' + visibleJobs.length + ')'
+    : t('dash.appointments') + ' (' + visibleJobs.length + ')';
 
   if (!visibleJobs.length) {
-    list.innerHTML = `<div class="appt-empty">${q ? t('dash.noMatches') : t('dash.empty')}<span class="appt-empty-hint">${t('dash.emptyHint')}</span></div>`;
+    const emptyMsg = q ? t('dash.noMatches') : t('dash.empty');
+    list.innerHTML = '<div class="appt-empty">' + emptyMsg + '<span class="appt-empty-hint">' + t('dash.emptyHint') + '</span></div>';
     return;
   }
 
-  list.innerHTML = visibleJobs.map(j => `
-    <div class="appt-card ${j.pkg === 'full' ? 'stripe-full' : ''}" onclick="openJob(${jobIdLiteral(j.id)})">
-      <div class="ac-top">
-        <div class="ac-left">
-          <div class="ac-tags">
-            <span class="tag ${j.pkg === 'full' ? 'tag-full-assessment' : 'tag-essential'}">${j.pkg === 'full' ? t('dash.pkg.full') : t('dash.pkg.essential')}</span>
-            ${j.status === 'in_progress' ? `<span class="tag tag-progress">${t('dash.status.in_progress')}</span>` : ''}
-          </div>
-          <div class="ac-name">${j.name}</div>
-        </div>
-        <div class="ac-times">
-          <div class="ac-time-start">${j.timeStart}</div>
-          <div class="ac-time-end">${j.timeEnd}</div>
-        </div>
-      </div>
-      <div class="ac-addr">${PIN_SVG}<span>${j.addr}</span></div>
-      <div class="ac-meta">
-        <span>${j.meta}${j.contact ? '<br>' + t('dash.contact') + ': ' + j.contact : ''}</span>
-        <button class="ac-menu" type="button" onclick="event.stopPropagation();showApptMenu(${jobIdLiteral(j.id)})" aria-label="More">${MENU_SVG}</button>
-      </div>
-    </div>`).join('');
+  list.innerHTML = visibleJobs.map(buildApptCard).join('');
 }
 
 function showApptMenu(id) {
   const job = JOBS.find(j => String(j.id) === String(id));
+  if (!job) return;
   S.actionJobId = id;
   document.getElementById('action-sheet-title').textContent = job.name;
   const actions = [
@@ -250,7 +309,14 @@ function filterAppointments(q){
       String(j.name || '').toLowerCase().includes(needle) ||
       String(j.addr || '').toLowerCase().includes(needle)
     );
-  document.getElementById('search-results').innerHTML = visibleJobs.map(j => `<div class="appt-card" style="margin-top:8px" onclick="closeSearchModal();openJob(${jobIdLiteral(j.id)})"><div class="ac-name">${j.name}</div><div class="ac-addr" style="font-size:12px;color:var(--muted)">${j.addr}</div></div>`).join('') || '<p style="color:var(--muted);font-size:14px">No matches</p>';
+  document.getElementById('search-results').innerHTML = visibleJobs.map(j => {
+    return (
+      '<div class="appt-card" style="margin-top:8px" data-job-id="' + escapeHtml(j.id) + '">' +
+        '<div class="ac-name">' + escapeHtml(j.name) + '</div>' +
+        '<div class="ac-addr" style="font-size:12px;color:var(--muted)">' + escapeHtml(j.addr) + '</div>' +
+      '</div>'
+    );
+  }).join('') || '<p style="color:var(--muted);font-size:14px">No matches</p>';
 }
 function renderNotifications() {
   const list = document.getElementById('notif-list');
