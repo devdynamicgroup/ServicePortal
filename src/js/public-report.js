@@ -21,7 +21,7 @@ function showPublicReportError(message) {
   `;
 }
 
-function configurePublicScoreChrome({ feedbackUrl, reviewUrl }) {
+function configurePublicScoreChrome() {
   document.body.classList.add('public-report-mode');
   S.screen = 's-score';
   S.publicScoreView = true;
@@ -38,26 +38,8 @@ function configurePublicScoreChrome({ feedbackUrl, reviewUrl }) {
     shareBtn.onclick = sharePublicReport;
   }
 
-  const foot = document.querySelector('#s-score .foot');
-  if (!foot) return;
-
-  // Prefer server-prepared public foot; only rebuild if technician buttons remain.
-  if (foot.querySelector('.public-report-feedback, .public-report-review')) return;
-
-  const buttons = [];
-  if (feedbackUrl) {
-    buttons.push(`<a class="btn btn-primary public-report-feedback" href="${escapeHtml(feedbackUrl)}">${S.lang === 'th' ? 'ให้คะแนนความพึงพอใจ' : 'Give feedback'}</a>`);
-  }
-  if (reviewUrl) {
-    buttons.push(`<a class="btn btn-secondary public-report-review" href="${escapeHtml(reviewUrl)}" target="_blank" rel="noopener noreferrer">${S.lang === 'th' ? 'รีวิวบน Google' : 'Google review'}</a>`);
-  }
-
-  if (!buttons.length) {
-    foot.classList.add('hidden');
-    return;
-  }
-
-  foot.innerHTML = buttons.join('');
+  // Public report is read-only: no Give Feedback / Google Review footer.
+  document.querySelector('#s-score .foot')?.classList.add('hidden');
 }
 
 async function sharePublicReport() {
@@ -87,7 +69,7 @@ async function sharePublicReport() {
   }
 }
 
-function mountPublicWaterScore(report, config) {
+function mountPublicWaterScore(report) {
   console.log('[public-report] renderWaterScore called', {
     keys: Object.keys(report || {}),
     draftKeys: Object.keys(report?.draft || {}),
@@ -96,10 +78,7 @@ function mountPublicWaterScore(report, config) {
     tapDataCount: Array.isArray(report?.draft?.tapData) ? report.draft.tapData.length : 0
   });
 
-  configurePublicScoreChrome({
-    feedbackUrl: config.feedbackUrl || '',
-    reviewUrl: config.reviewUrl || ''
-  });
+  configurePublicScoreChrome();
 
   const score = renderWaterScore(report, { publicView: true });
   console.log('[public-report] renderWaterScore finished', {
@@ -125,7 +104,7 @@ async function initPublicReport() {
 
     // Prefer embedded report for first paint (no empty flash while waiting on fetch).
     if (config.report) {
-      mountPublicWaterScore(config.report, config);
+      mountPublicWaterScore(config.report);
     }
 
     const response = await fetch(`/api/report/${encodeURIComponent(token)}`, { cache: 'no-store' });
@@ -135,10 +114,7 @@ async function initPublicReport() {
       return;
     }
 
-    mountPublicWaterScore(payload.report, {
-      feedbackUrl: config.feedbackUrl || '',
-      reviewUrl: config.reviewUrl || ''
-    });
+    mountPublicWaterScore(payload.report);
   } catch (error) {
     console.error('Public report load failed', error);
     if (!config.report) showPublicReportError(error.message || 'Could not load report');

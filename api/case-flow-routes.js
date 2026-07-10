@@ -66,14 +66,6 @@ function publicBaseUrl() {
   return (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.onrender.com').replace(/\/$/, '');
 }
 
-function reportFeedbackUrl(job) {
-  const token = String(job?.feedback?.token || '').trim();
-  if (token) return `${publicBaseUrl()}/f/${encodeURIComponent(token)}`;
-  const raw = String(job?.feedback?.url || '').trim();
-  if (!raw) return '';
-  return raw.replace(/^https?:\/\/serviceportal\.example\.com/i, publicBaseUrl());
-}
-
 const ROOT_DIR = path.join(__dirname, '..');
 let scorePagePartial = null;
 
@@ -106,15 +98,7 @@ function reportNotFoundHtml() {
 </html>`;
 }
 
-function reportReviewUrl(job) {
-  return String(
-    job?.review?.url
-    || process.env.GOOGLE_REVIEW_URL
-    || 'https://g.page/r/Ce0EFhVtUyRpEBM/review'
-  ).trim();
-}
-
-function preparePublicScoreMarkup(scoreMarkup, { feedbackUrl, reviewUrl }) {
+function preparePublicScoreMarkup(scoreMarkup) {
   let html = String(scoreMarkup || '');
 
   // Public chrome: hide technician back control.
@@ -129,23 +113,8 @@ function preparePublicScoreMarkup(scoreMarkup, { feedbackUrl, reviewUrl }) {
     'onclick="sharePublicReport()"'
   );
 
-  const footButtons = [];
-  if (feedbackUrl) {
-    footButtons.push(
-      `<a class="btn btn-primary public-report-feedback" href="${escapeHtml(feedbackUrl)}">Give feedback</a>`
-    );
-  }
-  if (reviewUrl) {
-    footButtons.push(
-      `<a class="btn btn-secondary public-report-review" href="${escapeHtml(reviewUrl)}" target="_blank" rel="noopener noreferrer">Google review</a>`
-    );
-  }
-
-  const footHtml = footButtons.length
-    ? `<div class="foot">${footButtons.join('')}</div>`
-    : '<div class="foot hidden"></div>';
-
-  html = html.replace(/<div class="foot">[\s\S]*?<\/div>\s*<\/div>\s*$/, `${footHtml}\n</div>\n`);
+  // Public report is read-only: no Give Feedback / Google Review footer.
+  html = html.replace(/<div class="foot">[\s\S]*?<\/div>\s*<\/div>\s*$/, '<div class="foot hidden"></div>\n</div>\n');
   return html;
 }
 
@@ -153,16 +122,12 @@ function reportHtml(job) {
   if (!job) return reportNotFoundHtml();
 
   const token = String(job.result?.publicReportToken || '').trim();
-  const feedbackUrl = reportFeedbackUrl(job);
-  const reviewUrl = reportReviewUrl(job);
   const cacheBust = Date.now();
   const reportConfig = JSON.stringify({
     token,
-    feedbackUrl,
-    reviewUrl,
     report: job
   }).replace(/</g, '\\u003c');
-  const scoreMarkup = preparePublicScoreMarkup(loadScorePagePartial(), { feedbackUrl, reviewUrl });
+  const scoreMarkup = preparePublicScoreMarkup(loadScorePagePartial());
 
   return `<!doctype html>
 <html lang="th">
@@ -399,7 +364,7 @@ function customerFeedbackHtml(feedback) {
         setError(data.error || 'Could not submit feedback. Please try again.');
         return;
       }
-      // Feedback flow ends here. Google Review lives only on the report page.
+      // Feedback flow ends here (thank-you only; no Google Review CTA).
       showThanks();
     });
   </script>
