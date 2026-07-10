@@ -187,17 +187,23 @@ function reportHtml(job) {
 </html>`;
 }
 
+function feedbackReportDoneUrl(feedback) {
+  const raw = String(feedback?.reportUrl || '').trim();
+  if (!raw) return `${publicBaseUrl()}/`;
+  if (raw.startsWith('/')) return `${publicBaseUrl()}${raw}`;
+  return raw.replace(/^https?:\/\/serviceportal\.example\.com/i, publicBaseUrl());
+}
+
 function feedbackHtml(feedback) {
   if (!feedback) return '<!doctype html><meta charset="utf-8"><title>Feedback not found</title><p>Feedback link not found.</p>';
   const token = escapeHtml(feedback.feedbackToken);
-  const reviewUrl = escapeHtml(feedback.reviewUrl || 'https://g.page/r/Ce0EFhVtUyRpEBM/review');
-  const doneUrl = escapeHtml(feedback.reportUrl || '/');
+  const doneUrl = escapeHtml(feedbackReportDoneUrl(feedback));
   return `<!doctype html>
 <html lang="th">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Client Feedback</title>
-<body style="font-family:Arial,sans-serif;max-width:680px;margin:40px auto;padding:0 20px;line-height:1.5">
+<body style="font-family:Arial,sans-serif;max-width:680px;margin:40px auto;padding:0 20px;line-height:1.5;color:#1c1917">
   <div id="form-wrap">
     <h1>Client Feedback</h1>
     <p>ขอบคุณที่ใช้บริการ Water Motion — ความคิดเห็นนี้ส่งถึงทีมของเราโดยตรง</p>
@@ -217,14 +223,12 @@ function feedbackHtml(feedback) {
     </form>
     <p id="message"></p>
   </div>
-  <div id="thanks" style="display:none">
-    <h1>Thank you!</h1>
-    <p>We appreciate your feedback. Your comments help us improve our service.</p>
-    <p style="margin:24px 0 12px">
-      <a href="${reviewUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 16px;background:#0f766e;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Write a Google Review</a>
-    </p>
-    <p>
-      <a href="${doneUrl}" style="display:inline-block;padding:12px 16px;border:1px solid #e7e5e1;color:#1c1917;text-decoration:none;border-radius:8px;font-weight:700">Done</a>
+  <div id="thanks" style="display:none;text-align:center;padding:24px 0">
+    <div style="width:64px;height:64px;margin:0 auto 16px;border-radius:50%;background:#ccfbf1;color:#0f766e;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700" aria-hidden="true">✓</div>
+    <h1 style="margin:0 0 8px">Thank you for your feedback.</h1>
+    <p style="color:#78716c">Your comments help us improve our service.</p>
+    <p style="margin-top:24px">
+      <a href="${doneUrl}" style="display:inline-block;padding:12px 18px;background:#0f766e;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Done</a>
     </p>
   </div>
   <script>
@@ -266,8 +270,7 @@ function customerFeedbackHtml(feedback) {
 
   const token = escapeHtml(feedback.feedbackToken);
   const clientName = escapeHtml(feedback.clientName || 'Water Motion customer');
-  const reviewUrl = escapeHtml(feedback.reviewUrl || 'https://g.page/r/Ce0EFhVtUyRpEBM/review');
-  const doneUrl = escapeHtml(feedback.reportUrl || '/');
+  const doneUrl = escapeHtml(feedbackReportDoneUrl(feedback));
   const alreadySubmitted = feedback.feedbackStatus === 'submitted';
 
   return `<!doctype html>
@@ -294,13 +297,14 @@ function customerFeedbackHtml(feedback) {
   .actions{margin-top:18px;display:flex;gap:10px;align-items:center}
   button.submit{width:100%;height:48px;border:0;border-radius:8px;background:var(--accent);color:#fff;font-weight:800;font-size:16px;cursor:pointer}
   button.submit:disabled{opacity:.55;cursor:not-allowed}
-  .thanks{display:${alreadySubmitted ? 'block' : 'none'}}
+  .thanks{display:${alreadySubmitted ? 'block' : 'none'};text-align:center;padding:8px 0 4px}
   .form-wrap{display:${alreadySubmitted ? 'none' : 'block'}}
-  .thanks-actions{display:grid;gap:10px;margin-top:18px}
+  .success-icon{width:64px;height:64px;margin:0 auto 16px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center}
+  .success-icon svg{width:32px;height:32px}
+  .thanks h1{margin-bottom:10px}
+  .thanks-actions{margin-top:22px}
   .btn{display:flex;align-items:center;justify-content:center;min-height:48px;padding:0 16px;border-radius:8px;text-decoration:none;font-weight:800}
   .btn-primary{background:var(--accent);color:#fff}
-  .btn-secondary{background:#fff;color:var(--text);border:1px solid var(--line)}
-  .meta{font-size:13px;color:var(--muted);margin-top:14px}
 </style>
 <body>
   <main>
@@ -308,7 +312,7 @@ function customerFeedbackHtml(feedback) {
     <section class="card">
       <div class="form-wrap" id="form-wrap">
         <h1>How was your service?</h1>
-        <p>Thanks, ${clientName}. Share private feedback with our team — this stays with Water Motion and is separate from a public Google review.</p>
+        <p>Thanks, ${clientName}. Share private feedback with our team.</p>
         <form id="feedback-form">
           <label>Rating</label>
           <div class="stars" role="radiogroup" aria-label="Rating">
@@ -329,13 +333,14 @@ function customerFeedbackHtml(feedback) {
         </form>
       </div>
       <div class="thanks" id="thanks">
-        <h1>Thank you!</h1>
-        <p id="thanks-message">We appreciate your feedback. Your comments help us improve our service.</p>
-        <div class="thanks-actions">
-          <a class="btn btn-primary review-link" id="review-link" href="${reviewUrl}" target="_blank" rel="noopener noreferrer">Write a Google Review</a>
-          <a class="btn btn-secondary" id="done-link" href="${doneUrl}">Done</a>
+        <div class="success-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
-        <div class="meta">Leaving a Google review is optional.</div>
+        <h1>Thank you for your feedback.</h1>
+        <p>Your comments help us improve our service.</p>
+        <div class="thanks-actions">
+          <a class="btn btn-primary" id="done-link" href="${doneUrl}">Done</a>
+        </div>
       </div>
     </section>
   </main>
@@ -362,9 +367,7 @@ function customerFeedbackHtml(feedback) {
       setError('');
     }
 
-    function showThanks(reviewUrl) {
-      const link = document.getElementById('review-link');
-      if (reviewUrl && link) link.href = reviewUrl;
+    function showThanks() {
       document.getElementById('form-wrap').style.display = 'none';
       document.getElementById('thanks').style.display = 'block';
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -397,8 +400,8 @@ function customerFeedbackHtml(feedback) {
         setError(data.error || 'Could not submit feedback. Please try again.');
         return;
       }
-      // Feedback is saved. Google Review is optional — never auto-redirect.
-      showThanks(data.reviewUrl || '${reviewUrl}');
+      // Feedback flow ends here. Google Review lives only on the report page.
+      showThanks();
     });
   </script>
 </body>

@@ -207,12 +207,19 @@ function feedbackLookupDebug(token, extra = {}) {
 }
 
 function clientMatchToFeedbackPayload(client, job) {
+  const reportToken = String(job?.result?.publicReportToken || '').trim();
+  const base = (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.onrender.com').replace(/\/$/, '');
+  const reportUrl = reportToken
+    ? `${base}/r/${encodeURIComponent(reportToken)}`
+    : String(job?.result?.reportUrl || '')
+      .replace(/^https?:\/\/serviceportal\.example\.com/i, base);
+
   return {
     pageId: null,
     feedbackToken: client.feedbackToken,
     clientPageId: client.clientPageId,
     clientName: client.clientName,
-    reportUrl: job?.result?.reportUrl || '',
+    reportUrl,
     feedbackUrl: job?.feedback?.url || '',
     rating: job?.feedback?.rating ?? null,
     comment: job?.feedback?.comment || '',
