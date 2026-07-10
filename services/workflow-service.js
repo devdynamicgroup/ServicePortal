@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { getAllClients, getClient, updateClient } = require('./notion/clients');
+const { getClient, updateClient, findClientByFeedbackToken } = require('./notion/clients');
 const {
   upsertFeedbackRecord,
   getFeedbackByToken,
@@ -25,7 +25,13 @@ function withCaseLock(key, operation) {
 }
 
 function publicBaseUrl() {
-  return (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.example.com').replace(/\/$/, '');
+  return (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.onrender.com').replace(/\/$/, '');
+}
+
+function normalizeReportUrl(reportToken) {
+  const token = String(reportToken || '').trim();
+  if (!token) return '';
+  return `${publicBaseUrl()}/r/${encodeURIComponent(token)}`;
 }
 
 function newToken(prefix) {
@@ -53,11 +59,10 @@ function notificationState(job) {
 }
 
 function resolveReportUrl(job, payload = {}) {
-  const raw = String(payload.reportUrl || job?.result?.reportUrl || '').trim();
   const token = String(payload.reportToken || job?.result?.publicReportToken || '').trim();
-  if (raw.startsWith('https://') || raw.startsWith('http://')) return raw;
+  if (token) return normalizeReportUrl(token);
+  const raw = String(payload.reportUrl || job?.result?.reportUrl || '').trim();
   if (raw.startsWith('/r/')) return `${publicBaseUrl()}${raw}`;
-  if (token) return `${publicBaseUrl()}/r/${token}`;
   return '';
 }
 
@@ -71,16 +76,20 @@ function resolveFeedbackUrl(job, payload = {}) {
 }
 
 async function resolveJob(caseId) {
-  if (!caseId) return null;
-  if (/^[0-9a-f-]{32,36}$/i.test(caseId)) {
-    try { return await getClient(caseId); } catch { return null; }
+  const raw = String(caseId || '').trim();
+  if (!raw) return null;
+
+  if (/^fb-[a-z0-9-]+$/i.test(raw)) {
+    const found = await findClientByFeedbackToken(raw.toLowerCase());
+    if (!found?.clientPageId) return null;
+    try { return await getClient(found.clientPageId); } catch { return null; }
   }
-  const jobs = await getAllClients();
-  return jobs.find(job =>
-    String(job.id) === String(caseId)
-    || String(job.notionId) === String(caseId)
-    || String(job.legacyNumericId || '') === String(caseId)
-  ) || null;
+
+  if (/^[0-9a-f-]{32,36}$/i.test(raw)) {
+    try { return await getClient(raw); } catch { return null; }
+  }
+
+  return null;
 }
 
 async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
@@ -108,7 +117,23 @@ async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
       lineLinkedAt: now,
       caseWorkflowStatus: stateAtLeast(job.workflow?.status, 'line_linked') ? job.workflow.status : 'line_linked'
     });
-    return { linked: true, alreadyLinked: false, clientPageId: feedback.clientPageId, lineUserId: userId };
+
+    const freshJob = await getClient(feedback.clientPageId);
+    const shouldAutoSend = stateAtLeast(freshJob.workflow?.status, 'completed')
+      && notificationState(freshJob) !== 'sent';
+    let autoSendResult = null;
+    if (shouldAutoSend) {
+      autoSendResult = await executeSendCaseResult(freshJob, {}, freshJob.id);
+    }
+
+    return {
+      linked: true,
+      alreadyLinked: false,
+      clientPageId: feedback.clientPageId,
+      lineUserId: userId,
+      autoSendTriggered: shouldAutoSend,
+      autoSendResult
+    };
   });
 }
 
@@ -174,7 +199,13 @@ async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
     previousNotificationStatus: currentState
   });
 
-  const line = await sendCaseResultNotification(job, { reportUrl, feedbackUrl, reportToken });
+  const line = await sendCaseResultNotification(job, {
+    reportUrl,
+    feedbackUrl,
+    reportToken,
+    caseId,
+    notionId: job.notionId
+  });
   const sent = Boolean(line.ok);
 
   job = await updateClient(job.notionId, sent ? {
@@ -250,7 +281,7 @@ async function closeCase(caseId, payload = {}) {
     const now = new Date().toISOString();
     const reportToken = job.result?.publicReportToken || newToken('rpt');
     const feedbackToken = job.feedback?.token || newToken('fb');
-    const reportUrl = `${publicBaseUrl()}/r/${reportToken}`;
+    const reportUrl = normalizeReportUrl(reportToken);
     const feedbackUrl = `${publicBaseUrl()}/f/${feedbackToken}`;
     const reviewUrl = payload.reviewUrl || job.review?.url || process.env.GOOGLE_REVIEW_URL || DEFAULT_REVIEW_URL;
     const score = payload.score ?? job.result?.waterScore ?? job.draft?.scoreVal ?? null;

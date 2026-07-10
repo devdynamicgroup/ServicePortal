@@ -59,7 +59,7 @@ function verifyLineSignature(rawBody, signature) {
   return crypto.timingSafeEqual(actual, expected);
 }
 
-async function sendLinePush(userId, messages) {
+async function sendLinePush(userId, messages, logContext = {}) {
   if (!userId) {
     return { ok: false, status: 'missing_user_id', messageId: '' };
   }
@@ -71,6 +71,20 @@ async function sendLinePush(userId, messages) {
     return { ok: true, status: 'mock_sent', messageId: `mock-line-${Date.now()}` };
   }
 
+  const payloadSummary = (messages || []).map(message => ({
+    type: message?.type || 'unknown',
+    altText: message?.altText || undefined,
+    textPreview: message?.text ? String(message.text).slice(0, 80) : undefined
+  }));
+
+  console.info('[line_push] sending', {
+    caseId: logContext.caseId || null,
+    notionId: logContext.notionId || null,
+    lineUserId: userId,
+    reportUrl: logContext.reportUrl || null,
+    payloadSummary
+  });
+
   const response = await fetch('https://api.line.me/v2/bot/message/push', {
     method: 'POST',
     headers: {
@@ -80,13 +94,22 @@ async function sendLinePush(userId, messages) {
     body: JSON.stringify({ to: userId, messages })
   });
 
+  const responseBody = await response.text().catch(() => '');
+  const requestId = response.headers.get('x-line-request-id') || '';
+
+  console.info('[line_push] result', {
+    caseId: logContext.caseId || null,
+    notionId: logContext.notionId || null,
+    httpStatus: response.status,
+    responseBody: responseBody || null,
+    requestId
+  });
+
   if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    return { ok: false, status: 'failed', messageId: '', error: body || `LINE ${response.status}` };
+    return { ok: false, status: 'failed', messageId: '', error: responseBody || `LINE ${response.status}` };
   }
 
-  const messageId = response.headers.get('x-line-request-id') || '';
-  return { ok: true, status: 'sent', messageId };
+  return { ok: true, status: 'sent', messageId: requestId, responseBody };
 }
 
 async function sendLineReply(replyToken, messages) {
@@ -125,13 +148,10 @@ function buildPreassessmentResultUrl(reportToken) {
   return `${publicBaseUrl()}/r/${encodeURIComponent(token)}`;
 }
 
-function resolveResultLinkUrl({ reportUrl, reportToken }) {
-  const raw = String(reportUrl || '').trim();
+function resolveResultLinkUrl({ reportToken }) {
   const token = String(reportToken || '').trim();
-  if (raw.startsWith('https://') || raw.startsWith('http://')) return raw;
-  if (raw.startsWith('/r/')) return `${publicBaseUrl()}${raw}`;
-  if (token) return `${publicBaseUrl()}/r/${encodeURIComponent(token)}`;
-  return '';
+  if (!token) return '';
+  return `${publicBaseUrl()}/r/${encodeURIComponent(token)}`;
 }
 
 function buildCaseResultTextMessage({ resultLinkUrl, feedbackUrl }) {
@@ -288,10 +308,7 @@ async function sendCaseResultNotification(job, payload) {
   }
 
   const reportToken = payload.reportToken || job.result?.publicReportToken;
-  const resultLinkUrl = resolveResultLinkUrl({
-    reportUrl: payload.reportUrl || job.result?.reportUrl,
-    reportToken
-  });
+  const resultLinkUrl = resolveResultLinkUrl({ reportToken });
   const feedbackUrl = payload.feedbackUrl || job.feedback?.url || '';
   if (!resultLinkUrl) {
     return { ok: false, status: 'failed', messageId: '', error: 'missing_report_url' };
@@ -304,8 +321,13 @@ async function sendCaseResultNotification(job, payload) {
   };
   const flexMessage = buildCaseResultFlexMessage(messagePayload);
   const textMessage = buildCaseResultTextMessage(messagePayload);
+  const logContext = {
+    caseId: payload.caseId || job.id || null,
+    notionId: payload.notionId || job.notionId || null,
+    reportUrl: resultLinkUrl
+  };
 
-  const flexResult = await sendLinePush(userId, [flexMessage]);
+  const flexResult = await sendLinePush(userId, [flexMessage], logContext);
   if (flexResult.ok) {
     return { ...flexResult, format: 'flex', resultLinkUrl, reportToken: String(reportToken || '') };
   }
@@ -318,7 +340,7 @@ async function sendCaseResultNotification(job, payload) {
     error: flexResult.error || flexResult.status
   });
 
-  const textResult = await sendLinePush(userId, [textMessage]);
+  const textResult = await sendLinePush(userId, [textMessage], logContext);
   return {
     ...textResult,
     format: textResult.ok ? 'text' : 'text_failed',

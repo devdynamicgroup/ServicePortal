@@ -107,9 +107,11 @@ async function handleLineEvent(event) {
       ? 'บัญชี LINE นี้เชื่อมกับข้อมูลการรับบริการเรียบร้อยแล้ว'
       : linked.reason === 'linked_to_another_user'
         ? 'รหัสนี้ถูกเชื่อมกับบัญชี LINE อื่นแล้ว กรุณาติดต่อ Water Motion'
-        : linked.linked
-          ? 'เชื่อมต่อ LINE เรียบร้อยแล้ว ระบบจะส่งผลตรวจมาที่นี่เมื่อพร้อม'
-          : 'ไม่พบรหัส fb-xxxx นี้ กรุณาตรวจสอบและลองอีกครั้ง';
+        : linked.linked && linked.autoSendTriggered
+          ? 'เชื่อมต่อ LINE เรียบร้อยแล้ว\nกำลังส่งผลตรวจให้ครับ'
+          : linked.linked
+            ? 'เชื่อมต่อ LINE เรียบร้อยแล้ว\nเมื่อผลตรวจพร้อม ระบบจะส่งให้ทาง LINE อัตโนมัติ'
+            : 'ไม่พบรหัส fb-xxxx นี้ กรุณาตรวจสอบและลองอีกครั้ง';
     await sendLineReply(event.replyToken, [{
       type: 'text',
       text: replyText
