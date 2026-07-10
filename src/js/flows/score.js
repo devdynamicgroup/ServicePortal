@@ -177,8 +177,42 @@ function setScoreTapFilter(key) {
   renderScoreReadings();
 }
 
-function shareScore() {
-  showToast('Score link copied - share with client');
+async function shareScore() {
+  const job = S.activeJob;
+  const caseRef = job?.notionId || job?.id;
+  if (!caseRef || !Number.isFinite(Number(S.scoreVal))) {
+    showToast('Please calculate the Water Score first');
+    return;
+  }
+
+  saveActiveJobState();
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/score`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ score: Number(S.scoreVal) })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.reportUrl) throw new Error(result.error || 'Could not publish score');
+
+    job.result = { ...(job.result || {}), waterScore: result.score, reportUrl: result.reportUrl, publicReportToken: result.reportToken };
+    const shareData = {
+      title: 'Water Motion - Water Score',
+      text: `ผล Water Score ของคุณ: ${result.score}/100`,
+      url: result.reportUrl
+    };
+    if (navigator.share) {
+      await navigator.share(shareData);
+      showToast('Score shared');
+      return;
+    }
+    await navigator.clipboard.writeText(result.reportUrl);
+    showToast('Score link copied - share with client');
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    console.error('Share Score failed', error);
+    showToast('Could not share score');
+  }
 }
 
 function completeScore() {

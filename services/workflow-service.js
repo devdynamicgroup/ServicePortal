@@ -304,6 +304,41 @@ async function repairCaseResultNotification(caseId, payload = {}) {
   return sendCaseResult(caseId, payload);
 }
 
+async function publishCaseScore(caseId, payload = {}) {
+  const initial = await resolveJob(caseId);
+  if (!initial?.notionId) {
+    const error = new Error('Case not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const score = Number(payload.score);
+  if (!Number.isFinite(score) || score < 0 || score > 100) {
+    const error = new Error('Score must be between 0 and 100');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return withCaseLock(initial.notionId, async () => {
+    const job = await getClient(initial.notionId);
+    const reportToken = job.result?.publicReportToken || newToken('rpt');
+    const reportUrl = normalizeReportUrl(reportToken);
+    const updated = await updateClient(job.notionId, {
+      latestWaterScore: Math.round(score),
+      resultSummary: payload.resultSummary || `Water score ${Math.round(score)}/100`,
+      reportUrl,
+      publicReportToken: reportToken
+    });
+    return {
+      ok: true,
+      caseId: updated.id,
+      score: updated.result?.waterScore,
+      reportToken,
+      reportUrl
+    };
+  });
+}
+
 async function closeCase(caseId, payload = {}) {
   const initial = await resolveJob(caseId);
   if (!initial?.notionId) {
@@ -432,6 +467,7 @@ module.exports = {
   closeCase,
   sendCaseResult,
   repairCaseResultNotification,
+  publishCaseScore,
   recordFeedback,
   resolveJob
 };
