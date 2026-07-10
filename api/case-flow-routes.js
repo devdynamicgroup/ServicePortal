@@ -114,14 +114,55 @@ function reportReviewUrl(job) {
   ).trim();
 }
 
+function preparePublicScoreMarkup(scoreMarkup, { feedbackUrl, reviewUrl }) {
+  let html = String(scoreMarkup || '');
+
+  // Public chrome: hide technician back control.
+  html = html.replace(
+    /<button class="hdr-back"[\s\S]*?<\/button>/,
+    ''
+  );
+
+  // Public share uses current URL (wired in public-report.js).
+  html = html.replace(
+    /onclick="shareScore\(\)"/,
+    'onclick="sharePublicReport()"'
+  );
+
+  const footButtons = [];
+  if (feedbackUrl) {
+    footButtons.push(
+      `<a class="btn btn-primary public-report-feedback" href="${escapeHtml(feedbackUrl)}">Give feedback</a>`
+    );
+  }
+  if (reviewUrl) {
+    footButtons.push(
+      `<a class="btn btn-secondary public-report-review" href="${escapeHtml(reviewUrl)}" target="_blank" rel="noopener noreferrer">Google review</a>`
+    );
+  }
+
+  const footHtml = footButtons.length
+    ? `<div class="foot">${footButtons.join('')}</div>`
+    : '<div class="foot hidden"></div>';
+
+  html = html.replace(/<div class="foot">[\s\S]*?<\/div>\s*<\/div>\s*$/, `${footHtml}\n</div>\n`);
+  return html;
+}
+
 function reportHtml(job) {
   if (!job) return reportNotFoundHtml();
 
   const token = String(job.result?.publicReportToken || '').trim();
   const feedbackUrl = reportFeedbackUrl(job);
   const reviewUrl = reportReviewUrl(job);
-  const reportConfig = JSON.stringify({ token, feedbackUrl, reviewUrl }).replace(/</g, '\\u003c');
-  const scoreMarkup = loadScorePagePartial();
+  const cacheBust = Date.now();
+  const reportConfig = JSON.stringify({
+    token,
+    feedbackUrl,
+    reviewUrl,
+    report: job
+  }).replace(/</g, '\\u003c');
+  const scoreMarkup = preparePublicScoreMarkup(loadScorePagePartial(), { feedbackUrl, reviewUrl });
 
   return `<!doctype html>
 <html lang="th">
@@ -132,16 +173,16 @@ function reportHtml(job) {
   <title>Water Score · Water Motion</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/src/css/styles.css">
+  <link rel="stylesheet" href="/src/css/styles.css?v=${cacheBust}">
 </head>
 <body class="public-report-mode">
   <div id="app">${scoreMarkup}</div>
   <script>window.__WM_PUBLIC_REPORT__ = ${reportConfig};</script>
-  <script src="/src/js/state.js"></script>
-  <script src="/src/js/i18n.js"></script>
-  <script src="/src/js/common.js"></script>
-  <script src="/src/js/flows/score.js"></script>
-  <script src="/src/js/public-report.js"></script>
+  <script src="/src/js/state.js?v=${cacheBust}"></script>
+  <script src="/src/js/i18n.js?v=${cacheBust}"></script>
+  <script src="/src/js/common.js?v=${cacheBust}"></script>
+  <script src="/src/js/flows/score.js?v=${cacheBust}"></script>
+  <script src="/src/js/public-report.js?v=${cacheBust}"></script>
 </body>
 </html>`;
 }

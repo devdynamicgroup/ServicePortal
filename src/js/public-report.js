@@ -41,6 +41,9 @@ function configurePublicScoreChrome({ feedbackUrl, reviewUrl }) {
   const foot = document.querySelector('#s-score .foot');
   if (!foot) return;
 
+  // Prefer server-prepared public foot; only rebuild if technician buttons remain.
+  if (foot.querySelector('.public-report-feedback, .public-report-review')) return;
+
   const buttons = [];
   if (feedbackUrl) {
     buttons.push(`<a class="btn btn-primary public-report-feedback" href="${escapeHtml(feedbackUrl)}">${S.lang === 'th' ? 'ให้คะแนนความพึงพอใจ' : 'Give feedback'}</a>`);
@@ -84,6 +87,30 @@ async function sharePublicReport() {
   }
 }
 
+function mountPublicWaterScore(report, config) {
+  console.log('[public-report] renderWaterScore called', {
+    keys: Object.keys(report || {}),
+    draftKeys: Object.keys(report?.draft || {}),
+    waterScore: report?.result?.waterScore,
+    scoreBaseReadings: report?.draft?.scoreBaseReadings,
+    tapDataCount: Array.isArray(report?.draft?.tapData) ? report.draft.tapData.length : 0
+  });
+
+  configurePublicScoreChrome({
+    feedbackUrl: config.feedbackUrl || '',
+    reviewUrl: config.reviewUrl || ''
+  });
+
+  const score = renderWaterScore(report, { publicView: true });
+  console.log('[public-report] renderWaterScore finished', {
+    score,
+    gaugeVal: document.getElementById('gauge-val')?.textContent,
+    findings: Boolean(document.getElementById('gauge-findings')?.innerHTML),
+    readingRows: document.getElementById('score-readings-rows')?.children?.length || 0
+  });
+  return score;
+}
+
 async function initPublicReport() {
   const config = window.__WM_PUBLIC_REPORT__ || {};
   const token = String(config.token || '').trim();
@@ -96,22 +123,25 @@ async function initPublicReport() {
     S.lang = localStorage.getItem('wm-lang') || 'th';
     if (typeof applyI18n === 'function') applyI18n(S.lang);
 
+    // Prefer embedded report for first paint (no empty flash while waiting on fetch).
+    if (config.report) {
+      mountPublicWaterScore(config.report, config);
+    }
+
     const response = await fetch(`/api/report/${encodeURIComponent(token)}`, { cache: 'no-store' });
     const payload = await response.json();
     if (!response.ok || !payload.report) {
-      throw new Error(payload.error || 'Report not found');
+      if (!config.report) throw new Error(payload.error || 'Report not found');
+      return;
     }
 
-    configurePublicScoreChrome({
+    mountPublicWaterScore(payload.report, {
       feedbackUrl: config.feedbackUrl || '',
       reviewUrl: config.reviewUrl || ''
     });
-
-    // Same renderer as the in-app Water Score screen.
-    renderWaterScore(payload.report, { publicView: true });
   } catch (error) {
     console.error('Public report load failed', error);
-    showPublicReportError(error.message || 'Could not load report');
+    if (!config.report) showPublicReportError(error.message || 'Could not load report');
   }
 }
 
