@@ -19,26 +19,21 @@ function animateScoreNumber(el, target) {
   requestAnimationFrame(step);
 }
 
-function calcAndShowScore() {
-  const ph = parseFloat(document.getElementById('m-ph').value) || 7.2;
-  const tds = parseFloat(document.getElementById('m-tds').value) || 450;
-  const turb = parseFloat(document.getElementById('m-turb').value) || 1.2;
-  const orp = parseFloat(document.getElementById('m-orp').value) || 320;
-  const fcl = parseFloat(document.getElementById('m-free-cl').value) || 2.1;
-  const do_ = parseFloat(document.getElementById('m-do').value) || 6.8;
+function buildScoreFindings(readings) {
+  const ph = Number(readings.ph);
+  const fcl = Number(readings.chlorine);
+  const turb = Number(readings.turbidity);
+  const tds = Number(readings.tds);
+  const findings = [];
+  if (fcl > 0.5) findings.push({ label: 'High chlorine', val: fcl + ' mg/L' });
+  if (turb > 5) findings.push({ label: 'High turbidity', val: turb + ' NTU' });
+  if (fcl < 0.2) findings.push({ label: 'Low chlorine', val: fcl + ' mg/L' });
+  if (ph < 6.5 || ph > 8.5) findings.push({ label: 'pH out of range', val: ph });
+  if (tds > 600) findings.push({ label: 'High TDS', val: tds + ' mg/L' });
+  return findings;
+}
 
-  const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
-  const pHs = ph >= 6.5 && ph <= 8.5 ? 100 : ph >= 6 && ph <= 9 ? 70 : ph >= 5.5 && ph <= 9.5 ? 40 : 15;
-  const tdss = tds <= 300 ? 100 : tds <= 600 ? 100 - (tds - 300) / 300 * 20 : tds <= 1000 ? 80 - (tds - 600) / 400 * 30 : clamp(50 - (tds - 1000) / 30);
-  const turbs = turb <= 1 ? 100 : turb <= 5 ? 100 - (turb - 1) / 4 * 30 : turb <= 10 ? 70 - (turb - 5) / 5 * 40 : clamp(30 - (turb - 10) * 3);
-  const orps = orp >= 200 && orp <= 600 ? 100 : orp < 200 ? clamp(orp / 200 * 100) : clamp(100 - (orp - 600) / 10);
-  const cls = fcl >= 0.2 && fcl <= 0.5 ? 100 : fcl <= 1 ? 80 : fcl <= 2 ? 50 : 25;
-  const dos = do_ >= 6 ? 100 : clamp(do_ / 6 * 100);
-
-  const wq = Math.round((pHs + tdss + turbs + orps + cls + dos) / 6);
-  S.scoreVal = wq;
-  S.scoreBaseReadings = { ph, tds, chlorine: fcl, turbidity: turb, orp, do: do_, temp: parseFloat(document.getElementById('m-temp')?.value) || 28 };
-
+function renderScoreDisplay(wq, readings) {
   const style = getScoreStyle(wq);
   const arcLen = 628.32;
   const offset = arcLen * (1 - wq / 100);
@@ -104,18 +99,69 @@ function calcAndShowScore() {
   const msgSub = wq >= 50 ? t('score.msg.sub') : t('score.msg.subShort');
   document.getElementById('gauge-message').innerHTML = `<span>${msgMain} </span><span class="muted-part">${msgSub}</span>`;
 
-  const findings = [];
-  if (fcl > 0.5) findings.push({ label: 'High chlorine', val: fcl + ' mg/L' });
-  if (turb > 5) findings.push({ label: 'High turbidity', val: turb + ' NTU' });
-  if (fcl < 0.2) findings.push({ label: 'Low chlorine', val: fcl + ' mg/L' });
-  if (ph < 6.5 || ph > 8.5) findings.push({ label: 'pH out of range', val: ph });
-  if (tds > 600) findings.push({ label: 'High TDS', val: tds + ' mg/L' });
+  const findings = buildScoreFindings(readings);
   const arrowSvg = '<svg class="fc-arrow" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M6 2v8M6 2l3 3M6 2L3 5" stroke="#f07b7b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
   document.getElementById('gauge-findings').innerHTML = findings.length
     ? findings.map((f, i) => `<div class="finding-card score-reveal" style="animation-delay:${120 + i * 80}ms">${arrowSvg}<span>${f.label}</span><span class="fc-val">${f.val}</span></div>`).join('')
     : `<div class="finding-card score-reveal"><span>${t('score.finding.allOk')}</span></div>`;
 
   renderScoreReadings();
+}
+
+function calcAndShowScore() {
+  const ph = parseFloat(document.getElementById('m-ph').value) || 7.2;
+  const tds = parseFloat(document.getElementById('m-tds').value) || 450;
+  const turb = parseFloat(document.getElementById('m-turb').value) || 1.2;
+  const orp = parseFloat(document.getElementById('m-orp').value) || 320;
+  const fcl = parseFloat(document.getElementById('m-free-cl').value) || 2.1;
+  const do_ = parseFloat(document.getElementById('m-do').value) || 6.8;
+
+  const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
+  const pHs = ph >= 6.5 && ph <= 8.5 ? 100 : ph >= 6 && ph <= 9 ? 70 : ph >= 5.5 && ph <= 9.5 ? 40 : 15;
+  const tdss = tds <= 300 ? 100 : tds <= 600 ? 100 - (tds - 300) / 300 * 20 : tds <= 1000 ? 80 - (tds - 600) / 400 * 30 : clamp(50 - (tds - 1000) / 30);
+  const turbs = turb <= 1 ? 100 : turb <= 5 ? 100 - (turb - 1) / 4 * 30 : turb <= 10 ? 70 - (turb - 5) / 5 * 40 : clamp(30 - (turb - 10) * 3);
+  const orps = orp >= 200 && orp <= 600 ? 100 : orp < 200 ? clamp(orp / 200 * 100) : clamp(100 - (orp - 600) / 10);
+  const cls = fcl >= 0.2 && fcl <= 0.5 ? 100 : fcl <= 1 ? 80 : fcl <= 2 ? 50 : 25;
+  const dos = do_ >= 6 ? 100 : clamp(do_ / 6 * 100);
+
+  const wq = Math.round((pHs + tdss + turbs + orps + cls + dos) / 6);
+  S.scoreVal = wq;
+  S.scoreBaseReadings = { ph, tds, chlorine: fcl, turbidity: turb, orp, do: do_, temp: parseFloat(document.getElementById('m-temp')?.value) || 28 };
+  renderScoreDisplay(wq, S.scoreBaseReadings);
+}
+
+function resolvePublishedReadings(job) {
+  const draft = job?.draft || {};
+  const fields = draft.fields || {};
+  if (draft.scoreBaseReadings && typeof draft.scoreBaseReadings === 'object') {
+    return { ...draft.scoreBaseReadings };
+  }
+  return {
+    ph: parseFloat(fields['m-ph']) || 7.2,
+    tds: parseFloat(fields['m-tds']) || 450,
+    chlorine: parseFloat(fields['m-free-cl']) || 2.1,
+    turbidity: parseFloat(fields['m-turb']) || 1.2,
+    orp: parseFloat(fields['m-orp']) || 320,
+    do: parseFloat(fields['m-do']) || 6.8,
+    temp: parseFloat(fields['m-temp']) || 28
+  };
+}
+
+function renderPublishedScore(job) {
+  const draft = job?.draft || {};
+  const score = Number(job?.result?.waterScore ?? draft.scoreVal);
+  if (!Number.isFinite(score)) return;
+
+  const readings = resolvePublishedReadings(job);
+  const taps = S.taps?.length ? S.taps : ['Tap 1'];
+
+  S.activeJob = job;
+  S.scoreVal = Math.max(0, Math.min(100, Math.round(score)));
+  S.scoreBaseReadings = readings;
+  S.taps = taps;
+  S.scoreTapFilter = taps.length > 1 ? 'all' : taps[0];
+
+  renderScoreDisplay(S.scoreVal, readings);
 }
 
 function scoreTapRows(key) {
@@ -177,7 +223,11 @@ function setScoreTapFilter(key) {
   renderScoreReadings();
 }
 
+let sharingScore = false;
+
 async function shareScore() {
+  if (sharingScore) return;
+
   const job = S.activeJob;
   const caseRef = job?.notionId || job?.id;
   if (!caseRef || !Number.isFinite(Number(S.scoreVal))) {
@@ -185,6 +235,7 @@ async function shareScore() {
     return;
   }
 
+  sharingScore = true;
   saveActiveJobState();
   try {
     const response = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/score`, {
@@ -212,6 +263,8 @@ async function shareScore() {
     if (error?.name === 'AbortError') return;
     console.error('Share Score failed', error);
     showToast('Could not share score');
+  } finally {
+    sharingScore = false;
   }
 }
 
