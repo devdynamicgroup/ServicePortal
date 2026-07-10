@@ -394,15 +394,24 @@ async function loadJobsFromApi() {
       return false;
     }
 
-    const july9 = jobs.filter(j => j.date === '2026-07-09');
     console.info('[Service Portal] GET /api/clients ok', {
       status: response.status,
-      count: jobs.length,
-      july9: july9.map(j => ({ name: j.name, date: j.date, status: j.status }))
+      count: jobs.length
     });
 
     // Notion is authoritative: replace (never merge) so CSV rows cannot mix in.
-    JOBS.splice(0, JOBS.length, ...jobs);
+    const locallyInProgress = new Set(
+      JOBS
+        .filter(job => job.status === 'in_progress')
+        .map(job => String(job.id))
+    );
+    const normalizedJobs = jobs.map(job => {
+      if (locallyInProgress.has(String(job.id)) && !['done', 'cancelled'].includes(job.status)) {
+        return { ...job, status: 'in_progress' };
+      }
+      return job;
+    });
+    JOBS.splice(0, JOBS.length, ...normalizedJobs);
     persistJobs();
     setDataSource('notion', {
       count: jobs.length,

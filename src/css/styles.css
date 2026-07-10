@@ -133,7 +133,6 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .day-chip .dc-dow{font-size:10px;font-weight:600;text-transform:uppercase;color:var(--dim)}
 .day-chip .dc-d{font-size:17px;font-weight:600;color:var(--text)}
 .day-chip .dc-dot{width:4px;height:4px;border-radius:50%;background:var(--blue);margin-top:2px;visibility:hidden;opacity:1}
-.day-chip.has-jobs:not(.sel) .dc-dot{visibility:visible;opacity:.35}
 .day-chip.sel .dc-dot{visibility:visible;opacity:1}
 .appt-header{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 8px}
 .appt-header h2{font-size:16px;font-weight:600}
