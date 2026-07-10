@@ -289,7 +289,7 @@ function buildCaseResultFlexMessage({ resultLinkUrl, reviewUrl, clientName }) {
                   },
                   {
                     type: 'text',
-                    text: 'กดปุ่มด้านล่างเพื่อเปิดดูรายละเอียดผลตรวจ และแจ้งความพึงพอใจหลังใช้บริการ',
+                    text: 'กดปุ่มด้านล่างเพื่อเปิดดูรายละเอียดผลตรวจ และรีวิวบริการบน Google',
                     size: 'sm',
                     color: WATER_MOTION_MUTED,
                     wrap: true
