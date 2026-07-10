@@ -146,31 +146,6 @@ function reportHtml(job) {
 </html>`;
 }
 
-function scoreVisual(score) {
-  const value = Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : null;
-  const tier = value == null ? 'รอผลตรวจ' : value >= 90 ? 'Exceptional' : value >= 80 ? 'International' : value >= 65 ? 'Good' : value >= 50 ? 'Fair' : 'Needs Attention';
-  const color = value == null ? '#78716c' : value >= 80 ? '#2e9b6f' : value >= 65 ? '#d9a441' : '#f07b7b';
-  const degrees = value == null ? 0 : value * 3.6;
-  return { value, tier, color, degrees };
-}
-
-function publicScoreHtml(job) {
-  const score = scoreVisual(Number(job.result?.waterScore));
-  const feedbackUrl = reportFeedbackUrl(job);
-  return `<!doctype html><html lang="th"><head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0c0a09">
-  <title>Water Score · Water Motion</title>
-  <style>
-  *{box-sizing:border-box}body{margin:0;background:#0c0a09;color:#fafaf9;font-family:Inter,Arial,sans-serif;line-height:1.5}main{width:min(100%,620px);margin:auto;padding:24px 18px 48px}.brand{font-size:13px;font-weight:800;letter-spacing:.16em;color:#6ee7b7;margin-bottom:24px}.card{background:linear-gradient(145deg,#1c1917,#151312);border:1px solid #292524;border-radius:24px;padding:28px 22px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.35)}h1{font-size:20px;margin:0 0 4px}.client{color:#a8a29e;margin:0 0 26px}.gauge{width:220px;aspect-ratio:1;margin:0 auto 24px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(${score.color} ${score.degrees}deg,#292524 0);position:relative}.gauge:before{content:"";position:absolute;inset:11px;background:#151312;border-radius:50%}.value{position:relative;font-size:64px;font-weight:800;line-height:1}.value small{display:block;font-size:12px;color:#a8a29e;margin-top:9px}.pill{display:inline-flex;padding:7px 14px;border-radius:99px;background:${score.color};color:#0c0a09;font-weight:800;font-size:13px}.summary{font-size:18px;font-weight:700;margin:24px 0 8px}.recommendation{color:#a8a29e;margin:0 auto;max-width:460px}.actions{display:grid;gap:10px;margin-top:24px}.button{display:flex;align-items:center;justify-content:center;min-height:50px;border-radius:12px;background:#2e9b6f;color:#fff;text-decoration:none;font-weight:800}.meta{font-size:12px;color:#57534e;margin-top:18px}@media(max-width:380px){.gauge{width:190px}.value{font-size:54px}.card{padding:24px 16px}}
-  </style></head><body><main><div class="brand">WATER MOTION</div><section class="card">
-  <h1>Water Score</h1><p class="client">${escapeHtml(job.name)}</p>
-  <div class="gauge"><div class="value">${score.value == null ? '—' : score.value}<small>คะแนนจาก 100</small></div></div><div class="pill">${escapeHtml(score.tier)}</div>
-  <p class="summary">${escapeHtml(job.result?.summary || 'ผลการตรวจคุณภาพน้ำพร้อมแล้ว')}</p>
-  <p class="recommendation">${escapeHtml(job.result?.recommendations || 'Water Motion ใช้ผลตรวจหน้างานเพื่อประเมินคุณภาพน้ำของคุณ')}</p>
-  ${feedbackUrl ? `<div class="actions"><a class="button" href="${escapeHtml(feedbackUrl)}">ให้คะแนนการบริการ</a></div>` : ''}
-  <div class="meta">Water quality assessment by Water Motion</div></section></main></body></html>`;
-}
-
 function feedbackHtml(feedback) {
   if (!feedback) return '<!doctype html><meta charset="utf-8"><title>Feedback not found</title><p>Feedback link not found.</p>';
   return `<!doctype html>

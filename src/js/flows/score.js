@@ -108,29 +108,14 @@ function renderScoreDisplay(wq, readings) {
   renderScoreReadings();
 }
 
-function calcAndShowScore() {
-  const ph = parseFloat(document.getElementById('m-ph').value) || 7.2;
-  const tds = parseFloat(document.getElementById('m-tds').value) || 450;
-  const turb = parseFloat(document.getElementById('m-turb').value) || 1.2;
-  const orp = parseFloat(document.getElementById('m-orp').value) || 320;
-  const fcl = parseFloat(document.getElementById('m-free-cl').value) || 2.1;
-  const do_ = parseFloat(document.getElementById('m-do').value) || 6.8;
-
-  const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
-  const pHs = ph >= 6.5 && ph <= 8.5 ? 100 : ph >= 6 && ph <= 9 ? 70 : ph >= 5.5 && ph <= 9.5 ? 40 : 15;
-  const tdss = tds <= 300 ? 100 : tds <= 600 ? 100 - (tds - 300) / 300 * 20 : tds <= 1000 ? 80 - (tds - 600) / 400 * 30 : clamp(50 - (tds - 1000) / 30);
-  const turbs = turb <= 1 ? 100 : turb <= 5 ? 100 - (turb - 1) / 4 * 30 : turb <= 10 ? 70 - (turb - 5) / 5 * 40 : clamp(30 - (turb - 10) * 3);
-  const orps = orp >= 200 && orp <= 600 ? 100 : orp < 200 ? clamp(orp / 200 * 100) : clamp(100 - (orp - 600) / 10);
-  const cls = fcl >= 0.2 && fcl <= 0.5 ? 100 : fcl <= 1 ? 80 : fcl <= 2 ? 50 : 25;
-  const dos = do_ >= 6 ? 100 : clamp(do_ / 6 * 100);
-
-  const wq = Math.round((pHs + tdss + turbs + orps + cls + dos) / 6);
-  S.scoreVal = wq;
-  S.scoreBaseReadings = { ph, tds, chlorine: fcl, turbidity: turb, orp, do: do_, temp: parseFloat(document.getElementById('m-temp')?.value) || 28 };
-  renderScoreDisplay(wq, S.scoreBaseReadings);
+function meterFieldValue(id, fallback) {
+  const el = document.getElementById(id);
+  if (!el) return fallback;
+  const value = parseFloat(el.value);
+  return Number.isFinite(value) ? value : fallback;
 }
 
-function resolvePublishedReadings(job) {
+function readingsFromJob(job) {
   const draft = job?.draft || {};
   const fields = draft.fields || {};
   if (draft.scoreBaseReadings && typeof draft.scoreBaseReadings === 'object') {
@@ -147,21 +132,68 @@ function resolvePublishedReadings(job) {
   };
 }
 
-function renderPublishedScore(job) {
+function computeScoreFromReadings(readings) {
+  const ph = Number(readings.ph) || 7.2;
+  const tds = Number(readings.tds) || 450;
+  const turb = Number(readings.turbidity) || 1.2;
+  const orp = Number(readings.orp) || 320;
+  const fcl = Number(readings.chlorine) || 2.1;
+  const do_ = Number(readings.do) || 6.8;
+  const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
+  const pHs = ph >= 6.5 && ph <= 8.5 ? 100 : ph >= 6 && ph <= 9 ? 70 : ph >= 5.5 && ph <= 9.5 ? 40 : 15;
+  const tdss = tds <= 300 ? 100 : tds <= 600 ? 100 - (tds - 300) / 300 * 20 : tds <= 1000 ? 80 - (tds - 600) / 400 * 30 : clamp(50 - (tds - 1000) / 30);
+  const turbs = turb <= 1 ? 100 : turb <= 5 ? 100 - (turb - 1) / 4 * 30 : turb <= 10 ? 70 - (turb - 5) / 5 * 40 : clamp(30 - (turb - 10) * 3);
+  const orps = orp >= 200 && orp <= 600 ? 100 : orp < 200 ? clamp(orp / 200 * 100) : clamp(100 - (orp - 600) / 10);
+  const cls = fcl >= 0.2 && fcl <= 0.5 ? 100 : fcl <= 1 ? 80 : fcl <= 2 ? 50 : 25;
+  const dos = do_ >= 6 ? 100 : clamp(do_ / 6 * 100);
+  return Math.round((pHs + tdss + turbs + orps + cls + dos) / 6);
+}
+
+/**
+ * Single Water Score renderer used by both the field app and /r/{token}.
+ * publicView only changes chrome (handled by caller); display path is identical.
+ */
+function renderWaterScore(job, options = {}) {
+  const publicView = Boolean(options.publicView);
   const draft = job?.draft || {};
-  const score = Number(job?.result?.waterScore ?? draft.scoreVal);
-  if (!Number.isFinite(score)) return;
+  const readings = publicView
+    ? readingsFromJob(job)
+    : {
+        ph: meterFieldValue('m-ph', 7.2),
+        tds: meterFieldValue('m-tds', 450),
+        chlorine: meterFieldValue('m-free-cl', 2.1),
+        turbidity: meterFieldValue('m-turb', 1.2),
+        orp: meterFieldValue('m-orp', 320),
+        do: meterFieldValue('m-do', 6.8),
+        temp: meterFieldValue('m-temp', 28)
+      };
 
-  const readings = resolvePublishedReadings(job);
-  const taps = S.taps?.length ? S.taps : ['Tap 1'];
+  const published = Number(job?.result?.waterScore ?? draft.scoreVal);
+  const wq = publicView && Number.isFinite(published)
+    ? Math.max(0, Math.min(100, Math.round(published)))
+    : computeScoreFromReadings(readings);
 
-  S.activeJob = job;
-  S.scoreVal = Math.max(0, Math.min(100, Math.round(score)));
+  const taps = draft.taps?.length
+    ? [...draft.taps]
+    : (S.taps?.length ? [...S.taps] : ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest']);
+
+  if (job) S.activeJob = job;
+  S.scoreVal = wq;
   S.scoreBaseReadings = readings;
   S.taps = taps;
-  S.scoreTapFilter = taps.length > 1 ? 'all' : taps[0];
+  S.scoreTapFilter = taps.length > 1 ? (S.scoreTapFilter || 'all') : taps[0];
+  S.publicScoreView = publicView;
 
-  renderScoreDisplay(S.scoreVal, readings);
+  renderScoreDisplay(wq, readings);
+  return wq;
+}
+
+function calcAndShowScore() {
+  renderWaterScore(S.activeJob, { publicView: false });
+}
+
+function renderPublishedScore(job) {
+  return renderWaterScore(job, { publicView: true });
 }
 
 function scoreTapRows(key) {
@@ -227,6 +259,10 @@ let sharingScore = false;
 
 async function shareScore() {
   if (sharingScore) return;
+
+  if (S.publicScoreView) {
+    if (typeof sharePublicReport === 'function') return sharePublicReport();
+  }
 
   const job = S.activeJob;
   const caseRef = job?.notionId || job?.id;
