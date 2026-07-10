@@ -75,6 +75,42 @@ function resolveFeedbackUrl(job, payload = {}) {
   return '';
 }
 
+function clientFeedbackRecord(job, feedbackToken = job?.feedback?.token) {
+  return {
+    created: false,
+    storage: 'clients_database',
+    pageId: job?.notionId || '',
+    feedbackToken: String(feedbackToken || ''),
+    reason: 'separate_feedback_database_not_configured'
+  };
+}
+
+async function ensureFeedbackRecord(job, details = {}) {
+  const payload = {
+    feedbackToken: details.feedbackToken || job?.feedback?.token || '',
+    title: details.title || `Feedback - ${job?.name || 'Client'}`,
+    clientPageId: details.clientPageId || job?.notionId || '',
+    clientName: details.clientName || job?.name || '',
+    clientPhone: details.clientPhone || job?.draft?.fields?.['ci-phone'] || '',
+    caseId: details.caseId || String(job?.id || ''),
+    reportUrl: details.reportUrl || job?.result?.reportUrl || '',
+    feedbackUrl: details.feedbackUrl || job?.feedback?.url || '',
+    feedbackStatus: details.feedbackStatus || job?.feedback?.status || 'pending',
+    reviewUrl: details.reviewUrl || job?.review?.url || '',
+    reviewStatus: details.reviewStatus || job?.review?.status || 'not_requested'
+  };
+  const fallback = clientFeedbackRecord(job, payload.feedbackToken);
+  if (!isClientFeedbackConfigured()) return fallback;
+
+  try {
+    const record = await upsertFeedbackRecord(payload);
+    return { ...record, storage: 'client_feedback_database', feedbackToken: payload.feedbackToken };
+  } catch (error) {
+    console.warn('[workflow] feedback upsert failed; using client case fallback', error.message);
+    return { ...fallback, reason: 'feedback_database_upsert_failed', error: error.message };
+  }
+}
+
 async function resolveJob(caseId) {
   const raw = String(caseId || '').trim();
   if (!raw) return null;
@@ -266,13 +302,14 @@ async function closeCase(caseId, payload = {}) {
         ok: true,
         idempotent: true,
         case: job,
+        feedbackRecord: await ensureFeedbackRecord(job),
         line: { ok: currentState === 'sent', status: currentState }
       };
     }
 
     if (alreadyCompleted && ['ready', 'failed', 'not_sent'].includes(currentState) && lineUserId) {
       const sendResult = await executeSendCaseResult(job, payload, initial.id);
-      return { ...sendResult, repaired: true };
+      return { ...sendResult, repaired: true, feedbackRecord: await ensureFeedbackRecord(job) };
     }
 
     const now = new Date().toISOString();
@@ -301,26 +338,19 @@ async function closeCase(caseId, payload = {}) {
       notificationStatus: lineUserId ? 'ready' : 'not_sent'
     });
 
-    let feedbackRecord = null;
-    if (isClientFeedbackConfigured()) {
-      try {
-        feedbackRecord = await upsertFeedbackRecord({
-          feedbackToken,
-          title: `Feedback - ${job.name}`,
-          clientPageId: job.notionId,
-          clientName: job.name,
-          clientPhone: job?.draft?.fields?.['ci-phone'] || '',
-          caseId: String(initial.id),
-          reportUrl,
-          feedbackUrl,
-          feedbackStatus: 'pending',
-          reviewUrl,
-          reviewStatus: 'not_requested'
-        });
-      } catch (error) {
-        console.warn('[workflow] feedback upsert failed', error.message);
-      }
-    }
+    const feedbackRecord = await ensureFeedbackRecord(job, {
+      feedbackToken,
+      title: `Feedback - ${job.name}`,
+      clientPageId: job.notionId,
+      clientName: job.name,
+      clientPhone: job?.draft?.fields?.['ci-phone'] || '',
+      caseId: String(initial.id),
+      reportUrl,
+      feedbackUrl,
+      feedbackStatus: 'pending',
+      reviewUrl,
+      reviewStatus: 'not_requested'
+    });
 
     if (!lineUserId) {
       return {
@@ -351,10 +381,16 @@ async function recordFeedback(token, payload = {}) {
     }
     const now = new Date().toISOString();
     const requestReview = rating >= 4;
-    await upsertFeedbackRecord({ ...fresh, title: `Feedback - ${fresh.clientName || token}`,
-      rating, comment: payload.comment || '', submittedAt: now, feedbackStatus: 'submitted',
-      reviewStatus: requestReview ? 'requested' : 'not_requested',
-      reviewRequestedAt: requestReview ? now : undefined });
+    if (isClientFeedbackConfigured()) {
+      try {
+        await upsertFeedbackRecord({ ...fresh, title: `Feedback - ${fresh.clientName || token}`,
+          rating, comment: payload.comment || '', submittedAt: now, feedbackStatus: 'submitted',
+          reviewStatus: requestReview ? 'requested' : 'not_requested',
+          reviewRequestedAt: requestReview ? now : undefined });
+      } catch (error) {
+        console.warn('[workflow] feedback database update failed; saving on client case', error.message);
+      }
+    }
     if (fresh.clientPageId) {
       await updateClient(fresh.clientPageId, {
         feedbackRating: rating, feedbackComment: payload.comment || '', feedbackSubmittedAt: now,

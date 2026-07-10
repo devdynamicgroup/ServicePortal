@@ -296,16 +296,18 @@ async function submitFeedback(token, payload = {}) {
     throw error;
   }
 
-  await upsertFeedbackRecord({
-    ...current,
-    title: `Feedback - ${current.clientName || token}`,
-    rating,
-    comment: payload.comment || '',
-    submittedAt: now,
-    feedbackStatus: 'submitted',
-    reviewStatus: 'requested',
-    reviewRequestedAt: now
-  });
+  if (isClientFeedbackConfigured()) {
+    await upsertFeedbackRecord({
+      ...current,
+      title: `Feedback - ${current.clientName || token}`,
+      rating,
+      comment: payload.comment || '',
+      submittedAt: now,
+      feedbackStatus: 'submitted',
+      reviewStatus: 'requested',
+      reviewRequestedAt: now
+    });
+  }
 
   if (current.clientPageId) {
     await updateClient(current.clientPageId, {
