@@ -6,7 +6,13 @@ const {
   verifyLineSignature,
   sendLineReply
 } = require('../services/line-notifications');
-const { linkLineUser } = require('../services/workflow-service');
+const { linkLineUser, sendCaseResult } = require('../services/workflow-service');
+
+const AUTO_RESULT_DELAY_MS = 1500;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function fetchLineDisplayName(userId) {
   const id = String(userId || '').trim();
@@ -98,17 +104,18 @@ async function handleLineEvent(event) {
       return { handled: true, action: 'asked_for_token' };
     }
 
+    const lineUserId = String(event.source?.userId || '').trim();
     const linked = await linkLineUser(
       token,
-      event.source?.userId || '',
-      await fetchLineDisplayName(event.source?.userId || '')
+      lineUserId,
+      await fetchLineDisplayName(lineUserId)
     );
     const replyText = linked.alreadyLinked
       ? 'บัญชี LINE นี้เชื่อมกับข้อมูลการรับบริการเรียบร้อยแล้ว'
       : linked.reason === 'linked_to_another_user'
         ? 'รหัสนี้ถูกเชื่อมกับบัญชี LINE อื่นแล้ว กรุณาติดต่อ Water Motion'
-        : linked.linked && linked.autoSendTriggered
-          ? 'เชื่อมต่อ LINE เรียบร้อยแล้ว\nกำลังส่งผลตรวจให้ครับ'
+        : linked.linked && linked.pendingAutoSend
+          ? 'เชื่อมต่อ LINE เรียบร้อยแล้วครับ\nกำลังเตรียมผลตรวจให้...'
           : linked.linked
             ? 'เชื่อมต่อ LINE เรียบร้อยแล้ว\nเมื่อผลตรวจพร้อม ระบบจะส่งให้ทาง LINE อัตโนมัติ'
             : 'ไม่พบรหัส fb-xxxx นี้ กรุณาตรวจสอบและลองอีกครั้ง';
@@ -116,6 +123,29 @@ async function handleLineEvent(event) {
       type: 'text',
       text: replyText
     }]);
+
+    if (linked.linked) {
+      console.info('[line_link_reply_sent]', {
+        caseId: linked.caseId || linked.feedbackToken || token,
+        lineUserId
+      });
+    }
+
+    if (linked.linked && linked.pendingAutoSend) {
+      const caseId = linked.feedbackToken || token;
+      await sleep(AUTO_RESULT_DELAY_MS);
+      console.info('[line_auto_result_trigger]', { caseId, lineUserId });
+      try {
+        await sendCaseResult(caseId);
+      } catch (error) {
+        console.warn('[line_auto_result_trigger] failed', {
+          caseId,
+          lineUserId,
+          error: error.message
+        });
+      }
+    }
+
     return { handled: true, action: 'link_token', ...linked };
   }
 

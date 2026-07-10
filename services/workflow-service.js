@@ -119,20 +119,17 @@ async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
     });
 
     const freshJob = await getClient(feedback.clientPageId);
-    const shouldAutoSend = stateAtLeast(freshJob.workflow?.status, 'completed')
+    const pendingAutoSend = stateAtLeast(freshJob.workflow?.status, 'completed')
       && notificationState(freshJob) !== 'sent';
-    let autoSendResult = null;
-    if (shouldAutoSend) {
-      autoSendResult = await executeSendCaseResult(freshJob, {}, freshJob.id);
-    }
 
     return {
       linked: true,
       alreadyLinked: false,
       clientPageId: feedback.clientPageId,
       lineUserId: userId,
-      autoSendTriggered: shouldAutoSend,
-      autoSendResult
+      caseId: freshJob.id,
+      feedbackToken: token,
+      pendingAutoSend
     };
   });
 }
