@@ -23,6 +23,7 @@
           <div class="score-progress" id="score-status-bar" role="img" aria-label="Water Score level">
             <div class="score-progress-fill" id="score-progress-fill"></div>
           </div>
+          <div class="score-standard-switch" id="score-standard-switch" role="tablist" aria-label="Reference standard"></div>
           <h2 class="score-standard-label" id="score-standard-label" data-i18n="score.refStandard.who">WHO Drinking Water Standard</h2>
           <div class="score-summary-verdict" id="score-summary-band">—</div>
           <p class="score-summary-note" id="score-summary-note"></p>
@@ -56,10 +57,11 @@
         </div>
         <div class="wq-about">
           <h4 class="wq-about-title" data-i18n="score.aboutTitle">About This Standard</h4>
-          <p data-i18n="score.aboutP1">The values shown are based on the DWQI (Drinking Water Quality Index) — an international framework derived from WHO guidelines that evaluates your water across multiple parameters at once.</p>
-          <p><strong data-i18n="score.thaiDiffTitle">How it differs from Thai standards:</strong></p>
-          <p data-i18n="score.aboutP2">Thailand's official standard (กรมอนามัย / MWA) allows higher limits on some parameters — for example, free chlorine up to 1.5 mg/L vs. WHO's ≤ 0.5 mg/L. Your tap water may meet Thai regulations but still score low on the DWQI.</p>
-          <p data-i18n="score.aboutP3">We use the DWQI because it reflects what's considered safe and comfortable for long-term daily use.</p>
+          <p id="score-about-p1" data-i18n="score.about.who.p1">The values shown are based on the DWQI (Drinking Water Quality Index) — an international framework derived from WHO guidelines that evaluates your water across multiple parameters at once.</p>
+          <p id="score-about-compare" class="wq-about-compare" hidden data-i18n="score.about.compareNote">Scores update to show how the same readings would be evaluated under this standard. Your saved Water Score is unchanged.</p>
+          <p><strong id="score-about-thai-title" data-i18n="score.thaiDiffTitle">How it differs from Thai standards:</strong></p>
+          <p id="score-about-p2" data-i18n="score.aboutP2">Thailand's official standard (กรมอนามัย / MWA) allows higher limits on some parameters — for example, free chlorine up to 1.5 mg/L vs. WHO's ≤ 0.5 mg/L. Your tap water may meet Thai regulations but still score low on the DWQI.</p>
+          <p id="score-about-p3" data-i18n="score.aboutP3">We use the DWQI because it reflects what's considered safe and comfortable for long-term daily use.</p>
         </div>
       </div>
     </section>

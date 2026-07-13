@@ -593,6 +593,47 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   background:var(--score-accent);
   transition:width 1s cubic-bezier(.22,1,.36,1);
 }
+.score-standard-switch{
+  display:flex;
+  flex-direction:row;
+  flex-wrap:nowrap;
+  align-items:stretch;
+  gap:0;
+  width:100%;
+  max-width:360px;
+  margin:0 0 16px;
+  padding:0 0 2px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  border-bottom:1px solid #222;
+}
+.score-standard-switch::-webkit-scrollbar{display:none}
+.score-standard-chip{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:36px;
+  padding:8px 12px;
+  margin:0;
+  border:0;
+  border-bottom:2px solid transparent;
+  background:transparent;
+  color:#6b6b6b;
+  font:inherit;
+  font-size:13px;
+  font-weight:500;
+  letter-spacing:.01em;
+  white-space:nowrap;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.score-standard-chip.is-active{
+  color:#f2f2f2;
+  border-bottom-color:var(--score-accent,#6ee7b7);
+}
 .score-standard-label{
   font-size:22px;
   font-weight:650;
@@ -601,6 +642,11 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   color:#f2f2f2;
   margin:0 0 8px;
   overflow-wrap:anywhere;
+}
+.wq-about-compare{
+  color:#a3a3a3;
+  font-size:13px;
+  line-height:1.55;
 }
 .score-summary-verdict{
   font-size:14px;
@@ -786,6 +832,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   .score-summary-card{padding:28px 20px}
   .score-summary-num{font-size:56px}
   .score-standard-label{font-size:20px}
+  .score-standard-chip{min-height:34px;padding:8px 10px;font-size:12px}
   .score-summary-note{font-size:13px;line-height:1.65}
   .score-metric-head{column-gap:10px;min-height:48px}
   .score-metric-detail{gap:10px}
@@ -803,6 +850,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   .score-summary-den{font-size:18px}
   .score-progress{margin-bottom:18px;max-width:100%}
   .score-standard-label{font-size:18px;margin-bottom:6px}
+  .score-standard-switch{margin-bottom:12px;max-width:100%}
+  .score-standard-chip{min-height:32px;padding:7px 10px;font-size:12px}
   .score-summary-verdict{font-size:13px;margin-bottom:8px}
   .score-params-scope{margin-bottom:4px}
   .score-metric-head{grid-template-columns:minmax(0,1.15fr) minmax(92px,0.85fr);padding:13px 0}
