@@ -79,6 +79,7 @@ function mountPublicWaterScore(report) {
   });
 
   configurePublicScoreChrome();
+  S.scoreStandardKey = typeof DEFAULT_SCORE_STANDARD_KEY !== 'undefined' ? DEFAULT_SCORE_STANDARD_KEY : 'thailand';
 
   const score = renderWaterScore(report, { publicView: true });
   console.log('[public-report] renderWaterScore finished', {

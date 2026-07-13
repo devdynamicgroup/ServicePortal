@@ -284,6 +284,13 @@ async function processAssessmentPhoto(previewId, photoSrc) {
 
     const tap = getActiveTapRecord();
     profile.persist(tap, readings);
+    // Invalidate cached score readings so the next Water Score uses fresh OCR values.
+    S.scoreBaseReadings = null;
+    S.scoreVal = null;
+    if (S.activeJob?.draft) {
+      S.activeJob.draft.scoreBaseReadings = null;
+      S.activeJob.draft.scoreVal = null;
+    }
     saveActiveJobState?.();
     renderAssessList();
     showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');

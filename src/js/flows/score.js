@@ -425,10 +425,21 @@ function renderScoreDisplay() {
   if (!result) return;
 
   const context = getScoreEvalContext(result);
-  const wq = result.score;
+  // Summary number comes from computeScoreFromReadings (fresh), never a cached draft.scoreVal.
+  // Selected standard still drives parameter status, recommended ranges, and findings.
+  const computedWho = Number(S.currentScoreResult?.computedScore);
+  const comparisonScore = Number(result.score);
+  const wq = Number.isFinite(computedWho) ? computedWho : comparisonScore;
+  console.log('RENDER SCORE DISPLAY', {
+    score: wq,
+    computedWho,
+    comparisonScore,
+    standard: result.standardKey,
+    readings: result.readings
+  });
   const findings = result.findings || [];
   const top = findings[0];
-  const verdict = result.verdict || customerVerdict(wq);
+  const verdict = customerVerdict(wq);
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
   const noteEl = document.getElementById('score-summary-note');
@@ -473,15 +484,30 @@ function renderScoreDisplay() {
   renderRoomAnalysis(context);
 }
 
-/** Switch comparison standard — recalculates the whole report view (not saved score). */
+/** Switch comparison standard — recalculates statuses from the same resolved readings. */
 function setScoreReferenceStandard(standardKey) {
   const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
-  const readings = S.scoreBaseReadings || S.currentScoreResult?.readings;
-  if (!readings || typeof readings !== 'object') return;
+  const readings = resolveScoreReadings(S.activeJob);
+  const computedScore = computeScoreFromReadings(readings);
 
   S.scoreStandardKey = key;
+  S.scoreBaseReadings = readings;
+  S.scoreVal = computedScore;
+  S.currentScoreResult = {
+    ...(S.currentScoreResult || {}),
+    score: computedScore,
+    computedScore,
+    readings: { ...readings },
+    source: 'computed'
+  };
   S.comparisonScoreResult = buildComparisonScoreResult(readings, key);
   S.scoreParamOpen = null;
+  console.log('STANDARD SWITCH', {
+    key,
+    readings,
+    computedWho: computedScore,
+    comparisonScore: S.comparisonScoreResult.score
+  });
   renderScoreDisplay();
 }
 
@@ -492,21 +518,120 @@ function meterFieldValue(id, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function readingsFromJob(job) {
-  const draft = job?.draft || {};
-  const fields = draft.fields || {};
-  if (draft.scoreBaseReadings && typeof draft.scoreBaseReadings === 'object') {
-    return { ...draft.scoreBaseReadings };
-  }
+function numOrUndefined(value) {
+  const n = typeof value === 'number' ? value : parseFloat(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** Map draft/DOM field ids → scoring keys expected by computeScoreFromReadings. */
+function readingsFromFieldMap(fields = {}) {
   return {
-    ph: parseFloat(fields['m-ph']) || 7.2,
-    tds: parseFloat(fields['m-tds']) || 450,
-    chlorine: parseFloat(fields['m-free-cl']) || 2.1,
-    turbidity: parseFloat(fields['m-turb']) || 1.2,
-    orp: parseFloat(fields['m-orp']) || 320,
-    do: parseFloat(fields['m-do']) || 6.8,
-    temp: parseFloat(fields['m-temp']) || 28
+    ph: numOrUndefined(fields['m-ph'] ?? fields.ph),
+    tds: numOrUndefined(fields['m-tds'] ?? fields.tds),
+    chlorine: numOrUndefined(fields['m-free-cl'] ?? fields.freeChlorine ?? fields.chlorine),
+    turbidity: numOrUndefined(fields['m-turb'] ?? fields.turbidity),
+    orp: numOrUndefined(fields['m-orp'] ?? fields.orp),
+    do: numOrUndefined(fields['m-do'] ?? fields.do),
+    temp: numOrUndefined(fields['m-temp'] ?? fields.temp)
   };
+}
+
+function readingsFromDomFields() {
+  return {
+    ph: numOrUndefined(document.getElementById('m-ph')?.value),
+    tds: numOrUndefined(document.getElementById('m-tds')?.value),
+    chlorine: numOrUndefined(document.getElementById('m-free-cl')?.value),
+    turbidity: numOrUndefined(document.getElementById('m-turb')?.value),
+    orp: numOrUndefined(document.getElementById('m-orp')?.value),
+    do: numOrUndefined(document.getElementById('m-do')?.value),
+    temp: numOrUndefined(document.getElementById('m-temp')?.value)
+  };
+}
+
+/**
+ * Prefer randomized OCR readings stored on tapData (source of truth).
+ * Maps freeChlorine → chlorine for the scorer.
+ */
+function readingsFromTapData(tapData) {
+  const taps = Array.isArray(tapData) ? tapData : [];
+  const meterRows = taps.map(tap => tap?.meterReadings).filter(Boolean);
+  const chlorineRows = taps.map(tap => tap?.chlorineReadings).filter(Boolean);
+  if (!meterRows.length && !chlorineRows.length) return {};
+
+  const avgKey = (rows, key) => {
+    const vals = rows.map(row => numOrUndefined(row[key])).filter(v => v !== undefined);
+    if (!vals.length) return undefined;
+    return vals.reduce((sum, n) => sum + n, 0) / vals.length;
+  };
+
+  return {
+    ph: avgKey(meterRows, 'ph'),
+    tds: avgKey(meterRows, 'tds'),
+    turbidity: avgKey(meterRows, 'turbidity'),
+    orp: avgKey(meterRows, 'orp'),
+    do: avgKey(meterRows, 'do'),
+    temp: avgKey(meterRows, 'temp'),
+    chlorine: avgKey(chlorineRows, 'freeChlorine') ?? avgKey(chlorineRows, 'chlorine')
+  };
+}
+
+function mergeReadingLayers(...layers) {
+  const keys = ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp'];
+  const out = {};
+  keys.forEach(key => {
+    for (const layer of layers) {
+      if (layer && layer[key] !== undefined && layer[key] !== null && layer[key] !== '') {
+        const n = numOrUndefined(layer[key]);
+        if (n !== undefined) {
+          out[key] = n;
+          break;
+        }
+      }
+    }
+  });
+  return out;
+}
+
+const SCORE_READING_FALLBACKS = Object.freeze({
+  ph: 7.2,
+  tds: 450,
+  chlorine: 2.1,
+  turbidity: 1.2,
+  orp: 320,
+  do: 6.8,
+  temp: 28
+});
+
+/**
+ * Resolve readings for scoring. Never let a stale scoreBaseReadings cache
+ * hide fresher randomized tap/field/DOM values.
+ */
+function resolveScoreReadings(job) {
+  const draft = job?.draft || {};
+  const fromTaps = readingsFromTapData(draft.tapData?.length ? draft.tapData : S.tapData);
+  const fromFields = readingsFromFieldMap(draft.fields || {});
+  const fromDom = readingsFromDomFields();
+  // scoreBaseReadings is last-resort fill only (not a wholesale override).
+  const fromCache = draft.scoreBaseReadings && typeof draft.scoreBaseReadings === 'object'
+    ? { ...draft.scoreBaseReadings }
+    : (S.scoreBaseReadings && typeof S.scoreBaseReadings === 'object' ? { ...S.scoreBaseReadings } : {});
+
+  const merged = mergeReadingLayers(fromTaps, fromFields, fromDom, fromCache);
+  const readings = { ...SCORE_READING_FALLBACKS, ...merged };
+
+  console.log('INPUT READINGS', {
+    readings,
+    fromTaps,
+    fromFields,
+    fromDom,
+    fromCache
+  });
+
+  return readings;
+}
+
+function readingsFromJob(job) {
+  return resolveScoreReadings(job);
 }
 
 function computeScoreFromReadings(readings) {
@@ -517,6 +642,7 @@ function computeScoreFromReadings(readings) {
   const orp = Number(readings.orp) || 320;
   const fcl = Number(readings.chlorine) || 2.1;
   const do_ = Number(readings.do) || 6.8;
+  console.log('PARAMETER VALUES', { ph, tds, turbidity: turb, orp, chlorine: fcl, do: do_ });
   const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
   const pHs = ph >= 6.5 && ph <= 8.5 ? 100 : ph >= 6 && ph <= 9 ? 70 : ph >= 5.5 && ph <= 9.5 ? 40 : 15;
   const tdss = tds <= 300 ? 100 : tds <= 600 ? 100 - (tds - 300) / 300 * 20 : tds <= 1000 ? 80 - (tds - 600) / 400 * 30 : clamp(50 - (tds - 1000) / 30);
@@ -524,7 +650,9 @@ function computeScoreFromReadings(readings) {
   const orps = orp >= 200 && orp <= 600 ? 100 : orp < 200 ? clamp(orp / 200 * 100) : clamp(100 - (orp - 600) / 10);
   const cls = fcl >= 0.2 && fcl <= 0.5 ? 100 : fcl <= 1 ? 80 : fcl <= 2 ? 50 : 25;
   const dos = do_ >= 6 ? 100 : clamp(do_ / 6 * 100);
-  return Math.round((pHs + tdss + turbs + orps + cls + dos) / 6);
+  const score = Math.round((pHs + tdss + turbs + orps + cls + dos) / 6);
+  console.log('FINAL SCORE', score, { pHs, tdss, turbs, orps, cls, dos });
+  return score;
 }
 
 /**
@@ -537,22 +665,15 @@ function computeScoreFromReadings(readings) {
 function renderWaterScore(job, options = {}) {
   const publicView = Boolean(options.publicView);
   const draft = job?.draft || {};
-  const readings = publicView
-    ? readingsFromJob(job)
-    : {
-        ph: meterFieldValue('m-ph', 7.2),
-        tds: meterFieldValue('m-tds', 450),
-        chlorine: meterFieldValue('m-free-cl', 2.1),
-        turbidity: meterFieldValue('m-turb', 1.2),
-        orp: meterFieldValue('m-orp', 320),
-        do: meterFieldValue('m-do', 6.8),
-        temp: meterFieldValue('m-temp', 28)
-      };
+  // Always resolve from tapData / fields / DOM — do not trust stale score-only cache.
+  const readings = resolveScoreReadings(job);
 
   const published = Number(job?.result?.waterScore ?? draft.scoreVal);
+  const computedScore = computeScoreFromReadings(readings);
+  // Public report may show the published score; field app always uses the fresh calculation.
   const productionScore = publicView && Number.isFinite(published)
     ? Math.max(0, Math.min(100, Math.round(published)))
-    : computeScoreFromReadings(readings);
+    : computedScore;
 
   const taps = draft.taps?.length
     ? [...draft.taps]
@@ -566,12 +687,20 @@ function renderWaterScore(job, options = {}) {
     score: productionScore,
     standardKey: 'who',
     readings: { ...readings },
-    source: publicView && Number.isFinite(published) ? 'published' : 'computed'
+    source: publicView && Number.isFinite(published) ? 'published' : 'computed',
+    computedScore
   };
   if (!S.scoreStandardKey || !WATER_QUALITY_STANDARDS[S.scoreStandardKey]) {
     S.scoreStandardKey = DEFAULT_SCORE_STANDARD_KEY;
   }
   S.comparisonScoreResult = buildComparisonScoreResult(readings, S.scoreStandardKey);
+  console.log('DISPLAY SCORE PATH', {
+    productionScore,
+    computedScore,
+    comparisonScore: S.comparisonScoreResult?.score,
+    standard: S.scoreStandardKey,
+    published: Number.isFinite(published) ? published : null
+  });
   S.taps = taps;
   // Default Room Analysis = All when multiple taps are available.
   S.scoreTapFilter = taps.length > 1 ? 'all' : taps[0];
@@ -590,7 +719,8 @@ function renderPublishedScore(job) {
 }
 
 function readingsFromBase(base, index, tapCount) {
-  // Per-room offsets so Kitchen / Master bath / etc. stay independent values.
+  // Per-room offsets so Kitchen / Master bath / etc. stay independent values
+  // when a tap has no OCR/meter snapshot yet.
   const delta = index - Math.floor(tapCount / 2);
   return {
     ph: Number(base.ph) + delta * 0.22,
@@ -613,15 +743,50 @@ function averageRoomReadings(base, tapCount) {
   return avg;
 }
 
+function readingsFromSingleTap(tap, fallback) {
+  const meter = tap?.meterReadings || {};
+  const chlorine = tap?.chlorineReadings || {};
+  const mapped = {
+    ph: numOrUndefined(meter.ph),
+    tds: numOrUndefined(meter.tds),
+    turbidity: numOrUndefined(meter.turbidity),
+    orp: numOrUndefined(meter.orp),
+    do: numOrUndefined(meter.do),
+    temp: numOrUndefined(meter.temp),
+    chlorine: numOrUndefined(chlorine.freeChlorine ?? chlorine.chlorine)
+  };
+  return { ...fallback, ...Object.fromEntries(Object.entries(mapped).filter(([, v]) => v !== undefined)) };
+}
+
 /** Resolve display readings for one room (or overall average). Does not mutate raw base readings. */
 function getRoomReadings(tapKey, context = getScoreEvalContext()) {
   const base = context.readings && Object.keys(context.readings).length
     ? context.readings
-    : (S.scoreBaseReadings || { ph: 7.2, tds: 450, chlorine: 2.1, turbidity: 1.2, orp: 320, do: 6.8, temp: 28 });
+    : (S.scoreBaseReadings || { ...SCORE_READING_FALLBACKS });
   const taps = S.taps?.length ? S.taps : ['Tap 1'];
-  if (tapKey === 'all') return averageRoomReadings(base, taps.length);
+  const tapData = (S.activeJob?.draft?.tapData?.length ? S.activeJob.draft.tapData : S.tapData) || [];
+
+  if (tapKey === 'all') {
+    const rows = taps.map((_, i) => {
+      const tap = tapData[i];
+      if (tap?.meterReadings || tap?.chlorineReadings) return readingsFromSingleTap(tap, base);
+      return readingsFromBase(base, i, taps.length);
+    });
+    const keys = ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp'];
+    const avg = {};
+    keys.forEach(key => {
+      avg[key] = rows.reduce((sum, row) => sum + Number(row[key]), 0) / rows.length;
+    });
+    return avg;
+  }
+
   const index = taps.indexOf(tapKey);
-  return readingsFromBase(base, index >= 0 ? index : 0, taps.length);
+  const safeIndex = index >= 0 ? index : 0;
+  const tap = tapData[safeIndex];
+  if (tap?.meterReadings || tap?.chlorineReadings) {
+    return readingsFromSingleTap(tap, base);
+  }
+  return readingsFromBase(base, safeIndex, taps.length);
 }
 
 /** Build metric rows for one room using selectedStandard limits — never shared across rooms. */
