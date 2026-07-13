@@ -62,7 +62,7 @@ const WATER_QUALITY_STANDARDS = Object.freeze({
     display: Object.freeze({
       ph: '6.5 - 8.5',
       tds: '<= 1000 mg/L',
-      chlorine: '0.2 - 1.5 mg/L',
+      chlorine: '0.2 - 2.0 mg/L',
       turbidity: '<= 5 NTU',
       orp: '200 - 600 mV',
       do: '>= 5 mg/L',
@@ -71,7 +71,7 @@ const WATER_QUALITY_STANDARDS = Object.freeze({
     limits: Object.freeze({
       ph: { min: 6.5, max: 8.5, fairMin: 6, fairMax: 9, poorMin: 5.5, poorMax: 9.5 },
       tds: { ideal: 500, fair: 1000, poor: 1500, displayMax: 1000 },
-      chlorine: { idealMin: 0.2, idealMax: 1.5, fair: 2, poor: 3 },
+      chlorine: { idealMin: 0.2, idealMax: 2, fair: 2.5, poor: 3.5 },
       turbidity: { ideal: 5, fair: 8, poor: 12 },
       orp: { min: 200, max: 600 },
       do: { min: 5 },
@@ -149,10 +149,12 @@ const WATER_QUALITY_STANDARDS = Object.freeze({
   })
 });
 
-const SCORE_STANDARD_ORDER = Object.freeze(['who', 'thailand', 'eu', 'usEpa', 'japan']);
+const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'who', 'eu', 'usEpa', 'japan']);
+/** UI comparison default — Thai product audience. Production/share score stays WHO. */
+const DEFAULT_SCORE_STANDARD_KEY = 'thailand';
 
 function getWaterQualityStandard(standardKey) {
-  return WATER_QUALITY_STANDARDS[standardKey] || WATER_QUALITY_STANDARDS.who;
+  return WATER_QUALITY_STANDARDS[standardKey] || WATER_QUALITY_STANDARDS[DEFAULT_SCORE_STANDARD_KEY];
 }
 
 function clampScore(n, lo = 0, hi = 100) {
@@ -200,7 +202,7 @@ function scoreDoAgainstLimits(doValue, lim) {
 }
 
 /** Parameter sub-scores + weighted overall for a selected standard. */
-function computeParamScoresForStandard(readings, standardKey = 'who') {
+function computeParamScoresForStandard(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
   const lim = getWaterQualityStandard(standardKey).limits;
   const ph = Number(readings.ph) || 7.2;
   const tds = Number(readings.tds) || 450;
@@ -220,7 +222,7 @@ function computeParamScoresForStandard(readings, standardKey = 'who') {
   return { score, params };
 }
 
-function evaluateParamStatus(paramName, value, standardKey = 'who') {
+function evaluateParamStatus(paramName, value, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
   const lim = getWaterQualityStandard(standardKey).limits;
   const key = paramKey(paramName);
   const n = Number(value);
@@ -262,7 +264,7 @@ function evaluateParamStatus(paramName, value, standardKey = 'who') {
   return 'good';
 }
 
-function buildScoreFindings(readings, standardKey = 'who') {
+function buildScoreFindings(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
   const lim = getWaterQualityStandard(standardKey).limits;
   const ph = Number(readings.ph);
   const fcl = Number(readings.chlorine);
@@ -288,8 +290,8 @@ function buildScoreFindings(readings, standardKey = 'who') {
 }
 
 /** Comparison-only result. Never write this to job.result / API. */
-function buildComparisonScoreResult(readings, standardKey = 'who') {
-  const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : 'who';
+function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
+  const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const standard = getWaterQualityStandard(key);
   const scored = computeParamScoresForStandard(readings, key);
   let score = scored.score;
@@ -306,6 +308,28 @@ function buildComparisonScoreResult(readings, standardKey = 'who') {
     findings: buildScoreFindings(readings, key),
     verdict: customerVerdict(score)
   };
+}
+
+/**
+ * Single evaluation context for the whole report view.
+ * Room Analysis + Parameter Analysis must both use this — never hardcoded limits.
+ */
+function getScoreEvalContext(result = activeComparisonResult()) {
+  const standardKey = result?.standardKey
+    || (WATER_QUALITY_STANDARDS[S.scoreStandardKey] ? S.scoreStandardKey : DEFAULT_SCORE_STANDARD_KEY);
+  const standard = result?.standard || getWaterQualityStandard(standardKey);
+  const readings = result?.readings || S.scoreBaseReadings || S.currentScoreResult?.readings || {};
+  return {
+    selectedStandard: standardKey,
+    standard,
+    standardLimits: standard.limits,
+    display: standard.display,
+    readings
+  };
+}
+
+function paramStatusUiKey(status) {
+  return status === 'attn' ? 'attn' : 'good';
 }
 
 function paramKey(paramName) {
@@ -355,13 +379,13 @@ function activeComparisonResult() {
 }
 
 function activeStandardKey() {
-  return activeComparisonResult()?.standardKey || S.scoreStandardKey || 'who';
+  return activeComparisonResult()?.standardKey || S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY;
 }
 
-function renderStandardSwitcher() {
+function renderStandardSwitcher(context = getScoreEvalContext()) {
   const listEl = document.getElementById('score-standard-switch');
   if (!listEl) return;
-  const selected = activeStandardKey();
+  const selected = context.selectedStandard;
   listEl.replaceChildren();
   SCORE_STANDARD_ORDER.forEach(key => {
     const standard = getWaterQualityStandard(key);
@@ -384,12 +408,13 @@ function renderAboutForStandard(standardKey) {
   const aboutP2 = document.getElementById('score-about-p2');
   const aboutP3 = document.getElementById('score-about-p3');
   const compareNote = document.getElementById('score-about-compare');
-  const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : 'who';
+  const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
 
   if (aboutP1) aboutP1.textContent = t(`score.about.${key}.p1`);
   if (compareNote) {
     compareNote.textContent = t('score.about.compareNote');
-    compareNote.hidden = key === 'who';
+    // Primary view is Thailand — note appears when comparing other standards.
+    compareNote.hidden = key === DEFAULT_SCORE_STANDARD_KEY;
   }
   const showThaiDiff = key === 'who';
   if (thaiTitle) {
@@ -411,6 +436,7 @@ function renderScoreDisplay() {
   const result = activeComparisonResult();
   if (!result) return;
 
+  const context = getScoreEvalContext(result);
   const wq = result.score;
   const findings = result.findings || [];
   const top = findings[0];
@@ -429,7 +455,7 @@ function renderScoreDisplay() {
     summaryCard.style.setProperty('--score-accent', verdict.color);
   }
   if (standardEl) {
-    standardEl.textContent = t(result.standard.labelKey);
+    standardEl.textContent = t(context.standard.labelKey);
   }
   if (bandEl) {
     bandEl.textContent = verdict.label;
@@ -451,15 +477,15 @@ function renderScoreDisplay() {
   if (!S.scoreTapFilter) S.scoreTapFilter = 'all';
   S.scoreParamOpen = null;
   animateScoreNumber(document.getElementById('gauge-val'), wq);
-  renderStandardSwitcher();
-  renderAboutForStandard(result.standardKey);
-  renderScoreReadings();
-  renderRoomAnalysis();
+  renderStandardSwitcher(context);
+  renderAboutForStandard(context.selectedStandard);
+  renderScoreReadings(context);
+  renderRoomAnalysis(context);
 }
 
 /** Switch comparison standard only — never overwrites saved / published score. */
 function setScoreReferenceStandard(standardKey) {
-  const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : 'who';
+  const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const readings = S.scoreBaseReadings || S.currentScoreResult?.readings;
   if (!readings) return;
   S.scoreStandardKey = key;
@@ -538,7 +564,7 @@ function renderWaterScore(job, options = {}) {
     source: publicView && Number.isFinite(published) ? 'published' : 'computed'
   };
   if (!S.scoreStandardKey || !WATER_QUALITY_STANDARDS[S.scoreStandardKey]) {
-    S.scoreStandardKey = 'who';
+    S.scoreStandardKey = DEFAULT_SCORE_STANDARD_KEY;
   }
   S.comparisonScoreResult = buildComparisonScoreResult(readings, S.scoreStandardKey);
   S.taps = taps;
@@ -557,21 +583,22 @@ function renderPublishedScore(job) {
   return renderWaterScore(job, { publicView: true });
 }
 
-function scoreTapRows(key) {
-  const base = S.scoreBaseReadings || { ph: 7.2, tds: 450, chlorine: 2.1, turbidity: 1.2, orp: 320, do: 6.8, temp: 28 };
-  const standardKey = activeStandardKey();
-  const standard = getWaterQualityStandard(standardKey);
-  const display = standard.display;
+function scoreTapRows(key, context = getScoreEvalContext()) {
+  const base = context.readings && Object.keys(context.readings).length
+    ? context.readings
+    : (S.scoreBaseReadings || { ph: 7.2, tds: 450, chlorine: 2.1, turbidity: 1.2, orp: 320, do: 6.8, temp: 28 });
+  const standardKey = context.selectedStandard;
+  const display = context.display || getWaterQualityStandard(standardKey).display;
   const taps = S.taps?.length ? S.taps : ['Tap 1'];
   const rowsFor = index => {
     const delta = index - Math.floor(taps.length / 2);
-    const ph = base.ph + delta * 0.08;
-    const tds = base.tds + delta * 18;
-    const chlorine = Math.max(0, base.chlorine + delta * 0.12);
-    const turbidity = Math.max(0.1, base.turbidity + delta * 0.1);
-    const orp = base.orp + delta * 9;
-    const doVal = Math.max(0, base.do - delta * 0.08);
-    const temp = Math.max(0, base.temp + delta * 0.2);
+    const ph = Number(base.ph) + delta * 0.08;
+    const tds = Number(base.tds) + delta * 18;
+    const chlorine = Math.max(0, Number(base.chlorine) + delta * 0.12);
+    const turbidity = Math.max(0.1, Number(base.turbidity) + delta * 0.1);
+    const orp = Number(base.orp) + delta * 9;
+    const doVal = Math.max(0, Number(base.do) - delta * 0.08);
+    const temp = Math.max(0, Number(base.temp) + delta * 0.2);
     return [
       { p: 'pH', r: ph.toFixed(1), std: display.ph, st: evaluateParamStatus('ph', ph, standardKey) },
       { p: 'TDS', r: Math.round(tds) + ' mg/L', std: display.tds, st: evaluateParamStatus('tds', tds, standardKey) },
@@ -597,7 +624,11 @@ function scoreTapRows(key) {
   });
 }
 
-function renderScoreReadings() {
+function roomNeedsAttention(tapKey, context = getScoreEvalContext()) {
+  return scoreTapRows(tapKey, context).some(row => row.st === 'attn');
+}
+
+function renderScoreReadings(context = getScoreEvalContext()) {
   const taps = S.taps?.length ? S.taps : ['Tap 1'];
   const hasMultipleTaps = taps.length > 1;
   if (!hasMultipleTaps) S.scoreTapFilter = taps[0];
@@ -613,7 +644,7 @@ function renderScoreReadings() {
       : `${t('score.viewingRoom')}: ${S.scoreTapFilter}`;
   }
 
-  const rows = scoreTapRows(S.scoreTapFilter);
+  const rows = scoreTapRows(S.scoreTapFilter, context);
   const openIndex = Number.isInteger(S.scoreParamOpen) ? S.scoreParamOpen : -1;
   const statusLabels = {
     good: t('score.status.good'),
@@ -622,7 +653,7 @@ function renderScoreReadings() {
 
   listEl.innerHTML = rows.map((r, index) => {
     const open = openIndex === index;
-    const statusKey = r.st === 'attn' ? 'attn' : 'good';
+    const statusKey = paramStatusUiKey(r.st);
     const statusLabel = statusLabels[statusKey];
     const detail = paramMeaningText(r.p, statusKey);
     return `<div class="score-metric${open ? ' is-open' : ''} is-${statusKey}">
@@ -648,7 +679,7 @@ function renderScoreReadings() {
   }).join('');
 }
 
-function renderRoomAnalysis() {
+function renderRoomAnalysis(context = getScoreEvalContext()) {
   const section = document.getElementById('score-rooms-section');
   const listEl = document.getElementById('score-room-list');
   const taps = S.taps?.length ? S.taps : [];
@@ -669,17 +700,28 @@ function renderRoomAnalysis() {
   listEl.replaceChildren();
   rows.forEach(row => {
     const active = S.scoreTapFilter === row.key;
+    const attention = row.key === 'all'
+      ? taps.some(tap => roomNeedsAttention(tap, context))
+      : roomNeedsAttention(row.key, context);
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `score-room-row${active ? ' is-active' : ''}`;
+    btn.className = `score-room-row${active ? ' is-active' : ''}${attention ? ' has-attention' : ''}`;
     btn.setAttribute('role', 'tab');
     btn.setAttribute('aria-selected', active ? 'true' : 'false');
     btn.dataset.roomKey = row.key;
+    btn.dataset.standard = context.selectedStandard;
 
     const name = document.createElement('span');
     name.className = 'score-room-name';
     name.textContent = row.label;
     btn.appendChild(name);
+
+    if (attention) {
+      const mark = document.createElement('span');
+      mark.className = 'score-room-mark';
+      mark.textContent = t('score.status.attn');
+      btn.appendChild(mark);
+    }
 
     btn.addEventListener('click', () => {
       setScoreTapFilter(row.key);
@@ -691,14 +733,15 @@ function renderRoomAnalysis() {
 
 function toggleScoreParam(index) {
   S.scoreParamOpen = S.scoreParamOpen === index ? null : index;
-  renderScoreReadings();
+  renderScoreReadings(getScoreEvalContext());
 }
 
 function setScoreTapFilter(key) {
+  const context = getScoreEvalContext();
   S.scoreTapFilter = key;
   S.scoreParamOpen = null;
-  renderScoreReadings();
-  renderRoomAnalysis();
+  renderScoreReadings(context);
+  renderRoomAnalysis(context);
   document.getElementById('score-readings-rows')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 

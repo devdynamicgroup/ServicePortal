@@ -710,7 +710,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  gap:0;
+  gap:6px;
   min-height:40px;
   padding:10px 14px;
   background:transparent;
@@ -735,7 +735,17 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   font-weight:560;
 }
 .score-room-name{font-size:14px;font-weight:500;min-width:0;overflow-wrap:normal}
-.score-room-mark{display:none}
+.score-room-mark{
+  display:inline-flex;
+  align-items:center;
+  font-size:10px;
+  font-weight:560;
+  letter-spacing:.02em;
+  color:#fbbf24;
+  white-space:nowrap;
+}
+.score-room-row.has-attention .score-room-name{color:#fde68a}
+.score-room-row.is-active.has-attention .score-room-mark{color:#fcd34d}
 .wq-standard-section{padding:20px 20px 28px;background:#000}
 .wq-standard-card{
   background:#fff;
