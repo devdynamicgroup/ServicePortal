@@ -78,73 +78,29 @@ function renderFindingInsights() {
 }
 
 function renderScoreDisplay(wq, readings) {
-  const style = getScoreStyle(wq);
-  const arcLen = 628.32;
-  const offset = arcLen * (1 - wq / 100);
-  const arcEl = document.getElementById('score-arc');
-  const glowEl = document.getElementById('score-arc-glow');
-  const tipEl = document.getElementById('score-arc-tip');
-  const grad = document.getElementById('gauge-grad');
-  const ambient = document.getElementById('gauge-ambient');
   const hero = document.getElementById('score-hero');
-  const gaugeWrap = document.getElementById('score-gauge-wrap');
+  const overview = document.getElementById('score-overview');
+  const fill = document.getElementById('score-overview-fill');
+  const findingEl = document.getElementById('score-overview-finding');
+  const scorePct = Math.max(0, Math.min(100, Number(wq) || 0));
+  const topInsight = SCORE_INSIGHT_ITEMS[0];
+  const overviewFinding = topInsight
+    ? `${topInsight.title} is the #1 reported pain — ${topInsight.pct}% experience this issue.`
+    : (wq >= 80 ? t('score.msg.high') : wq >= 50 ? t('score.msg.borderline') : t('score.msg.low'));
 
-  const tipAngle = (-90 + (wq / 100) * 360) * (Math.PI / 180);
-  const tipX = 120 + 100 * Math.cos(tipAngle);
-  const tipY = 120 + 100 * Math.sin(tipAngle);
-
-  if (arcEl) {
-    arcEl.style.strokeDashoffset = arcLen;
-    if (glowEl) glowEl.style.strokeDashoffset = arcLen;
-    requestAnimationFrame(() => {
-      arcEl.style.strokeDashoffset = offset;
-      if (glowEl) glowEl.style.strokeDashoffset = offset;
-      if (tipEl && wq > 0) {
-        tipEl.setAttribute('cx', tipX.toFixed(2));
-        tipEl.setAttribute('cy', tipY.toFixed(2));
-        tipEl.setAttribute('fill', style.arc);
-        tipEl.style.opacity = '0.9';
-      }
-    });
-  }
-  if (grad) {
-    const stops = grad.querySelectorAll('stop');
-    if (stops.length >= 2) {
-      const endColor = wq >= 80 ? '#6ee7b7' : wq >= 65 ? '#fcd34d' : '#fca5a5';
-      stops[0].setAttribute('stop-color', style.arc);
-      stops[1].setAttribute('stop-color', endColor);
-      if (stops[2]) stops[2].setAttribute('stop-color', style.arc);
-    }
-  }
-  if (ambient) ambient.style.background = `radial-gradient(circle, ${style.glow} 0%, transparent 68%)`;
   if (hero) {
     hero.className = 'score-hero score-live';
     hero.dataset.tier = wq >= 80 ? 'high' : wq >= 50 ? 'mid' : 'low';
   }
-  if (gaugeWrap) {
-    gaugeWrap.classList.remove('gauge-pop');
-    void gaugeWrap.offsetWidth;
-    gaugeWrap.classList.add('gauge-pop');
+  if (overview) {
+    const accent = wq >= 80 ? '#27AE60' : wq >= 65 ? '#F1C40F' : wq >= 50 ? '#E67E22' : '#C0392B';
+    overview.style.setProperty('--overview-accent', accent);
   }
+  if (fill) fill.style.width = `${scorePct}%`;
+  if (findingEl) findingEl.textContent = overviewFinding;
 
   animateScoreNumber(document.getElementById('gauge-val'), wq);
-
-  const bandEl = document.getElementById('gauge-band');
-  if (bandEl) {
-    bandEl.textContent = style.band;
-    bandEl.style.background = style.pill;
-    bandEl.style.color = style.pillText;
-    bandEl.classList.remove('pill-pop');
-    void bandEl.offsetWidth;
-    bandEl.classList.add('pill-pop');
-  }
-
-  const msgMain = wq >= 80 ? t('score.msg.high') : wq >= 65 ? t('score.msg.good') : wq >= 50 ? t('score.msg.borderline') : t('score.msg.low');
-  const msgSub = wq >= 50 ? t('score.msg.sub') : t('score.msg.subShort');
-  document.getElementById('gauge-message').innerHTML = `<span>${msgMain} </span><span class="muted-part">${msgSub}</span>`;
-
   document.getElementById('gauge-findings').innerHTML = renderFindingInsights();
-
   renderScoreReadings();
 }
 

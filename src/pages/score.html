@@ -7,50 +7,19 @@
 
   <div class="content-bare score-scroll">
     <div class="score-hero" id="score-hero">
-      <div class="score-gauge-area">
-        <div class="score-gauge-inner" id="score-gauge-wrap">
-          <div class="gauge-ambient" id="gauge-ambient"></div>
-          <svg class="gauge-svg" viewBox="0 0 240 240" aria-hidden="true">
-            <defs>
-              <linearGradient id="gauge-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#6ee7b7"/>
-                <stop offset="55%" stop-color="#34d399"/>
-                <stop offset="100%" stop-color="#2e9b6f"/>
-              </linearGradient>
-              <linearGradient id="gauge-track-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#3f1f1f"/>
-                <stop offset="100%" stop-color="#1c1917"/>
-              </linearGradient>
-              <filter id="gauge-soft-glow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="4" result="blur"/>
-                <feMerge>
-                  <feMergeNode in="blur"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-              <filter id="gauge-tip-glow" x="-100%" y="-100%" width="300%" height="300%">
-                <feGaussianBlur stdDeviation="3" result="blur"/>
-                <feMerge>
-                  <feMergeNode in="blur"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-            </defs>
-            <circle class="gauge-ring-outer" cx="120" cy="120" r="104" fill="none" stroke="rgba(255,255,255,.04)" stroke-width="1"/>
-            <circle id="score-arc-track" cx="120" cy="120" r="100" fill="none" stroke="url(#gauge-track-grad)" stroke-width="7" stroke-linecap="round" opacity=".55"/>
-            <circle id="score-arc-glow" cx="120" cy="120" r="100" fill="none" stroke="url(#gauge-grad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="628.32" stroke-dashoffset="628.32" transform="rotate(-90 120 120)" opacity=".22" filter="url(#gauge-soft-glow)"/>
-            <circle id="score-arc" cx="120" cy="120" r="100" fill="none" stroke="url(#gauge-grad)" stroke-width="7" stroke-linecap="round" stroke-dasharray="628.32" stroke-dashoffset="628.32" transform="rotate(-90 120 120)" filter="url(#gauge-soft-glow)"/>
-            <circle id="score-arc-tip" cx="120" cy="20" r="4" fill="#6ee7b7" opacity="0" filter="url(#gauge-tip-glow)"/>
+      <div class="score-overview-card score-reveal" id="score-overview" style="--overview-accent:#E67E22">
+        <div class="score-overview-icon" aria-hidden="true">
+          <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
+            <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
+            <path d="M20 8 C14 14 10 18 10 22 C10 27.5 14.5 32 20 32 C25.5 32 30 27.5 30 22 C30 18 26 14 20 8Z" fill="currentColor" opacity="0.3"/>
+            <path d="M20 14 C16 18 14 20 14 23 C14 26.3 16.7 29 20 29 C23.3 29 26 26.3 26 23 C26 20 24 18 20 14Z" fill="currentColor" opacity="0.6"/>
           </svg>
-          <div class="score-gauge-text">
-            <div class="score-prelabel"><span data-i18n="score.prelabel">Preliminary Score</span><br><span data-i18n="score.prelabelSub">Based on 8 on-site readings</span></div>
-            <div class="score-big" id="gauge-val">—</div>
-            <div class="score-band-pill" id="gauge-band">—</div>
-          </div>
         </div>
+        <div class="score-overview-name" data-i18n="score.overview">Appearance</div>
+        <div class="score-overview-num"><span id="gauge-val">—</span><span class="score-overview-max">/100</span></div>
+        <div class="score-overview-track" aria-hidden="true"><div class="score-overview-fill" id="score-overview-fill" style="width:0%"></div></div>
+        <div class="score-overview-finding" id="score-overview-finding"></div>
       </div>
-      <div class="score-msg score-reveal" id="gauge-message"></div>
-      <div class="score-divider"></div>
       <div class="score-findings-title score-reveal" data-i18n="score.findings">Key Findings</div>
       <div id="gauge-findings" class="score-insight-list"></div>
     </div>
