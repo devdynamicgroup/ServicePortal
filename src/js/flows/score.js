@@ -33,78 +33,45 @@ function buildScoreFindings(readings) {
   return findings;
 }
 
-/** Display-only insight fields for findings UI (does not affect score calculation). */
-function insightFromFinding(finding) {
-  const label = String(finding?.label || '');
-  const num = parseFloat(String(finding?.val ?? ''));
-  let pct = 36;
-  let severity = 'MEDIUM';
+/** Display-only Key Findings list (UI). Does not affect score calculation. */
+const SCORE_INSIGHT_ITEMS = [
+  { title: 'Yellow / brown discolouration', pct: 44, conversion: 22, severity: 'LOW' },
+  { title: 'Low / inconsistent pressure', pct: 42, conversion: 40, severity: 'HIGH' },
+  { title: 'Unusual taste or smell', pct: 40, conversion: 35, severity: '' },
+  { title: 'Water spots on fixtures', pct: 36, conversion: null, severity: '' },
+  { title: 'Chlorine smell', pct: 36, conversion: null, severity: '' },
+  { title: 'Rust / sediment / scale buildup', pct: 31, conversion: null, severity: '' }
+];
 
-  if (label === 'High chlorine' && Number.isFinite(num)) {
-    pct = Math.min(100, Math.max(8, Math.round((num / 2.5) * 100)));
-    severity = num >= 2 ? 'HIGH' : num >= 1 ? 'MEDIUM' : 'LOW';
-  } else if (label === 'Low chlorine' && Number.isFinite(num)) {
-    pct = Math.min(100, Math.max(8, Math.round((1 - num / 0.2) * 70 + 30)));
-    severity = 'HIGH';
-  } else if (label === 'High turbidity' && Number.isFinite(num)) {
-    pct = Math.min(100, Math.max(8, Math.round((num / 12) * 100)));
-    severity = num >= 10 ? 'HIGH' : num >= 7 ? 'MEDIUM' : 'LOW';
-  } else if (label === 'pH out of range' && Number.isFinite(num)) {
-    const distance = num < 6.5 ? 6.5 - num : num - 8.5;
-    pct = Math.min(100, Math.max(8, Math.round(distance * 40 + 28)));
-    severity = distance >= 1 ? 'HIGH' : distance >= 0.4 ? 'MEDIUM' : 'LOW';
-  } else if (label === 'High TDS' && Number.isFinite(num)) {
-    pct = Math.min(100, Math.max(8, Math.round(((num - 600) / 600) * 100)));
-    severity = num >= 1000 ? 'HIGH' : num >= 800 ? 'MEDIUM' : 'LOW';
-  }
-
-  return { title: label, pct, severity };
-}
-
-function renderAssessmentOverview(wq, findings, style) {
-  const accent = style?.arc || '#2779b8';
-  const top = findings[0];
-  const insight = top
-    ? `${top.label} — ${top.val}`
-    : t('score.finding.allOk');
-  return `<div class="score-overview-card score-reveal" style="--overview-accent:${accent}">
-  <div class="score-overview-icon" aria-hidden="true">
-    <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
-      <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
-      <path d="M20 8 C14 14 10 18 10 22 C10 27.5 14.5 32 20 32 C25.5 32 30 27.5 30 22 C30 18 26 14 20 8Z" fill="currentColor" opacity="0.3"/>
-      <path d="M20 14 C16 18 14 20 14 23 C14 26.3 16.7 29 20 29 C23.3 29 26 26.3 26 23 C26 20 24 18 20 14Z" fill="currentColor" opacity="0.6"/>
-    </svg>
-  </div>
-  <div class="score-overview-name">${t('score.overview')}</div>
-  <div class="score-overview-num">${Math.round(wq)}<span class="score-overview-max">/100</span></div>
-  <div class="score-overview-track" aria-hidden="true"><div class="score-overview-fill" style="width:${Math.max(0, Math.min(100, wq))}%"></div></div>
-  <div class="score-overview-finding">${insight}</div>
-</div>`;
-}
-
-function renderFindingInsights(findings) {
-  if (!findings.length) {
-    return `<div class="score-insight-item score-reveal"><div class="score-insight-body"><div class="score-insight-title">${t('score.finding.allOk')}</div></div></div>`;
-  }
-
-  return findings.map((finding, index) => {
-    const insight = insightFromFinding(finding);
+function renderFindingInsights() {
+  return SCORE_INSIGHT_ITEMS.map((item, index) => {
     const rank = String(index + 1).padStart(2, '0');
-    const severityClass = insight.severity === 'HIGH'
+    const severity = String(item.severity || '').toUpperCase();
+    const severityClass = severity === 'HIGH'
       ? 'is-high'
-      : insight.severity === 'LOW'
+      : severity === 'LOW'
         ? 'is-low'
-        : 'is-medium';
-    const measured = finding.val ? `<span class="score-insight-measured">${finding.val}</span>` : '';
+        : severity === 'MEDIUM'
+          ? 'is-medium'
+          : '';
+    const badge = severity
+      ? `<span class="score-insight-badge ${severityClass}">${severity}</span>`
+      : '';
+    const conversion = Number.isFinite(Number(item.conversion))
+      ? `<span class="score-insight-measured">${item.conversion}% conversion rate</span>`
+      : '';
+    const meta = (conversion || badge)
+      ? `<div class="score-insight-meta">${conversion}${badge}</div>`
+      : '';
     return `<div class="score-insight-item score-reveal" style="animation-delay:${120 + index * 80}ms">
   <div class="score-insight-rank">${rank}</div>
   <div class="score-insight-body">
-    <div class="score-insight-title">${insight.title}</div>
+    <div class="score-insight-title">${item.title}</div>
     <div class="score-insight-bar-wrap">
-      <div class="score-insight-track" aria-hidden="true"><div class="score-insight-fill" style="width:${insight.pct}%"></div></div>
-      <div class="score-insight-pct">${insight.pct}%</div>
+      <div class="score-insight-track" aria-hidden="true"><div class="score-insight-fill" style="width:${item.pct}%"></div></div>
+      <div class="score-insight-pct">${item.pct}%</div>
     </div>
-    <div class="score-insight-meta">${measured}<span class="score-insight-badge ${severityClass}">${insight.severity}</span></div>
+    ${meta}
   </div>
 </div>`;
   }).join('');
@@ -176,10 +143,7 @@ function renderScoreDisplay(wq, readings) {
   const msgSub = wq >= 50 ? t('score.msg.sub') : t('score.msg.subShort');
   document.getElementById('gauge-message').innerHTML = `<span>${msgMain} </span><span class="muted-part">${msgSub}</span>`;
 
-  const findings = buildScoreFindings(readings);
-  const overviewEl = document.getElementById('gauge-assessment-overview');
-  if (overviewEl) overviewEl.innerHTML = renderAssessmentOverview(wq, findings, style);
-  document.getElementById('gauge-findings').innerHTML = renderFindingInsights(findings);
+  document.getElementById('gauge-findings').innerHTML = renderFindingInsights();
 
   renderScoreReadings();
 }
