@@ -551,16 +551,18 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-metric-detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:12px;align-items:start;padding:8px 0 0;font-size:13px;color:#6b6b6b}
 .score-metric-detail strong{color:#d1d5db;font-weight:500;text-align:right;line-height:1.4;overflow-wrap:anywhere}
 .score-metric-meaning{margin:12px 0 0;font-size:13px;line-height:1.5;color:#9ca3af;overflow-wrap:anywhere}
-.score-rooms{margin-top:28px;padding-top:8px;border-top:1px solid #222}
-.score-section-head{margin-bottom:4px}
-.score-section-title{font-size:15px;font-weight:600;color:#fff;letter-spacing:-.01em;margin:0 0 4px;line-height:1.25}
-.score-section-sub{font-size:12px;color:#6b6b6b;margin:0 0 8px;line-height:1.4}
-.score-room-list{display:flex;flex-direction:column}
-.score-room-row{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:14px 0;background:transparent;border:0;border-bottom:1px solid #222;border-radius:0;color:#d1d5db;font:inherit;cursor:pointer;text-align:left;box-shadow:none}
+.score-rooms{margin-top:28px;padding-top:20px;border-top:1px solid #222}
+.score-section-head{margin-bottom:12px}
+.score-section-title{font-size:17px;font-weight:650;color:#fff;letter-spacing:-.01em;margin:0 0 6px;line-height:1.25}
+.score-section-sub{font-size:13px;color:#8a8a8a;margin:0;line-height:1.45;max-width:28em}
+.score-room-list{display:flex;flex-direction:column;margin-top:4px}
+.score-room-row{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:14px 0;background:transparent;border:0;border-bottom:1px solid #222;border-radius:0;color:#a3a3a3;font:inherit;cursor:pointer;text-align:left;box-shadow:none}
 .score-room-row:last-child{border-bottom:0}
-.score-room-row.is-active .score-room-name{color:#93c5fd}
+.score-room-row.is-active{color:#fff}
+.score-room-row.is-active .score-room-name{color:#fff;font-weight:560}
+.score-room-row.is-active .score-room-mark{color:#93c5fd}
 .score-room-name{font-size:15px;font-weight:400;min-width:0;overflow-wrap:anywhere}
-.score-room-chevron{color:#555;display:inline-flex;flex-shrink:0}
+.score-room-mark{font-size:12px;font-weight:500;color:transparent;flex-shrink:0;letter-spacing:.01em}
 .wq-standard-section{padding:20px 20px 28px;background:#000}
 @media (max-width:414px){
   .score-summary-num{font-size:64px}

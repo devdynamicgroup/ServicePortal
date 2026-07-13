@@ -306,17 +306,15 @@ function renderRoomAnalysis() {
 
   section.classList.remove('hidden');
   const rows = [
-    { key: 'all', label: t('score.paramsOverall') },
+    { key: 'all', label: t('score.roomsAll') },
     ...taps.map(tap => ({ key: tap, label: tap }))
   ];
 
   listEl.innerHTML = rows.map(row => {
     const active = S.scoreTapFilter === row.key;
-    return `<button type="button" class="score-room-row${active ? ' is-active' : ''}" onclick="setScoreTapFilter('${row.key}')">
+    return `<button type="button" class="score-room-row${active ? ' is-active' : ''}" role="option" aria-selected="${active ? 'true' : 'false'}" onclick="setScoreTapFilter('${row.key}')">
   <span class="score-room-name">${row.label}</span>
-  <span class="score-room-chevron" aria-hidden="true">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-  </span>
+  <span class="score-room-mark" aria-hidden="true">${active ? t('score.roomsSelected') : ''}</span>
 </button>`;
   }).join('');
 }
