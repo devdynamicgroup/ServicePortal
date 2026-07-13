@@ -6,6 +6,13 @@ function getScoreStyle(wq) {
   return { band: t('score.band.attention'), pill: '#f07b7b', pillText: '#0c0a09', arc: '#f07b7b', glow: 'rgba(240,123,123,.35)' };
 }
 
+/** Customer-facing verdict shown on the summary card (not the DWQI band legend). */
+function customerVerdict(wq) {
+  if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#34d399' };
+  if (wq >= 65) return { label: t('score.verdict.good'), color: '#fbbf24' };
+  return { label: t('score.verdict.attention'), color: '#f87171' };
+}
+
 function animateScoreNumber(el, target) {
   if (!el) return;
   const dur = 1100;
@@ -25,15 +32,16 @@ function buildScoreFindings(readings) {
   const turb = Number(readings.turbidity);
   const tds = Number(readings.tds);
   const findings = [];
-  if (fcl > 0.5) findings.push({ label: 'High chlorine', val: fcl + ' mg/L' });
-  if (turb > 5) findings.push({ label: 'High turbidity', val: turb + ' NTU' });
-  if (fcl < 0.2) findings.push({ label: 'Low chlorine', val: fcl + ' mg/L' });
-  if (ph < 6.5 || ph > 8.5) findings.push({ label: 'pH out of range', val: ph });
-  if (tds > 600) findings.push({ label: 'High TDS', val: tds + ' mg/L' });
+  if (fcl > 0.5) findings.push({ label: t('score.concern.highChlorine'), val: fcl + ' mg/L', note: t('score.note.highChlorine') });
+  if (turb > 5) findings.push({ label: t('score.concern.highTurbidity'), val: turb + ' NTU', note: t('score.note.highTurbidity') });
+  if (fcl < 0.2) findings.push({ label: t('score.concern.lowChlorine'), val: fcl + ' mg/L', note: t('score.note.lowChlorine') });
+  if (ph < 6.5 || ph > 8.5) findings.push({ label: t('score.concern.phRange'), val: String(ph), note: t('score.note.phRange') });
+  if (tds > 600) findings.push({ label: t('score.concern.highTds'), val: tds + ' mg/L', note: t('score.note.highTds') });
   return findings;
 }
 
-function paramImpactText(paramName) {
+function paramExplanationText(paramName, status) {
+  if (status === 'good') return t('score.explain.withinRange');
   const key = String(paramName || '').toLowerCase();
   if (key === 'ph') return t('score.impact.ph');
   if (key === 'tds') return t('score.impact.tds');
@@ -45,39 +53,36 @@ function paramImpactText(paramName) {
   return t('score.impact.default');
 }
 
-function renderScoreSegments(wq) {
-  const filled = Math.max(0, Math.min(10, Math.round((Number(wq) || 0) / 10)));
-  return Array.from({ length: 10 }, (_, i) =>
-    `<span class="score-seg${i < filled ? ' is-on' : ''}"></span>`
-  ).join('');
-}
-
 function renderScoreDisplay(wq, readings) {
-  const style = getScoreStyle(wq);
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
   const findingEl = document.getElementById('score-summary-finding');
   const noteEl = document.getElementById('score-summary-note');
-  const segmentsEl = document.getElementById('score-summary-segments');
+  const fillEl = document.getElementById('score-summary-fill');
   const findings = buildScoreFindings(readings);
-  const mainFinding = findings[0]?.label || t('score.finding.allOk');
-  const note = wq >= 50 ? t('score.msg.sub') : t('score.msg.subShort');
+  const top = findings[0];
+  const verdict = customerVerdict(wq);
 
   if (hero) {
     hero.className = 'score-hero score-live';
-    hero.dataset.tier = wq >= 80 ? 'high' : wq >= 50 ? 'mid' : 'low';
+    hero.dataset.tier = wq >= 80 ? 'high' : wq >= 65 ? 'mid' : 'low';
   }
   if (bandEl) {
-    bandEl.textContent = style.band;
-    bandEl.style.color = style.arc;
+    bandEl.textContent = verdict.label;
+    bandEl.style.color = verdict.color;
   }
-  if (findingEl) findingEl.textContent = mainFinding;
-  if (noteEl) noteEl.textContent = note;
-  if (segmentsEl) segmentsEl.innerHTML = renderScoreSegments(wq);
+  if (findingEl) findingEl.textContent = top?.label || t('score.finding.allOk');
+  if (noteEl) {
+    noteEl.textContent = top?.note
+      || (wq >= 80 ? t('score.msg.high') : wq >= 65 ? t('score.msg.good') : t('score.msg.subShort'));
+  }
+  if (fillEl) fillEl.style.width = `${Math.max(0, Math.min(100, Number(wq) || 0))}%`;
 
+  if (!S.scoreTapFilter) S.scoreTapFilter = 'all';
   S.scoreParamOpen = null;
   animateScoreNumber(document.getElementById('gauge-val'), wq);
   renderScoreReadings();
+  renderRoomAnalysis();
 }
 
 function meterFieldValue(id, fallback) {
@@ -201,54 +206,88 @@ function scoreTapRows(key) {
 function renderScoreReadings() {
   const taps = S.taps?.length ? S.taps : ['Tap 1'];
   const hasMultipleTaps = taps.length > 1;
-  if (!hasMultipleTaps && S.scoreTapFilter === 'all') S.scoreTapFilter = taps[0];
+  if (!hasMultipleTaps) S.scoreTapFilter = taps[0];
   if (!S.scoreTapFilter) S.scoreTapFilter = hasMultipleTaps ? 'all' : taps[0];
 
-  const tabs = hasMultipleTaps
-    ? [{ label: `${t('score.allTaps')} (${taps.length})`, key: 'all' }, ...taps.map(tap => ({ label: tap, key: tap }))]
-    : taps.map(tap => ({ label: tap, key: tap }));
-  const tabBar = document.getElementById('score-tap-tabs');
   const listEl = document.getElementById('score-readings-rows');
-  if (!tabBar || !listEl) return;
+  const scopeEl = document.getElementById('score-params-scope');
+  if (!listEl) return;
 
-  tabBar.innerHTML = tabs.map(tab =>
-    `<button type="button" class="readings-tab${S.scoreTapFilter === tab.key ? ' active' : ''}" onclick="setScoreTapFilter('${tab.key}')">${tab.label}</button>`
-  ).join('');
+  if (scopeEl) {
+    scopeEl.textContent = S.scoreTapFilter === 'all'
+      ? t('score.paramsOverall')
+      : `${t('score.viewingRoom')}: ${S.scoreTapFilter}`;
+  }
 
-  const labels = { good: t('score.status.good'), attn: t('score.status.attn'), intl: t('score.status.intl') };
+  const labels = {
+    good: t('score.status.good'),
+    attn: t('score.status.attn'),
+    intl: t('score.status.good')
+  };
   const rows = scoreTapRows(S.scoreTapFilter);
   const openIndex = Number.isInteger(S.scoreParamOpen) ? S.scoreParamOpen : -1;
 
   listEl.innerHTML = rows.map((r, index) => {
     const open = openIndex === index;
-    const statusLabel = labels[r.st] || labels.good;
-    return `<div class="score-param-item${open ? ' is-open' : ''} score-reveal" style="animation-delay:${80 + index * 40}ms">
+    const statusKey = r.st === 'attn' ? 'attn' : 'good';
+    const statusLabel = labels[statusKey];
+    return `<article class="score-param-card${open ? ' is-open' : ''} score-reveal" style="animation-delay:${60 + index * 35}ms">
   <button type="button" class="score-param-head" onclick="toggleScoreParam(${index})" aria-expanded="${open ? 'true' : 'false'}">
-    <div class="score-param-main">
+    <div class="score-param-copy">
       <div class="score-param-name">${r.p}</div>
       <div class="score-param-value">${r.r}</div>
-      <div class="score-param-status"><span class="score-param-badge ${r.st}">${statusLabel}</span></div>
     </div>
-    <span class="score-param-chevron" aria-hidden="true">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-    </span>
+    <div class="score-param-side">
+      <span class="score-param-badge ${statusKey}">${statusLabel}</span>
+      <span class="score-param-chevron" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </span>
+    </div>
   </button>
   <div class="score-param-body"${open ? '' : ' hidden'}>
-    <div class="score-param-divider" aria-hidden="true"></div>
+    <div class="score-param-detail">
+      <span>${t('score.status')}</span>
+      <strong>${statusLabel}</strong>
+    </div>
     <div class="score-param-detail">
       <span>${t('score.standard')}</span>
       <strong>${r.std}</strong>
     </div>
-    <div class="score-param-detail">
-      <span>${t('score.impact')}</span>
-      <strong>${paramImpactText(r.p)}</strong>
-    </div>
-    <div class="score-param-detail">
-      <span>${t('score.status')}</span>
-      <strong class="score-param-badge ${r.st}">${statusLabel}</strong>
+    <div class="score-param-detail score-param-explain">
+      <span>${t('score.explanation')}</span>
+      <strong>${paramExplanationText(r.p, statusKey)}</strong>
     </div>
   </div>
-</div>`;
+</article>`;
+  }).join('');
+}
+
+function renderRoomAnalysis() {
+  const section = document.getElementById('score-rooms-section');
+  const listEl = document.getElementById('score-room-list');
+  const taps = S.taps?.length ? S.taps : [];
+  if (!section || !listEl) return;
+
+  if (taps.length <= 1) {
+    section.classList.add('hidden');
+    listEl.innerHTML = '';
+    return;
+  }
+
+  section.classList.remove('hidden');
+  const rows = [
+    { key: 'all', label: t('score.paramsOverall') },
+    ...taps.map(tap => ({ key: tap, label: tap }))
+  ];
+
+  listEl.innerHTML = rows.map(row => {
+    const active = S.scoreTapFilter === row.key;
+    return `<button type="button" class="score-room-row${active ? ' is-active' : ''}" onclick="setScoreTapFilter('${row.key}')">
+  <span class="score-room-name">${row.label}</span>
+  <span class="score-room-chevron" aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+  </span>
+</button>`;
   }).join('');
 }
 
@@ -261,6 +300,8 @@ function setScoreTapFilter(key) {
   S.scoreTapFilter = key;
   S.scoreParamOpen = null;
   renderScoreReadings();
+  renderRoomAnalysis();
+  document.getElementById('score-readings-rows')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 let sharingScore = false;
