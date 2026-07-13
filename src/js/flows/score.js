@@ -314,23 +314,37 @@ function renderRoomAnalysis() {
 
   if (taps.length <= 1) {
     section.classList.add('hidden');
-    listEl.innerHTML = '';
+    listEl.replaceChildren();
     return;
   }
 
   section.classList.remove('hidden');
   const rows = [
-    { key: 'all', label: t('score.roomsAll') },
+    { key: 'all', label: `${t('score.roomsAll')} (${taps.length})` },
     ...taps.map(tap => ({ key: tap, label: tap }))
   ];
 
-  listEl.innerHTML = rows.map(row => {
+  listEl.replaceChildren();
+  rows.forEach(row => {
     const active = S.scoreTapFilter === row.key;
-    return `<button type="button" class="score-room-row${active ? ' is-active' : ''}" role="option" aria-selected="${active ? 'true' : 'false'}" onclick="setScoreTapFilter('${row.key}')">
-  <span class="score-room-name">${row.label}</span>
-  <span class="score-room-mark" aria-hidden="true">${active ? t('score.roomsSelected') : ''}</span>
-</button>`;
-  }).join('');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `score-room-row${active ? ' is-active' : ''}`;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    btn.dataset.roomKey = row.key;
+
+    const name = document.createElement('span');
+    name.className = 'score-room-name';
+    name.textContent = row.label;
+    btn.appendChild(name);
+
+    btn.addEventListener('click', () => {
+      setScoreTapFilter(row.key);
+    });
+
+    listEl.appendChild(btn);
+  });
 }
 
 function toggleScoreParam(index) {
@@ -343,7 +357,7 @@ function setScoreTapFilter(key) {
   S.scoreParamOpen = null;
   renderScoreReadings();
   renderRoomAnalysis();
-  document.getElementById('score-readings-rows')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('score-readings-rows')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 let sharingScore = false;
