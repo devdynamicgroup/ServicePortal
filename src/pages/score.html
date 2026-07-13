@@ -7,34 +7,32 @@
 
   <div class="content-bare score-scroll">
     <div class="score-hero" id="score-hero">
-      <div class="score-overview-card score-reveal" id="score-overview" style="--overview-accent:#E67E22">
-        <div class="score-overview-icon" aria-hidden="true">
-          <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
-            <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
-            <path d="M20 8 C14 14 10 18 10 22 C10 27.5 14.5 32 20 32 C25.5 32 30 27.5 30 22 C30 18 26 14 20 8Z" fill="currentColor" opacity="0.3"/>
-            <path d="M20 14 C16 18 14 20 14 23 C14 26.3 16.7 29 20 29 C23.3 29 26 26.3 26 23 C26 20 24 18 20 14Z" fill="currentColor" opacity="0.6"/>
-          </svg>
+      <div class="score-summary-card score-reveal" id="score-summary-card">
+        <div class="score-summary-meta" data-i18n="score.title">Water Score</div>
+        <div class="score-summary-score">
+          <span class="score-summary-num" id="gauge-val">—</span>
+          <span class="score-summary-den">/100</span>
         </div>
-        <div class="score-overview-name" data-i18n="score.overview">Appearance</div>
-        <div class="score-overview-num"><span id="gauge-val">—</span><span class="score-overview-max">/100</span></div>
-        <div class="score-overview-track" aria-hidden="true"><div class="score-overview-fill" id="score-overview-fill" style="width:0%"></div></div>
-        <div class="score-overview-finding" id="score-overview-finding"></div>
+        <div class="score-summary-band" id="score-summary-band">—</div>
+        <div class="score-summary-rows">
+          <div class="score-summary-row">
+            <span data-i18n="score.mainFinding">Main finding</span>
+            <strong id="score-summary-finding">—</strong>
+          </div>
+        </div>
+        <p class="score-summary-note" id="score-summary-note"></p>
+        <div class="score-summary-segments" id="score-summary-segments" aria-hidden="true"></div>
       </div>
-      <div class="score-findings-title score-reveal" data-i18n="score.findings">Key Findings</div>
-      <div id="gauge-findings" class="score-insight-list"></div>
     </div>
 
-    <div class="score-readings">
-      <div class="score-readings-hdr">
-        <span data-i18n="score.readings">Readings</span>
-        <a href="#" onclick="event.preventDefault();showToast('DWQI standard based on WHO guidelines')" data-i18n="score.viewStandard">View Our Standard</a>
-      </div>
-      <div class="readings-card">
-        <div class="readings-tabs" id="score-tap-tabs"></div>
-        <div class="readings-table-hdr">
-          <span data-i18n="score.param">Parameter</span><span data-i18n="score.result">Result</span><span data-i18n="score.standard">Standard</span><span data-i18n="score.status">Status</span>
+    <div class="score-params">
+      <div class="score-params-panel">
+        <div class="score-params-hdr">
+          <span data-i18n="score.wqTitle">Water Quality</span>
+          <a href="#" onclick="event.preventDefault();showToast('DWQI standard based on WHO guidelines')" data-i18n="score.viewStandard">View Our Standard</a>
         </div>
-        <div id="score-readings-rows"></div>
+        <div class="readings-tabs score-params-tabs" id="score-tap-tabs"></div>
+        <div id="score-readings-rows" class="score-param-list"></div>
       </div>
     </div>
 

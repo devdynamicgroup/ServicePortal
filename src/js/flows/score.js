@@ -33,74 +33,50 @@ function buildScoreFindings(readings) {
   return findings;
 }
 
-/** Display-only Key Findings list (UI). Does not affect score calculation. */
-const SCORE_INSIGHT_ITEMS = [
-  { title: 'Yellow / brown discolouration', pct: 44, conversion: 22, severity: 'LOW' },
-  { title: 'Low / inconsistent pressure', pct: 42, conversion: 40, severity: 'HIGH' },
-  { title: 'Unusual taste or smell', pct: 40, conversion: 35, severity: '' },
-  { title: 'Water spots on fixtures', pct: 36, conversion: null, severity: '' },
-  { title: 'Chlorine smell', pct: 36, conversion: null, severity: '' },
-  { title: 'Rust / sediment / scale buildup', pct: 31, conversion: null, severity: '' }
-];
+function paramImpactText(paramName) {
+  const key = String(paramName || '').toLowerCase();
+  if (key === 'ph') return t('score.impact.ph');
+  if (key === 'tds') return t('score.impact.tds');
+  if (key === 'chlorine') return t('score.impact.chlorine');
+  if (key === 'turbidity') return t('score.impact.turbidity');
+  if (key === 'orp') return t('score.impact.orp');
+  if (key === 'do') return t('score.impact.do');
+  if (key === 'temp') return t('score.impact.temp');
+  return t('score.impact.default');
+}
 
-function renderFindingInsights() {
-  return SCORE_INSIGHT_ITEMS.map((item, index) => {
-    const rank = String(index + 1).padStart(2, '0');
-    const severity = String(item.severity || '').toUpperCase();
-    const severityClass = severity === 'HIGH'
-      ? 'is-high'
-      : severity === 'LOW'
-        ? 'is-low'
-        : severity === 'MEDIUM'
-          ? 'is-medium'
-          : '';
-    const badge = severity
-      ? `<span class="score-insight-badge ${severityClass}">${severity}</span>`
-      : '';
-    const conversion = Number.isFinite(Number(item.conversion))
-      ? `<span class="score-insight-measured">${item.conversion}% conversion rate</span>`
-      : '';
-    const meta = (conversion || badge)
-      ? `<div class="score-insight-meta">${conversion}${badge}</div>`
-      : '';
-    return `<div class="score-insight-item score-reveal" style="animation-delay:${120 + index * 80}ms">
-  <div class="score-insight-rank">${rank}</div>
-  <div class="score-insight-body">
-    <div class="score-insight-title">${item.title}</div>
-    <div class="score-insight-bar-wrap">
-      <div class="score-insight-track" aria-hidden="true"><div class="score-insight-fill" style="width:${item.pct}%"></div></div>
-      <div class="score-insight-pct">${item.pct}%</div>
-    </div>
-    ${meta}
-  </div>
-</div>`;
-  }).join('');
+function renderScoreSegments(wq) {
+  const filled = Math.max(0, Math.min(10, Math.round((Number(wq) || 0) / 10)));
+  return Array.from({ length: 10 }, (_, i) =>
+    `<span class="score-seg${i < filled ? ' is-on' : ''}"></span>`
+  ).join('');
 }
 
 function renderScoreDisplay(wq, readings) {
+  const style = getScoreStyle(wq);
   const hero = document.getElementById('score-hero');
-  const overview = document.getElementById('score-overview');
-  const fill = document.getElementById('score-overview-fill');
-  const findingEl = document.getElementById('score-overview-finding');
-  const scorePct = Math.max(0, Math.min(100, Number(wq) || 0));
-  const topInsight = SCORE_INSIGHT_ITEMS[0];
-  const overviewFinding = topInsight
-    ? `${topInsight.title} is the #1 reported pain — ${topInsight.pct}% experience this issue.`
-    : (wq >= 80 ? t('score.msg.high') : wq >= 50 ? t('score.msg.borderline') : t('score.msg.low'));
+  const bandEl = document.getElementById('score-summary-band');
+  const findingEl = document.getElementById('score-summary-finding');
+  const noteEl = document.getElementById('score-summary-note');
+  const segmentsEl = document.getElementById('score-summary-segments');
+  const findings = buildScoreFindings(readings);
+  const mainFinding = findings[0]?.label || t('score.finding.allOk');
+  const note = wq >= 50 ? t('score.msg.sub') : t('score.msg.subShort');
 
   if (hero) {
     hero.className = 'score-hero score-live';
     hero.dataset.tier = wq >= 80 ? 'high' : wq >= 50 ? 'mid' : 'low';
   }
-  if (overview) {
-    const accent = wq >= 80 ? '#27AE60' : wq >= 65 ? '#F1C40F' : wq >= 50 ? '#E67E22' : '#C0392B';
-    overview.style.setProperty('--overview-accent', accent);
+  if (bandEl) {
+    bandEl.textContent = style.band;
+    bandEl.style.color = style.arc;
   }
-  if (fill) fill.style.width = `${scorePct}%`;
-  if (findingEl) findingEl.textContent = overviewFinding;
+  if (findingEl) findingEl.textContent = mainFinding;
+  if (noteEl) noteEl.textContent = note;
+  if (segmentsEl) segmentsEl.innerHTML = renderScoreSegments(wq);
 
+  S.scoreParamOpen = null;
   animateScoreNumber(document.getElementById('gauge-val'), wq);
-  document.getElementById('gauge-findings').innerHTML = renderFindingInsights();
   renderScoreReadings();
 }
 
@@ -232,22 +208,58 @@ function renderScoreReadings() {
     ? [{ label: `${t('score.allTaps')} (${taps.length})`, key: 'all' }, ...taps.map(tap => ({ label: tap, key: tap }))]
     : taps.map(tap => ({ label: tap, key: tap }));
   const tabBar = document.getElementById('score-tap-tabs');
-  if (!tabBar) return;
-  tabBar.innerHTML = tabs.map(tab => `<button type="button" class="readings-tab${S.scoreTapFilter === tab.key ? ' active' : ''}" onclick="setScoreTapFilter('${tab.key}')">${tab.label}</button>`).join('');
+  const listEl = document.getElementById('score-readings-rows');
+  if (!tabBar || !listEl) return;
+
+  tabBar.innerHTML = tabs.map(tab =>
+    `<button type="button" class="readings-tab${S.scoreTapFilter === tab.key ? ' active' : ''}" onclick="setScoreTapFilter('${tab.key}')">${tab.label}</button>`
+  ).join('');
 
   const labels = { good: t('score.status.good'), attn: t('score.status.attn'), intl: t('score.status.intl') };
   const rows = scoreTapRows(S.scoreTapFilter);
-  document.getElementById('score-readings-rows').innerHTML = rows.map(r => `
-    <div class="reading-row">
-      <span class="reading-param">${r.p}</span>
-      <span class="reading-result">${r.r}</span>
-      <span class="reading-standard">${r.std}</span>
-      <span class="reading-status"><span class="status-dot ${r.st}"></span>${labels[r.st]}</span>
-    </div>`).join('');
+  const openIndex = Number.isInteger(S.scoreParamOpen) ? S.scoreParamOpen : -1;
+
+  listEl.innerHTML = rows.map((r, index) => {
+    const open = openIndex === index;
+    const statusLabel = labels[r.st] || labels.good;
+    return `<div class="score-param-item${open ? ' is-open' : ''} score-reveal" style="animation-delay:${80 + index * 40}ms">
+  <button type="button" class="score-param-head" onclick="toggleScoreParam(${index})" aria-expanded="${open ? 'true' : 'false'}">
+    <div class="score-param-main">
+      <div class="score-param-name">${r.p}</div>
+      <div class="score-param-value">${r.r}</div>
+      <div class="score-param-status"><span class="score-param-badge ${r.st}">${statusLabel}</span></div>
+    </div>
+    <span class="score-param-chevron" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </span>
+  </button>
+  <div class="score-param-body"${open ? '' : ' hidden'}>
+    <div class="score-param-divider" aria-hidden="true"></div>
+    <div class="score-param-detail">
+      <span>${t('score.standard')}</span>
+      <strong>${r.std}</strong>
+    </div>
+    <div class="score-param-detail">
+      <span>${t('score.impact')}</span>
+      <strong>${paramImpactText(r.p)}</strong>
+    </div>
+    <div class="score-param-detail">
+      <span>${t('score.status')}</span>
+      <strong class="score-param-badge ${r.st}">${statusLabel}</strong>
+    </div>
+  </div>
+</div>`;
+  }).join('');
+}
+
+function toggleScoreParam(index) {
+  S.scoreParamOpen = S.scoreParamOpen === index ? null : index;
+  renderScoreReadings();
 }
 
 function setScoreTapFilter(key) {
   S.scoreTapFilter = key;
+  S.scoreParamOpen = null;
   renderScoreReadings();
 }
 

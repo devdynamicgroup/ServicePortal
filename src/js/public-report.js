@@ -84,7 +84,7 @@ function mountPublicWaterScore(report) {
   console.log('[public-report] renderWaterScore finished', {
     score,
     gaugeVal: document.getElementById('gauge-val')?.textContent,
-    findings: Boolean(document.getElementById('gauge-findings')?.innerHTML),
+    findings: Boolean(document.getElementById('score-summary-finding')?.textContent),
     readingRows: document.getElementById('score-readings-rows')?.children?.length || 0
   });
   return score;
