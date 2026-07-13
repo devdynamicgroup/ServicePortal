@@ -8,17 +8,25 @@
   <div class="content-bare score-scroll">
     <section class="score-report" id="score-hero">
       <div class="score-report-inner score-reveal">
-        <div class="score-summary-meta" data-i18n="score.title">Water Score</div>
-        <div class="score-summary-score">
-          <span class="score-summary-num" id="gauge-val">—</span>
-          <span class="score-summary-den">/100</span>
+        <div class="score-summary-card">
+          <div class="score-summary-icon-wrap" aria-hidden="true">
+            <svg class="score-summary-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="var(--score-accent)" opacity="0.15"/>
+              <path d="M12 5.5l4.24 4.24a6 6 0 1 1-8.49 0z" fill="var(--score-accent)" opacity="0.6"/>
+            </svg>
+          </div>
+          <div class="score-summary-meta" data-i18n="score.title">Water Score</div>
+          <div class="score-summary-score">
+            <span class="score-summary-num" id="gauge-val">—</span>
+            <span class="score-summary-den">/100</span>
+          </div>
+          <div class="score-progress" id="score-status-bar" role="img" aria-label="Water Score level">
+            <div class="score-progress-fill" id="score-progress-fill"></div>
+          </div>
+          <h2 class="score-client-name" id="score-client-name"></h2>
+          <div class="score-summary-verdict" id="score-summary-band">—</div>
+          <p class="score-summary-note" id="score-summary-note"></p>
         </div>
-        <div class="score-progress" id="score-status-bar" role="img" aria-label="Water Score level">
-          <div class="score-progress-fill" id="score-progress-fill"></div>
-        </div>
-        <h2 class="score-client-name" id="score-client-name"></h2>
-        <div class="score-summary-verdict" id="score-summary-band">—</div>
-        <p class="score-summary-note" id="score-summary-note"></p>
 
         <p class="score-params-scope" id="score-params-scope" data-i18n="score.paramsOverall">Overall average across taps</p>
         <div class="score-metric-list" id="score-readings-rows"></div>

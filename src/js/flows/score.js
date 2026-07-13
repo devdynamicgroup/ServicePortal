@@ -104,6 +104,10 @@ function renderScoreDisplay(wq, readings) {
     hero.className = 'score-report score-live';
     hero.dataset.tier = wq >= 80 ? 'high' : wq >= 65 ? 'mid' : 'low';
   }
+  const summaryCard = hero?.querySelector('.score-summary-card');
+  if (summaryCard) {
+    summaryCard.style.setProperty('--score-accent', verdict.color);
+  }
   if (nameEl) {
     nameEl.textContent = clientName;
     nameEl.hidden = !clientName;
