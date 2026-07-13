@@ -583,49 +583,64 @@ function renderPublishedScore(job) {
   return renderWaterScore(job, { publicView: true });
 }
 
-function scoreTapRows(key, context = getScoreEvalContext()) {
+function readingsFromBase(base, index, tapCount) {
+  const delta = index - Math.floor(tapCount / 2);
+  return {
+    ph: Number(base.ph) + delta * 0.08,
+    tds: Number(base.tds) + delta * 18,
+    chlorine: Math.max(0, Number(base.chlorine) + delta * 0.12),
+    turbidity: Math.max(0.1, Number(base.turbidity) + delta * 0.1),
+    orp: Number(base.orp) + delta * 9,
+    do: Math.max(0, Number(base.do) - delta * 0.08),
+    temp: Math.max(0, Number(base.temp) + delta * 0.2)
+  };
+}
+
+function averageRoomReadings(base, tapCount) {
+  const list = Array.from({ length: tapCount }, (_, i) => readingsFromBase(base, i, tapCount));
+  const keys = ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp'];
+  const avg = {};
+  keys.forEach(key => {
+    avg[key] = list.reduce((sum, row) => sum + Number(row[key]), 0) / list.length;
+  });
+  return avg;
+}
+
+/** Resolve display readings for one room (or overall average). Does not mutate raw base readings. */
+function getRoomReadings(tapKey, context = getScoreEvalContext()) {
   const base = context.readings && Object.keys(context.readings).length
     ? context.readings
     : (S.scoreBaseReadings || { ph: 7.2, tds: 450, chlorine: 2.1, turbidity: 1.2, orp: 320, do: 6.8, temp: 28 });
-  const standardKey = context.selectedStandard;
-  const display = context.display || getWaterQualityStandard(standardKey).display;
   const taps = S.taps?.length ? S.taps : ['Tap 1'];
-  const rowsFor = index => {
-    const delta = index - Math.floor(taps.length / 2);
-    const ph = Number(base.ph) + delta * 0.08;
-    const tds = Number(base.tds) + delta * 18;
-    const chlorine = Math.max(0, Number(base.chlorine) + delta * 0.12);
-    const turbidity = Math.max(0.1, Number(base.turbidity) + delta * 0.1);
-    const orp = Number(base.orp) + delta * 9;
-    const doVal = Math.max(0, Number(base.do) - delta * 0.08);
-    const temp = Math.max(0, Number(base.temp) + delta * 0.2);
-    return [
-      { p: 'pH', r: ph.toFixed(1), std: display.ph, st: evaluateParamStatus('ph', ph, standardKey) },
-      { p: 'TDS', r: Math.round(tds) + ' mg/L', std: display.tds, st: evaluateParamStatus('tds', tds, standardKey) },
-      { p: 'Chlorine', r: chlorine.toFixed(1) + ' mg/L', std: display.chlorine, st: evaluateParamStatus('chlorine', chlorine, standardKey) },
-      { p: 'Turbidity', r: turbidity.toFixed(1) + ' NTU', std: display.turbidity, st: evaluateParamStatus('turbidity', turbidity, standardKey) },
-      { p: 'ORP', r: Math.round(orp) + ' mV', std: display.orp, st: evaluateParamStatus('orp', orp, standardKey) },
-      { p: 'DO', r: doVal.toFixed(1) + ' mg/L', std: display.do, st: evaluateParamStatus('do', doVal, standardKey) },
-      { p: 'Temp', r: temp.toFixed(1) + '°C', std: display.temp, st: evaluateParamStatus('temp', temp, standardKey) }
-    ];
-  };
-
-  if (key !== 'all') return rowsFor(Math.max(0, taps.indexOf(key)));
-
-  const all = taps.map((_, i) => rowsFor(i));
-  return all[0].map((row, rowIndex) => {
-    const values = all.map(rows => parseFloat(rows[rowIndex].r));
-    const avg = values.reduce((sum, n) => sum + n, 0) / values.length;
-    const unit = row.r.replace(/^[\d.]+\s?/, '');
-    const precision = row.p === 'pH' || row.p === 'Chlorine' || row.p === 'Turbidity' || row.p === 'DO' || row.p === 'Temp' ? 1 : 0;
-    const displayVal = precision ? avg.toFixed(1) : Math.round(avg);
-    const st = all.some(rows => rows[rowIndex].st === 'attn') ? 'attn' : all.some(rows => rows[rowIndex].st === 'intl') ? 'intl' : 'good';
-    return { ...row, r: `${displayVal}${unit ? ' ' + unit.trim() : ''}`, st };
-  });
+  if (tapKey === 'all') return averageRoomReadings(base, taps.length);
+  const index = taps.indexOf(tapKey);
+  return readingsFromBase(base, index >= 0 ? index : 0, taps.length);
 }
 
-function roomNeedsAttention(tapKey, context = getScoreEvalContext()) {
-  return scoreTapRows(tapKey, context).some(row => row.st === 'attn');
+/** Build metric rows for one room using selectedStandard limits — never shared across rooms. */
+function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
+  const standardKey = context.selectedStandard || DEFAULT_SCORE_STANDARD_KEY;
+  const display = context.display || getWaterQualityStandard(standardKey).display;
+  const ph = Number(readings.ph);
+  const tds = Number(readings.tds);
+  const chlorine = Number(readings.chlorine);
+  const turbidity = Number(readings.turbidity);
+  const orp = Number(readings.orp);
+  const doVal = Number(readings.do);
+  const temp = Number(readings.temp);
+  return [
+    { p: 'pH', r: ph.toFixed(1), std: display.ph, st: evaluateParamStatus('ph', ph, standardKey) },
+    { p: 'TDS', r: Math.round(tds) + ' mg/L', std: display.tds, st: evaluateParamStatus('tds', tds, standardKey) },
+    { p: 'Chlorine', r: chlorine.toFixed(1) + ' mg/L', std: display.chlorine, st: evaluateParamStatus('chlorine', chlorine, standardKey) },
+    { p: 'Turbidity', r: turbidity.toFixed(1) + ' NTU', std: display.turbidity, st: evaluateParamStatus('turbidity', turbidity, standardKey) },
+    { p: 'ORP', r: Math.round(orp) + ' mV', std: display.orp, st: evaluateParamStatus('orp', orp, standardKey) },
+    { p: 'DO', r: doVal.toFixed(1) + ' mg/L', std: display.do, st: evaluateParamStatus('do', doVal, standardKey) },
+    { p: 'Temp', r: temp.toFixed(1) + '°C', std: display.temp, st: evaluateParamStatus('temp', temp, standardKey) }
+  ];
+}
+
+function scoreTapRows(key, context = getScoreEvalContext()) {
+  return buildMetricRowsForReadings(getRoomReadings(key, context), context);
 }
 
 function renderScoreReadings(context = getScoreEvalContext()) {
@@ -700,12 +715,9 @@ function renderRoomAnalysis(context = getScoreEvalContext()) {
   listEl.replaceChildren();
   rows.forEach(row => {
     const active = S.scoreTapFilter === row.key;
-    const attention = row.key === 'all'
-      ? taps.some(tap => roomNeedsAttention(tap, context))
-      : roomNeedsAttention(row.key, context);
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `score-room-row${active ? ' is-active' : ''}${attention ? ' has-attention' : ''}`;
+    btn.className = `score-room-row${active ? ' is-active' : ''}`;
     btn.setAttribute('role', 'tab');
     btn.setAttribute('aria-selected', active ? 'true' : 'false');
     btn.dataset.roomKey = row.key;
@@ -715,13 +727,6 @@ function renderRoomAnalysis(context = getScoreEvalContext()) {
     name.className = 'score-room-name';
     name.textContent = row.label;
     btn.appendChild(name);
-
-    if (attention) {
-      const mark = document.createElement('span');
-      mark.className = 'score-room-mark';
-      mark.textContent = t('score.status.attn');
-      btn.appendChild(mark);
-    }
 
     btn.addEventListener('click', () => {
       setScoreTapFilter(row.key);
