@@ -62,7 +62,7 @@ const WATER_QUALITY_STANDARDS = Object.freeze({
     display: Object.freeze({
       ph: '6.5 - 8.5',
       tds: '<= 1000 mg/L',
-      chlorine: '0.2 - 2.0 mg/L',
+      chlorine: '0.2 - 2.5 mg/L',
       turbidity: '<= 5 NTU',
       orp: '200 - 600 mV',
       do: '>= 5 mg/L',
@@ -71,7 +71,7 @@ const WATER_QUALITY_STANDARDS = Object.freeze({
     limits: Object.freeze({
       ph: { min: 6.5, max: 8.5, fairMin: 6, fairMax: 9, poorMin: 5.5, poorMax: 9.5 },
       tds: { ideal: 500, fair: 1000, poor: 1500, displayMax: 1000 },
-      chlorine: { idealMin: 0.2, idealMax: 2, fair: 2.5, poor: 3.5 },
+      chlorine: { idealMin: 0.2, idealMax: 2.5, fair: 3, poor: 4 },
       turbidity: { ideal: 5, fair: 8, poor: 12 },
       orp: { min: 200, max: 600 },
       do: { min: 5 },
@@ -228,38 +228,28 @@ function evaluateParamStatus(paramName, value, standardKey = DEFAULT_SCORE_STAND
   const n = Number(value);
   if (!Number.isFinite(n)) return 'good';
 
+  // Status is Good only when inside the selected standard's recommended range.
+  // Outside that band → Attention (drives Thailand vs WHO/EU differences in the UI).
   if (key === 'ph') {
-    if (n >= lim.ph.min && n <= lim.ph.max) return 'good';
-    if (n >= lim.ph.fairMin && n <= lim.ph.fairMax) return 'intl';
-    return 'attn';
+    return n >= lim.ph.min && n <= lim.ph.max ? 'good' : 'attn';
   }
   if (key === 'tds') {
-    if (n <= lim.tds.displayMax) return 'good';
-    if (n <= lim.tds.fair) return 'intl';
-    return 'attn';
+    return n <= lim.tds.displayMax ? 'good' : 'attn';
   }
   if (key === 'chlorine') {
-    if (n >= lim.chlorine.idealMin && n <= lim.chlorine.idealMax) return 'good';
-    if (n < lim.chlorine.idealMin) return 'attn';
-    if (n <= lim.chlorine.fair) return 'intl';
-    return 'attn';
+    return n >= lim.chlorine.idealMin && n <= lim.chlorine.idealMax ? 'good' : 'attn';
   }
   if (key === 'turbidity') {
-    if (n <= lim.turbidity.ideal) return 'good';
-    if (n <= lim.turbidity.fair) return 'intl';
-    return 'attn';
+    return n <= lim.turbidity.ideal ? 'good' : 'attn';
   }
   if (key === 'orp') {
-    if (n >= lim.orp.min && n <= lim.orp.max) return 'good';
-    return 'attn';
+    return n >= lim.orp.min && n <= lim.orp.max ? 'good' : 'attn';
   }
   if (key === 'do') {
-    if (n >= lim.do.min) return 'good';
-    return 'attn';
+    return n >= lim.do.min ? 'good' : 'attn';
   }
   if (key === 'temp') {
-    if (n <= lim.temp.max) return 'good';
-    return 'intl';
+    return n <= lim.temp.max ? 'good' : 'attn';
   }
   return 'good';
 }
@@ -294,19 +284,16 @@ function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDA
   const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const standard = getWaterQualityStandard(key);
   const scored = computeParamScoresForStandard(readings, key);
-  let score = scored.score;
-  // WHO display follows the saved/published production score when available.
-  if (key === 'who' && Number.isFinite(Number(S.currentScoreResult?.score))) {
-    score = Math.max(0, Math.min(100, Math.round(Number(S.currentScoreResult.score))));
-  }
+  // Always recalculate display score from the selected standard (simulation only).
+  // Production/share score stays on S.scoreVal / currentScoreResult.
   return {
     standardKey: key,
     standard,
     readings: { ...readings },
-    score,
+    score: scored.score,
     paramScores: scored.params,
     findings: buildScoreFindings(readings, key),
-    verdict: customerVerdict(score)
+    verdict: customerVerdict(scored.score)
   };
 }
 
@@ -328,8 +315,9 @@ function getScoreEvalContext(result = activeComparisonResult()) {
   };
 }
 
+/** UI status: only values inside the selected standard's recommended band are Good. */
 function paramStatusUiKey(status) {
-  return status === 'attn' ? 'attn' : 'good';
+  return status === 'good' ? 'good' : 'attn';
 }
 
 function paramKey(paramName) {
@@ -474,8 +462,10 @@ function renderScoreDisplay() {
   }
 
   renderScoreStatusBar(wq);
-  if (!S.scoreTapFilter) S.scoreTapFilter = 'all';
   S.scoreParamOpen = null;
+  if (!S.scoreTapFilter) {
+    S.scoreTapFilter = (S.taps?.length || 0) > 1 ? 'all' : (S.taps?.[0] || 'all');
+  }
   animateScoreNumber(document.getElementById('gauge-val'), wq);
   renderStandardSwitcher(context);
   renderAboutForStandard(context.selectedStandard);
@@ -483,13 +473,15 @@ function renderScoreDisplay() {
   renderRoomAnalysis(context);
 }
 
-/** Switch comparison standard only — never overwrites saved / published score. */
+/** Switch comparison standard — recalculates the whole report view (not saved score). */
 function setScoreReferenceStandard(standardKey) {
   const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const readings = S.scoreBaseReadings || S.currentScoreResult?.readings;
-  if (!readings) return;
+  if (!readings || typeof readings !== 'object') return;
+
   S.scoreStandardKey = key;
   S.comparisonScoreResult = buildComparisonScoreResult(readings, key);
+  S.scoreParamOpen = null;
   renderScoreDisplay();
 }
 
@@ -518,8 +510,21 @@ function readingsFromJob(job) {
 }
 
 function computeScoreFromReadings(readings) {
-  // Production / saved score always uses WHO (DWQI) thresholds.
-  return computeParamScoresForStandard(readings, 'who').score;
+  // Production / saved score — original WHO (DWQI) formula. Unchanged for share/API.
+  const ph = Number(readings.ph) || 7.2;
+  const tds = Number(readings.tds) || 450;
+  const turb = Number(readings.turbidity) || 1.2;
+  const orp = Number(readings.orp) || 320;
+  const fcl = Number(readings.chlorine) || 2.1;
+  const do_ = Number(readings.do) || 6.8;
+  const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
+  const pHs = ph >= 6.5 && ph <= 8.5 ? 100 : ph >= 6 && ph <= 9 ? 70 : ph >= 5.5 && ph <= 9.5 ? 40 : 15;
+  const tdss = tds <= 300 ? 100 : tds <= 600 ? 100 - (tds - 300) / 300 * 20 : tds <= 1000 ? 80 - (tds - 600) / 400 * 30 : clamp(50 - (tds - 1000) / 30);
+  const turbs = turb <= 1 ? 100 : turb <= 5 ? 100 - (turb - 1) / 4 * 30 : turb <= 10 ? 70 - (turb - 5) / 5 * 40 : clamp(30 - (turb - 10) * 3);
+  const orps = orp >= 200 && orp <= 600 ? 100 : orp < 200 ? clamp(orp / 200 * 100) : clamp(100 - (orp - 600) / 10);
+  const cls = fcl >= 0.2 && fcl <= 0.5 ? 100 : fcl <= 1 ? 80 : fcl <= 2 ? 50 : 25;
+  const dos = do_ >= 6 ? 100 : clamp(do_ / 6 * 100);
+  return Math.round((pHs + tdss + turbs + orps + cls + dos) / 6);
 }
 
 /**
@@ -568,7 +573,8 @@ function renderWaterScore(job, options = {}) {
   }
   S.comparisonScoreResult = buildComparisonScoreResult(readings, S.scoreStandardKey);
   S.taps = taps;
-  S.scoreTapFilter = taps.length > 1 ? (S.scoreTapFilter || 'all') : taps[0];
+  // Default Room Analysis = All when multiple taps are available.
+  S.scoreTapFilter = taps.length > 1 ? 'all' : taps[0];
   S.publicScoreView = publicView;
 
   renderScoreDisplay();
@@ -584,15 +590,16 @@ function renderPublishedScore(job) {
 }
 
 function readingsFromBase(base, index, tapCount) {
+  // Per-room offsets so Kitchen / Master bath / etc. stay independent values.
   const delta = index - Math.floor(tapCount / 2);
   return {
-    ph: Number(base.ph) + delta * 0.08,
-    tds: Number(base.tds) + delta * 18,
-    chlorine: Math.max(0, Number(base.chlorine) + delta * 0.12),
-    turbidity: Math.max(0.1, Number(base.turbidity) + delta * 0.1),
-    orp: Number(base.orp) + delta * 9,
-    do: Math.max(0, Number(base.do) - delta * 0.08),
-    temp: Math.max(0, Number(base.temp) + delta * 0.2)
+    ph: Number(base.ph) + delta * 0.22,
+    tds: Number(base.tds) + delta * 42,
+    chlorine: Math.max(0, Number(base.chlorine) + delta * 0.28),
+    turbidity: Math.max(0.1, Number(base.turbidity) + delta * 0.35),
+    orp: Number(base.orp) + delta * 18,
+    do: Math.max(0, Number(base.do) - delta * 0.18),
+    temp: Math.max(0, Number(base.temp) + delta * 0.45)
   };
 }
 
