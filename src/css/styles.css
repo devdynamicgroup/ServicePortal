@@ -518,21 +518,22 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-scroll{background:#000;padding-bottom:calc(var(--bar) + 28px + env(safe-area-inset-bottom))}
 .score-report{background:#000;padding:14px 20px 28px;flex-shrink:0;position:relative}
 .score-report-inner{position:relative;z-index:1;max-width:100%}
-.score-summary-meta{font-size:12px;font-weight:500;letter-spacing:.04em;color:#8a8a8a;margin-bottom:10px}
-.score-summary-score{display:flex;align-items:baseline;gap:4px;margin-bottom:8px}
+.score-summary-meta{font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#8a8a8a;margin-bottom:18px}
+.score-summary-score{display:flex;align-items:baseline;gap:6px;margin-bottom:14px}
 .score-summary-num{font-size:72px;font-weight:700;letter-spacing:-.05em;line-height:.9;color:#fff;font-variant-numeric:tabular-nums}
 .score-summary-den{font-size:22px;font-weight:500;color:#6b6b6b}
-.score-summary-verdict{font-size:20px;font-weight:650;margin-bottom:12px;letter-spacing:-.02em;color:#fff}
-.score-report[data-tier=high] .score-summary-verdict{color:#d1fae5}
-.score-report[data-tier=mid] .score-summary-verdict{color:#dbeafe}
-.score-report[data-tier=low] .score-summary-verdict{color:#fde68a}
-.score-status-bar{display:flex;gap:4px;margin:0 0 16px;max-width:132px}
-.score-status-bar span{flex:1;height:2px;border-radius:999px;background:#2a2a2a;transition:background .35s ease}
-.score-status-bar span.is-on{background:#5b9dff}
-.score-report[data-tier=high] .score-status-bar span.is-on{background:#6ee7b7}
-.score-report[data-tier=mid] .score-status-bar span.is-on{background:#93c5fd}
-.score-report[data-tier=low] .score-status-bar span.is-on{background:#fbbf24}
-.score-summary-note{font-size:14px;line-height:1.5;color:#9ca3af;margin:0 0 26px;max-width:30em}
+.score-progress{width:100%;max-width:100%;height:3px;border-radius:999px;background:#2a2a2a;overflow:hidden;margin:0 0 22px}
+.score-progress-fill{height:100%;width:0;border-radius:999px;background:#e8a35c;transition:width 1s cubic-bezier(.22,1,.36,1)}
+.score-report[data-tier=high] .score-progress-fill{background:#6ee7b7}
+.score-report[data-tier=mid] .score-progress-fill{background:#93c5fd}
+.score-report[data-tier=low] .score-progress-fill{background:#e8a35c}
+.score-client-name{font-size:22px;font-weight:650;letter-spacing:-.02em;line-height:1.25;color:#fff;margin:0 0 8px;overflow-wrap:anywhere}
+.score-client-name[hidden]{display:none}
+.score-summary-verdict{font-size:14px;font-weight:560;margin:0 0 10px;letter-spacing:-.01em;color:#c4c4c4}
+.score-report[data-tier=high] .score-summary-verdict{color:#a7f3d0}
+.score-report[data-tier=mid] .score-summary-verdict{color:#bfdbfe}
+.score-report[data-tier=low] .score-summary-verdict{color:#fcd34d}
+.score-summary-note{font-size:14px;line-height:1.55;color:#9ca3af;margin:0 0 26px;max-width:34em}
 .score-params-scope{font-size:12px;color:#6b6b6b;margin:0 0 2px}
 .score-reveal{animation:score-fade-up .45s cubic-bezier(.22,1,.36,1) both}
 @keyframes score-fade-up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -567,6 +568,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .wq-standard-section{padding:20px 20px 28px;background:#000}
 @media (max-width:414px){
   .score-summary-num{font-size:64px}
+  .score-client-name{font-size:20px}
   .score-summary-note{font-size:13px;line-height:1.55;margin-bottom:22px}
   .score-metric-head{column-gap:10px;min-height:48px}
   .score-metric-detail{gap:10px}
@@ -574,10 +576,13 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 }
 @media (max-width:390px){
   .score-report{padding:12px 16px 24px}
+  .score-summary-meta{margin-bottom:14px}
   .score-summary-num{font-size:56px}
   .score-summary-den{font-size:18px}
-  .score-summary-verdict{font-size:18px;margin-bottom:10px}
-  .score-status-bar{max-width:112px;margin-bottom:14px}
+  .score-summary-score{margin-bottom:12px}
+  .score-progress{margin-bottom:18px}
+  .score-client-name{font-size:18px;margin-bottom:6px}
+  .score-summary-verdict{font-size:13px;margin-bottom:8px}
   .score-params-scope{margin-bottom:4px}
   .score-metric-head{grid-template-columns:minmax(0,1.15fr) minmax(92px,0.85fr);padding:13px 0}
   .score-metric-name,.score-metric-value{font-size:14px}

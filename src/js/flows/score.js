@@ -76,27 +76,37 @@ function paramMeaningText(paramName, status) {
 
 function renderScoreStatusBar(wq) {
   const bar = document.getElementById('score-status-bar');
-  if (!bar) return;
+  const fill = document.getElementById('score-progress-fill');
   const score = Math.max(0, Math.min(100, Number(wq) || 0));
-  // Score level visualization (0–7), not one segment per parameter.
-  const lit = Math.max(0, Math.min(7, Math.round(score / 100 * 7)));
-  bar.setAttribute('aria-label', `Water Score ${Math.round(score)} of 100`);
-  bar.innerHTML = Array.from({ length: 7 }, (_, index) =>
-    `<span class="${index < lit ? 'is-on' : ''}"></span>`
-  ).join('');
+  if (bar) bar.setAttribute('aria-label', `Water Score ${Math.round(score)} of 100`);
+  if (fill) fill.style.width = `${score}%`;
+}
+
+function resolveScoreClientName(job) {
+  const fromJob = String(job?.name || '').trim();
+  if (fromJob) return fromJob;
+  const fields = job?.draft?.fields || {};
+  const full = [fields['ci-fname'], fields['ci-lname']].filter(Boolean).join(' ').trim();
+  return full || '';
 }
 
 function renderScoreDisplay(wq, readings) {
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
   const noteEl = document.getElementById('score-summary-note');
+  const nameEl = document.getElementById('score-client-name');
   const findings = buildScoreFindings(readings);
   const top = findings[0];
   const verdict = customerVerdict(wq);
+  const clientName = resolveScoreClientName(S.activeJob);
 
   if (hero) {
     hero.className = 'score-report score-live';
     hero.dataset.tier = wq >= 80 ? 'high' : wq >= 65 ? 'mid' : 'low';
+  }
+  if (nameEl) {
+    nameEl.textContent = clientName;
+    nameEl.hidden = !clientName;
   }
   if (bandEl) {
     bandEl.textContent = verdict.label;
