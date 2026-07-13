@@ -33,6 +33,83 @@ function buildScoreFindings(readings) {
   return findings;
 }
 
+/** Display-only insight fields for findings UI (does not affect score calculation). */
+function insightFromFinding(finding) {
+  const label = String(finding?.label || '');
+  const num = parseFloat(String(finding?.val ?? ''));
+  let pct = 36;
+  let severity = 'MEDIUM';
+
+  if (label === 'High chlorine' && Number.isFinite(num)) {
+    pct = Math.min(100, Math.max(8, Math.round((num / 2.5) * 100)));
+    severity = num >= 2 ? 'HIGH' : num >= 1 ? 'MEDIUM' : 'LOW';
+  } else if (label === 'Low chlorine' && Number.isFinite(num)) {
+    pct = Math.min(100, Math.max(8, Math.round((1 - num / 0.2) * 70 + 30)));
+    severity = 'HIGH';
+  } else if (label === 'High turbidity' && Number.isFinite(num)) {
+    pct = Math.min(100, Math.max(8, Math.round((num / 12) * 100)));
+    severity = num >= 10 ? 'HIGH' : num >= 7 ? 'MEDIUM' : 'LOW';
+  } else if (label === 'pH out of range' && Number.isFinite(num)) {
+    const distance = num < 6.5 ? 6.5 - num : num - 8.5;
+    pct = Math.min(100, Math.max(8, Math.round(distance * 40 + 28)));
+    severity = distance >= 1 ? 'HIGH' : distance >= 0.4 ? 'MEDIUM' : 'LOW';
+  } else if (label === 'High TDS' && Number.isFinite(num)) {
+    pct = Math.min(100, Math.max(8, Math.round(((num - 600) / 600) * 100)));
+    severity = num >= 1000 ? 'HIGH' : num >= 800 ? 'MEDIUM' : 'LOW';
+  }
+
+  return { title: label, pct, severity };
+}
+
+function renderAssessmentOverview(wq, findings, style) {
+  const accent = style?.arc || '#2779b8';
+  const top = findings[0];
+  const insight = top
+    ? `${top.label} — ${top.val}`
+    : t('score.finding.allOk');
+  return `<div class="score-overview-card score-reveal" style="--overview-accent:${accent}">
+  <div class="score-overview-icon" aria-hidden="true">
+    <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
+      <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
+      <path d="M20 8 C14 14 10 18 10 22 C10 27.5 14.5 32 20 32 C25.5 32 30 27.5 30 22 C30 18 26 14 20 8Z" fill="currentColor" opacity="0.3"/>
+      <path d="M20 14 C16 18 14 20 14 23 C14 26.3 16.7 29 20 29 C23.3 29 26 26.3 26 23 C26 20 24 18 20 14Z" fill="currentColor" opacity="0.6"/>
+    </svg>
+  </div>
+  <div class="score-overview-name">${t('score.overview')}</div>
+  <div class="score-overview-num">${Math.round(wq)}<span class="score-overview-max">/100</span></div>
+  <div class="score-overview-track" aria-hidden="true"><div class="score-overview-fill" style="width:${Math.max(0, Math.min(100, wq))}%"></div></div>
+  <div class="score-overview-finding">${insight}</div>
+</div>`;
+}
+
+function renderFindingInsights(findings) {
+  if (!findings.length) {
+    return `<div class="score-insight-item score-reveal"><div class="score-insight-body"><div class="score-insight-title">${t('score.finding.allOk')}</div></div></div>`;
+  }
+
+  return findings.map((finding, index) => {
+    const insight = insightFromFinding(finding);
+    const rank = String(index + 1).padStart(2, '0');
+    const severityClass = insight.severity === 'HIGH'
+      ? 'is-high'
+      : insight.severity === 'LOW'
+        ? 'is-low'
+        : 'is-medium';
+    const measured = finding.val ? `<span class="score-insight-measured">${finding.val}</span>` : '';
+    return `<div class="score-insight-item score-reveal" style="animation-delay:${120 + index * 80}ms">
+  <div class="score-insight-rank">${rank}</div>
+  <div class="score-insight-body">
+    <div class="score-insight-title">${insight.title}</div>
+    <div class="score-insight-bar-wrap">
+      <div class="score-insight-track" aria-hidden="true"><div class="score-insight-fill" style="width:${insight.pct}%"></div></div>
+      <div class="score-insight-pct">${insight.pct}%</div>
+    </div>
+    <div class="score-insight-meta">${measured}<span class="score-insight-badge ${severityClass}">${insight.severity}</span></div>
+  </div>
+</div>`;
+  }).join('');
+}
+
 function renderScoreDisplay(wq, readings) {
   const style = getScoreStyle(wq);
   const arcLen = 628.32;
@@ -100,10 +177,9 @@ function renderScoreDisplay(wq, readings) {
   document.getElementById('gauge-message').innerHTML = `<span>${msgMain} </span><span class="muted-part">${msgSub}</span>`;
 
   const findings = buildScoreFindings(readings);
-  const arrowSvg = '<svg class="fc-arrow" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M6 2v8M6 2l3 3M6 2L3 5" stroke="#f07b7b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
-  document.getElementById('gauge-findings').innerHTML = findings.length
-    ? findings.map((f, i) => `<div class="finding-card score-reveal" style="animation-delay:${120 + i * 80}ms">${arrowSvg}<span>${f.label}</span><span class="fc-val">${f.val}</span></div>`).join('')
-    : `<div class="finding-card score-reveal"><span>${t('score.finding.allOk')}</span></div>`;
+  const overviewEl = document.getElementById('gauge-assessment-overview');
+  if (overviewEl) overviewEl.innerHTML = renderAssessmentOverview(wq, findings, style);
+  document.getElementById('gauge-findings').innerHTML = renderFindingInsights(findings);
 
   renderScoreReadings();
 }
