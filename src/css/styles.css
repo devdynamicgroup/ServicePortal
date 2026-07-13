@@ -593,7 +593,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   background:var(--score-accent);
   transition:width 1s cubic-bezier(.22,1,.36,1);
 }
-.score-client-name{
+.score-standard-label{
   font-size:22px;
   font-weight:650;
   letter-spacing:-.02em;
@@ -602,7 +602,6 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   margin:0 0 8px;
   overflow-wrap:anywhere;
 }
-.score-client-name[hidden]{display:none}
 .score-summary-verdict{
   font-size:14px;
   font-weight:560;
@@ -786,7 +785,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 @media (max-width:414px){
   .score-summary-card{padding:28px 20px}
   .score-summary-num{font-size:56px}
-  .score-client-name{font-size:20px}
+  .score-standard-label{font-size:20px}
   .score-summary-note{font-size:13px;line-height:1.65}
   .score-metric-head{column-gap:10px;min-height:48px}
   .score-metric-detail{gap:10px}
@@ -803,7 +802,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   .score-summary-num{font-size:52px}
   .score-summary-den{font-size:18px}
   .score-progress{margin-bottom:18px;max-width:100%}
-  .score-client-name{font-size:18px;margin-bottom:6px}
+  .score-standard-label{font-size:18px;margin-bottom:6px}
   .score-summary-verdict{font-size:13px;margin-bottom:8px}
   .score-params-scope{margin-bottom:4px}
   .score-metric-head{grid-template-columns:minmax(0,1.15fr) minmax(92px,0.85fr);padding:13px 0}

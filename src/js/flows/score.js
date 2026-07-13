@@ -82,23 +82,31 @@ function renderScoreStatusBar(wq) {
   if (fill) fill.style.width = `${score}%`;
 }
 
-function resolveScoreClientName(job) {
-  const fromJob = String(job?.name || '').trim();
-  if (fromJob) return fromJob;
-  const fields = job?.draft?.fields || {};
-  const full = [fields['ci-fname'], fields['ci-lname']].filter(Boolean).join(' ').trim();
-  return full || '';
+/** Informational drinking-water standard labels (UI only — does not affect scoring). */
+const SCORE_REFERENCE_STANDARDS = Object.freeze({
+  who: 'score.refStandard.who',
+  eu: 'score.refStandard.eu',
+  japan: 'score.refStandard.japan',
+  usEpa: 'score.refStandard.usEpa',
+  thailand: 'score.refStandard.thailand'
+});
+
+/** Current report reference standard (DWQI aligns with WHO guidance). */
+const SCORE_REFERENCE_STANDARD_KEY = 'who';
+
+function scoreReferenceStandardLabel() {
+  const i18nKey = SCORE_REFERENCE_STANDARDS[SCORE_REFERENCE_STANDARD_KEY] || SCORE_REFERENCE_STANDARDS.who;
+  return t(i18nKey);
 }
 
 function renderScoreDisplay(wq, readings) {
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
   const noteEl = document.getElementById('score-summary-note');
-  const nameEl = document.getElementById('score-client-name');
+  const standardEl = document.getElementById('score-standard-label');
   const findings = buildScoreFindings(readings);
   const top = findings[0];
   const verdict = customerVerdict(wq);
-  const clientName = resolveScoreClientName(S.activeJob);
 
   if (hero) {
     hero.className = 'score-report score-live';
@@ -108,9 +116,8 @@ function renderScoreDisplay(wq, readings) {
   if (summaryCard) {
     summaryCard.style.setProperty('--score-accent', verdict.color);
   }
-  if (nameEl) {
-    nameEl.textContent = clientName;
-    nameEl.hidden = !clientName;
+  if (standardEl) {
+    standardEl.textContent = scoreReferenceStandardLabel();
   }
   if (bandEl) {
     bandEl.textContent = verdict.label;
