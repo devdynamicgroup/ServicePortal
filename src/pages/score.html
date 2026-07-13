@@ -6,39 +6,28 @@
   </div>
 
   <div class="content-bare score-scroll">
-    <section class="score-hero" id="score-hero">
-      <div class="score-summary-card score-reveal" id="score-summary-card">
+    <section class="score-report" id="score-hero">
+      <div class="score-report-inner score-reveal">
         <div class="score-summary-meta" data-i18n="score.title">Water Score</div>
         <div class="score-summary-score">
           <span class="score-summary-num" id="gauge-val">—</span>
           <span class="score-summary-den">/100</span>
         </div>
         <div class="score-summary-verdict" id="score-summary-band">—</div>
-        <div class="score-summary-track" aria-hidden="true">
-          <div class="score-summary-fill" id="score-summary-fill" style="width:0%"></div>
-        </div>
-        <div class="score-summary-concern">
-          <div class="score-summary-concern-label" data-i18n="score.mainConcern">Main concern</div>
-          <div class="score-summary-concern-value" id="score-summary-finding">—</div>
-        </div>
+        <div class="score-status-bar" id="score-status-bar" role="img" aria-label="Water Score level"></div>
         <p class="score-summary-note" id="score-summary-note"></p>
-      </div>
-    </section>
 
-    <section class="score-section score-params">
-      <div class="score-section-head">
-        <h2 class="score-section-title" data-i18n="score.paramsTitle">Water Quality Parameters</h2>
-        <p class="score-section-sub" id="score-params-scope" data-i18n="score.paramsOverall">Overall average across taps</p>
+        <p class="score-params-scope" id="score-params-scope" data-i18n="score.paramsOverall">Overall average across taps</p>
+        <div class="score-metric-list" id="score-readings-rows"></div>
       </div>
-      <div id="score-readings-rows" class="score-param-list"></div>
-    </section>
 
-    <section class="score-section score-rooms" id="score-rooms-section">
-      <div class="score-section-head">
-        <h2 class="score-section-title" data-i18n="score.roomsTitle">Room Analysis</h2>
-        <p class="score-section-sub" data-i18n="score.roomsSub">Additional detail by area</p>
-      </div>
-      <div id="score-room-list" class="score-room-list"></div>
+      <section class="score-rooms" id="score-rooms-section">
+        <div class="score-section-head">
+          <h2 class="score-section-title" data-i18n="score.roomsTitle">Room Analysis</h2>
+          <p class="score-section-sub" data-i18n="score.roomsSub">Additional detail by area</p>
+        </div>
+        <div id="score-room-list" class="score-room-list"></div>
+      </section>
     </section>
 
     <section class="wq-standard-section">
@@ -47,11 +36,11 @@
         <div class="wq-scale-row">
           <div class="wq-scale-bar" aria-hidden="true"></div>
           <ul class="wq-scale-labels">
-            <li><strong>90+</strong> <span data-i18n="score.band.exceptional">Exceptional</span></li>
-            <li><strong>80+</strong> <span data-i18n="score.band.international">International</span></li>
+            <li><strong>80+</strong> <span data-i18n="score.band.exceptional">Exceptional</span></li>
             <li><strong>65+</strong> <span data-i18n="score.band.good">Good</span></li>
-            <li><strong>50+</strong> <span data-i18n="score.band.fair">Fair</span></li>
-            <li><strong>0+</strong> <span data-i18n="score.band.attention">Needs Attention</span></li>
+            <li><strong>50+</strong> <span data-i18n="score.band.fair">fair</span></li>
+            <li><strong>25+</strong> <span data-i18n="score.band.needsattention">Needs Attention</span></li>
+            <li><strong>0+</strong> <span data-i18n="score.band.critical">Critical</span></li>
           </ul>
         </div>
       </div>

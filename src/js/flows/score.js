@@ -8,9 +8,9 @@ function getScoreStyle(wq) {
 
 /** Customer-facing verdict shown on the summary card (not the DWQI band legend). */
 function customerVerdict(wq) {
-  if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#34d399' };
-  if (wq >= 65) return { label: t('score.verdict.good'), color: '#fbbf24' };
-  return { label: t('score.verdict.attention'), color: '#f87171' };
+  if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#6ee7b7' };
+  if (wq >= 65) return { label: t('score.verdict.good'), color: '#93c5fd' };
+  return { label: t('score.verdict.attention'), color: '#fbbf24' };
 }
 
 function animateScoreNumber(el, target) {
@@ -40,9 +40,14 @@ function buildScoreFindings(readings) {
   return findings;
 }
 
-function paramExplanationText(paramName, status) {
+function paramKey(paramName) {
+  return String(paramName || '').toLowerCase();
+}
+
+/** One-line status hint shown on the collapsed metric row. */
+function paramCollapsedHint(paramName, status) {
   if (status === 'good') return t('score.explain.withinRange');
-  const key = String(paramName || '').toLowerCase();
+  const key = paramKey(paramName);
   if (key === 'ph') return t('score.impact.ph');
   if (key === 'tds') return t('score.impact.tds');
   if (key === 'chlorine') return t('score.impact.chlorine');
@@ -53,31 +58,64 @@ function paramExplanationText(paramName, status) {
   return t('score.impact.default');
 }
 
+/** Expanded “Meaning” line — calm wording for good rows, impact for attention. */
+function paramMeaningText(paramName, status) {
+  const key = paramKey(paramName);
+  if (status === 'good') {
+    if (key === 'ph') return t('score.meaning.ph');
+    if (key === 'tds') return t('score.meaning.tds');
+    if (key === 'chlorine') return t('score.meaning.chlorine');
+    if (key === 'turbidity') return t('score.meaning.turbidity');
+    if (key === 'orp') return t('score.meaning.orp');
+    if (key === 'do') return t('score.meaning.do');
+    if (key === 'temp') return t('score.meaning.temp');
+    return t('score.explain.withinRange');
+  }
+  return paramCollapsedHint(paramName, status);
+}
+
+function renderScoreStatusBar(wq) {
+  const bar = document.getElementById('score-status-bar');
+  if (!bar) return;
+  const score = Math.max(0, Math.min(100, Number(wq) || 0));
+  // Score level visualization (0–7), not one segment per parameter.
+  const lit = Math.max(0, Math.min(7, Math.round(score / 100 * 7)));
+  bar.setAttribute('aria-label', `Water Score ${Math.round(score)} of 100`);
+  bar.innerHTML = Array.from({ length: 7 }, (_, index) =>
+    `<span class="${index < lit ? 'is-on' : ''}"></span>`
+  ).join('');
+}
+
 function renderScoreDisplay(wq, readings) {
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
-  const findingEl = document.getElementById('score-summary-finding');
   const noteEl = document.getElementById('score-summary-note');
-  const fillEl = document.getElementById('score-summary-fill');
   const findings = buildScoreFindings(readings);
   const top = findings[0];
   const verdict = customerVerdict(wq);
 
   if (hero) {
-    hero.className = 'score-hero score-live';
+    hero.className = 'score-report score-live';
     hero.dataset.tier = wq >= 80 ? 'high' : wq >= 65 ? 'mid' : 'low';
   }
   if (bandEl) {
     bandEl.textContent = verdict.label;
-    bandEl.style.color = verdict.color;
+    bandEl.style.color = '';
   }
-  if (findingEl) findingEl.textContent = top?.label || t('score.finding.allOk');
+  // Keep summary note short for comfortable scrolling; full detail lives in expanded rows.
   if (noteEl) {
-    noteEl.textContent = top?.note
-      || (wq >= 80 ? t('score.msg.high') : wq >= 65 ? t('score.msg.good') : t('score.msg.subShort'));
+    if (top) {
+      noteEl.textContent = top.note;
+    } else if (wq >= 80) {
+      noteEl.textContent = t('score.msg.high');
+    } else if (wq >= 65) {
+      noteEl.textContent = t('score.msg.good');
+    } else {
+      noteEl.textContent = t('score.msg.subShort');
+    }
   }
-  if (fillEl) fillEl.style.width = `${Math.max(0, Math.min(100, Number(wq) || 0))}%`;
 
+  renderScoreStatusBar(wq);
   if (!S.scoreTapFilter) S.scoreTapFilter = 'all';
   S.scoreParamOpen = null;
   animateScoreNumber(document.getElementById('gauge-val'), wq);
@@ -219,46 +257,38 @@ function renderScoreReadings() {
       : `${t('score.viewingRoom')}: ${S.scoreTapFilter}`;
   }
 
-  const labels = {
-    good: t('score.status.good'),
-    attn: t('score.status.attn'),
-    intl: t('score.status.good')
-  };
   const rows = scoreTapRows(S.scoreTapFilter);
   const openIndex = Number.isInteger(S.scoreParamOpen) ? S.scoreParamOpen : -1;
+  const statusLabels = {
+    good: t('score.status.good'),
+    attn: t('score.status.attn')
+  };
 
   listEl.innerHTML = rows.map((r, index) => {
     const open = openIndex === index;
     const statusKey = r.st === 'attn' ? 'attn' : 'good';
-    const statusLabel = labels[statusKey];
-    return `<article class="score-param-card${open ? ' is-open' : ''} score-reveal" style="animation-delay:${60 + index * 35}ms">
-  <button type="button" class="score-param-head" onclick="toggleScoreParam(${index})" aria-expanded="${open ? 'true' : 'false'}">
-    <div class="score-param-copy">
-      <div class="score-param-name">${r.p}</div>
-      <div class="score-param-value">${r.r}</div>
-    </div>
-    <div class="score-param-side">
-      <span class="score-param-badge ${statusKey}">${statusLabel}</span>
-      <span class="score-param-chevron" aria-hidden="true">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </span>
-    </div>
+    const statusLabel = statusLabels[statusKey];
+    const detail = paramMeaningText(r.p, statusKey);
+    return `<div class="score-metric${open ? ' is-open' : ''} is-${statusKey}">
+  <button type="button" class="score-metric-head" onclick="toggleScoreParam(${index})" aria-expanded="${open ? 'true' : 'false'}">
+    <span class="score-metric-name">${r.p}</span>
+    <span class="score-metric-right">
+      <span class="score-metric-value">${r.r}</span>
+      <span class="score-metric-status">${statusLabel}</span>
+    </span>
   </button>
-  <div class="score-param-body"${open ? '' : ' hidden'}>
-    <div class="score-param-detail">
-      <span>${t('score.status')}</span>
-      <strong>${statusLabel}</strong>
+  <div class="score-metric-body"${open ? '' : ' hidden'}>
+    <div class="score-metric-detail">
+      <span>${t('score.currentValue')}</span>
+      <strong>${r.r}</strong>
     </div>
-    <div class="score-param-detail">
-      <span>${t('score.standard')}</span>
+    <div class="score-metric-detail">
+      <span>${t('score.recommended')}</span>
       <strong>${r.std}</strong>
     </div>
-    <div class="score-param-detail score-param-explain">
-      <span>${t('score.explanation')}</span>
-      <strong>${paramExplanationText(r.p, statusKey)}</strong>
-    </div>
+    <p class="score-metric-meaning">${detail}</p>
   </div>
-</article>`;
+</div>`;
   }).join('');
 }
 
@@ -285,7 +315,7 @@ function renderRoomAnalysis() {
     return `<button type="button" class="score-room-row${active ? ' is-active' : ''}" onclick="setScoreTapFilter('${row.key}')">
   <span class="score-room-name">${row.label}</span>
   <span class="score-room-chevron" aria-hidden="true">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
   </span>
 </button>`;
   }).join('');
