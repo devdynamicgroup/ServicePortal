@@ -7,6 +7,39 @@ const envFile = path.join(__dirname, '.env');
 require('dotenv').config({ path: envFile, quiet: true, override: false });
 require('./config/env');
 
+// Local DX: prefer NODE_ENV from .env when not on Render (dotenv uses override:false,
+// so a shell NODE_ENV=production would otherwise force prod secret requirements).
+// Production / Render stay strict — never auto-downgrade those hosts.
+(function applyLocalNodeEnvDefault() {
+  const onRender = Boolean(process.env.RENDER || process.env.RENDER_SERVICE_ID);
+  if (onRender) return;
+
+  let fromFile = '';
+  try {
+    if (fs.existsSync(envFile)) {
+      const match = fs.readFileSync(envFile, 'utf8').match(/^\s*NODE_ENV\s*=\s*(.*)$/m);
+      if (match) fromFile = String(match[1] || '').trim().replace(/^['"]|['"]$/g, '');
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (fromFile) {
+    if (process.env.NODE_ENV && process.env.NODE_ENV !== fromFile) {
+      console.warn(
+        `[env] Using NODE_ENV=${fromFile} from .env (shell had NODE_ENV=${process.env.NODE_ENV})`
+      );
+    }
+    process.env.NODE_ENV = fromFile;
+    return;
+  }
+
+  if (!String(process.env.NODE_ENV || '').trim()) {
+    process.env.NODE_ENV = 'development';
+    console.warn('[env] NODE_ENV was unset — defaulting to development for local startup');
+  }
+})();
+
 console.log('[ENV DEBUG]', {
   cwd: process.cwd(),
   envFile: path.resolve(envFile),

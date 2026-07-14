@@ -1,16 +1,16 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 const root = path.join(__dirname, '..');
 
 function run(env, code) {
   const cleaned = { ...process.env, ...env };
-  // Ensure empty overrides win over inherited secrets from the parent shell.
   Object.keys(env).forEach(key => {
     if (env[key] === '' || env[key] == null) delete cleaned[key];
     else cleaned[key] = env[key];
   });
-  ['AUTH_SESSION_SECRET', 'SESSION_SECRET', 'RENDER', 'RENDER_SERVICE_ID'].forEach(key => {
+  ['AUTH_SESSION_SECRET', 'SESSION_SECRET', 'RENDER', 'RENDER_SERVICE_ID', 'NODE_ENV'].forEach(key => {
     if (Object.prototype.hasOwnProperty.call(env, key) && !env[key]) delete cleaned[key];
   });
   return spawnSync(process.execPath, ['-e', code], {
@@ -29,9 +29,9 @@ console.log('prod_missing_has_fatal', /AUTH_SESSION_SECRET/.test(String(missing.
 
 const unsetNode = run(
   { NODE_ENV: '', AUTH_SESSION_SECRET: '', SESSION_SECRET: '', RENDER: '', RENDER_SERVICE_ID: '' },
-  'require("./services/app-auth")'
+  'require("./services/app-auth"); console.log("local_ok")'
 );
-console.log('unset_nodeenv_exit', unsetNode.status);
+console.log('unset_nodeenv_exit', unsetNode.status, (unsetNode.stdout || '').trim().split('\n').pop());
 
 const dev = run(
   { NODE_ENV: 'development', AUTH_SESSION_SECRET: '', SESSION_SECRET: '', RENDER: '', RENDER_SERVICE_ID: '' },
@@ -45,5 +45,5 @@ const prodOk = run(
 );
 console.log('prod_secret_exit', prodOk.status, (prodOk.stdout || '').trim());
 
-const audit = require(path.join(root, 'services', 'drive-audit'));
-console.log('audit_ok', typeof audit.appendDriveUploadAudit === 'function', audit.AUDIT_MAX_BYTES);
+const gitignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
+console.log('env_gitignored', /^\.env\b/m.test(gitignore) && /^\.env\.\*/m.test(gitignore));

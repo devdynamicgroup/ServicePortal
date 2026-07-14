@@ -23,13 +23,9 @@ const DEV_SESSION_SECRET_FALLBACK = 'wm-dev-auth-session-secret';
 function isProductionRuntime() {
   const nodeEnv = String(process.env.NODE_ENV || '').toLowerCase();
   if (nodeEnv === 'production') return true;
-  // Render and similar hosts often set NODE_ENV=production; treat RENDER as production too.
+  // Render sets NODE_ENV=production in normal deploys; treat RENDER* as production too.
   if (process.env.RENDER || process.env.RENDER_SERVICE_ID) return true;
   return false;
-}
-
-function isExplicitDevelopment() {
-  return String(process.env.NODE_ENV || '').toLowerCase() === 'development';
 }
 
 function failMissingSessionSecret(message) {
@@ -50,23 +46,21 @@ function getSessionSecret() {
     return configured;
   }
 
+  // Production / Render: never allow a weak fallback.
   if (isProductionRuntime()) {
     failMissingSessionSecret(
-      'AUTH_SESSION_SECRET is required in production and the server refused to start. '
-      + 'Set AUTH_SESSION_SECRET in the environment (Render/host secrets), then restart.'
+      'AUTH_SESSION_SECRET is required in production and the server refused to start.\n'
+      + '  Fix: set AUTH_SESSION_SECRET in the host environment (Render → Environment),\n'
+      + '  e.g. openssl rand -hex 32, then restart the service.\n'
+      + '  Local only: use NODE_ENV=development (and do not set RENDER) to allow a dev fallback.'
     );
   }
 
-  if (!isExplicitDevelopment()) {
-    failMissingSessionSecret(
-      'AUTH_SESSION_SECRET is missing. Set AUTH_SESSION_SECRET, or for local-only use set NODE_ENV=development '
-      + '(development fallback secret is allowed only when NODE_ENV=development).'
-    );
-  }
-
+  // Local / non-production: allow fallback so `yarn start` works without manual secret setup.
   console.warn(
-    '[auth] AUTH_SESSION_SECRET unset — using development fallback. '
-    + 'Never deploy with NODE_ENV=development or without AUTH_SESSION_SECRET.'
+    '[auth] WARNING: AUTH_SESSION_SECRET is unset — using the development fallback secret.\n'
+    + '  This is for local development only (NODE_ENV=' + (process.env.NODE_ENV || 'development') + ').\n'
+    + '  Before production deploy, set a unique AUTH_SESSION_SECRET and never commit it.'
   );
   return DEV_SESSION_SECRET_FALLBACK;
 }

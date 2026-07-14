@@ -53,15 +53,24 @@ GOOGLE_SERVICE_ACCOUNT_KEY_PATH=./credentials/google-service-account.json
 # GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
 GOOGLE_DRIVE_MAKE_PUBLIC=false
 PUBLIC_BASE_URL=http://127.0.0.1:3000
-AUTH_SESSION_SECRET=replace-with-a-long-random-string
 NODE_ENV=development
+AUTH_SESSION_SECRET=
 ```
 
 Max image size is **15 MB** (decoded). JSON upload bodies allow base64 overhead. Optional `GOOGLE_DRIVE_FETCH_TIMEOUT_MS` (default 60000) limits Google token/Drive API calls; the browser client aborts at 90s.
 
 **App auth:** All `/api/drive/images*` routes (including `/content`) require a session from the existing portal login (`Authorization: Bearer <token>` or `wm_session` cookie). `GET /api/drive/status` stays open for health checks.
 
-**`AUTH_SESSION_SECRET`:** Required in production (`NODE_ENV=production` or Render). The server **exits on startup** if it is missing. A weak fallback is allowed only when `NODE_ENV=development`.
+**`AUTH_SESSION_SECRET`**
+
+| Mode | Requirement |
+|------|-------------|
+| Production (`NODE_ENV=production` or Render) | **Required** — server exits on startup if missing |
+| Local development (`NODE_ENV=development`) | Optional — empty uses a warned fallback so `yarn start` works |
+
+Generate a production value with `openssl rand -hex 32`. Put it in host secrets / local `.env` only — **never commit** real secrets (`.env` is gitignored).
+
+If `NODE_ENV` is unset locally (and not on Render), `server.js` defaults it to `development`.
 
 **Audit logs:** Metadata-only lines append to `data/drive-upload-audit.jsonl`. When the file exceeds ~2 MB (`DRIVE_AUDIT_MAX_BYTES`), it rotates to timestamped files and keeps the newest `DRIVE_AUDIT_KEEP_FILES` (default 5).
 
@@ -75,7 +84,7 @@ Max image size is **15 MB** (decoded). JSON upload bodies allow base64 overhead.
 | `GOOGLE_DRIVE_MAKE_PUBLIC` | No | If `true`, set anyone-with-link reader on upload |
 | `GOOGLE_DRIVE_FETCH_TIMEOUT_MS` | No | Google API fetch timeout (ms, default 60000) |
 | `AUTH_SESSION_SECRET` | Yes in production | Signs portal session tokens used by Drive routes |
-| `NODE_ENV` | Recommended | `development` for local fallback; `production` on deploy |
+| `NODE_ENV` | Recommended | `development` locally; `production` on deploy |
 | `DRIVE_AUDIT_MAX_BYTES` | No | Rotate audit log above this size (default 2097152) |
 | `DRIVE_AUDIT_KEEP_FILES` | No | Rotated audit files to keep (default 5) |
 | `PUBLIC_BASE_URL` | Recommended | Builds absolute `contentUrl` values |
