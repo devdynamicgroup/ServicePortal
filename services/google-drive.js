@@ -55,6 +55,8 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = DRIVE_FETCH_TIMEO
 }
 
 function classifyDriveApiError(status, data, fallbackMessage) {
+  const googleErrors = Array.isArray(data?.error?.errors) ? data.error.errors : [];
+  const reason = String(googleErrors[0]?.reason || data?.error?.errors?.[0]?.reason || data?.error || '');
   const raw = String(
     data?.error?.message
     || data?.error_description
@@ -62,7 +64,22 @@ function classifyDriveApiError(status, data, fallbackMessage) {
     || fallbackMessage
     || ''
   );
-  const reason = String(data?.error?.errors?.[0]?.reason || data?.error || '');
+
+  // Keep server logs actionable (no credentials / image bytes).
+  try {
+    console.warn('[google-drive] API error', {
+      status,
+      message: raw || null,
+      reason: reason || null,
+      errors: googleErrors.map(item => ({
+        domain: item?.domain || null,
+        reason: item?.reason || null,
+        message: item?.message || null,
+        location: item?.location || null,
+        locationType: item?.locationType || null
+      }))
+    });
+  } catch { /* ignore */ }
 
   if (status === 401 || /invalid_grant|unauthorized|invalid_client|invalid_token/i.test(raw + reason)) {
     return driveError(
@@ -71,13 +88,25 @@ function classifyDriveApiError(status, data, fallbackMessage) {
       data
     );
   }
+  if (/storageQuotaExceeded/i.test(reason + raw)) {
+    return driveError(
+      `Google Drive storageQuotaExceeded: service accounts cannot store files in My Drive. `
+      + `Put GOOGLE_DRIVE_MAIN_FOLDER_ID / GOOGLE_DRIVE_DATA_FOLDER_ID inside a Shared Drive `
+      + `(and ensure supportsAllDrives is enabled). Google said: ${raw || reason}`,
+      403,
+      data
+    );
+  }
   if (
     status === 403
-    || /insufficientPermissions|storageQuotaExceeded|accessNotConfigured|forbidden/i.test(reason)
+    || /insufficientPermissions|accessNotConfigured|forbidden/i.test(reason)
     || /insufficient|permission|not been used|disabled|access denied/i.test(raw)
   ) {
+    const detail = raw || reason || 'forbidden';
     return driveError(
-      'Google Drive permission denied. Share the target folders with the service account as Editor, and ensure Drive API is enabled.',
+      `Google Drive permission denied (${detail}). `
+      + `Share the target Shared Drive / folders with the service account as Content Manager or Editor, `
+      + `enable Drive API, and confirm folder IDs. Google errors: ${JSON.stringify(googleErrors || [])}`,
       403,
       data
     );
@@ -97,6 +126,14 @@ function classifyDriveApiError(status, data, fallbackMessage) {
     status >= 400 && status < 600 ? status : 502,
     data
   );
+}
+
+/** Append Shared Drive flags so uploads/list/get work outside "My Drive". */
+function withSharedDriveParams(url, { includeItems = false } = {}) {
+  const u = new URL(url.startsWith('http') ? url : `${DRIVE_API}${url}`);
+  u.searchParams.set('supportsAllDrives', 'true');
+  if (includeItems) u.searchParams.set('includeItemsFromAllDrives', 'true');
+  return u.toString();
 }
 
 function estimateBase64DecodedBytes(b64) {
@@ -461,7 +498,7 @@ function mapFileMetadata(file, options = {}) {
 }
 
 async function makeFileReadableByLink(fileId) {
-  await driveFetch(`/files/${encodeURIComponent(fileId)}/permissions`, {
+  await driveFetch(withSharedDriveParams(`/files/${encodeURIComponent(fileId)}/permissions`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -531,7 +568,10 @@ async function uploadImage({
   const epilogue = Buffer.from(`\r\n--${boundary}--`);
   const body = Buffer.concat([preamble, bytes, epilogue]);
 
-  const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=${encodeURIComponent('id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink')}`;
+  // Shared Drive support: without supportsAllDrives, files.create into a Shared Drive folder returns 403.
+  const uploadUrl = withSharedDriveParams(
+    `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=${encodeURIComponent('id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink')}`
+  );
   const created = await driveFetch(uploadUrl, {
     method: 'POST',
     headers: {
@@ -565,7 +605,9 @@ async function listImages({ pageSize = 50, pageToken, folder, purpose, useCase, 
     spaces: 'drive',
     pageSize: String(size),
     orderBy: 'createdTime desc',
-    fields: 'nextPageToken,files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink)'
+    fields: 'nextPageToken,files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink)',
+    supportsAllDrives: 'true',
+    includeItemsFromAllDrives: 'true'
   });
   if (pageToken) params.set('pageToken', pageToken);
 
@@ -581,7 +623,9 @@ async function listImages({ pageSize = 50, pageToken, folder, purpose, useCase, 
 async function getImage(fileId) {
   if (!fileId) throw driveError('File id is required', 400);
   const file = await driveFetch(
-    `/files/${encodeURIComponent(fileId)}?fields=${encodeURIComponent('id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink,parents,trashed')}`
+    withSharedDriveParams(
+      `/files/${encodeURIComponent(fileId)}?fields=${encodeURIComponent('id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink,parents,trashed')}`
+    )
   );
   if (file.trashed) throw driveError('File is in trash', 404);
 
@@ -607,7 +651,7 @@ async function getImage(fileId) {
 
 async function deleteImage(fileId) {
   await getImage(fileId);
-  await driveFetch(`/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
+  await driveFetch(withSharedDriveParams(`/files/${encodeURIComponent(fileId)}`), { method: 'DELETE' });
   return { deleted: true, id: fileId };
 }
 
@@ -617,7 +661,7 @@ async function downloadImageContent(fileId) {
   const attempt = async (retried) => {
     const token = await getAccessToken();
     const response = await fetchWithTimeout(
-      `${DRIVE_API}/files/${encodeURIComponent(fileId)}?alt=media`,
+      withSharedDriveParams(`${DRIVE_API}/files/${encodeURIComponent(fileId)}?alt=media`),
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!response.ok) {
@@ -626,9 +670,13 @@ async function downloadImageContent(fileId) {
         return attempt(true);
       }
       const detail = await response.text().catch(() => '');
+      let parsed = detail;
+      try { parsed = detail ? JSON.parse(detail) : { error: { message: detail } }; } catch {
+        parsed = { error: { message: detail || `Unable to download file (${response.status})` } };
+      }
       throw classifyDriveApiError(
         response.status,
-        { error: { message: detail || `Unable to download file (${response.status})` } },
+        parsed,
         `Unable to download file (${response.status})`
       );
     }
