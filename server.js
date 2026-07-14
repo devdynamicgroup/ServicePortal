@@ -12,6 +12,8 @@ console.log('[ENV DEBUG]', {
   envFile: path.resolve(envFile),
   envExists: fs.existsSync(envFile),
   port: Number(process.env.PORT) || 3000,
+  nodeEnv: process.env.NODE_ENV || null,
+  authSessionSecret: Boolean(process.env.AUTH_SESSION_SECRET || process.env.SESSION_SECRET),
   client: process.env.GOOGLE_BUSINESS_CLIENT_ID || null,
   secret: Boolean(process.env.GOOGLE_BUSINESS_CLIENT_SECRET),
   redirect: process.env.GOOGLE_BUSINESS_REDIRECT_URI || null
@@ -21,15 +23,18 @@ const { handleClientsRoute } = require('./api/clients-routes');
 const { handleCaseFlowRoute } = require('./api/case-flow-routes');
 const { handleLineRoute } = require('./api/line-routes');
 const { handleGoogleReviewRoute } = require('./api/google-review-routes');
+const { handleFeedbackSuggestRoute } = require('./api/feedback-suggest-routes');
+const { handleGoogleDriveRoute } = require('./api/google-drive-routes');
 const { startGoogleReviewScheduler } = require('./services/google-review-scheduler');
+const {
+  authenticateCredentials,
+  createSessionToken,
+  sessionCookieHeader
+} = require('./services/app-auth');
 
 const root = __dirname;
 const port = Number(process.env.PORT) || 3000;
 const bindHost = process.env.BIND_HOST || '0.0.0.0';
-const defaultUsers = [
-  { username: 'kittichai', password: 'password', name: 'Kittichai T.', role: 'Water Quality Specialist' },
-  { username: 'admin', password: 'admin123', name: 'Admin', role: 'Operations' }
-];
 
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -66,16 +71,6 @@ function readBody(req) {
     req.on('end', () => resolve(body));
     req.on('error', reject);
   });
-}
-
-function getAuthUsers() {
-  try {
-    const parsed = JSON.parse(process.env.AUTH_USERS_JSON || '[]');
-    if (Array.isArray(parsed) && parsed.length) return parsed;
-  } catch (error) {
-    console.warn('Invalid AUTH_USERS_JSON', error.message);
-  }
-  return defaultUsers;
 }
 
 const METRO_CITY_MAP = {
@@ -119,6 +114,8 @@ async function handleApiRequest(req, res) {
   if (await handleCaseFlowRoute(req, res, urlPath)) return true;
   if (await handleLineRoute(req, res, urlPath)) return true;
   if (await handleGoogleReviewRoute(req, res, urlPath)) return true;
+  if (await handleFeedbackSuggestRoute(req, res, urlPath)) return true;
+  if (await handleGoogleDriveRoute(req, res, urlPath)) return true;
 
   if (urlPath === '/api/auth-config' && req.method === 'GET') {
     send(res, 200, JSON.stringify({
@@ -133,31 +130,35 @@ async function handleApiRequest(req, res) {
   if (urlPath === '/api/auth/login' && req.method === 'POST') {
     try {
       const payload = JSON.parse(await readBody(req) || '{}');
-      const raw = String(payload.username || '').trim().toLowerCase();
-      const username = raw.includes('@') ? raw.split('@')[0] : raw;
-      const password = String(payload.password || '');
-      const user = getAuthUsers().find(item =>
-        String(item.username || '').toLowerCase() === username &&
-        String(item.password || '') === password
-      );
+      const user = authenticateCredentials(payload.username, payload.password);
 
       if (!user) {
         send(res, 401, JSON.stringify({ error: 'Username or password is incorrect' }), 'application/json; charset=utf-8');
         return true;
       }
 
-      send(res, 200, JSON.stringify({
-        user: {
-          username: user.username,
-          name: user.name || user.username,
-          role: user.role || 'Field Specialist'
-        }
-      }), 'application/json; charset=utf-8');
+      const token = createSessionToken(user);
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Set-Cookie': sessionCookieHeader(token)
+      });
+      res.end(JSON.stringify({ user, token }));
       return true;
     } catch {
       send(res, 400, JSON.stringify({ error: 'Invalid login request' }), 'application/json; charset=utf-8');
       return true;
     }
+  }
+
+  if (urlPath === '/api/auth/logout' && req.method === 'POST') {
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Set-Cookie': sessionCookieHeader('', { clear: true })
+    });
+    res.end(JSON.stringify({ ok: true }));
+    return true;
   }
 
   if (urlPath === '/api/auth/forgot-password' && req.method === 'POST') {

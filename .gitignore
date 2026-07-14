@@ -1,4 +1,13 @@
 .env
 .env.*
+!.env.example
 node_modules/
 *.log
+data/
+
+# Google service-account credentials (never commit)
+credentials/
+*-service-account*.json
+*service-account*.json
+solar-bolt-*.json
+**/google-service-account.json

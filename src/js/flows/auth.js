@@ -25,9 +25,17 @@ function setLoginMessage(message = '', type = 'error') {
   box.classList.toggle('login-msg-success', type === 'success');
 }
 
-function updateLoggedInUser(user) {
+function updateLoggedInUser(user, token) {
   S.user = user;
-  localStorage.setItem('wm-session', JSON.stringify({ user }));
+  const session = { user };
+  if (token) session.token = token;
+  else {
+    try {
+      const existing = JSON.parse(localStorage.getItem('wm-session') || '{}');
+      if (existing.token) session.token = existing.token;
+    } catch { /* ignore */ }
+  }
+  localStorage.setItem('wm-session', JSON.stringify(session));
   const nameEl = document.querySelector('.dash-user-name');
   const roleEl = document.querySelector('.dash-user-role');
   const avatar = document.querySelector('.dash-avatar');
@@ -49,13 +57,14 @@ async function doLogin() {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ username, password })
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || 'Username or password is incorrect');
 
     setLoginMessage('');
-    updateLoggedInUser(data.user);
+    updateLoggedInUser(data.user, data.token);
     goScreen('s-dash');
   } catch (error) {
     setLoginMessage(error.message || 'Could not sign in');
@@ -78,10 +87,43 @@ async function restoreLoginSession() {
     if (!raw) return false;
     const session = JSON.parse(raw);
     if (!session.user) return false;
-    updateLoggedInUser(session.user);
+    // Sessions created before server tokens need a fresh sign-in for Drive uploads.
+    if (!session.token) {
+      localStorage.removeItem('wm-session');
+      return false;
+    }
+    updateLoggedInUser(session.user, session.token);
     goScreen('s-dash');
     return true;
   } catch {
     return false;
+  }
+}
+
+function getAppSessionToken() {
+  try {
+    const session = JSON.parse(localStorage.getItem('wm-session') || '{}');
+    return session.token || '';
+  } catch {
+    return '';
+  }
+}
+
+function getAppAuthHeaders() {
+  const token = getAppSessionToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function clearAppSession() {
+  localStorage.removeItem('wm-session');
+  S.user = null;
+  try {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store'
+    });
+  } catch {
+    /* ignore */
   }
 }

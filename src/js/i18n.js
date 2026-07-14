@@ -144,6 +144,10 @@ const I18N = {
     'meter.toastError': 'Could not read image',
 
     'photo.tapHint': 'Tap to capture or upload',
+    'photo.uploadFailed': 'Photo saved locally — Drive upload failed',
+    'photo.uploadFailedRetry': 'Upload failed · Tap to retry',
+    'photo.retryUnavailable': 'Nothing to retry — capture again',
+    'photo.tooLarge': 'Image is too large to upload (max 15 MB)',
 
     'notif.title': 'Notifications',
     'notif.all': 'All',
@@ -271,7 +275,9 @@ const I18N = {
     'fb.thoughts': 'Your thoughts (optional)',
     'fb.thoughtsPh': "What was most helpful about today's visit?",
     'fb.aiSuggest': 'AI Suggest',
-    'fb.aiApplied': 'Suggestion added',
+    'fb.aiLoading': 'Suggesting…',
+    'fb.aiApplied': 'Draft added — edit freely before submitting',
+    'fb.aiFailed': 'Could not generate a draft right now',
     'fb.consent': "I'm happy for Water Motion to use my feedback anonymously. Data may be used for city-wide benchmarking.",
     'fb.google': 'Leave Google Review',
     'fb.shareText': 'Share your experience with Water Motion',
@@ -430,6 +436,10 @@ const I18N = {
     'meter.toastError': 'อ่านภาพไม่สำเร็จ',
 
     'photo.tapHint': 'แตะเพื่อถ่ายหรืออัปโหลด',
+    'photo.uploadFailed': 'บันทึกรูปในเครื่องแล้ว — อัปโหลด Drive ไม่สำเร็จ',
+    'photo.uploadFailedRetry': 'อัปโหลดไม่สำเร็จ · แตะเพื่อลองใหม่',
+    'photo.retryUnavailable': 'ไม่มีรูปสำหรับลองใหม่ — ถ่ายใหม่',
+    'photo.tooLarge': 'รูปใหญ่เกินไป (สูงสุด 15 MB)',
 
     'notif.title': 'การแจ้งเตือน',
     'notif.all': 'ทั้งหมด',
@@ -557,7 +567,9 @@ const I18N = {
     'fb.thoughts': 'ความคิดเห็นเพิ่มเติม (ไม่บังคับ)',
     'fb.thoughtsPh': 'วันนี้สิ่งไหนที่ช่วยคุณได้มากที่สุด?',
     'fb.aiSuggest': 'AI Suggest',
-    'fb.aiApplied': 'ใส่ข้อความแนะนำแล้ว',
+    'fb.aiLoading': 'กำลังสร้าง…',
+    'fb.aiApplied': 'ใส่ข้อความร่างแล้ว — แก้ไขได้ก่อนส่ง',
+    'fb.aiFailed': 'สร้างข้อความแนะนำไม่สำเร็จในตอนนี้',
     'fb.consent': 'ยินยอมให้ Water Motion ใช้ความคิดเห็นแบบไม่ระบุตัวตน ข้อมูลอาจถูกใช้เพื่อ benchmarking ระดับเมือง',
     'fb.google': 'รีวิวบน Google',
     'fb.shareText': 'แชร์ประสบการณ์กับ Water Motion',

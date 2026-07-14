@@ -45,3 +45,8 @@ This app is a static single-page field app. `index.html` owns only the shell, wh
 ## Editing Rule
 
 Keep new page-specific behavior in the matching `src/js/flows/*.js` file. Put only truly shared helpers in `src/js/common.js`, and shared data/config in `src/js/state.js`.
+
+## Backend integrations
+
+- `services/` + `api/` + `server.js` — Notion, LINE, Google Business reviews, Feedback AI suggest, and Google Drive image storage.
+- Google Drive setup guide: `docs/GOOGLE_DRIVE.md`

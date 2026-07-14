@@ -52,8 +52,13 @@ function switchTap(i) {
 function restoreTaskPhoto(previewId) {
   ensureTapData();
   const key = PHOTO_ID_TASKS[previewId];
-  const photo = key ? S.tapData[S.activeTap]?.photos?.[key] : null;
-  if (photo) setPhotoPreview(previewId, photo, { silent: true });
+  let photo = key ? S.tapData[S.activeTap]?.photos?.[key] : null;
+  photo = normalizeInterruptedPhoto(photo);
+  if (key && photo && photo !== S.tapData[S.activeTap].photos[key]) {
+    S.tapData[S.activeTap].photos[key] = photo;
+    saveActiveJobState?.();
+  }
+  if (photo) setPhotoPreview(previewId, photo, { silent: true, skipUpload: true });
 }
 
 function restoreCurrentPhotoScreen(screenId) {
@@ -113,9 +118,14 @@ function requireFull(screen) {
 function captureTaskPhoto(key) {
   const previewId = TASK_PHOTO_IDS[key];
   if (!previewId) return;
+  ensureTapData();
+  const existing = S.tapData[S.activeTap].photos[key];
+  // Never replace Drive metadata with a live <img> content URL.
+  if (typeof DrivePhoto !== 'undefined' && DrivePhoto.isUploaded(existing)) return;
+  if (typeof DrivePhoto !== 'undefined' && DrivePhoto.isMeta(existing) && existing.previewUrl) return;
+
   const img = document.getElementById(previewId);
-  if (img?.src && img.style.display !== 'none') {
-    ensureTapData();
+  if (img?.src && img.style.display !== 'none' && img.src.startsWith('data:')) {
     S.tapData[S.activeTap].photos[key] = img.src;
   }
 }
@@ -136,12 +146,18 @@ function renderAssessList() {
     const thumbEl = document.getElementById(`thumb-${key}`);
     if (!thumbEl) return;
     const photo = data.photos[key];
-    if (photo) {
-      thumbEl.innerHTML = `<img src="${photo}" alt="">`;
+    const src = typeof DrivePhoto !== 'undefined' ? DrivePhoto.previewSrc(photo) : (typeof photo === 'string' ? photo : '');
+    if (src) {
+      thumbEl.innerHTML = '';
+      const img = document.createElement('img');
+      img.alt = '';
+      img.src = src;
+      thumbEl.appendChild(img);
       thumbEl.classList.add('has-photo');
+      thumbEl.classList.toggle('upload-failed', Boolean(photo && typeof photo === 'object' && photo.uploadError));
     } else {
       thumbEl.innerHTML = '';
-      thumbEl.classList.remove('has-photo');
+      thumbEl.classList.remove('has-photo', 'upload-failed');
     }
   });
 }
@@ -333,7 +349,7 @@ window.MeterReadingCapture = {
     const tap = getActiveTapRecord();
     writeMeterReadingFields(tap.meterReadings || {});
     this.bindFieldPersistence();
-    if (tap.photos?.meter) setPhotoPreview('meter-photo-preview', tap.photos.meter, { silent: true });
+    if (tap.photos?.meter) setPhotoPreview('meter-photo-preview', tap.photos.meter, { silent: true, skipUpload: true });
   },
 
   bindFieldPersistence() {
@@ -372,8 +388,19 @@ function openPhotoStudio(inputId, previewId) {
 }
 
 function readImageFile(file, onLoad) {
+  if (!file) return;
+  const maxBytes = (typeof DrivePhoto !== 'undefined' && DrivePhoto.maxBytes)
+    ? DrivePhoto.maxBytes
+    : (15 * 1024 * 1024);
+  if (file.size > maxBytes) {
+    showToast(typeof t === 'function' ? t('photo.tooLarge') : 'Image is too large to upload (max 15 MB)');
+    return;
+  }
   const reader = new FileReader();
   reader.onload = () => onLoad(reader.result);
+  reader.onerror = () => {
+    showToast(typeof t === 'function' ? t('photo.uploadFailed') : 'Could not read image file');
+  };
   reader.readAsDataURL(file);
 }
 
@@ -518,40 +545,494 @@ function previewPhoto(input, previewId) {
   });
 }
 
+function setPhotoUploadUi(previewId, state) {
+  const img = document.getElementById(previewId);
+  const box = img?.closest('.photo-box') || img?.closest('.slip-upload-card');
+  if (!box) return;
+  box.classList.toggle('is-uploading', state === 'uploading');
+  box.classList.toggle('upload-failed', state === 'failed');
+  let badge = box.querySelector('.photo-upload-status');
+  if (state === 'failed') {
+    if (!badge) {
+      badge = document.createElement('button');
+      badge.type = 'button';
+      badge.className = 'photo-upload-status';
+      badge.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        retryDrivePhotoUpload(previewId);
+      });
+      box.appendChild(badge);
+    }
+    badge.textContent = typeof t === 'function' ? t('photo.uploadFailedRetry') : 'Upload failed · Tap to retry';
+    badge.classList.remove('hidden');
+  } else if (badge) {
+    badge.classList.add('hidden');
+  }
+}
+
+function resolveCaptureDataUrl(photoOrSrc) {
+  if (!photoOrSrc) return '';
+  if (typeof photoOrSrc === 'string') return photoOrSrc.startsWith('data:') ? photoOrSrc : '';
+  if (photoOrSrc.previewUrl && String(photoOrSrc.previewUrl).startsWith('data:')) return photoOrSrc.previewUrl;
+  return '';
+}
+
+function normalizeInterruptedPhoto(photo) {
+  if (!photo || typeof photo !== 'object') return photo;
+  if (photo.fileId) return photo;
+  // Upload abandoned mid-flight (reload) — keep preview and allow retry.
+  // Skip while a live in-page upload is still running (screen switch must not mark failed).
+  if (photo.uploading && photo.previewUrl) {
+    if (typeof DrivePhoto !== 'undefined' && DrivePhoto.hasInflight?.()) {
+      return photo;
+    }
+    return {
+      ...photo,
+      uploading: false,
+      uploadError: photo.uploadError || 'Upload interrupted',
+      uploadErrorCode: photo.uploadErrorCode || 'NETWORK_ERROR',
+      pendingAutoRetry: photo.pendingAutoRetry !== false
+    };
+  }
+  return photo;
+}
+
+function applyDriveContentSrc(img, photoOrUrl, fallbackDataUrl) {
+  if (!img) return;
+  if (typeof DrivePhoto !== 'undefined' && DrivePhoto.hydrateImg) {
+    DrivePhoto.hydrateImg(img, photoOrUrl, fallbackDataUrl);
+    return;
+  }
+  const url = typeof photoOrUrl === 'string'
+    ? photoOrUrl
+    : (photoOrUrl?.previewUrl || photoOrUrl?.contentUrl || '');
+  if (!url && fallbackDataUrl) {
+    img.src = fallbackDataUrl;
+    return;
+  }
+  if (!url) return;
+  const onError = () => {
+    if (fallbackDataUrl) img.src = fallbackDataUrl;
+  };
+  img.addEventListener('error', onError, { once: true });
+  img.src = url;
+}
+
+function buildStoredDrivePhotoMeta(meta, { purpose, previewUrl } = {}) {
+  return {
+    fileId: meta.fileId,
+    filename: meta.filename,
+    folder: meta.folder || 'main',
+    purpose: meta.purpose || purpose || null,
+    uploadedAt: meta.uploadedAt || new Date().toISOString(),
+    uploadedBy: meta.uploadedBy || S.user?.username || null,
+    jobId: meta.jobId || S.activeJob?.id || S.activeJob?.notionId || null,
+    contentUrl: meta.contentUrl,
+    mimeType: meta.mimeType || null,
+    previewUrl: previewUrl || meta.previewUrl || null
+  };
+}
+
+function markDriveUploadFailed(photoBase, error) {
+  const retryable = typeof DrivePhoto !== 'undefined' && DrivePhoto.isRetryableError?.(error);
+  return {
+    ...photoBase,
+    uploading: false,
+    uploadError: error.message || 'Upload failed',
+    uploadErrorCode: error.code || null,
+    pendingAutoRetry: Boolean(retryable)
+  };
+}
+
+function driveQueueKey(taskKey, tapIndex) {
+  const jobId = S.activeJob?.id || S.activeJob?.notionId || 'job';
+  return `${jobId}:${tapIndex ?? 'x'}:${taskKey}`;
+}
+
+async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
+  if (typeof DrivePhoto === 'undefined') return null;
+  ensureTapData();
+  const tapIndex = S.activeTap;
+  const photos = S.tapData[tapIndex].photos;
+  const existing = photos[taskKey];
+  const jobId = S.activeJob?.id || S.activeJob?.notionId || null;
+  const queueKey = driveQueueKey(taskKey, tapIndex);
+
+  const compressed = await DrivePhoto.compress(dataUrl);
+
+  if (DrivePhoto.isUploaded(existing)) {
+    // Main already stored — still try OCR copy if missing (meter/chlorine only).
+    if ((taskKey === 'meter' || taskKey === 'chlorine') && !existing.ocrFileId && compressed) {
+      try {
+        const ocrMeta = await DrivePhoto.uploadOnce({
+          dataUrl: compressed,
+          purpose: 'ocr',
+          folder: 'data',
+          filename: DrivePhoto.buildFilename(`${taskKey}-ocr`),
+          inflightKey: `data:ocr:${taskKey}:${tapIndex}`,
+          jobId
+        });
+        const merged = {
+          ...existing,
+          ocrFileId: ocrMeta.fileId,
+          ocrFolder: 'data',
+          ocrContentUrl: ocrMeta.contentUrl
+        };
+        if (S.tapData[tapIndex]?.photos) S.tapData[tapIndex].photos[taskKey] = merged;
+        saveActiveJobState?.();
+        return merged;
+      } catch (ocrError) {
+        console.warn('OCR Drive upload failed (non-blocking)', ocrError);
+      }
+    }
+    await DrivePhoto.dequeue?.(queueKey);
+    return existing;
+  }
+
+  photos[taskKey] = {
+    uploading: true,
+    previewUrl: compressed,
+    folder: 'main',
+    purpose: taskKey,
+    uploadedAt: null,
+    jobId,
+    pendingAutoRetry: false
+  };
+  setPhotoUploadUi(previewId, 'uploading');
+  saveActiveJobState?.();
+
+  try {
+    const meta = await DrivePhoto.uploadOnce({
+      dataUrl: compressed,
+      purpose: taskKey,
+      folder: 'main',
+      inflightKey: `main:${taskKey}:${tapIndex}`,
+      jobId
+    });
+
+    const stored = buildStoredDrivePhotoMeta(meta, { purpose: taskKey, previewUrl: compressed });
+
+    // Secondary OCR/raw copy for meter & chlorine (data folder).
+    if (taskKey === 'meter' || taskKey === 'chlorine') {
+      try {
+        const ocrMeta = await DrivePhoto.uploadOnce({
+          dataUrl: compressed,
+          purpose: 'ocr',
+          folder: 'data',
+          filename: DrivePhoto.buildFilename(`${taskKey}-ocr`),
+          inflightKey: `data:ocr:${taskKey}:${tapIndex}`,
+          jobId
+        });
+        stored.ocrFileId = ocrMeta.fileId;
+        stored.ocrFolder = 'data';
+        stored.ocrContentUrl = ocrMeta.contentUrl;
+      } catch (ocrError) {
+        console.warn('OCR Drive upload failed (non-blocking)', ocrError);
+      }
+    }
+
+    // Write back to the tap that started the upload (user may have switched taps).
+    if (S.tapData[tapIndex]?.photos) S.tapData[tapIndex].photos[taskKey] = stored;
+    setPhotoUploadUi(previewId, 'ok');
+    applyDriveContentSrc(document.getElementById(previewId), stored, compressed);
+    await DrivePhoto.dequeue?.(queueKey);
+    saveActiveJobState?.();
+    renderAssessList();
+    return stored;
+  } catch (error) {
+    if (error?.code === 'UPLOAD_IN_FLIGHT') return S.tapData[tapIndex]?.photos?.[taskKey];
+    console.warn('Drive upload failed', error);
+    const failed = markDriveUploadFailed({
+      previewUrl: compressed,
+      folder: 'main',
+      purpose: taskKey,
+      jobId
+    }, error);
+    if (S.tapData[tapIndex]?.photos) S.tapData[tapIndex].photos[taskKey] = failed;
+    if (DrivePhoto.isRetryableError?.(error)) {
+      await DrivePhoto.enqueue?.({
+        queueKey,
+        jobId,
+        tapIndex,
+        taskKey,
+        previewId,
+        purpose: taskKey,
+        folder: 'main',
+        dataUrl: compressed,
+        lastError: error.message
+      });
+    }
+    setPhotoUploadUi(previewId, 'failed');
+    saveActiveJobState?.();
+    showToast(
+      error.message
+      || (typeof t === 'function' ? t('photo.uploadFailed') : 'Photo saved locally — Drive upload failed')
+    );
+    return failed;
+  }
+}
+
+async function uploadSlipPhotoToDrive(dataUrl) {
+  if (typeof DrivePhoto === 'undefined') return null;
+  if (DrivePhoto.isUploaded(S.paymentSlipPhoto)) return S.paymentSlipPhoto;
+
+  const jobId = S.activeJob?.id || S.activeJob?.notionId || null;
+  const queueKey = driveQueueKey('payment', 'slip');
+  const compressed = await DrivePhoto.compress(dataUrl);
+
+  S.paymentSlipPhoto = {
+    uploading: true,
+    previewUrl: compressed,
+    folder: 'main',
+    purpose: 'payment',
+    jobId,
+    pendingAutoRetry: false
+  };
+  S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
+  setPhotoUploadUi('slip-preview', 'uploading');
+  saveActiveJobState?.();
+
+  try {
+    const meta = await DrivePhoto.uploadOnce({
+      dataUrl: compressed,
+      purpose: 'payment',
+      folder: 'main',
+      filename: DrivePhoto.buildFilename('payment-slip'),
+      inflightKey: 'main:payment:slip',
+      jobId
+    });
+    S.paymentSlipPhoto = buildStoredDrivePhotoMeta(meta, { purpose: 'payment', previewUrl: compressed });
+    setPhotoUploadUi('slip-preview', 'ok');
+    applyDriveContentSrc(document.getElementById('slip-preview'), S.paymentSlipPhoto, compressed);
+    await DrivePhoto.dequeue?.(queueKey);
+    saveActiveJobState?.();
+    return S.paymentSlipPhoto;
+  } catch (error) {
+    if (error?.code === 'UPLOAD_IN_FLIGHT') return S.paymentSlipPhoto;
+    console.warn('Slip Drive upload failed', error);
+    S.paymentSlipPhoto = markDriveUploadFailed({
+      previewUrl: compressed,
+      folder: 'main',
+      purpose: 'payment',
+      jobId
+    }, error);
+    if (DrivePhoto.isRetryableError?.(error)) {
+      await DrivePhoto.enqueue?.({
+        queueKey,
+        jobId,
+        tapIndex: null,
+        taskKey: 'payment',
+        previewId: 'slip-preview',
+        purpose: 'payment',
+        folder: 'main',
+        isSlip: true,
+        dataUrl: compressed,
+        lastError: error.message
+      });
+    }
+    setPhotoUploadUi('slip-preview', 'failed');
+    saveActiveJobState?.();
+    showToast(
+      error.message
+      || (typeof t === 'function' ? t('photo.uploadFailed') : 'Photo saved locally — Drive upload failed')
+    );
+    return S.paymentSlipPhoto;
+  }
+}
+
+let _driveFlushBusy = false;
+
+async function flushPendingDriveUploads() {
+  if (_driveFlushBusy || typeof DrivePhoto === 'undefined') return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  _driveFlushBusy = true;
+  try {
+    const queue = (await DrivePhoto.readQueue?.()) || [];
+    for (const item of queue) {
+      if (!item?.dataUrl) {
+        await DrivePhoto.dequeue?.(item.queueKey);
+        continue;
+      }
+      try {
+        if (item.isSlip || item.purpose === 'payment') {
+          if (DrivePhoto.isUploaded(S.paymentSlipPhoto)) {
+            await DrivePhoto.dequeue?.(item.queueKey);
+            continue;
+          }
+          await uploadSlipPhotoToDrive(item.dataUrl);
+        } else if (item.taskKey) {
+          const tapIndex = Number.isFinite(item.tapIndex) ? item.tapIndex : S.activeTap;
+          const priorTap = S.activeTap;
+          if (Number.isFinite(tapIndex)) S.activeTap = tapIndex;
+          ensureTapData();
+          const existing = S.tapData[tapIndex]?.photos?.[item.taskKey];
+          if (DrivePhoto.isUploaded(existing)) {
+            await DrivePhoto.dequeue?.(item.queueKey);
+            S.activeTap = priorTap;
+            continue;
+          }
+          const previewId = item.previewId
+            || Object.entries(PHOTO_ID_TASKS).find(([, key]) => key === item.taskKey)?.[0];
+          await uploadTaskPhotoToDrive(item.taskKey, previewId, item.dataUrl);
+          S.activeTap = priorTap;
+        }
+      } catch (error) {
+        console.warn('Auto Drive retry failed', error);
+      }
+    }
+
+    // Also pick up pending flags on the active job that may not be in the queue index.
+    if (S.activeJob && Array.isArray(S.tapData)) {
+      for (let i = 0; i < S.tapData.length; i += 1) {
+        const photos = S.tapData[i]?.photos || {};
+        for (const [taskKey, photo] of Object.entries(photos)) {
+          if (!photo || photo.fileId || !photo.pendingAutoRetry || !photo.previewUrl) continue;
+          const priorTap = S.activeTap;
+          S.activeTap = i;
+          const previewId = Object.entries(PHOTO_ID_TASKS).find(([, key]) => key === taskKey)?.[0];
+          try {
+            await uploadTaskPhotoToDrive(taskKey, previewId, photo.previewUrl);
+          } catch (error) {
+            console.warn('Pending photo auto-retry failed', error);
+          }
+          S.activeTap = priorTap;
+        }
+      }
+    }
+    if (S.paymentSlipPhoto?.pendingAutoRetry && S.paymentSlipPhoto?.previewUrl && !S.paymentSlipPhoto.fileId) {
+      try {
+        await uploadSlipPhotoToDrive(S.paymentSlipPhoto.previewUrl);
+      } catch (error) {
+        console.warn('Pending slip auto-retry failed', error);
+      }
+    }
+  } finally {
+    _driveFlushBusy = false;
+  }
+}
+
+function initDriveUploadQueue() {
+  if (typeof window === 'undefined' || window.__wmDriveQueueInit) return;
+  window.__wmDriveQueueInit = true;
+  window.addEventListener('online', () => {
+    flushPendingDriveUploads();
+  });
+  // Delayed startup flush after session restore.
+  setTimeout(() => flushPendingDriveUploads(), 1200);
+}
+
+function retryDrivePhotoUpload(previewId) {
+  if (previewId === 'slip-preview') {
+    const dataUrl = resolveCaptureDataUrl(S.paymentSlipPhoto);
+    if (!dataUrl) {
+      showToast(typeof t === 'function' ? t('photo.retryUnavailable') : 'Nothing to retry — capture again');
+      return;
+    }
+    uploadSlipPhotoToDrive(dataUrl);
+    return;
+  }
+
+  const taskKey = PHOTO_ID_TASKS[previewId];
+  if (!taskKey) return;
+  ensureTapData();
+  const photo = S.tapData[S.activeTap]?.photos?.[taskKey];
+  const dataUrl = resolveCaptureDataUrl(photo);
+  if (!dataUrl) {
+    showToast(typeof t === 'function' ? t('photo.retryUnavailable') : 'Nothing to retry — capture again');
+    return;
+  }
+  uploadTaskPhotoToDrive(taskKey, previewId, dataUrl);
+}
+
 function setPhotoPreview(previewId, src, options = {}) {
   const img = document.getElementById(previewId);
   if (!img) return;
-  img.src = src;
-  img.style.display = 'block';
-  img.classList.add('preview');
+
+  const isMeta = typeof DrivePhoto !== 'undefined' && DrivePhoto.isMeta(src);
+  const displaySrc = typeof DrivePhoto !== 'undefined'
+    ? DrivePhoto.previewSrc(src)
+    : (typeof src === 'string' ? src : '');
+
+  if (displaySrc) {
+    img.src = displaySrc;
+    img.style.display = 'block';
+    img.classList.add('preview');
+  } else if (isMeta && (src.fileId || src.contentUrl)) {
+    img.classList.add('preview');
+    img.style.display = 'block';
+    applyDriveContentSrc(img, src, src.previewUrl || '');
+  }
+
   const box = img.closest('.photo-box');
   const slipCard = img.closest('.slip-upload-card');
-  if (box) {
+  const hasVisual = Boolean(displaySrc || (isMeta && (src.fileId || src.previewUrl)));
+  if (box && hasVisual) {
     box.classList.add('has-photo');
     box.querySelector('.pb-icon')?.classList.add('hidden');
     box.querySelector('.pb-label')?.classList.add('hidden');
     box.querySelector('.photo-status')?.classList.remove('hidden');
   }
-  if (slipCard) {
+  if (slipCard && hasVisual) {
     slipCard.classList.add('has-photo');
     slipCard.querySelector('.slip-cam-icon')?.classList.add('hidden');
     const sub = slipCard.querySelector('#slip-sub');
     if (sub) sub.textContent = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
   }
+
   const taskKey = PHOTO_ID_TASKS[previewId];
+  const skipUpload = Boolean(options.skipUpload || options.silent);
+  const dataUrl = typeof src === 'string' && src.startsWith('data:') ? src : resolveCaptureDataUrl(src);
+
   if (taskKey) {
     ensureTapData();
-    S.tapData[S.activeTap].photos[taskKey] = src;
+    if (isMeta) {
+      S.tapData[S.activeTap].photos[taskKey] = src;
+      setPhotoUploadUi(
+        previewId,
+        src.uploadError || src.pendingAutoRetry ? 'failed' : (src.uploading ? 'uploading' : 'ok')
+      );
+    } else if (dataUrl) {
+      // Keep preview responsive: store temporary data URL, then upload once.
+      if (!skipUpload) {
+        S.tapData[S.activeTap].photos[taskKey] = {
+          uploading: true,
+          previewUrl: dataUrl,
+          folder: 'main',
+          purpose: taskKey,
+          jobId: S.activeJob?.id || S.activeJob?.notionId || null
+        };
+      } else if (!DrivePhoto?.isUploaded(S.tapData[S.activeTap].photos[taskKey])) {
+        S.tapData[S.activeTap].photos[taskKey] = dataUrl;
+      }
+    }
     if (!options.silent) saveActiveJobState?.();
     renderAssessList();
   }
-  if (previewId === 'meter-photo-preview' && !options.silent && window.MeterReadingCapture?.processPhoto) {
-    MeterReadingCapture.processPhoto(src);
-  } else if (previewId === 'cl-photo-preview' && !options.silent) {
-    processAssessmentPhoto('cl-photo-preview', src).catch(error => {
-      console.error(error);
-      showToast(typeof t === 'function' ? t('meter.toastError') : 'Could not read image');
-    });
+
+  if (previewId === 'slip-preview' && isMeta) {
+    S.paymentSlipPhoto = src;
+    setPhotoUploadUi(
+      previewId,
+      src.uploadError || src.pendingAutoRetry ? 'failed' : (src.uploading ? 'uploading' : 'ok')
+    );
+  }
+
+  // OCR still runs on the local data URL (not Drive download).
+  const ocrSource = dataUrl || (typeof src === 'string' ? src : '');
+  if (!options.silent && ocrSource) {
+    if (previewId === 'meter-photo-preview' && window.MeterReadingCapture?.processPhoto) {
+      MeterReadingCapture.processPhoto(ocrSource);
+    } else if (previewId === 'cl-photo-preview') {
+      processAssessmentPhoto('cl-photo-preview', ocrSource).catch(error => {
+        console.error(error);
+        showToast(typeof t === 'function' ? t('meter.toastError') : 'Could not read image');
+      });
+    }
+  }
+
+  if (!skipUpload && dataUrl && taskKey) {
+    uploadTaskPhotoToDrive(taskKey, previewId, dataUrl);
   }
 }
 
@@ -559,17 +1040,19 @@ function handleSlipUpload(input) {
   const file = input.files?.[0];
   if (!file) return;
   readImageFile(file, src => {
-    S.paymentSlipPhoto = src;
+    S.paymentSlipPhoto = { uploading: true, previewUrl: src, folder: 'main', purpose: 'payment' };
     S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
-    setPhotoPreview('slip-preview', src);
+    setPhotoPreview('slip-preview', S.paymentSlipPhoto, { skipUpload: true });
     closeCameraCapture();
     showToast(typeof t === 'function' ? t('pay.uploaded') : 'Photo attached');
+    uploadSlipPhotoToDrive(src);
   });
 }
 
 function handleSlipCapture(dataUrl) {
-  S.paymentSlipPhoto = dataUrl;
+  S.paymentSlipPhoto = { uploading: true, previewUrl: dataUrl, folder: 'main', purpose: 'payment' };
   S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
-  setPhotoPreview('slip-preview', dataUrl);
+  setPhotoPreview('slip-preview', S.paymentSlipPhoto, { skipUpload: true });
   showToast(typeof t === 'function' ? t('pay.uploaded') : 'Photo attached');
+  uploadSlipPhotoToDrive(dataUrl);
 }

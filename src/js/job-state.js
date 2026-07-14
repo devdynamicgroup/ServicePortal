@@ -142,7 +142,33 @@ function restoreSlipPreview() {
   if (!preview) return;
 
   if (S.paymentSlipPhoto) {
-    if (typeof setPhotoPreview === 'function') setPhotoPreview('slip-preview', S.paymentSlipPhoto);
+    if (typeof normalizeInterruptedPhoto === 'function') {
+      S.paymentSlipPhoto = normalizeInterruptedPhoto(S.paymentSlipPhoto);
+    } else if (
+      S.paymentSlipPhoto
+      && typeof S.paymentSlipPhoto === 'object'
+      && S.paymentSlipPhoto.uploading
+      && !S.paymentSlipPhoto.fileId
+      && S.paymentSlipPhoto.previewUrl
+    ) {
+      S.paymentSlipPhoto = {
+        ...S.paymentSlipPhoto,
+        uploading: false,
+        uploadError: S.paymentSlipPhoto.uploadError || 'Upload interrupted'
+      };
+    }
+    if (typeof setPhotoPreview === 'function') {
+      setPhotoPreview('slip-preview', S.paymentSlipPhoto, { silent: true, skipUpload: true });
+    } else {
+      const src = typeof DrivePhoto !== 'undefined'
+        ? DrivePhoto.previewSrc(S.paymentSlipPhoto)
+        : (typeof S.paymentSlipPhoto === 'string' ? S.paymentSlipPhoto : '');
+      if (src) {
+        preview.src = src;
+        preview.style.display = 'block';
+        card?.classList.add('has-photo');
+      }
+    }
     if (sub) sub.textContent = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
     return;
   }
@@ -171,6 +197,19 @@ function loadJobState(job) {
   S.tapData = draft.tapData?.length
     ? JSON.parse(JSON.stringify(draft.tapData))
     : S.taps.map(() => ({ tasks: {}, photos: {} }));
+
+  // Normalize abandoned in-flight uploads so previews + retry work after reload.
+  if (typeof normalizeInterruptedPhoto === 'function') {
+    S.tapData.forEach(tap => {
+      if (!tap?.photos) return;
+      Object.keys(tap.photos).forEach(key => {
+        tap.photos[key] = normalizeInterruptedPhoto(tap.photos[key]);
+      });
+    });
+    if (S.paymentSlipPhoto && typeof S.paymentSlipPhoto === 'object') {
+      S.paymentSlipPhoto = normalizeInterruptedPhoto(S.paymentSlipPhoto);
+    }
+  }
 
   JOB_FIELD_IDS.forEach(id => writeField(id, draft.fields[id]));
 

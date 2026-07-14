@@ -11,6 +11,7 @@ const S = {
   tapData: null,
   searchQuery: '',
   lang: localStorage.getItem('wm-lang') || 'en',
+  user: null,
   monthPickerDate: new Date(),
   actionJobId: null,
   scoreTapFilter: 'all',

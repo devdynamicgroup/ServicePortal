@@ -345,7 +345,14 @@ function openLangModal(){ document.getElementById('lang-overlay').classList.remo
 function closeLangModal(){ document.getElementById('lang-overlay').classList.add('hidden'); }
 function openSignoutModal(){ document.getElementById('signout-overlay').classList.remove('hidden'); }
 function closeSignoutModal(){ document.getElementById('signout-overlay').classList.add('hidden'); }
-function confirmSignout(){ closeSignoutModal(); S.activeJob=null; localStorage.removeItem('wm-session'); goScreen('s-login'); showToast('Signed out'); }
+function confirmSignout(){
+  closeSignoutModal();
+  S.activeJob = null;
+  if (typeof clearAppSession === 'function') clearAppSession();
+  else localStorage.removeItem('wm-session');
+  goScreen('s-login');
+  showToast('Signed out');
+}
 function openMonthPicker(){ S.monthPickerDate=new Date(weekBase); S.monthPickerDate.setDate(weekBase.getDate()+S.selDay); renderMonthGrid(); document.getElementById('month-overlay').classList.remove('hidden'); }
 function closeMonthPicker(){ document.getElementById('month-overlay').classList.add('hidden'); }
 function shiftMonth(dir){ S.monthPickerDate.setMonth(S.monthPickerDate.getMonth()+dir); renderMonthGrid(); }
