@@ -26,6 +26,7 @@ async function handleClientsRoute(req, res, urlPath) {
               'POST /api/cases/:id/close',
               'POST /api/line/send-result',
               'GET /api/report/:token',
+              'POST /api/cases/:id/feedback',
               'POST /api/feedback/:token'
             ]
           : []

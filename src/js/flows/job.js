@@ -30,7 +30,7 @@ function renderJobSteps() {
     steps.splice(3, 0, { id: 'payment', title: t('job.step.payment.title'), sub: t('job.step.payment.sub'), screen: 's-payment' });
   }
   container.innerHTML = steps.map(s => `
-    <div class="step-card ${S.stepsDone[s.id]?'done':''}" onclick="${s.id === 'feedback' ? 'openFeedbackModal()' : `goScreen('${s.screen}')`}">
+    <div class="step-card ${S.stepsDone[s.id]?'done':''}" onclick="goScreen('${s.screen}')">
       <div class="step-icon-circle"><img src="${STEP_ICONS[s.id]}" alt=""></div>
       <div class="step-card-body">
         <div class="step-card-title">${s.title}</div>

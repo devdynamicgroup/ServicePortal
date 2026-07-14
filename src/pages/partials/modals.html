@@ -56,25 +56,7 @@
   </div>
 </div>
 
-<!-- Client Feedback -->
-<div id="feedback-overlay" class="modal-overlay hidden" onclick="closeFeedbackModal()">
-  <div class="modal-sheet feedback-modal" onclick="event.stopPropagation()">
-    <div class="modal-handle"></div>
-    <div class="modal-title" data-i18n="fb.title">Client Feedback</div>
-    <div class="card feedback-review-card">
-      <p class="feedback-review-lead" data-i18n="fb.reviewLead">Thank you for choosing Water Motion.</p>
-      <p class="feedback-review-body" data-i18n="fb.reviewBody">Scan the QR code or tap the link below to leave a Google review.</p>
-      <img class="feedback-review-qr" id="fb-review-qr" src="" alt="Google Review QR Code" width="160" height="160">
-      <a class="feedback-review-url" id="fb-review-link-display" href="https://g.page/r/Ce0EFhVtUyRpEBM/review" target="_blank" rel="noopener noreferrer">https://g.page/r/Ce0EFhVtUyRpEBM/review</a>
-      <input type="hidden" id="fb-comment" value="">
-      <input type="checkbox" id="fb-consent" checked class="hidden">
-    </div>
-    <div class="row feedback-review-actions">
-      <button class="btn btn-secondary btn-complete-narrow" type="button" onclick="completeFeedback()" data-i18n="common.complete">Complete</button>
-      <button class="btn btn-primary btn-google" type="button" onclick="openGoogleReview()" data-i18n="fb.google">Leave Google Review</button>
-    </div>
-  </div>
-</div>
+<!-- Legacy Google Review modal removed — Feedback is an in-app screen (s-feedback). -->
 
 <!-- Language -->
 <div id="lang-overlay" class="modal-overlay hidden" onclick="closeLangModal()">

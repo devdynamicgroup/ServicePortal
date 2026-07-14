@@ -14,7 +14,8 @@ const FEEDBACK_ALIASES = {
   feedbackUrl: ['Feedback URL', 'Feedback Url', 'feedbackUrl'],
   rating: ['Rating', 'Feedback Rating', 'rating'],
   comment: ['Comment', 'Feedback Comment', 'comment'],
-  submittedAt: ['Submitted At', 'Feedback Submitted At', 'submittedAt'],
+  email: ['Email', 'Client Email', 'email'],
+  submittedAt: ['Submitted At', 'Feedback Submitted At', 'submittedAt', 'Created At', 'created_at'],
   feedbackStatus: ['Feedback Status', 'Status', 'feedbackStatus'],
   reviewUrl: ['Review URL', 'Google Review URL', 'reviewUrl'],
   reviewStatus: ['Review Status', 'reviewStatus'],
@@ -31,6 +32,7 @@ const FEEDBACK_SCHEMA = [
   { key: 'feedbackUrl', name: 'Feedback URL', schema: { url: {} }, required: true },
   { key: 'rating', name: 'Rating', schema: { number: { format: 'number' } }, required: false },
   { key: 'comment', name: 'Comment', schema: { rich_text: {} }, required: false },
+  { key: 'email', name: 'Email', schema: { email: {} }, required: false },
   { key: 'submittedAt', name: 'Submitted At', schema: { date: {} }, required: false },
   {
     key: 'feedbackStatus',
@@ -126,6 +128,7 @@ function setProp(output, schema, aliases, value) {
     if (Number.isFinite(number)) output[key] = { number };
   }
   if (type === 'url') output[key] = { url: String(value) };
+  if (type === 'email') output[key] = { email: String(value) };
   if (type === 'date') output[key] = { date: { start: String(value) } };
   if (type === 'select') output[key] = { select: { name: String(value) } };
 }
@@ -311,35 +314,50 @@ async function submitFeedback(token, payload = {}) {
     throw error;
   }
 
+  const comment = String(payload.comment || '').trim();
+  if (!comment) {
+    const error = new Error('Comment is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const name = String(payload.name || payload.clientName || '').trim();
+  const email = String(payload.email || '').trim();
+  const commentWithMeta = email
+    ? `${comment}\n\n—\nEmail: ${email}`
+    : comment;
+
   if (isClientFeedbackConfigured()) {
     await upsertFeedbackRecord({
       ...current,
-      title: `Feedback - ${current.clientName || token}`,
+      title: `Feedback - ${name || current.clientName || token}`,
+      clientName: name || current.clientName,
+      email: email || undefined,
       rating,
-      comment: payload.comment || '',
+      comment: commentWithMeta,
       submittedAt: now,
       feedbackStatus: 'submitted',
-      reviewStatus: 'requested',
-      reviewRequestedAt: now
+      reviewStatus: 'not_requested'
     });
   }
 
   if (current.clientPageId) {
     await updateClient(current.clientPageId, {
       feedbackRating: rating,
-      feedbackComment: payload.comment || '',
+      feedbackComment: commentWithMeta,
       feedbackSubmittedAt: now,
       feedbackStatus: 'submitted',
-      reviewRequestedAt: now,
-      reviewStatus: 'requested'
+      reviewStatus: 'not_requested',
+      caseWorkflowStatus: 'feedback_submitted'
     });
   }
 
   return {
     ok: true,
-    reviewUrl: current.reviewUrl,
+    feedbackToken: current.feedbackToken || token,
+    submittedAt: now,
     feedbackStatus: 'submitted',
-    reviewStatus: 'requested'
+    reviewStatus: 'not_requested'
   };
 }
 

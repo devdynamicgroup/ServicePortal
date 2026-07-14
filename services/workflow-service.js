@@ -243,7 +243,7 @@ async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
   const now = new Date().toISOString();
   const reportToken = job.result?.publicReportToken || '';
   const reportUrl = resolveReportUrl(job, payload);
-  const reviewUrl = resolveReviewUrl(job, payload);
+  const feedbackUrl = resolveFeedbackUrl(job, payload);
 
   if (!reportUrl) {
     const error = new Error('Report URL is missing for this case');
@@ -259,13 +259,13 @@ async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
     lineUserId,
     reportUrl,
     reportToken: reportToken || null,
-    reviewUrl: reviewUrl || null,
+    feedbackUrl: feedbackUrl || null,
     previousNotificationStatus: currentState
   });
 
   const line = await sendCaseResultNotification(job, {
     reportUrl,
-    reviewUrl,
+    feedbackUrl,
     reportToken,
     caseId,
     notionId: job.notionId
@@ -450,33 +450,106 @@ async function recordFeedback(token, payload = {}) {
   if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
     const error = new Error('Rating must be between 1 and 5'); error.statusCode = 400; throw error;
   }
+  const comment = String(payload.comment || '').trim();
+  if (!comment) {
+    const error = new Error('Comment is required'); error.statusCode = 400; throw error;
+  }
 
   return withCaseLock(current.clientPageId || token, async () => {
     const fresh = await getFeedbackByToken(token);
     if (fresh?.feedbackStatus === 'submitted') {
-      return { ok: true, idempotent: true, reviewUrl: fresh.reviewUrl, feedbackStatus: 'submitted', reviewStatus: fresh.reviewStatus };
+      return {
+        ok: true,
+        idempotent: true,
+        feedbackToken: fresh.feedbackToken || token,
+        submittedAt: fresh.submittedAt || null,
+        feedbackStatus: 'submitted',
+        reviewStatus: fresh.reviewStatus || 'not_requested'
+      };
     }
     const now = new Date().toISOString();
-    const requestReview = rating >= 4;
+    const name = String(payload.name || payload.clientName || '').trim();
+    const email = String(payload.email || '').trim();
+    const commentWithMeta = email ? `${comment}\n\n—\nEmail: ${email}` : comment;
+
     if (isClientFeedbackConfigured()) {
       try {
-        await upsertFeedbackRecord({ ...fresh, title: `Feedback - ${fresh.clientName || token}`,
-          rating, comment: payload.comment || '', submittedAt: now, feedbackStatus: 'submitted',
-          reviewStatus: requestReview ? 'requested' : 'not_requested',
-          reviewRequestedAt: requestReview ? now : undefined });
+        await upsertFeedbackRecord({
+          ...fresh,
+          title: `Feedback - ${name || fresh.clientName || token}`,
+          clientName: name || fresh.clientName,
+          email: email || undefined,
+          rating,
+          comment: commentWithMeta,
+          submittedAt: now,
+          feedbackStatus: 'submitted',
+          reviewStatus: 'not_requested'
+        });
       } catch (error) {
         console.warn('[workflow] feedback database update failed; saving on client case', error.message);
       }
     }
     if (fresh.clientPageId) {
       await updateClient(fresh.clientPageId, {
-        feedbackRating: rating, feedbackComment: payload.comment || '', feedbackSubmittedAt: now,
-        feedbackStatus: 'submitted', caseWorkflowStatus: requestReview ? 'review_requested' : 'feedback_submitted',
-        reviewRequestedAt: requestReview ? now : undefined,
-        reviewStatus: requestReview ? 'requested' : 'not_requested'
+        feedbackRating: rating,
+        feedbackComment: commentWithMeta,
+        feedbackSubmittedAt: now,
+        feedbackStatus: 'submitted',
+        caseWorkflowStatus: 'feedback_submitted',
+        reviewStatus: 'not_requested'
       });
     }
-    return { ok: true, reviewUrl: fresh.reviewUrl, feedbackStatus: 'submitted', reviewStatus: requestReview ? 'requested' : 'not_requested' };
+    return {
+      ok: true,
+      feedbackToken: fresh.feedbackToken || token,
+      submittedAt: now,
+      feedbackStatus: 'submitted',
+      reviewStatus: 'not_requested'
+    };
+  });
+}
+
+/** Field-app / in-app feedback submit by case id (ensures Feedback DB page exists). */
+async function submitCaseFeedback(caseId, payload = {}) {
+  const initial = await resolveJob(caseId);
+  if (!initial?.notionId) {
+    const error = new Error('Case not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return withCaseLock(initial.notionId, async () => {
+    let job = await getClient(initial.notionId);
+    const feedbackToken = job.feedback?.token || newToken('fb');
+    const feedbackUrl = `${publicBaseUrl()}/f/${feedbackToken}`;
+    const reportUrl = job.result?.reportUrl || (job.result?.publicReportToken
+      ? normalizeReportUrl(job.result.publicReportToken)
+      : '');
+
+    if (!job.feedback?.token) {
+      job = await updateClient(job.notionId, {
+        feedbackToken,
+        feedbackUrl,
+        feedbackStatus: job.feedback?.status === 'submitted' ? 'submitted' : 'pending',
+        reviewStatus: job.review?.status || 'not_requested'
+      });
+    }
+
+    await ensureFeedbackRecord(job, {
+      feedbackToken,
+      title: `Feedback - ${job.name}`,
+      clientPageId: job.notionId,
+      clientName: job.name,
+      clientPhone: job?.draft?.fields?.['ci-phone'] || '',
+      caseId: String(initial.id),
+      reportUrl,
+      feedbackUrl,
+      feedbackStatus: job.feedback?.status === 'submitted' ? 'submitted' : 'pending',
+      reviewUrl: job.review?.url || DEFAULT_REVIEW_URL,
+      reviewStatus: 'not_requested'
+    });
+
+    return recordFeedback(feedbackToken, payload);
   });
 }
 
@@ -491,5 +564,6 @@ module.exports = {
   repairCaseResultNotification,
   publishCaseScore,
   recordFeedback,
+  submitCaseFeedback,
   resolveJob
 };

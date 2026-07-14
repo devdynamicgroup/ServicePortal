@@ -1,1 +1,59 @@
-<div id="s-feedback" class="screen"></div>
+<div id="s-feedback" class="screen">
+  <div class="hdr">
+    <button class="hdr-back" type="button" onclick="goBack('s-job')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <span class="hdr-title" data-i18n="fb.title">Feedback</span>
+  </div>
+
+  <div class="content fb-content" id="fb-form-view">
+    <div class="fb-card">
+      <p class="fb-lead" data-i18n="fb.lead">Help us improve our service</p>
+      <p class="fb-sub" data-i18n="fb.sub">Your private feedback stays with Water Motion — it is not posted publicly.</p>
+
+      <div class="fb-field">
+        <label class="fb-label" data-i18n="fb.ratingLabel">Overall Experience</label>
+        <div class="fb-stars" id="fb-stars" role="radiogroup" aria-label="Overall Experience">
+          <button type="button" class="fb-star" data-rating="1" aria-label="1 star">★</button>
+          <button type="button" class="fb-star" data-rating="2" aria-label="2 stars">★</button>
+          <button type="button" class="fb-star" data-rating="3" aria-label="3 stars">★</button>
+          <button type="button" class="fb-star" data-rating="4" aria-label="4 stars">★</button>
+          <button type="button" class="fb-star" data-rating="5" aria-label="5 stars">★</button>
+        </div>
+        <p class="fb-error hidden" id="fb-rating-error" data-i18n="fb.err.rating">Please select a rating</p>
+      </div>
+
+      <div class="fb-field">
+        <label class="fb-label" for="fb-name"><span data-i18n="fb.name">Name</span> <span class="fb-optional" data-i18n="fb.optional">(optional)</span></label>
+        <input class="inp" id="fb-name" type="text" autocomplete="name" data-i18n-placeholder="fb.namePh" placeholder="Your name">
+      </div>
+
+      <div class="fb-field">
+        <label class="fb-label" for="fb-email"><span data-i18n="fb.email">Email</span> <span class="fb-optional" data-i18n="fb.optional">(optional)</span></label>
+        <input class="inp" id="fb-email" type="email" autocomplete="email" data-i18n-placeholder="fb.emailPh" placeholder="you@email.com">
+      </div>
+
+      <div class="fb-field">
+        <label class="fb-label" for="fb-comment" data-i18n="fb.comment">What would you like to tell us?</label>
+        <textarea class="inp fb-textarea" id="fb-comment" rows="5" maxlength="1200" data-i18n-placeholder="fb.commentPh" placeholder="Share what went well or what we can improve"></textarea>
+        <p class="fb-error hidden" id="fb-comment-error" data-i18n="fb.err.comment">Please enter a comment</p>
+      </div>
+
+      <p class="fb-error fb-submit-error hidden" id="fb-submit-error"></p>
+    </div>
+  </div>
+
+  <div class="content fb-content fb-success-view hidden" id="fb-success-view">
+    <div class="fb-card fb-success-card">
+      <div class="fb-success-icon" aria-hidden="true">✓</div>
+      <h2 class="fb-success-title" data-i18n="fb.thanksTitle">Thank you!</h2>
+      <p class="fb-success-body" data-i18n="fb.thanksBody">Your feedback has been submitted.</p>
+      <p class="fb-success-note" data-i18n="fb.thanksNote">We appreciate your time.</p>
+    </div>
+  </div>
+
+  <div class="foot" id="fb-form-foot">
+    <button class="btn btn-primary" type="button" id="fb-submit-btn" onclick="submitFeedbackForm()" data-i18n="fb.submit">Submit Feedback</button>
+  </div>
+  <div class="foot hidden" id="fb-success-foot">
+    <button class="btn btn-primary" type="button" onclick="completeFeedback()" data-i18n="fb.done">Done</button>
+  </div>
+</div>

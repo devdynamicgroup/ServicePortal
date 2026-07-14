@@ -104,15 +104,12 @@ if (document.readyState === 'loading') {
 
 const _origGoScreen = goScreen;
 window.goScreen = function(id) {
-  if (id === 's-feedback') {
-    openFeedbackModal();
-    return;
-  }
   _origGoScreen(id);
   try {
     if (id === 's-assess') renderAssessList();
     if (typeof restoreCurrentPhotoScreen === 'function') restoreCurrentPhotoScreen(id);
     if (id === 's-meter' && window.MeterReadingCapture) MeterReadingCapture.init();
+    if (id === 's-feedback' && typeof initFeedbackScreen === 'function') initFeedbackScreen();
     if (id === 's-score') {
       S.scoreStandardKey = typeof DEFAULT_SCORE_STANDARD_KEY !== 'undefined' ? DEFAULT_SCORE_STANDARD_KEY : 'thailand';
       calcAndShowScore();

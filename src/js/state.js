@@ -19,8 +19,7 @@ const S = {
   comparisonScoreResult: null,
   stepsDone: { preassess: false, assess: false, score: false, payment: false, feedback: false },
   scoreVal: null,
-  scoreDetail: {},
-  googleReviewUrl: 'https://g.page/r/Ce0EFhVtUyRpEBM/review'
+  scoreDetail: {}
 };
 
 const KTB_LOGO = 'src/assets/ktb-logo.png';

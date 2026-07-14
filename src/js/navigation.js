@@ -5,7 +5,6 @@ function closeTransientOverlays() {
     'action-sheet-overlay',
     'search-overlay',
     'notif-overlay',
-    'feedback-overlay',
     'lang-overlay',
     'signout-overlay',
     'month-overlay',
