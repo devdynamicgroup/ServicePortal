@@ -56,6 +56,20 @@ console.log('[ENV DEBUG]', {
   )
 });
 
+// More explicit, non-sensitive startup diagnostics for deployment troubleshooting.
+try {
+  console.log('[ENV PRESENCE]', {
+    NODE_ENV: String(process.env.NODE_ENV || 'development'),
+    AUTH_SESSION_SECRET: Boolean(process.env.AUTH_SESSION_SECRET || process.env.SESSION_SECRET),
+    GOOGLE_SERVICE_ACCOUNT_JSON: Boolean(String(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '').trim()),
+    GOOGLE_SERVICE_ACCOUNT_KEY_PATH: Boolean(String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || '').trim()),
+    GOOGLE_DRIVE_MAIN_FOLDER_ID: Boolean(String(process.env.GOOGLE_DRIVE_MAIN_FOLDER_ID || process.env.GOOGLE_DRIVE_FOLDER_ID || '').trim()),
+    GOOGLE_DRIVE_DATA_FOLDER_ID: Boolean(String(process.env.GOOGLE_DRIVE_DATA_FOLDER_ID || '').trim())
+  });
+} catch (e) {
+  console.warn('[ENV PRESENCE] logging failed', e && e.message ? e.message : e);
+}
+
 const { handleClientsRoute } = require('./api/clients-routes');
 const { handleCaseFlowRoute } = require('./api/case-flow-routes');
 const { handleLineRoute } = require('./api/line-routes');
@@ -80,6 +94,13 @@ const types = {
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.csv': 'text/csv; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon'
+};
 
 // Non-sensitive Drive status to aid debugging at startup (does not print private keys).
 try {
@@ -95,13 +116,6 @@ try {
 } catch (e) {
   console.warn('[DRIVE STATUS] unavailable', e && e.message ? e.message : e);
 }
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.ico': 'image/x-icon'
-};
 
 function send(res, status, body, type = 'text/plain; charset=utf-8') {
   res.writeHead(status, {
@@ -330,6 +344,22 @@ async function handleRequest(req, res) {
 
 function listen(nextPort) {
   const server = http.createServer(handleRequest);
+
+  // Global diagnostics to help catch startup crashes in hosted environments.
+  process.on('uncaughtException', err => {
+    try {
+      console.error('[UNCAUGHT EXCEPTION]', err && err.message ? err.message : String(err));
+      if (err && err.stack) console.error(err.stack);
+    } catch (e) { /* ignore logging failures */ }
+    process.exit(1);
+  });
+  process.on('unhandledRejection', reason => {
+    try {
+      console.error('[UNHANDLED REJECTION]', reason && reason.message ? reason.message : String(reason));
+      if (reason && reason.stack) console.error(reason.stack);
+    } catch (e) { /* ignore logging failures */ }
+    process.exit(1);
+  });
 
   server.once('error', error => {
     if (error.code === 'EADDRINUSE') {
