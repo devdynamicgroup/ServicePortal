@@ -236,15 +236,19 @@ function getDriveStatus() {
   } catch (error) {
     credentialsError = error.message;
   }
-  const folders = getConfiguredFolderIds();
+
+  // Do NOT expose raw credentials or private_key here. Only return booleans and service account email.
+  const mainConfigured = Boolean(getMainFolderId());
+  const dataConfigured = Boolean(getDataFolderId());
+  const configured = Boolean(credentialsLoaded && mainConfigured);
+
   return {
-    configured: Boolean(credentialsLoaded && folders.main),
-    folderId: folders.main,
-    folders,
-    credentialsLoaded,
+    configured,
+    credentialsLoaded: Boolean(credentialsLoaded),
     serviceAccountEmail: credentialsLoaded ? getServiceAccountEmail() : null,
-    makePublic: String(process.env.GOOGLE_DRIVE_MAKE_PUBLIC || '').toLowerCase() === 'true',
-    error: credentialsError
+    mainFolderConfigured: mainConfigured,
+    dataFolderConfigured: dataConfigured,
+    error: credentialsError || null
   };
 }
 
@@ -451,6 +455,18 @@ async function uploadImage({
   if (bytes.length > MAX_UPLOAD_BYTES) {
     throw driveError(`Image exceeds max size of ${MAX_UPLOAD_BYTES} bytes`, 413);
   }
+
+  // Non-sensitive debug: log upload target and size (do NOT print credentials or image data)
+  try {
+    const saEmail = getServiceAccountEmail();
+    console.log('[google-drive] Uploading image', {
+      serviceAccountEmail: saEmail,
+      folderKey,
+      folderId,
+      bytes: bytes.length,
+      suggestedFilename: filename || null
+    });
+  } catch (e) { /* ignore logging failures */ }
 
   const safeName = sanitizeFilename(filename, mime);
   const metadata = {

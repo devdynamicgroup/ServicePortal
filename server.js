@@ -47,9 +47,13 @@ console.log('[ENV DEBUG]', {
   port: Number(process.env.PORT) || 3000,
   nodeEnv: process.env.NODE_ENV || null,
   authSessionSecret: Boolean(process.env.AUTH_SESSION_SECRET || process.env.SESSION_SECRET),
-  client: process.env.GOOGLE_BUSINESS_CLIENT_ID || null,
-  secret: Boolean(process.env.GOOGLE_BUSINESS_CLIENT_SECRET),
-  redirect: process.env.GOOGLE_BUSINESS_REDIRECT_URI || null
+  googleBusinessClientId: Boolean(process.env.GOOGLE_BUSINESS_CLIENT_ID),
+  googleBusinessClientSecret: Boolean(process.env.GOOGLE_BUSINESS_CLIENT_SECRET),
+  googleBusinessRedirect: Boolean(process.env.GOOGLE_BUSINESS_REDIRECT_URI),
+  googleDriveConfigured: Boolean(
+    (process.env.GOOGLE_DRIVE_MAIN_FOLDER_ID || process.env.GOOGLE_DRIVE_FOLDER_ID)
+    && (process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
+  )
 });
 
 const { handleClientsRoute } = require('./api/clients-routes');
@@ -59,6 +63,7 @@ const { handleGoogleReviewRoute } = require('./api/google-review-routes');
 const { handleFeedbackSuggestRoute } = require('./api/feedback-suggest-routes');
 const { handleGoogleDriveRoute } = require('./api/google-drive-routes');
 const { startGoogleReviewScheduler } = require('./services/google-review-scheduler');
+const { getDriveStatus } = require('./services/google-drive');
 const {
   authenticateCredentials,
   createSessionToken,
@@ -75,6 +80,21 @@ const types = {
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.csv': 'text/csv; charset=utf-8',
+
+// Non-sensitive Drive status to aid debugging at startup (does not print private keys).
+try {
+  const _ds = getDriveStatus();
+  console.log('[DRIVE STATUS]', {
+    configured: Boolean(_ds.configured),
+    credentialsLoaded: Boolean(_ds.credentialsLoaded),
+    mainFolderConfigured: Boolean(_ds.mainFolderConfigured),
+    dataFolderConfigured: Boolean(_ds.dataFolderConfigured),
+    serviceAccountEmail: _ds.serviceAccountEmail || null,
+    error: _ds.error || null
+  });
+} catch (e) {
+  console.warn('[DRIVE STATUS] unavailable', e && e.message ? e.message : e);
+}
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',

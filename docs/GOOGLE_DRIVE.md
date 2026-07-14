@@ -44,35 +44,34 @@ For Render / other hosts without a file mount, paste the whole JSON into `GOOGLE
 
 ## 3. Environment variables
 
-Copy from `.env.example` into `.env`:
+See **[ENVIRONMENT.md](./ENVIRONMENT.md)** for the full inventory and credential-family separation.
+
+Drive-related vars (service account — **not** Google Business OAuth):
 
 ```env
-GOOGLE_DRIVE_MAIN_FOLDER_ID=1-mS_IbW95JGqbD9JZFvpIRkSxTjCjLXH
-GOOGLE_DRIVE_DATA_FOLDER_ID=14Fug6zCjbtBt6I9ab4R-bWOo1FXRkHQx
+# Auth (protects /api/drive/*) — different from Business OAuth secrets
+NODE_ENV=development
+AUTH_SESSION_SECRET=
+
+# Google Drive
+GOOGLE_DRIVE_MAIN_FOLDER_ID=your-main-drive-folder-id
+GOOGLE_DRIVE_DATA_FOLDER_ID=your-data-drive-folder-id
+# Legacy alias for main: GOOGLE_DRIVE_FOLDER_ID=
 GOOGLE_SERVICE_ACCOUNT_KEY_PATH=./credentials/google-service-account.json
 # GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
 GOOGLE_DRIVE_MAKE_PUBLIC=false
-PUBLIC_BASE_URL=http://127.0.0.1:3000
-NODE_ENV=development
-AUTH_SESSION_SECRET=
+PUBLIC_BASE_URL=http://127.0.0.1:3040
 ```
 
-Max image size is **15 MB** (decoded). JSON upload bodies allow base64 overhead. Optional `GOOGLE_DRIVE_FETCH_TIMEOUT_MS` (default 60000) limits Google token/Drive API calls; the browser client aborts at 90s.
+**Do not** use `GOOGLE_BUSINESS_CLIENT_SECRET` as `AUTH_SESSION_SECRET`, and do not use the OAuth client for Drive uploads.
 
-**App auth:** All `/api/drive/images*` routes (including `/content`) require a session from the existing portal login (`Authorization: Bearer <token>` or `wm_session` cookie). `GET /api/drive/status` stays open for health checks.
+Max image size is **15 MB** (decoded). Optional `GOOGLE_DRIVE_FETCH_TIMEOUT_MS` (default 60000).
 
-**`AUTH_SESSION_SECRET`**
+**App auth:** All `/api/drive/images*` routes (including `/content`) require a portal session. `GET /api/drive/status` stays open for health checks.
 
-| Mode | Requirement |
-|------|-------------|
-| Production (`NODE_ENV=production` or Render) | **Required** — server exits on startup if missing |
-| Local development (`NODE_ENV=development`) | Optional — empty uses a warned fallback so `yarn start` works |
+**`AUTH_SESSION_SECRET`:** required in production / on Render (server exits if missing). Local `NODE_ENV=development` may leave it empty (warned fallback). Generate with `openssl rand -hex 32`. Never commit real secrets.
 
-Generate a production value with `openssl rand -hex 32`. Put it in host secrets / local `.env` only — **never commit** real secrets (`.env` is gitignored).
-
-If `NODE_ENV` is unset locally (and not on Render), `server.js` defaults it to `development`.
-
-**Audit logs:** Metadata-only lines append to `data/drive-upload-audit.jsonl`. When the file exceeds ~2 MB (`DRIVE_AUDIT_MAX_BYTES`), it rotates to timestamped files and keeps the newest `DRIVE_AUDIT_KEEP_FILES` (default 5).
+**Audit logs:** `data/drive-upload-audit.jsonl` (rotated; see `DRIVE_AUDIT_*`).
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
@@ -83,7 +82,7 @@ If `NODE_ENV` is unset locally (and not on Render), `server.js` defaults it to `
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | One of path/JSON | Inline JSON (production-friendly) |
 | `GOOGLE_DRIVE_MAKE_PUBLIC` | No | If `true`, set anyone-with-link reader on upload |
 | `GOOGLE_DRIVE_FETCH_TIMEOUT_MS` | No | Google API fetch timeout (ms, default 60000) |
-| `AUTH_SESSION_SECRET` | Yes in production | Signs portal session tokens used by Drive routes |
+| `AUTH_SESSION_SECRET` | Yes in production | App session HMAC (not a Google secret) |
 | `NODE_ENV` | Recommended | `development` locally; `production` on deploy |
 | `DRIVE_AUDIT_MAX_BYTES` | No | Rotate audit log above this size (default 2097152) |
 | `DRIVE_AUDIT_KEEP_FILES` | No | Rotated audit files to keep (default 5) |
@@ -181,6 +180,34 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/api/drive/images -Cont
 ```
 
 Then list and delete with the returned `file.id`.
+
+## Render (hosted) deployment notes
+
+- On Render (or similar hosts) do **not** upload the JSON key file to the repository or server image. Instead, paste the entire service account JSON into the `GOOGLE_SERVICE_ACCOUNT_JSON` environment variable in the Render dashboard.
+- Alternatively, use Render's secure file storage/secret management to provide a path and set `GOOGLE_SERVICE_ACCOUNT_KEY_PATH` to that path — but do not commit the file to the repo.
+- Set `GOOGLE_DRIVE_MAIN_FOLDER_ID` and `GOOGLE_DRIVE_DATA_FOLDER_ID` as environment variables in Render.
+- Ensure `AUTH_SESSION_SECRET` is set (server refuses to start in production without it).
+
+Recommended Render env vars (in Dashboard → Environment):
+
+```
+GOOGLE_SERVICE_ACCOUNT_JSON=<paste entire JSON here>
+GOOGLE_DRIVE_MAIN_FOLDER_ID=1-mS_IbW95JGqbD9JZFvpIRkSxTjCjLXH
+GOOGLE_DRIVE_DATA_FOLDER_ID=14Fug6zCjbtBt6I9ab4R-bWOo1FXRkHQx
+AUTH_SESSION_SECRET=<openssl rand -hex 32>
+PUBLIC_BASE_URL=https://your-app.onrender.com
+NODE_ENV=production
+```
+
+Do not commit the JSON or expose it in logs. The app's `/api/drive/status` endpoint will report non-sensitive diagnostics (configured, credentialsLoaded, mainFolderConfigured, dataFolderConfigured, serviceAccountEmail).
+
+### Deployment checklist
+
+- Add `GOOGLE_SERVICE_ACCOUNT_JSON` (preferred) or `GOOGLE_SERVICE_ACCOUNT_KEY_PATH` (if you provision a secure file) in Render.
+- Add `GOOGLE_DRIVE_MAIN_FOLDER_ID` and optionally `GOOGLE_DRIVE_DATA_FOLDER_ID`.
+- Set `AUTH_SESSION_SECRET` to a strong random value.
+- Restart the service, then call `GET /api/drive/status` to verify `configured: true` and `credentialsLoaded: true`.
+- Share the Drive `main` and `data` folders with the service account email (from the JSON `client_email`) as Editor.
 
 ## Field app capture → Drive
 

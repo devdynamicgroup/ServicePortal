@@ -536,6 +536,16 @@ async function uploadDriveImage({
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DRIVE_UPLOAD_TIMEOUT_MS);
+  let response;
+  // Non-sensitive debug: record upload attempt (do not include the image data)
+  try {
+    console.log('[drive-client] upload attempt', {
+      purpose: resolvedPurpose,
+      folder: resolvedFolder,
+      filename: resolvedFilename,
+      approxBytes
+    });
+  } catch (e) { /* ignore */ }
 
   let response;
   try {
@@ -569,8 +579,10 @@ async function uploadDriveImage({
   } finally {
     clearTimeout(timer);
   }
-
   const data = await response.json().catch(() => ({}));
+  try {
+    console.log('[drive-client] upload response', { status: response.status, ok: response.ok, error: data.error || null });
+  } catch (e) { /* ignore */ }
   if (!response.ok || !data.ok || !data.file?.id) {
     throw mapUploadHttpError(response.status, data.error);
   }

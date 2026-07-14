@@ -115,6 +115,15 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
     let jobId = null;
     try {
       const raw = await readBodyBuffer(req);
+      // Non-sensitive debug: record that an upload was attempted and approximate payload size.
+      try {
+        console.log('[drive] Incoming upload attempt', {
+          user: user?.username || null,
+          url: req.url,
+          bodyBytes: raw ? raw.length : 0,
+          ip: req.socket && req.socket.remoteAddress ? req.socket.remoteAddress : null
+        });
+      } catch (e) { /* continue quietly if logging fails */ }
       const contentType = String(req.headers['content-type'] || '');
       let payload = {};
 
