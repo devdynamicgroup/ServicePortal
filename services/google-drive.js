@@ -183,25 +183,72 @@ function getServiceAccountEmail() {
   }
 }
 
+function normalizeServiceAccountJson(text) {
+  let raw = String(text || '').trim();
+  if (!raw) throw new Error('No GOOGLE_SERVICE_ACCOUNT_JSON value provided');
+
+  raw = raw.replace(/^[\s\n\r]*GOOGLE_SERVICE_ACCOUNT_JSON\s*=\s*/i, '').trim();
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    raw = raw.slice(1, -1).trim();
+  }
+
+  const parseJson = (value) => {
+    if (!value) throw new Error('Empty JSON after normalization');
+    return JSON.parse(value);
+  };
+
+  try {
+    return parseJson(raw);
+  } catch (firstError) {
+    const fixed = raw.replace(/("private_key"\s*:\s*")((?:\\.|[^"\\])*)(")/gs, (match, prefix, keyValue, suffix) => {
+      return prefix + keyValue.replace(/\r\n|\r|\n/g, '\\n') + suffix;
+    });
+    return parseJson(fixed);
+  }
+}
+
 function loadServiceAccountCredentials() {
   if (cachedCredentials) return cachedCredentials;
 
-  const inline = String(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '').trim();
+  const inlineRaw = String(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '');
+  const inline = inlineRaw.trim();
+  const configuredPath = String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || '').trim();
+  const envDiagnostics = {
+    hasGoogleJson: Boolean(inline),
+    jsonLength: inline.length,
+    parsed: false,
+    clientEmail: null
+  };
+
   if (inline) {
     try {
-      cachedCredentials = JSON.parse(inline);
+      cachedCredentials = normalizeServiceAccountJson(inline);
+      envDiagnostics.parsed = true;
+      envDiagnostics.clientEmail = cachedCredentials?.client_email || null;
+      console.log('[google-drive] service account env', envDiagnostics);
     } catch (error) {
+      console.log('[google-drive] service account env', {
+        hasGoogleJson: envDiagnostics.hasGoogleJson,
+        jsonLength: envDiagnostics.jsonLength,
+        parsed: false,
+        clientEmail: null
+      });
       throw driveError('GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON', 500, error.message);
     }
   } else {
-    const configuredPath = String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || '').trim();
     const candidate = configuredPath
       ? (path.isAbsolute(configuredPath) ? configuredPath : path.join(process.cwd(), configuredPath))
       : path.join(process.cwd(), 'credentials', 'google-service-account.json');
 
     if (!fs.existsSync(candidate)) {
+      console.warn('[google-drive] credentials missing', {
+        hasGoogleJson: envDiagnostics.hasGoogleJson,
+        jsonLength: envDiagnostics.jsonLength,
+        parsed: false,
+        clientEmail: null
+      });
       throw driveError(
-        `Google Drive service account credentials not found. Set GOOGLE_SERVICE_ACCOUNT_KEY_PATH or GOOGLE_SERVICE_ACCOUNT_JSON (looked for ${candidate})`,
+        'Google Drive service account credentials not found. Set GOOGLE_SERVICE_ACCOUNT_KEY_PATH or GOOGLE_SERVICE_ACCOUNT_JSON',
         503
       );
     }

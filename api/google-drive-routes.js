@@ -98,11 +98,18 @@ function statusFromError(error) {
 
 async function handleGoogleDriveRoute(req, res, urlPath) {
   if (urlPath === '/api/drive/status' && req.method === 'GET') {
-    sendJson(res, 200, {
-      ok: true,
-      ...getDriveStatus(),
-      configured: isDriveConfigured()
-    });
+    // Return only non-sensitive status fields expected by diagnostics consumers.
+    try {
+      const ds = getDriveStatus();
+      sendJson(res, 200, {
+        ok: true,
+        configured: Boolean(ds.configured),
+        folderConfigured: Boolean(ds.mainFolderConfigured),
+        credentialsLoaded: Boolean(ds.credentialsLoaded)
+      });
+    } catch (e) {
+      sendJson(res, 200, { ok: true, configured: false, folderConfigured: false, credentialsLoaded: false });
+    }
     return true;
   }
 
@@ -169,6 +176,15 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
         const folders = getConfiguredFolderIds();
         const folderId = folders && folders[folderKey] ? folders[folderKey] : null;
         console.log('[drive] upload route entered', { user: user.username, purpose, folder, folderKey, folderId, filename });
+        // Safe, non-sensitive environment presence booleans to help diagnose missing config on hosts like Render.
+        try {
+          console.log('[drive] env presence', {
+            GOOGLE_DRIVE_MAIN_FOLDER_ID: Boolean(String(process.env.GOOGLE_DRIVE_MAIN_FOLDER_ID || process.env.GOOGLE_DRIVE_FOLDER_ID || '').trim()),
+            GOOGLE_DRIVE_DATA_FOLDER_ID: Boolean(String(process.env.GOOGLE_DRIVE_DATA_FOLDER_ID || '').trim()),
+            GOOGLE_SERVICE_ACCOUNT_JSON: Boolean(String(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '').trim()),
+            GOOGLE_SERVICE_ACCOUNT_KEY_PATH: Boolean(String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || '').trim())
+          });
+        } catch (e) { /* ignore logging failures */ }
       } catch (e) {
         console.warn('[drive] could not resolve folder key for upload', { folder, purpose, message: e && e.message ? e.message : String(e) });
       }
