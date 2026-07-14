@@ -1,81 +1,61 @@
-let feedbackRating = null;
-let feedbackSubmitting = false;
+const GOOGLE_REVIEW_URL = 'https://g.page/r/Ce0EFhVtUyRpEBM/review';
 
-function prefillsForFeedbackForm() {
-  const job = S.activeJob;
-  const fields = job?.draft?.fields || {};
-  const first = String(fields['ci-fname'] || '').trim();
-  const last = String(fields['ci-lname'] || '').trim();
-  const name = [first, last].filter(Boolean).join(' ') || String(job?.name || '').trim();
-  const email = String(fields['ci-email'] || '').trim();
-  return { name, email };
+const AI_FEEDBACK_SUGGESTIONS = Object.freeze({
+  5: 'The specialist was thorough and explained everything clearly. I feel more confident about our water quality now.',
+  4: 'Helpful visit overall. The readings and recommendations were easy to understand.',
+  3: 'The service was fine. A bit more detail on next steps would be helpful.',
+  2: 'Some parts of the visit were useful, but I hoped for clearer recommendations.',
+  1: 'The visit did not meet my expectations. I would like clearer communication next time.'
+});
+
+let feedbackRating = null;
+
+function resolveGoogleReviewUrl() {
+  return String(S.googleReviewUrl || GOOGLE_REVIEW_URL).trim() || GOOGLE_REVIEW_URL;
 }
 
 function setFeedbackStars(rating) {
-  feedbackRating = Number.isFinite(Number(rating)) ? Number(rating) : null;
-  document.querySelectorAll('#fb-stars .fb-star').forEach(btn => {
-    const value = Number(btn.dataset.rating);
-    const active = feedbackRating != null && value <= feedbackRating;
-    btn.classList.toggle('is-active', active);
-    btn.setAttribute('aria-checked', feedbackRating === value ? 'true' : 'false');
+  const value = Number(rating);
+  feedbackRating = Number.isFinite(value) && value >= 1 && value <= 5 ? value : null;
+  S.rating = feedbackRating || S.rating || 0;
+  document.querySelectorAll('#fb-stars .star-btn').forEach(btn => {
+    const starValue = Number(btn.dataset.rating);
+    const active = feedbackRating != null && starValue <= feedbackRating;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
-  const err = document.getElementById('fb-rating-error');
-  if (err && feedbackRating) err.classList.add('hidden');
 }
 
 function bindFeedbackStars() {
   const root = document.getElementById('fb-stars');
   if (!root || root.dataset.bound === 'true') return;
   root.dataset.bound = 'true';
-  root.querySelectorAll('.fb-star').forEach(btn => {
+  root.querySelectorAll('.star-btn').forEach(btn => {
     btn.addEventListener('click', () => setFeedbackStars(btn.dataset.rating));
   });
 }
 
-function showFeedbackFormView() {
-  document.getElementById('fb-form-view')?.classList.remove('hidden');
-  document.getElementById('fb-success-view')?.classList.add('hidden');
-  document.getElementById('fb-form-foot')?.classList.remove('hidden');
-  document.getElementById('fb-success-foot')?.classList.add('hidden');
-}
-
-function showFeedbackSuccessView() {
-  document.getElementById('fb-form-view')?.classList.add('hidden');
-  document.getElementById('fb-success-view')?.classList.remove('hidden');
-  document.getElementById('fb-form-foot')?.classList.add('hidden');
-  document.getElementById('fb-success-foot')?.classList.remove('hidden');
-}
-
 function resetFeedbackForm() {
-  feedbackRating = null;
-  feedbackSubmitting = false;
-  setFeedbackStars(null);
-  const nameEl = document.getElementById('fb-name');
-  const emailEl = document.getElementById('fb-email');
+  const savedRating = Number(S.rating);
+  setFeedbackStars(Number.isFinite(savedRating) && savedRating >= 1 && savedRating <= 5 ? savedRating : 5);
   const commentEl = document.getElementById('fb-comment');
-  const prefills = prefillsForFeedbackForm();
-  if (nameEl) nameEl.value = prefills.name;
-  if (emailEl) emailEl.value = prefills.email;
-  if (commentEl) commentEl.value = '';
-  document.getElementById('fb-rating-error')?.classList.add('hidden');
-  document.getElementById('fb-comment-error')?.classList.add('hidden');
-  document.getElementById('fb-submit-error')?.classList.add('hidden');
-  const btn = document.getElementById('fb-submit-btn');
-  if (btn) {
-    btn.disabled = false;
-    btn.textContent = typeof t === 'function' ? t('fb.submit') : 'Submit Feedback';
+  const consentEl = document.getElementById('fb-consent');
+  const draftComment = S.activeJob?.draft?.fields?.['fb-comment'];
+  if (commentEl) commentEl.value = draftComment != null ? String(draftComment) : '';
+  if (consentEl) {
+    const draftConsent = S.activeJob?.draft?.fields?.['fb-consent'];
+    consentEl.checked = draftConsent == null ? true : String(draftConsent) !== 'false';
   }
-  showFeedbackFormView();
 }
 
 function initFeedbackScreen() {
+  S.googleReviewUrl = resolveGoogleReviewUrl();
   bindFeedbackStars();
   resetFeedbackForm();
   if (typeof applyI18n === 'function') applyI18n(S.lang);
 }
 
 function openFeedbackModal() {
-  // Legacy entry point — open the in-app Feedback screen instead of Google Review.
   goScreen('s-feedback');
 }
 
@@ -83,100 +63,56 @@ function closeFeedbackModal() {
   document.getElementById('feedback-overlay')?.classList.add('hidden');
 }
 
-function validateFeedbackForm() {
-  const comment = String(document.getElementById('fb-comment')?.value || '').trim();
-  let ok = true;
-
-  const ratingError = document.getElementById('fb-rating-error');
-  if (!feedbackRating) {
-    ratingError?.classList.remove('hidden');
-    ok = false;
-  } else {
-    ratingError?.classList.add('hidden');
-  }
-
-  const commentError = document.getElementById('fb-comment-error');
-  if (!comment) {
-    commentError?.classList.remove('hidden');
-    ok = false;
-  } else {
-    commentError?.classList.add('hidden');
-  }
-
-  return ok;
+function aiSuggestFeedback() {
+  const rating = feedbackRating || Number(S.rating) || 5;
+  const suggestion = AI_FEEDBACK_SUGGESTIONS[rating] || AI_FEEDBACK_SUGGESTIONS[5];
+  const commentEl = document.getElementById('fb-comment');
+  if (commentEl) commentEl.value = suggestion;
+  showToast(typeof t === 'function' ? t('fb.aiApplied') : 'Suggestion added');
 }
 
-async function submitFeedbackForm() {
-  if (feedbackSubmitting) return;
-  if (!validateFeedbackForm()) return;
-
-  const job = S.activeJob;
-  const caseRef = job?.notionId || job?.id;
-  if (!caseRef) {
-    const err = document.getElementById('fb-submit-error');
-    if (err) {
-      err.textContent = typeof t === 'function' ? t('fb.err.case') : 'Please open a job before submitting feedback';
-      err.classList.remove('hidden');
-    }
-    return;
-  }
-
-  const payload = {
-    rating: feedbackRating,
-    name: String(document.getElementById('fb-name')?.value || '').trim(),
-    email: String(document.getElementById('fb-email')?.value || '').trim(),
-    comment: String(document.getElementById('fb-comment')?.value || '').trim()
+async function shareFeedbackLink() {
+  const url = resolveGoogleReviewUrl();
+  const shareData = {
+    title: 'Water Motion Review',
+    text: typeof t === 'function' ? t('fb.shareText') : 'Share your experience with Water Motion',
+    url
   };
-
-  feedbackSubmitting = true;
-  const btn = document.getElementById('fb-submit-btn');
-  const submitError = document.getElementById('fb-submit-error');
-  submitError?.classList.add('hidden');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = typeof t === 'function' ? t('fb.submitting') : 'Submitting...';
-  }
-
   try {
-    const response = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/feedback`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.ok) {
-      throw new Error(result.error || 'Could not submit feedback');
+    if (navigator.share) {
+      await navigator.share(shareData);
+      return;
     }
-
-    if (job) {
-      job.feedback = {
-        ...(job.feedback || {}),
-        token: result.feedbackToken || job.feedback?.token,
-        status: 'submitted',
-        rating: payload.rating,
-        comment: payload.comment,
-        submittedAt: result.submittedAt || new Date().toISOString()
-      };
-    }
-    S.rating = payload.rating;
-    showFeedbackSuccessView();
+    await navigator.clipboard.writeText(url);
+    showToast(typeof t === 'function' ? t('fb.linkCopied') : 'Review link copied');
   } catch (error) {
-    console.error('Feedback submit failed', error);
-    if (submitError) {
-      submitError.textContent = error.message || (typeof t === 'function' ? t('fb.err.submit') : 'Could not submit feedback');
-      submitError.classList.remove('hidden');
+    if (error?.name === 'AbortError') return;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast(typeof t === 'function' ? t('fb.linkCopied') : 'Review link copied');
+    } catch {
+      showToast(typeof t === 'function' ? t('fb.shareFailed') : 'Could not share link');
     }
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = typeof t === 'function' ? t('fb.submit') : 'Submit Feedback';
-    }
-  } finally {
-    feedbackSubmitting = false;
   }
+}
+
+function openGoogleReview() {
+  const url = resolveGoogleReviewUrl();
+  S.googleReviewUrl = url;
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function completeFeedback() {
+  const commentEl = document.getElementById('fb-comment');
+  const consentEl = document.getElementById('fb-consent');
+  if (feedbackRating) S.rating = feedbackRating;
+  if (S.activeJob?.draft) {
+    S.activeJob.draft.fields = S.activeJob.draft.fields || {};
+    if (commentEl) S.activeJob.draft.fields['fb-comment'] = commentEl.value;
+    if (consentEl) S.activeJob.draft.fields['fb-consent'] = consentEl.checked ? 'true' : 'false';
+  }
   S.stepsDone.feedback = true;
+  S.googleReviewUrl = resolveGoogleReviewUrl();
   saveActiveJobState();
   renderJobSteps();
   closeFeedbackModal();

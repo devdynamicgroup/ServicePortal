@@ -1,7 +1,7 @@
 const S = {
   screen: 's-login', prev: null,
   pkg: 'essential',
-  rating: 3,
+  rating: 5,
   payMethod: 'cash',
   weekOffset: 0,
   selDay: new Date().getDay() === 0 ? 6 : new Date().getDay() - 1,
@@ -19,7 +19,8 @@ const S = {
   comparisonScoreResult: null,
   stepsDone: { preassess: false, assess: false, score: false, payment: false, feedback: false },
   scoreVal: null,
-  scoreDetail: {}
+  scoreDetail: {},
+  googleReviewUrl: 'https://g.page/r/Ce0EFhVtUyRpEBM/review'
 };
 
 const KTB_LOGO = 'src/assets/ktb-logo.png';
