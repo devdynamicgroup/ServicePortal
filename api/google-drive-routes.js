@@ -1,13 +1,34 @@
-const {
-  isDriveConfigured,
-  getDriveStatus,
-  uploadImage,
-  listImages,
-  getImage,
-  deleteImage,
-  downloadImageContent,
-  MAX_UPLOAD_BYTES
-} = require('../services/google-drive');
+let isDriveConfigured, getDriveStatus, uploadImage, listImages, getImage, deleteImage, downloadImageContent, MAX_UPLOAD_BYTES;
+let __drive_module_error = null;
+try {
+  const _gd = require('../services/google-drive');
+  isDriveConfigured = _gd.isDriveConfigured;
+  getDriveStatus = _gd.getDriveStatus;
+  uploadImage = _gd.uploadImage;
+  listImages = _gd.listImages;
+  getImage = _gd.getImage;
+  deleteImage = _gd.deleteImage;
+  downloadImageContent = _gd.downloadImageContent;
+  resolveFolderKey = _gd.resolveFolderKey;
+  getConfiguredFolderIds = _gd.getConfiguredFolderIds;
+  MAX_UPLOAD_BYTES = _gd.MAX_UPLOAD_BYTES;
+} catch (e) {
+  // Preserve the error for diagnostics but avoid crashing during module load.
+  __drive_module_error = e;
+  console.warn('[drive] could not load services/google-drive:', e && e.message ? e.message : e);
+  // Provide safe fallbacks that throw when used.
+  const missing = () => { throw Object.assign(new Error('Drive subsystem unavailable at startup'), { statusCode: 503 }); };
+  isDriveConfigured = () => false;
+  getDriveStatus = () => ({ configured: false, credentialsLoaded: false, serviceAccountEmail: null, mainFolderConfigured: false, dataFolderConfigured: false, error: String(e && e.message) });
+  uploadImage = missing;
+  listImages = missing;
+  getImage = missing;
+  deleteImage = missing;
+  downloadImageContent = missing;
+  resolveFolderKey = () => 'main';
+  getConfiguredFolderIds = () => ({ main: null, data: null });
+  MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+}
 const { requireAppAuth } = require('../services/app-auth');
 const { appendDriveUploadAudit } = require('../services/drive-audit');
 
@@ -142,6 +163,16 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
       filename = payload.filename || payload.name || null;
       jobId = payload.jobId != null ? String(payload.jobId) : null;
 
+      // Log route entry and intended target folder key/id
+      try {
+        const folderKey = resolveFolderKey({ folder, purpose });
+        const folders = getConfiguredFolderIds();
+        const folderId = folders && folders[folderKey] ? folders[folderKey] : null;
+        console.log('[drive] upload route entered', { user: user.username, purpose, folder, folderKey, folderId, filename });
+      } catch (e) {
+        console.warn('[drive] could not resolve folder key for upload', { folder, purpose, message: e && e.message ? e.message : String(e) });
+      }
+
       const file = await uploadImage({
         filename,
         contentType: payload.contentType || payload.mimeType,
@@ -152,6 +183,10 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
         folder,
         purpose
       });
+
+      try {
+        console.log('[drive] upload succeeded', { fileId: file.id, name: file.name, folder: file.folder, folderId: file.folderId, webViewLink: file.webViewLink || null });
+      } catch (e) { /* ignore logging failures */ }
 
       appendDriveUploadAudit({
         user: user.username,
@@ -173,7 +208,13 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
         }
       });
     } catch (error) {
-      console.warn('POST /api/drive/images failed', error.message);
+      console.warn('POST /api/drive/images failed', error && error.message ? error.message : String(error));
+      // If the Drive subsystem provided detailed error info (Google API body), log it for diagnostics.
+      try {
+        if (error && error.details) {
+          console.error('[drive] google api error details:', JSON.stringify(error.details));
+        }
+      } catch (e) { /* ignore logging failures */ }
       appendDriveUploadAudit({
         user: user.username,
         filename,

@@ -536,10 +536,11 @@ async function uploadDriveImage({
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DRIVE_UPLOAD_TIMEOUT_MS);
-  let response;
+  const requestUrl = '/api/drive/images';
   // Non-sensitive debug: record upload attempt (do not include the image data)
   try {
     console.log('[drive-client] upload attempt', {
+      url: requestUrl,
       purpose: resolvedPurpose,
       folder: resolvedFolder,
       filename: resolvedFilename,
@@ -549,7 +550,7 @@ async function uploadDriveImage({
 
   let response;
   try {
-    response = await fetch('/api/drive/images', {
+    response = await fetch(requestUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -569,19 +570,25 @@ async function uploadDriveImage({
       })
     });
   } catch (error) {
+    // Log network / fetch-level errors.
+    try { console.error('[drive-client] network error', { url: requestUrl, message: error?.message || String(error) }); } catch (e) { /* ignore */ }
     if (error?.name === 'AbortError') {
       throw driveClientError('Upload timed out. Tap to retry.', 'UPLOAD_TIMEOUT');
     }
-    throw driveClientError(
-      'Network interrupted during upload. Tap to retry.',
-      'NETWORK_ERROR'
-    );
+    throw driveClientError('Network interrupted during upload. Tap to retry.', 'NETWORK_ERROR');
   } finally {
     clearTimeout(timer);
   }
-  const data = await response.json().catch(() => ({}));
+
+  // Parse response body (JSON if possible) and log full body for diagnostics.
+  let data;
   try {
-    console.log('[drive-client] upload response', { status: response.status, ok: response.ok, error: data.error || null });
+    data = await response.json();
+  } catch (err) {
+    try { data = { _raw: await response.text() }; } catch { data = {}; }
+  }
+  try {
+    console.log('[drive-client] upload response', { url: requestUrl, status: response.status, ok: response.ok, body: data });
   } catch (e) { /* ignore */ }
   if (!response.ok || !data.ok || !data.file?.id) {
     throw mapUploadHttpError(response.status, data.error);
