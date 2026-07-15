@@ -366,28 +366,96 @@ function buildDriveFilename(purpose, ext = 'jpg') {
   return `${safePurpose}-${tapLabel}-${Date.now()}.${ext}`;
 }
 
+function isLikelyNotionId(value) {
+  const compact = String(value || '').replace(/-/g, '').trim();
+  return /^[a-f0-9]{32}$/i.test(compact);
+}
+
+/**
+ * Resolve case identity for Drive customer folders from the active job.
+ * Prefer Notion UUID; fall back to compact id when it is a 32-char hex Notion id.
+ */
+function resolveActiveCustomerContext(overrides = {}) {
+  const job = (typeof S !== 'undefined' && S.activeJob) ? S.activeJob : null;
+  const fields = job?.draft?.fields || {};
+
+  const candidates = [
+    overrides.notionId,
+    job?.notionId,
+    job?.id,
+    overrides.jobId
+  ].filter(value => value != null && String(value).trim() !== '');
+
+  let notionId = null;
+  for (const candidate of candidates) {
+    const raw = String(candidate).trim();
+    if (isLikelyNotionId(raw)) {
+      notionId = raw;
+      break;
+    }
+  }
+  // Last resort: still send a case identifier so the server can reject/clearly error
+  // rather than silently uploading into the shared main folder.
+  if (!notionId && candidates.length) {
+    notionId = String(candidates[0]).trim();
+  }
+
+  const customerName = String(
+    overrides.customerName
+    || [fields['ci-fname'], fields['ci-lname']].filter(Boolean).join(' ').trim()
+    || job?.name
+    || ''
+  ).trim() || null;
+
+  const customerFolderId = overrides.customerFolderId
+    || job?.drive?.folderId
+    || job?.draft?.driveFolderId
+    || null;
+
+  return {
+    notionId,
+    customerName,
+    customerFolderId,
+    jobId: notionId || (job?.id != null ? String(job.id) : null)
+  };
+}
+
+function resolveClientCategory(purpose, contentType, filename, explicitCategory) {
+  if (explicitCategory && String(explicitCategory).trim()) {
+    const raw = String(explicitCategory).trim();
+    if (/^(payment|slip|receipt)$/i.test(raw)) return 'Payment';
+    if (/site\s*inspection/i.test(raw)) return 'Site Inspection';
+    if (/before/i.test(raw)) return 'Before Service';
+    if (/after/i.test(raw)) return 'After Service';
+    if (/document/i.test(raw)) return 'Documents';
+    return raw;
+  }
+  // Mirror server PURPOSE_TO_CATEGORY for the payload (source of truth remains server).
+  return purposeToFolder(purpose, contentType, filename) === 'data'
+    ? 'Documents'
+    : (/^(payment|slip|receipt|payment-slip|payment_slip)$/i.test(String(purpose || ''))
+      ? 'Payment'
+      : (/^(before|before-service|before_service)$/i.test(String(purpose || ''))
+        ? 'Before Service'
+        : (/^(after|after-service|after_service)$/i.test(String(purpose || ''))
+          ? 'After Service'
+          : 'Site Inspection')));
+}
+
 function currentJobId() {
-  if (typeof S === 'undefined' || !S.activeJob) return null;
-  return S.activeJob.notionId || S.activeJob.id || null;
+  return resolveActiveCustomerContext().jobId;
 }
 
 function currentNotionId() {
-  if (typeof S === 'undefined' || !S.activeJob) return null;
-  return S.activeJob.notionId || S.activeJob.id || null;
+  return resolveActiveCustomerContext().notionId;
 }
 
 function currentCustomerName() {
-  if (typeof S === 'undefined' || !S.activeJob) return null;
-  const fields = S.activeJob.draft?.fields || {};
-  const full = [fields['ci-fname'], fields['ci-lname']].filter(Boolean).join(' ').trim();
-  return full || S.activeJob.name || null;
+  return resolveActiveCustomerContext().customerName;
 }
 
 function currentCustomerFolderId() {
-  if (typeof S === 'undefined' || !S.activeJob) return null;
-  return S.activeJob.drive?.folderId
-    || S.activeJob.draft?.driveFolderId
-    || null;
+  return resolveActiveCustomerContext().customerFolderId;
 }
 
 function currentUsername() {
@@ -583,6 +651,7 @@ async function uploadDriveImage({
   notionId,
   customerName,
   customerFolderId,
+  category,
   json
 } = {}) {
   let payloadDataUrl = dataUrl;
@@ -637,17 +706,38 @@ async function uploadDriveImage({
     contentType: mime,
     filename: resolvedFilename
   });
-  const resolvedJobId = jobId != null ? String(jobId) : currentJobId();
-  const resolvedNotionId = notionId || currentNotionId() || resolvedJobId;
-  const resolvedCustomerName = customerName || currentCustomerName();
-  const resolvedCustomerFolderId = customerFolderId || currentCustomerFolderId();
+
+  const customer = resolveActiveCustomerContext({
+    notionId,
+    customerName,
+    customerFolderId,
+    jobId
+  });
+  const resolvedCategory = resolveClientCategory(
+    resolvedPurpose,
+    mime,
+    resolvedFilename,
+    category
+  );
+
+  if (!customer.notionId) {
+    console.warn('[UPLOAD REQUEST] missing notionId — open a customer case before uploading', {
+      purpose: resolvedPurpose,
+      hasActiveJob: Boolean(typeof S !== 'undefined' && S.activeJob),
+      activeJobKeys: typeof S !== 'undefined' && S.activeJob
+        ? Object.keys(S.activeJob).slice(0, 12)
+        : []
+    });
+  }
 
   console.log('[UPLOAD REQUEST]', {
     filename: resolvedFilename,
     purpose: resolvedPurpose,
     folder: resolvedFolder,
+    category: resolvedCategory,
     mimeType: mime,
-    notionId: resolvedNotionId ? String(resolvedNotionId).slice(0, 8) + '…' : null,
+    notionId: customer.notionId ? String(customer.notionId).slice(0, 8) + '…' : null,
+    customerName: customer.customerName || null,
     caller: new Error().stack
   });
 
@@ -672,11 +762,12 @@ async function uploadDriveImage({
         contentType: mime,
         purpose: resolvedPurpose,
         folder: resolvedFolder,
+        category: resolvedCategory,
         description,
-        jobId: resolvedJobId,
-        notionId: resolvedNotionId,
-        customerName: resolvedCustomerName,
-        customerFolderId: resolvedCustomerFolderId
+        jobId: customer.jobId,
+        notionId: customer.notionId,
+        customerName: customer.customerName,
+        customerFolderId: customer.customerFolderId
       })
     });
   } catch (error) {
@@ -713,14 +804,17 @@ async function uploadDriveImage({
       S.activeJob.draft.driveFolderId = data.file.customerFolderId;
       S.activeJob.draft.driveFolderUrl = data.file.customerFolderUrl || null;
     }
+    if (!S.activeJob.notionId && customer.notionId) {
+      S.activeJob.notionId = customer.notionId;
+    }
   }
 
   return {
     fileId: data.file.id,
     filename: data.file.name,
-    folder: data.file.folder || resolvedFolder,
+    folder: data.file.folder || data.file.category || resolvedFolder,
     folderId: data.file.folderId || null,
-    category: data.file.category || null,
+    category: data.file.category || resolvedCategory,
     customerFolderId: data.file.customerFolderId || null,
     customerFolderUrl: data.file.customerFolderUrl || null,
     categoryFolderId: data.file.categoryFolderId || null,
@@ -728,7 +822,7 @@ async function uploadDriveImage({
     purpose: data.file.purpose || resolvedPurpose,
     uploadedAt: data.file.createdTime || new Date().toISOString(),
     uploadedBy: data.file.uploadedBy || currentUsername(),
-    jobId: data.file.jobId || resolvedJobId,
+    jobId: data.file.jobId || customer.jobId,
     contentUrl: data.file.contentUrl || `/api/drive/images/${encodeURIComponent(data.file.id)}/content`,
     mimeType: data.file.mimeType || mime,
     webViewLink: data.file.webViewLink || null,
@@ -752,6 +846,7 @@ async function uploadCapturedImageOnce({
   notionId,
   customerName,
   customerFolderId,
+  category,
   json,
   description
 } = {}) {
@@ -773,6 +868,7 @@ async function uploadCapturedImageOnce({
       notionId,
       customerName,
       customerFolderId,
+      category,
       json,
       description
     });
@@ -802,6 +898,8 @@ window.DrivePhoto = {
   shouldUpload: shouldUploadCapturedImage,
   purposeToFolder,
   resolveUploadFolder,
+  resolveActiveCustomerContext,
+  resolveClientCategory,
   upload: uploadDriveImage,
   uploadOnce: uploadCapturedImageOnce,
   uploadJson: uploadDriveJson,

@@ -183,6 +183,12 @@ function restoreSlipPreview() {
 function loadJobState(job) {
   const draft = getJobDraft(job);
 
+  // Ensure Drive customer folder cache from Notion (if properties exist) is available to uploads.
+  if (job.drive?.folderId && draft && !draft.driveFolderId) {
+    draft.driveFolderId = job.drive.folderId;
+    draft.driveFolderUrl = job.drive.folderUrl || null;
+  }
+
   S.pkg = draft.pkg;
   S.stepsDone = { ...draft.stepsDone };
   S.payMethod = draft.payMethod || 'cash';

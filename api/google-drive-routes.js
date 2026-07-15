@@ -177,7 +177,15 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
       const notionId = payload.notionId || payload.customerId || jobId || null;
       const customerName = payload.customerName || payload.clientName || null;
       const customerFolderId = payload.customerFolderId || payload.driveFolderId || null;
+      const category = payload.category || null;
       const uploadContentType = payload.contentType || payload.mimeType || null;
+
+      console.log('[drive] upload identity', {
+        notionId: notionId ? `${String(notionId).slice(0, 8)}…` : null,
+        customerName: customerName || null,
+        category: category || null,
+        purpose: purpose || null
+      });
 
       const file = await uploadImage({
         filename,
@@ -188,6 +196,7 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
         makePublic: payload.makePublic,
         folder,
         purpose,
+        category,
         jobId,
         notionId,
         customerName,
@@ -198,10 +207,11 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
         console.log('[drive] upload succeeded', {
           fileId: file.id,
           name: file.name,
-          folder: file.folder,
+          folder: file.folder || file.category || null,
           folderId: file.folderId,
           category: file.category || null,
           customerFolderId: file.customerFolderId || null,
+          categoryFolderId: file.categoryFolderId || null,
           webViewLink: file.webViewLink || null
         });
       } catch (e) { /* ignore logging failures */ }

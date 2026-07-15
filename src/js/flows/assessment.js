@@ -667,7 +667,18 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
   const tapIndex = S.activeTap;
   const photos = S.tapData[tapIndex].photos;
   const existing = photos[taskKey];
-  const jobId = S.activeJob?.notionId || S.activeJob?.id || null;
+  const customer = typeof DrivePhoto.resolveActiveCustomerContext === 'function'
+    ? DrivePhoto.resolveActiveCustomerContext()
+    : {
+        notionId: S.activeJob?.notionId || S.activeJob?.id || null,
+        customerName: S.activeJob?.name || null,
+        jobId: S.activeJob?.notionId || S.activeJob?.id || null,
+        customerFolderId: S.activeJob?.drive?.folderId || null
+      };
+  const category = typeof DrivePhoto.resolveClientCategory === 'function'
+    ? DrivePhoto.resolveClientCategory(taskKey, 'image/jpeg')
+    : 'Site Inspection';
+  const jobId = customer.jobId;
   const queueKey = driveQueueKey(taskKey, tapIndex);
 
   // Already uploaded — single Drive file only (no secondary OCR copy).
@@ -698,6 +709,8 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
     previewUrl: compressed,
     folder: 'main',
     purpose: taskKey,
+    category,
+    notionId: customer.notionId,
     uploadedAt: null,
     jobId,
     pendingAutoRetry: false
@@ -710,9 +723,13 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
       dataUrl: compressed,
       purpose: taskKey,
       folder: 'main',
+      category,
       contentType: 'image/jpeg',
       inflightKey: `main:${taskKey}:${tapIndex}`,
-      jobId
+      jobId,
+      notionId: customer.notionId,
+      customerName: customer.customerName,
+      customerFolderId: customer.customerFolderId
     });
 
     const stored = buildStoredDrivePhotoMeta(meta, { purpose: taskKey, previewUrl: compressed });
@@ -732,6 +749,8 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
       previewUrl: compressed,
       folder: 'main',
       purpose: taskKey,
+      category,
+      notionId: customer.notionId,
       jobId
     }, error);
     if (S.tapData[tapIndex]?.photos) S.tapData[tapIndex].photos[taskKey] = failed;
@@ -739,10 +758,14 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
       await DrivePhoto.enqueue?.({
         queueKey,
         jobId,
+        notionId: customer.notionId,
+        customerName: customer.customerName,
+        customerFolderId: customer.customerFolderId,
         tapIndex,
         taskKey,
         previewId,
         purpose: taskKey,
+        category,
         folder: 'main',
         dataUrl: compressed,
         lastError: error.message
@@ -763,7 +786,15 @@ async function uploadSlipPhotoToDrive(dataUrl) {
   if (DrivePhoto.isUploaded(S.paymentSlipPhoto)) return S.paymentSlipPhoto;
   if (S.paymentSlipPhoto?.uploading) return S.paymentSlipPhoto;
 
-  const jobId = S.activeJob?.notionId || S.activeJob?.id || null;
+  const customer = typeof DrivePhoto.resolveActiveCustomerContext === 'function'
+    ? DrivePhoto.resolveActiveCustomerContext()
+    : {
+        notionId: S.activeJob?.notionId || S.activeJob?.id || null,
+        customerName: S.activeJob?.name || null,
+        jobId: S.activeJob?.notionId || S.activeJob?.id || null,
+        customerFolderId: S.activeJob?.drive?.folderId || null
+      };
+  const jobId = customer.jobId;
   const queueKey = driveQueueKey('payment', 'slip');
   const compressed = await DrivePhoto.compress(dataUrl);
 
@@ -778,6 +809,8 @@ async function uploadSlipPhotoToDrive(dataUrl) {
     previewUrl: compressed,
     folder: 'main',
     purpose: 'payment',
+    category: 'Payment',
+    notionId: customer.notionId,
     jobId,
     pendingAutoRetry: false
   };
@@ -790,10 +823,14 @@ async function uploadSlipPhotoToDrive(dataUrl) {
       dataUrl: compressed,
       purpose: 'payment',
       folder: 'main',
+      category: 'Payment',
       contentType: 'image/jpeg',
       filename: DrivePhoto.buildFilename('payment-slip'),
       inflightKey: 'main:payment:slip',
-      jobId
+      jobId,
+      notionId: customer.notionId,
+      customerName: customer.customerName,
+      customerFolderId: customer.customerFolderId
     });
     S.paymentSlipPhoto = buildStoredDrivePhotoMeta(meta, { purpose: 'payment', previewUrl: compressed });
     setPhotoUploadUi('slip-preview', 'ok');
@@ -808,16 +845,22 @@ async function uploadSlipPhotoToDrive(dataUrl) {
       previewUrl: compressed,
       folder: 'main',
       purpose: 'payment',
+      category: 'Payment',
+      notionId: customer.notionId,
       jobId
     }, error);
     if (DrivePhoto.isRetryableError?.(error)) {
       await DrivePhoto.enqueue?.({
         queueKey,
         jobId,
+        notionId: customer.notionId,
+        customerName: customer.customerName,
+        customerFolderId: customer.customerFolderId,
         tapIndex: null,
         taskKey: 'payment',
         previewId: 'slip-preview',
         purpose: 'payment',
+        category: 'Payment',
         folder: 'main',
         isSlip: true,
         dataUrl: compressed,

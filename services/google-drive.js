@@ -347,6 +347,7 @@ async function uploadImage({
   purpose,
   useCase,
   type,
+  category: explicitCategory,
   jobId,
   notionId,
   customerName,
@@ -396,40 +397,40 @@ async function uploadImage({
   }
 
   const resolvedNotionId = expandNotionId(notionId || jobId);
+  const resolvedCustomerName = String(customerName || '').trim() || 'Customer';
   const rootFolderId = getMainFolderId();
-  let folderId = requireFolderId(folderKey);
-  let hierarchy = null;
 
-  // Customer hierarchy for images/docs when we know the case identity.
-  // Flat DATA root remains the fallback for anonymous JSON-only uploads.
-  if (resolvedNotionId && rootFolderId && (folderKey === 'main' || folderKey === 'data')) {
-    try {
-      hierarchy = await resolveUploadTargetFolder({
-        rootFolderId,
-        notionId: resolvedNotionId,
-        customerName: customerName || 'Customer',
-        cachedCustomerFolderId,
-        purpose: purpose || useCase || type,
-        contentType: mimeType,
-        filename: safeName
-      });
-      folderId = hierarchy.uploadFolderId;
-    } catch (error) {
-      console.error('[google-drive] customer folder resolve failed — falling back to root', {
-        message: error.message,
-        notionId: resolvedNotionId ? `${String(resolvedNotionId).slice(0, 8)}…` : null
-      });
-      // Keep flat root upload rather than failing the capture.
-      folderId = requireFolderId(folderKey);
-      hierarchy = null;
-    }
+  if (!resolvedNotionId) {
+    throw driveError(
+      'Customer notionId is required for Drive uploads. Open a customer case before capturing photos.',
+      400
+    );
+  }
+  if (!rootFolderId) {
+    throw driveError('GOOGLE_DRIVE_MAIN_FOLDER_ID is required', 503);
   }
 
-  const category = hierarchy?.category
-    || resolveCategoryFromPurpose(purpose || useCase || type, {
-      contentType: mimeType,
-      filename: safeName
-    });
+  const hierarchy = await resolveUploadTargetFolder({
+    rootFolderId,
+    notionId: resolvedNotionId,
+    customerName: resolvedCustomerName,
+    cachedCustomerFolderId,
+    purpose: purpose || useCase || type,
+    category: explicitCategory,
+    contentType: mimeType,
+    filename: safeName
+  });
+
+  const folderId = hierarchy.uploadFolderId;
+  const category = hierarchy.category;
+
+  console.log('[DRIVE TARGET]', {
+    customerFolderId: hierarchy.customerFolderId,
+    categoryFolderId: hierarchy.categoryFolderId,
+    category,
+    customerName: resolvedCustomerName,
+    notionId: `${String(resolvedNotionId).slice(0, 8)}…`
+  });
 
   const requestBody = {
     name: safeName,
@@ -437,22 +438,21 @@ async function uploadImage({
     mimeType
   };
   if (description) requestBody.description = String(description).slice(0, 1000);
-  if (resolvedNotionId) {
-    requestBody.appProperties = {
-      wmCustomerId: resolvedNotionId,
-      wmPurpose: String(purpose || useCase || type || '').slice(0, 64),
-      wmCategory: String(category).slice(0, 64)
-    };
-  }
+  requestBody.appProperties = {
+    wmCustomerId: resolvedNotionId,
+    wmPurpose: String(purpose || useCase || type || '').slice(0, 64),
+    wmCategory: String(category).slice(0, 64)
+  };
 
   console.log('[UPLOAD RECEIVED]', {
     filename: safeName,
-    folder: folderKey,
+    folder: category,
     mimeType,
     selectedFolderId: folderId,
     category,
-    customerFolderId: hierarchy?.customerFolderId || null,
-    notionId: resolvedNotionId ? `${String(resolvedNotionId).slice(0, 8)}…` : null
+    customerFolderId: hierarchy.customerFolderId,
+    notionId: `${String(resolvedNotionId).slice(0, 8)}…`,
+    customerName: resolvedCustomerName
   });
 
   const drive = getDriveClient();
@@ -484,13 +484,13 @@ async function uploadImage({
   }
 
   return mapFileMetadata(created, {
-    folderKey,
+    folderKey: category,
     folderId,
     category,
-    customerFolderId: hierarchy?.customerFolderId || null,
-    customerFolderUrl: hierarchy?.customerFolderUrl || null,
-    categoryFolderId: hierarchy?.categoryFolderId || null,
-    categoryFolderUrl: hierarchy?.categoryFolderUrl || null
+    customerFolderId: hierarchy.customerFolderId,
+    customerFolderUrl: hierarchy.customerFolderUrl,
+    categoryFolderId: hierarchy.categoryFolderId,
+    categoryFolderUrl: hierarchy.categoryFolderUrl
   });
 }
 

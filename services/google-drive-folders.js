@@ -106,6 +106,17 @@ function buildCustomerFolderName(customerName, notionId) {
 }
 
 function resolveCategoryFromPurpose(purpose, options = {}) {
+  if (options.category) {
+    const raw = String(options.category).trim();
+    if (/^(payment|slip|receipt)$/i.test(raw)) return CATEGORY.PAYMENT;
+    if (/site\s*inspection/i.test(raw)) return CATEGORY.SITE_INSPECTION;
+    if (/before/i.test(raw)) return CATEGORY.BEFORE_SERVICE;
+    if (/after/i.test(raw)) return CATEGORY.AFTER_SERVICE;
+    if (/document/i.test(raw)) return CATEGORY.DOCUMENTS;
+    const known = Object.values(CATEGORY).find(name => name.toLowerCase() === raw.toLowerCase());
+    if (known) return known;
+  }
+
   const key = String(purpose || options.useCase || options.type || '').trim().toLowerCase();
   if (PURPOSE_TO_CATEGORY[key]) return PURPOSE_TO_CATEGORY[key];
 
@@ -366,10 +377,15 @@ async function resolveUploadTargetFolder({
   customerName,
   cachedCustomerFolderId,
   purpose,
+  category: explicitCategory,
   contentType,
   filename
 } = {}) {
-  const category = resolveCategoryFromPurpose(purpose, { contentType, filename });
+  const category = resolveCategoryFromPurpose(purpose, {
+    category: explicitCategory,
+    contentType,
+    filename
+  });
   const customer = await ensureCustomerFolder({
     rootFolderId,
     notionId,
@@ -377,7 +393,7 @@ async function resolveUploadTargetFolder({
     cachedFolderId: cachedCustomerFolderId
   });
 
-  // Payment is intentionally lazy — only reached when purpose maps to Payment.
+  // Payment is intentionally lazy — only created when category resolves to Payment.
   const categoryFolder = await ensureCategoryFolder({
     customerFolderId: customer.folderId,
     category,
