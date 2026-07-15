@@ -129,11 +129,17 @@ function resolveCategoryFromPurpose(purpose, options = {}) {
   return CATEGORY.DOCUMENTS;
 }
 
+const DRIVE_FILE_OPTS = {
+  supportsAllDrives: true,
+  includeItemsFromAllDrives: true
+};
+
 async function getFolderMeta(folderId) {
   const drive = getDriveClient();
   const response = await drive.files.get({
     fileId: folderId,
-    fields: 'id,name,mimeType,parents,webViewLink,appProperties,trashed'
+    fields: 'id,name,mimeType,parents,webViewLink,appProperties,trashed',
+    supportsAllDrives: true
   });
   return response.data;
 }
@@ -150,8 +156,10 @@ async function findChildFolderByAppProperty(parentId, propKey, propValue) {
   const response = await drive.files.list({
     q,
     spaces: 'drive',
+    corpora: 'allDrives',
     pageSize: 5,
-    fields: 'files(id,name,webViewLink,appProperties,parents)'
+    fields: 'files(id,name,webViewLink,appProperties,parents)',
+    ...DRIVE_FILE_OPTS
   });
   return (response.data.files || [])[0] || null;
 }
@@ -168,8 +176,10 @@ async function findChildFolderByName(parentId, name) {
   const response = await drive.files.list({
     q,
     spaces: 'drive',
+    corpora: 'allDrives',
     pageSize: 5,
-    fields: 'files(id,name,webViewLink,appProperties,parents)'
+    fields: 'files(id,name,webViewLink,appProperties,parents)',
+    ...DRIVE_FILE_OPTS
   });
   return (response.data.files || [])[0] || null;
 }
@@ -182,26 +192,52 @@ async function createFolder({ parentId, name, appProperties = {} }) {
     appPropertyKeys: Object.keys(appProperties || {})
   });
 
-  const response = await drive.files.create({
-    requestBody: {
-      name,
-      mimeType: FOLDER_MIME,
-      parents: [parentId],
-      appProperties
-    },
-    fields: 'id,name,webViewLink,appProperties,parents'
-  });
+  const requestBody = {
+    name,
+    mimeType: FOLDER_MIME,
+    parents: [parentId]
+  };
+  if (appProperties && Object.keys(appProperties).length) {
+    requestBody.appProperties = appProperties;
+  }
 
-  console.log('[drive-folders] folder created', {
-    folderId: response.data.id,
-    name: response.data.name
-  });
-  return response.data;
+  try {
+    const response = await drive.files.create({
+      requestBody,
+      fields: 'id,name,webViewLink,appProperties,parents',
+      supportsAllDrives: true
+    });
+    console.log('[drive-folders] folder created', {
+      folderId: response.data.id,
+      name: response.data.name
+    });
+    return response.data;
+  } catch (error) {
+    // Some Drive configs reject appProperties — retry without them.
+    if (requestBody.appProperties) {
+      console.warn('[drive-folders] create with appProperties failed, retrying without', {
+        message: error.message
+      });
+      delete requestBody.appProperties;
+      const response = await drive.files.create({
+        requestBody,
+        fields: 'id,name,webViewLink,appProperties,parents',
+        supportsAllDrives: true
+      });
+      console.log('[drive-folders] folder created (no appProperties)', {
+        folderId: response.data.id,
+        name: response.data.name
+      });
+      return response.data;
+    }
+    throw error;
+  }
 }
 
 /**
  * Ensure the customer folder exists under the configured MAIN root.
- * Prefer cached Notion folder ID, then appProperties search, then name, else create.
+ * Prefer cached Notion folder ID, then name search, else create.
+ * Search failures must NOT block folder creation.
  */
 async function ensureCustomerFolder({
   rootFolderId,
@@ -243,32 +279,41 @@ async function ensureCustomerFolder({
     }
   }
 
+  // Soft search — never abort creation because listing failed.
+  let existing = null;
   try {
-    let existing = await findChildFolderByAppProperty(rootFolderId, 'wmCustomerId', customerKey);
+    existing = await findChildFolderByAppProperty(rootFolderId, 'wmCustomerId', customerKey);
     if (!existing) {
-      // Compact-id fallback for older records.
       const compact = customerKey.replace(/-/g, '');
       if (compact !== customerKey) {
         existing = await findChildFolderByAppProperty(rootFolderId, 'wmCustomerId', compact);
       }
     }
-    if (!existing) {
+  } catch (error) {
+    console.warn('[drive-folders] appProperty search failed', { message: error.message });
+  }
+  if (!existing) {
+    try {
       existing = await findChildFolderByName(rootFolderId, folderName);
+    } catch (error) {
+      console.warn('[drive-folders] name search failed', { message: error.message, folderName });
     }
-    if (existing) {
-      console.log('[drive-folders] reusing existing customer folder', {
-        folderId: existing.id,
-        name: existing.name
-      });
-      return {
-        folderId: existing.id,
-        name: existing.name,
-        webViewLink: existing.webViewLink || null,
-        created: false,
-        reusedCache: false
-      };
-    }
+  }
+  if (existing) {
+    console.log('[drive-folders] reusing existing customer folder', {
+      folderId: existing.id,
+      name: existing.name
+    });
+    return {
+      folderId: existing.id,
+      name: existing.name,
+      webViewLink: existing.webViewLink || null,
+      created: false,
+      reusedCache: false
+    };
+  }
 
+  try {
     const created = await createFolder({
       parentId: rootFolderId,
       name: folderName,
@@ -287,7 +332,9 @@ async function ensureCustomerFolder({
   } catch (error) {
     console.error('[drive-folders] ensureCustomerFolder failed', {
       message: error.message,
-      status: error.code || error.statusCode || null
+      status: error.code || error.statusCode || null,
+      folderName,
+      parentId: rootFolderId
     });
     throw driveFolderError(
       `Unable to ensure customer Drive folder (${error.message || 'unknown'})`,
@@ -314,32 +361,37 @@ async function ensureCategoryFolder({
     throw driveFolderError('category is required', 400);
   }
 
+  let existing = null;
   try {
-    let existing = await findChildFolderByAppProperty(
-      customerFolderId,
-      'wmCategory',
-      categoryName
-    );
-    if (!existing) {
+    existing = await findChildFolderByAppProperty(customerFolderId, 'wmCategory', categoryName);
+  } catch (error) {
+    console.warn('[drive-folders] category appProperty search failed', { message: error.message });
+  }
+  if (!existing) {
+    try {
       existing = await findChildFolderByName(customerFolderId, categoryName);
+    } catch (error) {
+      console.warn('[drive-folders] category name search failed', { message: error.message });
     }
-    if (existing) {
-      console.log('[drive-folders] reusing category folder', {
-        folderId: existing.id,
-        category: categoryName
-      });
-      return {
-        folderId: existing.id,
-        name: existing.name || categoryName,
-        webViewLink: existing.webViewLink || null,
-        created: false
-      };
-    }
+  }
+  if (existing) {
+    console.log('[drive-folders] reusing category folder', {
+      folderId: existing.id,
+      category: categoryName
+    });
+    return {
+      folderId: existing.id,
+      name: existing.name || categoryName,
+      webViewLink: existing.webViewLink || null,
+      created: false
+    };
+  }
 
-    if (!createIfMissing) {
-      return null;
-    }
+  if (!createIfMissing) {
+    return null;
+  }
 
+  try {
     const created = await createFolder({
       parentId: customerFolderId,
       name: categoryName,
@@ -432,7 +484,8 @@ async function isDescendantOfRoots(fileId, rootIds = []) {
     try {
       const response = await drive.files.get({
         fileId: current,
-        fields: 'id,parents'
+        fields: 'id,parents',
+        supportsAllDrives: true
       });
       meta = response.data;
     } catch {

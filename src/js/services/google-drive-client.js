@@ -376,7 +376,21 @@ function isLikelyNotionId(value) {
  * Prefer Notion UUID; fall back to compact id when it is a 32-char hex Notion id.
  */
 function resolveActiveCustomerContext(overrides = {}) {
-  const job = (typeof S !== 'undefined' && S.activeJob) ? S.activeJob : null;
+  let job = (typeof S !== 'undefined' && S.activeJob) ? S.activeJob : null;
+
+  const jobHasIdentity = Boolean(job && (job.notionId || job.id));
+
+  // Recover from JOBS if activeJob is missing or lost its Notion/case id.
+  if (!jobHasIdentity && typeof JOBS !== 'undefined' && Array.isArray(JOBS)) {
+    job = JOBS.find(item => item && item.status === 'in_progress' && (item.notionId || item.id))
+      || JOBS.find(item => item && item.notionSource && (item.notionId || item.id))
+      || JOBS.find(item => item && (item.notionId || item.id))
+      || job;
+    if (job && typeof S !== 'undefined') {
+      S.activeJob = job;
+    }
+  }
+
   const fields = job?.draft?.fields || {};
 
   const candidates = [
@@ -394,8 +408,7 @@ function resolveActiveCustomerContext(overrides = {}) {
       break;
     }
   }
-  // Last resort: still send a case identifier so the server can reject/clearly error
-  // rather than silently uploading into the shared main folder.
+  // Always send whatever case id we have — server needs it for customer folders.
   if (!notionId && candidates.length) {
     notionId = String(candidates[0]).trim();
   }

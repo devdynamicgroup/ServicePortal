@@ -383,7 +383,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .login-screen{min-height:100%;background:var(--bg);display:flex;flex-direction:column;position:relative}
 .login-topbar{position:absolute;top:24px;right:24px;z-index:2}
 .login-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px 24px;max-width:340px;margin:0 auto;width:100%}
-.login-logo-img{width:auto;max-width:min(120px,40vw);height:32px;object-fit:contain;margin:0 auto 12px;display:block}
+.login-logo-img{width:auto;max-width:min(210px,68vw);height:56px;object-fit:contain;margin:0 auto 16px;display:block}
 .login-logo-text{display:none!important}
 .login-headline{font-size:24px;font-weight:600;color:var(--text);text-align:center;line-height:1.2;margin:0 0 4px;min-height:29px}
 .login-subtitle{font-size:14px;color:var(--muted);text-align:center;margin:0;min-height:20px}

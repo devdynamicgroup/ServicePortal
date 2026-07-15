@@ -412,39 +412,28 @@ async function uploadImage({
     filename: safeName
   });
 
-  // Prefer customer → category hierarchy. If identity is missing, temporarily
-  // fall back to MAIN so uploads keep working while we debug context wiring.
+  // Prefer customer → category hierarchy.
+  // MAIN fallback only when customer identity is missing (debug / break-glass).
   if (resolvedNotionId) {
-    try {
-      hierarchy = await resolveUploadTargetFolder({
-        rootFolderId,
-        notionId: resolvedNotionId,
-        customerName: resolvedCustomerName,
-        cachedCustomerFolderId,
-        purpose: purpose || useCase || type,
-        category: explicitCategory,
-        contentType: mimeType,
-        filename: safeName
-      });
-      folderId = hierarchy.uploadFolderId;
-      category = hierarchy.category;
-      console.log('[DRIVE TARGET]', {
-        customerFolderId: hierarchy.customerFolderId,
-        categoryFolderId: hierarchy.categoryFolderId,
-        category,
-        customerName: resolvedCustomerName,
-        notionId: `${String(resolvedNotionId).slice(0, 8)}…`
-      });
-    } catch (error) {
-      console.error('[DRIVE UPLOAD BLOCKED] customer folder resolve failed — falling back to MAIN', {
-        message: error.message,
-        notionId: `${String(resolvedNotionId).slice(0, 8)}…`,
-        customerName: resolvedCustomerName,
-        category
-      });
-      folderId = rootFolderId;
-      hierarchy = null;
-    }
+    hierarchy = await resolveUploadTargetFolder({
+      rootFolderId,
+      notionId: resolvedNotionId,
+      customerName: resolvedCustomerName,
+      cachedCustomerFolderId,
+      purpose: purpose || useCase || type,
+      category: explicitCategory,
+      contentType: mimeType,
+      filename: safeName
+    });
+    folderId = hierarchy.uploadFolderId;
+    category = hierarchy.category;
+    console.log('[DRIVE TARGET]', {
+      customerFolderId: hierarchy.customerFolderId,
+      categoryFolderId: hierarchy.categoryFolderId,
+      category,
+      customerName: resolvedCustomerName,
+      notionId: `${String(resolvedNotionId).slice(0, 8)}…`
+    });
   } else {
     console.error('[DRIVE UPLOAD BLOCKED]', {
       notionId: null,
@@ -490,7 +479,8 @@ async function uploadImage({
         mimeType,
         body: Readable.from(bytes)
       },
-      fields: 'id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink,parents'
+      fields: 'id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink,parents',
+      supportsAllDrives: true
     });
     created = response.data;
     console.log('[DRIVE UPLOAD SUCCESS]', {
@@ -501,13 +491,49 @@ async function uploadImage({
       category: hierarchy ? category : 'main'
     });
   } catch (error) {
-    console.error('[DRIVE UPLOAD API ERROR]', {
-      message: error.message,
-      code: error.code || error.statusCode || null,
-      parentFolderId: folderId,
-      mimeType
-    });
-    throw mapGoogleError(error, 'Google Drive upload failed');
+    // Retry without appProperties if Drive rejects them (common on some Shared Drives).
+    if (requestBody.appProperties) {
+      console.warn('[drive] upload with appProperties failed, retrying without', {
+        message: error.message
+      });
+      delete requestBody.appProperties;
+      try {
+        const response = await drive.files.create({
+          requestBody,
+          media: {
+            mimeType,
+            body: Readable.from(bytes)
+          },
+          fields: 'id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink,parents',
+          supportsAllDrives: true
+        });
+        created = response.data;
+        console.log('[DRIVE UPLOAD SUCCESS]', {
+          fileId: created.id,
+          folderId,
+          parents: created.parents || [folderId],
+          name: created.name,
+          category: hierarchy ? category : 'main',
+          note: 'uploaded_without_appProperties'
+        });
+      } catch (retryError) {
+        console.error('[DRIVE UPLOAD API ERROR]', {
+          message: retryError.message,
+          code: retryError.code || retryError.statusCode || null,
+          parentFolderId: folderId,
+          mimeType
+        });
+        throw mapGoogleError(retryError, 'Google Drive upload failed');
+      }
+    } else {
+      console.error('[DRIVE UPLOAD API ERROR]', {
+        message: error.message,
+        code: error.code || error.statusCode || null,
+        parentFolderId: folderId,
+        mimeType
+      });
+      throw mapGoogleError(error, 'Google Drive upload failed');
+    }
   }
 
   const shouldPublic = makePublic != null
