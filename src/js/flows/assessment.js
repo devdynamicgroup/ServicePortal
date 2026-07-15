@@ -681,14 +681,14 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
   const jobId = customer.jobId;
   const queueKey = driveQueueKey(taskKey, tapIndex);
 
-  // Already uploaded — single Drive file only (no secondary OCR copy).
-  if (DrivePhoto.isUploaded(existing)) {
+  // Already uploaded for THIS capture — skip. A new dataUrl must always upload.
+  if (DrivePhoto.isUploaded(existing) && resolveCaptureDataUrl(existing) === dataUrl) {
     await DrivePhoto.dequeue?.(queueKey);
     return existing;
   }
 
-  // Live upload in progress for this tap/task — do not start a second POST.
-  if (existing?.uploading) {
+  // Live upload in progress for the same capture — do not start a second POST.
+  if (existing?.uploading && resolveCaptureDataUrl(existing) === dataUrl) {
     return existing;
   }
 
@@ -696,11 +696,11 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
 
   // Re-check after async compress (flush/retry may have finished meanwhile).
   const latest = S.tapData[tapIndex]?.photos?.[taskKey];
-  if (DrivePhoto.isUploaded(latest)) {
+  if (DrivePhoto.isUploaded(latest) && resolveCaptureDataUrl(latest) === compressed) {
     await DrivePhoto.dequeue?.(queueKey);
     return latest;
   }
-  if (latest?.uploading) {
+  if (latest?.uploading && resolveCaptureDataUrl(latest) === compressed) {
     return latest;
   }
 
@@ -783,8 +783,12 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
 
 async function uploadSlipPhotoToDrive(dataUrl) {
   if (typeof DrivePhoto === 'undefined') return null;
-  if (DrivePhoto.isUploaded(S.paymentSlipPhoto)) return S.paymentSlipPhoto;
-  if (S.paymentSlipPhoto?.uploading) return S.paymentSlipPhoto;
+  if (DrivePhoto.isUploaded(S.paymentSlipPhoto) && resolveCaptureDataUrl(S.paymentSlipPhoto) === dataUrl) {
+    return S.paymentSlipPhoto;
+  }
+  if (S.paymentSlipPhoto?.uploading && resolveCaptureDataUrl(S.paymentSlipPhoto) === dataUrl) {
+    return S.paymentSlipPhoto;
+  }
 
   const customer = typeof DrivePhoto.resolveActiveCustomerContext === 'function'
     ? DrivePhoto.resolveActiveCustomerContext()
@@ -798,11 +802,13 @@ async function uploadSlipPhotoToDrive(dataUrl) {
   const queueKey = driveQueueKey('payment', 'slip');
   const compressed = await DrivePhoto.compress(dataUrl);
 
-  if (DrivePhoto.isUploaded(S.paymentSlipPhoto)) {
+  if (DrivePhoto.isUploaded(S.paymentSlipPhoto) && resolveCaptureDataUrl(S.paymentSlipPhoto) === compressed) {
     await DrivePhoto.dequeue?.(queueKey);
     return S.paymentSlipPhoto;
   }
-  if (S.paymentSlipPhoto?.uploading) return S.paymentSlipPhoto;
+  if (S.paymentSlipPhoto?.uploading && resolveCaptureDataUrl(S.paymentSlipPhoto) === compressed) {
+    return S.paymentSlipPhoto;
+  }
 
   S.paymentSlipPhoto = {
     uploading: true,
@@ -1034,10 +1040,10 @@ function setPhotoPreview(previewId, src, options = {}) {
         src.uploadError || src.pendingAutoRetry ? 'failed' : (src.uploading ? 'uploading' : 'ok')
       );
     } else if (dataUrl) {
-      // Keep preview responsive: store temporary data URL, then upload once.
+      // Preview only — uploadTaskPhotoToDrive owns the uploading flag.
+      // Setting uploading:true here caused a race that skipped the Drive POST.
       if (!skipUpload) {
         S.tapData[S.activeTap].photos[taskKey] = {
-          uploading: true,
           previewUrl: dataUrl,
           folder: 'main',
           purpose: taskKey,
@@ -1081,7 +1087,8 @@ function handleSlipUpload(input) {
   const file = input.files?.[0];
   if (!file) return;
   readImageFile(file, src => {
-    S.paymentSlipPhoto = { uploading: true, previewUrl: src, folder: 'main', purpose: 'payment' };
+    // Preview only — uploadSlipPhotoToDrive sets uploading to avoid skip-race.
+    S.paymentSlipPhoto = { previewUrl: src, folder: 'main', purpose: 'payment' };
     S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
     setPhotoPreview('slip-preview', S.paymentSlipPhoto, { skipUpload: true });
     closeCameraCapture();
@@ -1091,7 +1098,7 @@ function handleSlipUpload(input) {
 }
 
 function handleSlipCapture(dataUrl) {
-  S.paymentSlipPhoto = { uploading: true, previewUrl: dataUrl, folder: 'main', purpose: 'payment' };
+  S.paymentSlipPhoto = { previewUrl: dataUrl, folder: 'main', purpose: 'payment' };
   S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
   setPhotoPreview('slip-preview', S.paymentSlipPhoto, { skipUpload: true });
   showToast(typeof t === 'function' ? t('pay.uploaded') : 'Photo attached');

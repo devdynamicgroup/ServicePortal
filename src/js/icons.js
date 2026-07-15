@@ -12,7 +12,7 @@ const ICON = {
   chevron: `${ICON_BASE}chevron.svg`,
   plus: `${ICON_BASE}plus.svg`,
   lock: `${ICON_BASE}lock.svg`,
-  logo: `${ICON_BASE}logo.png?v=4`
+  logo: `${ICON_BASE}logo.png?v=5`
 };
 
 const STEP_ICONS = {
