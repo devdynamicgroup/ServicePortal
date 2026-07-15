@@ -180,6 +180,14 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
       const category = payload.category || null;
       const uploadContentType = payload.contentType || payload.mimeType || null;
 
+      console.log('[DRIVE REQUEST]', {
+        notionId: notionId || null,
+        customerName: customerName || null,
+        category: category || null,
+        purpose: purpose || null,
+        filename: filename || null
+      });
+
       console.log('[drive] upload identity', {
         notionId: notionId ? `${String(notionId).slice(0, 8)}…` : null,
         customerName: customerName || null,

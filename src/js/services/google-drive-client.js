@@ -730,6 +730,17 @@ async function uploadDriveImage({
     });
   }
 
+  console.log('[UPLOAD PAYLOAD]', {
+    notionId: customer.notionId || null,
+    customerName: customer.customerName || null,
+    category: resolvedCategory,
+    fileName: resolvedFilename,
+    hasActiveJob: Boolean(typeof S !== 'undefined' && S.activeJob),
+    activeJobId: (typeof S !== 'undefined' && S.activeJob)
+      ? (S.activeJob.notionId || S.activeJob.id || null)
+      : null
+  });
+
   console.log('[UPLOAD REQUEST]', {
     filename: resolvedFilename,
     purpose: resolvedPurpose,

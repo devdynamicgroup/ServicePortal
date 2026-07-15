@@ -400,37 +400,61 @@ async function uploadImage({
   const resolvedCustomerName = String(customerName || '').trim() || 'Customer';
   const rootFolderId = getMainFolderId();
 
-  if (!resolvedNotionId) {
-    throw driveError(
-      'Customer notionId is required for Drive uploads. Open a customer case before capturing photos.',
-      400
-    );
-  }
   if (!rootFolderId) {
     throw driveError('GOOGLE_DRIVE_MAIN_FOLDER_ID is required', 503);
   }
 
-  const hierarchy = await resolveUploadTargetFolder({
-    rootFolderId,
-    notionId: resolvedNotionId,
-    customerName: resolvedCustomerName,
-    cachedCustomerFolderId,
-    purpose: purpose || useCase || type,
+  let folderId;
+  let hierarchy = null;
+  let category = resolveCategoryFromPurpose(purpose || useCase || type, {
     category: explicitCategory,
     contentType: mimeType,
     filename: safeName
   });
 
-  const folderId = hierarchy.uploadFolderId;
-  const category = hierarchy.category;
-
-  console.log('[DRIVE TARGET]', {
-    customerFolderId: hierarchy.customerFolderId,
-    categoryFolderId: hierarchy.categoryFolderId,
-    category,
-    customerName: resolvedCustomerName,
-    notionId: `${String(resolvedNotionId).slice(0, 8)}…`
-  });
+  // Prefer customer → category hierarchy. If identity is missing, temporarily
+  // fall back to MAIN so uploads keep working while we debug context wiring.
+  if (resolvedNotionId) {
+    try {
+      hierarchy = await resolveUploadTargetFolder({
+        rootFolderId,
+        notionId: resolvedNotionId,
+        customerName: resolvedCustomerName,
+        cachedCustomerFolderId,
+        purpose: purpose || useCase || type,
+        category: explicitCategory,
+        contentType: mimeType,
+        filename: safeName
+      });
+      folderId = hierarchy.uploadFolderId;
+      category = hierarchy.category;
+      console.log('[DRIVE TARGET]', {
+        customerFolderId: hierarchy.customerFolderId,
+        categoryFolderId: hierarchy.categoryFolderId,
+        category,
+        customerName: resolvedCustomerName,
+        notionId: `${String(resolvedNotionId).slice(0, 8)}…`
+      });
+    } catch (error) {
+      console.error('[DRIVE UPLOAD BLOCKED] customer folder resolve failed — falling back to MAIN', {
+        message: error.message,
+        notionId: `${String(resolvedNotionId).slice(0, 8)}…`,
+        customerName: resolvedCustomerName,
+        category
+      });
+      folderId = rootFolderId;
+      hierarchy = null;
+    }
+  } else {
+    console.error('[DRIVE UPLOAD BLOCKED]', {
+      notionId: null,
+      customerName: resolvedCustomerName || null,
+      category,
+      reason: 'missing_notionId_temporary_main_fallback'
+    });
+    console.warn('[drive] Missing customer context — uploading to MAIN_FOLDER for debugging');
+    folderId = rootFolderId;
+  }
 
   const requestBody = {
     name: safeName,
@@ -438,20 +462,22 @@ async function uploadImage({
     mimeType
   };
   if (description) requestBody.description = String(description).slice(0, 1000);
-  requestBody.appProperties = {
-    wmCustomerId: resolvedNotionId,
-    wmPurpose: String(purpose || useCase || type || '').slice(0, 64),
-    wmCategory: String(category).slice(0, 64)
-  };
+  if (resolvedNotionId) {
+    requestBody.appProperties = {
+      wmCustomerId: resolvedNotionId,
+      wmPurpose: String(purpose || useCase || type || '').slice(0, 64),
+      wmCategory: String(category).slice(0, 64)
+    };
+  }
 
   console.log('[UPLOAD RECEIVED]', {
     filename: safeName,
-    folder: category,
+    folder: hierarchy ? category : 'main',
     mimeType,
     selectedFolderId: folderId,
     category,
-    customerFolderId: hierarchy.customerFolderId,
-    notionId: `${String(resolvedNotionId).slice(0, 8)}…`,
+    customerFolderId: hierarchy?.customerFolderId || null,
+    notionId: resolvedNotionId ? `${String(resolvedNotionId).slice(0, 8)}…` : null,
     customerName: resolvedCustomerName
   });
 
@@ -467,7 +493,20 @@ async function uploadImage({
       fields: 'id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink,parents'
     });
     created = response.data;
+    console.log('[DRIVE UPLOAD SUCCESS]', {
+      fileId: created.id,
+      folderId,
+      parents: created.parents || [folderId],
+      name: created.name,
+      category: hierarchy ? category : 'main'
+    });
   } catch (error) {
+    console.error('[DRIVE UPLOAD API ERROR]', {
+      message: error.message,
+      code: error.code || error.statusCode || null,
+      parentFolderId: folderId,
+      mimeType
+    });
     throw mapGoogleError(error, 'Google Drive upload failed');
   }
 
@@ -484,13 +523,13 @@ async function uploadImage({
   }
 
   return mapFileMetadata(created, {
-    folderKey: category,
+    folderKey: hierarchy ? category : 'main',
     folderId,
-    category,
-    customerFolderId: hierarchy.customerFolderId,
-    customerFolderUrl: hierarchy.customerFolderUrl,
-    categoryFolderId: hierarchy.categoryFolderId,
-    categoryFolderUrl: hierarchy.categoryFolderUrl
+    category: hierarchy ? category : null,
+    customerFolderId: hierarchy?.customerFolderId || null,
+    customerFolderUrl: hierarchy?.customerFolderUrl || null,
+    categoryFolderId: hierarchy?.categoryFolderId || null,
+    categoryFolderUrl: hierarchy?.categoryFolderUrl || null
   });
 }
 
