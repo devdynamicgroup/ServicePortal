@@ -172,13 +172,25 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
       folder = payload.folder || null;
       filename = payload.filename || payload.name || null;
       jobId = payload.jobId != null ? String(payload.jobId) : null;
+      const uploadContentType = payload.contentType || payload.mimeType || null;
 
       // Log route entry and intended target folder key/id
       try {
-        const folderKey = resolveFolderKey({ folder, purpose });
+        const folderKey = resolveFolderKey({
+          folder,
+          purpose,
+          contentType: uploadContentType,
+          mimeType: uploadContentType,
+          filename
+        });
         const folders = getConfiguredFolderIds();
         const folderId = folders && folders[folderKey] ? folders[folderKey] : null;
-        console.log('[drive] upload route entered', { user: user.username, purpose, folder, folderKey, folderId, filename });
+        console.log('[Drive Upload]', {
+          filename,
+          mimeType: uploadContentType,
+          folder: folderKey,
+          selectedFolderId: folderId
+        });
         // Safe, non-sensitive environment presence booleans to help diagnose missing config on hosts like Render.
         try {
           console.log('[drive] env presence', {
@@ -194,7 +206,7 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
 
       const file = await uploadImage({
         filename,
-        contentType: payload.contentType || payload.mimeType,
+        contentType: uploadContentType,
         dataUrl: payload.dataUrl || payload.dataURL,
         base64: payload.base64 || payload.data,
         description: payload.description,

@@ -160,7 +160,7 @@ function stripQueueMeta(item = {}) {
     taskKey: item.taskKey || null,
     previewId: item.previewId || null,
     purpose: item.purpose || 'photo',
-    folder: item.folder || purposeToFolder(item.purpose || 'photo'),
+    folder: item.folder || purposeToFolder(item.purpose || 'photo', item.contentType, item.filename),
     isSlip: Boolean(item.isSlip),
     createdAt: item.createdAt || new Date().toISOString(),
     attempts: Number(item.attempts || 0),
@@ -301,20 +301,29 @@ function isRetryableDriveError(error) {
   return DRIVE_RETRYABLE_CODES.has(error?.code);
 }
 
-function purposeToFolder(purpose) {
+function purposeToFolder(purpose, contentType, filename) {
   const key = String(purpose || '').toLowerCase();
-  // Payment slip → GOOGLE_DRIVE_MAIN_FOLDER_ID; everything else → data image folder.
+  const mime = String(contentType || '').toLowerCase().split(';')[0].trim();
+  const name = String(filename || '');
+
   if (
-    key === 'payment'
-    || key === 'slip'
-    || key === 'receipt'
-    || key === 'payment-slip'
-    || key === 'payment_slip'
-    || key === 'main'
+    mime === 'application/json'
+    || mime === 'text/json'
+    || mime.endsWith('+json')
+    || /\.jsonl?$/i.test(name)
+    || key === 'json'
+    || key === 'assessment'
+    || key === 'export'
+    || key === 'backup'
+    || key === 'metadata'
+    || key === 'report'
+    || key === 'reports'
+    || key === 'data'
   ) {
-    return 'main';
+    return 'data';
   }
-  return 'data';
+  // All image / field photo purposes → MAIN folder
+  return 'main';
 }
 
 function guessContentType(dataUrl, fallback = 'image/jpeg') {
@@ -537,10 +546,10 @@ async function uploadDriveImage({
   }
 
   const resolvedPurpose = purpose || 'photo';
-  const resolvedFolder = folder || purposeToFolder(resolvedPurpose);
-  const mime = 'image/jpeg';
+  const mime = contentType || guessContentType(compressed, 'image/jpeg');
+  const resolvedFilename = filename || buildDriveFilename(resolvedPurpose, mime.includes('png') ? 'png' : 'jpg');
+  const resolvedFolder = folder || purposeToFolder(resolvedPurpose, mime, resolvedFilename);
   const resolvedJobId = jobId != null ? String(jobId) : currentJobId();
-  const resolvedFilename = filename || buildDriveFilename(resolvedPurpose, 'jpg');
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DRIVE_UPLOAD_TIMEOUT_MS);

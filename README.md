@@ -63,8 +63,8 @@ Create two folders in that user's **My Drive** and set their IDs:
 
 | Env | Use |
 |-----|-----|
-| `GOOGLE_DRIVE_MAIN_FOLDER_ID` | Payment slip folder |
-| `GOOGLE_DRIVE_DATA_FOLDER_ID` | Data image folder (tap / meter / chlorine / OCR) |
+| `GOOGLE_DRIVE_MAIN_FOLDER_ID` | All uploaded images (meter / tap / payment / OCR) |
+| `GOOGLE_DRIVE_DATA_FOLDER_ID` | JSON / data files only (assessment, export, metadata) |
 
 ### 5. Verify
 

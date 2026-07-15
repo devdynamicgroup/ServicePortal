@@ -9,24 +9,31 @@ const {
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
-/**
- * Payment slip folder → GOOGLE_DRIVE_MAIN_FOLDER_ID ("Payment slip").
- * Only payment receipts go here.
- */
-const MAIN_IMAGE_PURPOSES = new Set([
-  'main', 'payment', 'slip', 'receipt', 'payment-slip', 'payment_slip'
+/** Image MIME types → GOOGLE_DRIVE_MAIN_FOLDER_ID */
+const IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'image/gif',
+  'image/bmp'
 ]);
 
-/**
- * Data / task photos → GOOGLE_DRIVE_DATA_FOLDER_ID ("data image").
- * Meter, tap, visual, chlorine, OCR, and other field captures.
- */
-const DATA_IMAGE_PURPOSES = new Set([
-  'data', 'secondary', 'raw', 'ocr', 'backup', 'internal',
-  'image', 'photo', 'gallery',
+/** JSON / non-image data purposes → GOOGLE_DRIVE_DATA_FOLDER_ID */
+const DATA_FILE_PURPOSES = new Set([
+  'data', 'json', 'assessment', 'export', 'backup', 'metadata',
+  'report', 'reports', 'secondary', 'internal'
+]);
+
+/** Image-related purposes → GOOGLE_DRIVE_MAIN_FOLDER_ID */
+const IMAGE_PURPOSES = new Set([
+  'main', 'image', 'photo', 'gallery',
   'tap', 'tapphoto', 'tap-photo',
   'visual', 'meter', 'chlorine',
-  'reading', 'reading-source', 'meter-raw', 'chlorine-raw'
+  'payment', 'slip', 'receipt', 'payment-slip', 'payment_slip',
+  'ocr', 'reading', 'reading-source', 'meter-raw', 'chlorine-raw', 'raw'
 ]);
 
 function driveError(message, statusCode = 500, details) {
@@ -139,9 +146,39 @@ function listAllowedFolderIds() {
   return Object.values(getConfiguredFolderIds()).filter(Boolean);
 }
 
+function normalizeMimeType(value) {
+  return String(value || '').trim().toLowerCase().split(';')[0].trim();
+}
+
+function isImageMimeType(mimeType) {
+  const mime = normalizeMimeType(mimeType);
+  return mime.startsWith('image/') || IMAGE_MIME_TYPES.has(mime);
+}
+
+function isJsonMimeType(mimeType) {
+  const mime = normalizeMimeType(mimeType);
+  return mime === 'application/json'
+    || mime === 'text/json'
+    || mime === 'application/ld+json'
+    || mime.endsWith('+json');
+}
+
+function isJsonFilename(filename) {
+  return /\.jsonl?$/i.test(String(filename || '').trim());
+}
+
+/**
+ * Folder routing:
+ * - Explicit folder "main" | "data" always wins.
+ * - Else images (MIME / image purposes) → main (GOOGLE_DRIVE_MAIN_FOLDER_ID)
+ * - Else JSON/data (MIME / .json / data purposes) → data (GOOGLE_DRIVE_DATA_FOLDER_ID)
+ * - Default → main (image uploads are the common path)
+ */
 function resolveFolderKey(input = {}) {
   const rawFolder = String(input.folder || input.folderKey || '').trim();
   const rawPurpose = String(input.purpose || input.useCase || input.type || '').trim().toLowerCase();
+  const mimeType = normalizeMimeType(input.contentType || input.mimeType);
+  const filename = String(input.filename || input.name || '').trim();
   const folders = getConfiguredFolderIds();
 
   if (rawFolder) {
@@ -153,14 +190,21 @@ function resolveFolderKey(input = {}) {
     throw driveError(`Unknown Drive folder "${rawFolder}". Use "main" or "data".`, 400);
   }
 
-  if (rawPurpose) {
-    if (MAIN_IMAGE_PURPOSES.has(rawPurpose)) return 'main';
-    if (DATA_IMAGE_PURPOSES.has(rawPurpose)) return 'data';
-    // Unknown purposes default to the data-image folder (field photos).
-    return 'data';
+  if (mimeType) {
+    if (isImageMimeType(mimeType)) return 'main';
+    if (isJsonMimeType(mimeType)) return 'data';
+    // Non-image binary without explicit folder → data folder
+    if (!mimeType.startsWith('image/')) return 'data';
   }
 
-  return 'data';
+  if (isJsonFilename(filename)) return 'data';
+
+  if (rawPurpose) {
+    if (DATA_FILE_PURPOSES.has(rawPurpose)) return 'data';
+    if (IMAGE_PURPOSES.has(rawPurpose)) return 'main';
+  }
+
+  return 'main';
 }
 
 function requireFolderId(folderKey = 'main') {
@@ -234,11 +278,14 @@ function parseDataUrlOrBase64(input) {
 }
 
 function sanitizeFilename(name, contentType) {
-  const fallbackExt = (contentType || '').includes('png')
-    ? 'png'
-    : (contentType || '').includes('webp')
-      ? 'webp'
-      : 'jpg';
+  const mime = normalizeMimeType(contentType);
+  let fallbackExt = 'bin';
+  if (isJsonMimeType(mime) || mime === 'text/plain') fallbackExt = 'json';
+  else if (mime.includes('png')) fallbackExt = 'png';
+  else if (mime.includes('webp')) fallbackExt = 'webp';
+  else if (mime.includes('heic') || mime.includes('heif')) fallbackExt = 'heic';
+  else if (mime.startsWith('image/')) fallbackExt = 'jpg';
+
   const cleaned = String(name || `upload-${Date.now()}.${fallbackExt}`)
     .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
     .trim();
@@ -295,9 +342,6 @@ async function uploadImage({
   useCase,
   type
 } = {}) {
-  const folderKey = resolveFolderKey({ folder, purpose, useCase, type });
-  const folderId = requireFolderId(folderKey);
-
   if (!isDriveOAuthReady()) {
     throw driveError(
       'Google Drive OAuth is not configured. Set GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI and GOOGLE_REFRESH_TOKEN (or visit /auth/google).',
@@ -306,7 +350,7 @@ async function uploadImage({
   }
 
   let bytes = buffer || null;
-  let mime = contentType || 'application/octet-stream';
+  let mime = contentType || null;
 
   if (!bytes) {
     const parsed = parseDataUrlOrBase64(dataUrl || base64);
@@ -315,13 +359,32 @@ async function uploadImage({
   }
 
   if (!Buffer.isBuffer(bytes)) bytes = Buffer.from(bytes);
-  if (!bytes.length) throw driveError('Uploaded image is empty', 400);
+  if (!bytes.length) throw driveError('Uploaded file is empty', 400);
   if (bytes.length > MAX_UPLOAD_BYTES) {
-    throw driveError(`Image exceeds max size of ${MAX_UPLOAD_BYTES} bytes`, 413);
+    throw driveError(`File exceeds max size of ${MAX_UPLOAD_BYTES} bytes`, 413);
   }
 
+  // Infer JSON MIME from filename when the client omitted contentType.
+  if (!mime && isJsonFilename(filename)) mime = 'application/json';
+  if (!mime) mime = 'application/octet-stream';
+
+  const folderKey = resolveFolderKey({
+    folder,
+    purpose,
+    useCase,
+    type,
+    contentType: mime,
+    mimeType: mime,
+    filename
+  });
+  const folderId = requireFolderId(folderKey);
+
   const safeName = sanitizeFilename(filename, mime);
-  const mimeType = mime.startsWith('image/') ? mime : 'image/jpeg';
+  // Preserve real MIME (images and JSON). Only default bare octet-streams that look like images.
+  let mimeType = normalizeMimeType(mime) || 'application/octet-stream';
+  if (mimeType === 'application/octet-stream' && folderKey === 'main' && !isJsonFilename(safeName)) {
+    mimeType = 'image/jpeg';
+  }
   const requestBody = {
     name: safeName,
     parents: [folderId],
@@ -329,12 +392,11 @@ async function uploadImage({
   };
   if (description) requestBody.description = String(description).slice(0, 1000);
 
-  console.log('[google-drive] Uploading image (OAuth)', {
-    authMode: 'oauth',
-    folderKey,
-    folderId,
-    bytes: bytes.length,
-    suggestedFilename: safeName
+  console.log('[Drive Upload]', {
+    filename: safeName,
+    mimeType,
+    folder: folderKey,
+    selectedFolderId: folderId
   });
 
   const drive = getDriveClient();

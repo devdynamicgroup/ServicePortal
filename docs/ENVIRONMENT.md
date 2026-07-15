@@ -66,7 +66,7 @@ Generate: `openssl rand -hex 32`
 | `GOOGLE_REFRESH_TOKEN` | Drive client auth | R for uploads | R* (after `/auth/google`) | R* |
 | `GOOGLE_DRIVE_MAIN_FOLDER_ID` | `services/google-drive.js` | R* for Drive | R* | R* |
 | `GOOGLE_DRIVE_FOLDER_ID` | Legacy alias → main | O | O | O |
-| `GOOGLE_DRIVE_DATA_FOLDER_ID` | Data / task photo folder | Recommended | Recommended | Recommended |
+| `GOOGLE_DRIVE_DATA_FOLDER_ID` | JSON / non-image data files | Recommended | Recommended | Recommended |
 | `GOOGLE_DRIVE_MAKE_PUBLIC` | Public link on upload | O (`false`) | O | O |
 | `DRIVE_AUDIT_MAX_BYTES` | Audit log rotation | O | O | O |
 | `DRIVE_AUDIT_KEEP_FILES` | Keep N rotated audits | O | O | O |

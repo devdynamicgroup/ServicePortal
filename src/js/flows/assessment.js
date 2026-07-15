@@ -622,8 +622,8 @@ function applyDriveContentSrc(img, photoOrUrl, fallbackDataUrl) {
 function buildStoredDrivePhotoMeta(meta, { purpose, previewUrl } = {}) {
   const resolvedPurpose = meta.purpose || purpose || null;
   const folderFromPurpose = typeof DrivePhoto !== 'undefined' && DrivePhoto.purposeToFolder
-    ? DrivePhoto.purposeToFolder(resolvedPurpose)
-    : (String(resolvedPurpose || '').toLowerCase().match(/^(payment|slip|receipt|payment-slip|payment_slip|main)$/) ? 'main' : 'data');
+    ? DrivePhoto.purposeToFolder(resolvedPurpose, meta.mimeType, meta.filename)
+    : 'main';
   return {
     fileId: meta.fileId,
     filename: meta.filename,
@@ -672,15 +672,15 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
         const ocrMeta = await DrivePhoto.uploadOnce({
           dataUrl: compressed,
           purpose: 'ocr',
-          folder: 'data',
+          folder: 'main',
           filename: DrivePhoto.buildFilename(`${taskKey}-ocr`),
-          inflightKey: `data:ocr:${taskKey}:${tapIndex}`,
+          inflightKey: `main:ocr:${taskKey}:${tapIndex}`,
           jobId
         });
         const merged = {
           ...existing,
           ocrFileId: ocrMeta.fileId,
-          ocrFolder: 'data',
+          ocrFolder: 'main',
           ocrContentUrl: ocrMeta.contentUrl
         };
         if (S.tapData[tapIndex]?.photos) S.tapData[tapIndex].photos[taskKey] = merged;
@@ -697,7 +697,7 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
   photos[taskKey] = {
     uploading: true,
     previewUrl: compressed,
-    folder: 'data',
+    folder: 'main',
     purpose: taskKey,
     uploadedAt: null,
     jobId,
@@ -710,26 +710,26 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
     const meta = await DrivePhoto.uploadOnce({
       dataUrl: compressed,
       purpose: taskKey,
-      folder: 'data',
-      inflightKey: `data:${taskKey}:${tapIndex}`,
+      folder: 'main',
+      inflightKey: `main:${taskKey}:${tapIndex}`,
       jobId
     });
 
     const stored = buildStoredDrivePhotoMeta(meta, { purpose: taskKey, previewUrl: compressed });
 
-    // Secondary OCR/raw copy for meter & chlorine (data folder).
+    // Secondary OCR/raw copy for meter & chlorine (images → main folder).
     if (taskKey === 'meter' || taskKey === 'chlorine') {
       try {
         const ocrMeta = await DrivePhoto.uploadOnce({
           dataUrl: compressed,
           purpose: 'ocr',
-          folder: 'data',
+          folder: 'main',
           filename: DrivePhoto.buildFilename(`${taskKey}-ocr`),
-          inflightKey: `data:ocr:${taskKey}:${tapIndex}`,
+          inflightKey: `main:ocr:${taskKey}:${tapIndex}`,
           jobId
         });
         stored.ocrFileId = ocrMeta.fileId;
-        stored.ocrFolder = 'data';
+        stored.ocrFolder = 'main';
         stored.ocrContentUrl = ocrMeta.contentUrl;
       } catch (ocrError) {
         console.warn('OCR Drive upload failed (non-blocking)', ocrError);
@@ -749,7 +749,7 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
     console.warn('Drive upload failed', error);
     const failed = markDriveUploadFailed({
       previewUrl: compressed,
-      folder: 'data',
+      folder: 'main',
       purpose: taskKey,
       jobId
     }, error);
@@ -762,7 +762,7 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
         taskKey,
         previewId,
         purpose: taskKey,
-        folder: 'data',
+        folder: 'main',
         dataUrl: compressed,
         lastError: error.message
       });
@@ -1002,7 +1002,7 @@ function setPhotoPreview(previewId, src, options = {}) {
         S.tapData[S.activeTap].photos[taskKey] = {
           uploading: true,
           previewUrl: dataUrl,
-          folder: 'data',
+          folder: 'main',
           purpose: taskKey,
           jobId: S.activeJob?.id || S.activeJob?.notionId || null
         };
