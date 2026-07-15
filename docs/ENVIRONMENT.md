@@ -20,12 +20,15 @@ Copy `.env.example` → `.env` for local work. **Never commit `.env`.**
 | Family | Typical vars | Purpose |
 |--------|--------------|---------|
 | Auth / session | `AUTH_SESSION_SECRET`, `AUTH_USERS_JSON` | Portal login sessions |
-| Google Drive | `GOOGLE_SERVICE_ACCOUNT_*`, `GOOGLE_DRIVE_*` | Field photo upload to Drive folders |
+| Google Drive OAuth | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_DRIVE_*_FOLDER_ID` | Field photo upload to **My Drive** |
 | Google Business / OAuth | `GOOGLE_BUSINESS_*` | Review sync from Business Profile |
 | Maps | `GOOGLE_MAPS_API_KEY` | Maps / Places in the field UI |
 | Notion | `NOTION_*` | Jobs, feedback, reviews storage |
 | LINE | `LINE_*` | Messaging / webhook |
 | Hosting | `PORT`, `NODE_ENV`, `PUBLIC_BASE_URL`, `RENDER*` | Runtime / public URLs |
+
+> Do **not** use a Service Account for Drive uploads (`GOOGLE_SERVICE_ACCOUNT_JSON` is deprecated for this app).  
+> Do **not** substitute `GOOGLE_BUSINESS_CLIENT_SECRET` for `GOOGLE_CLIENT_SECRET` unless you intentionally share one OAuth client.
 
 ---
 
@@ -53,23 +56,24 @@ Legend: **R** = required, **O** = optional, **—** = not needed for that mode.
 
 Generate: `openssl rand -hex 32`
 
-### Google Drive (service account — photo uploads)
+### Google Drive (OAuth — My Drive uploads)
 
 | Variable | Where used | Required? | Local | Production |
 |----------|------------|-----------|-------|------------|
-| `GOOGLE_DRIVE_MAIN_FOLDER_ID` | `services/google-drive.js` | R* for Drive | R* if using Drive | R* if using Drive |
-| `GOOGLE_DRIVE_FOLDER_ID` | Legacy alias → main folder | O | O | O |
+| `GOOGLE_CLIENT_ID` | `services/google-drive-oauth.js` | R for Drive | R* | R* |
+| `GOOGLE_CLIENT_SECRET` | same | R for Drive | R* | R* |
+| `GOOGLE_REDIRECT_URI` | `/auth/google/callback` | R for Drive | R* | R* |
+| `GOOGLE_REFRESH_TOKEN` | Drive client auth | R for uploads | R* (after `/auth/google`) | R* |
+| `GOOGLE_DRIVE_MAIN_FOLDER_ID` | `services/google-drive.js` | R* for Drive | R* | R* |
+| `GOOGLE_DRIVE_FOLDER_ID` | Legacy alias → main | O | O | O |
 | `GOOGLE_DRIVE_DATA_FOLDER_ID` | OCR / secondary folder | Recommended | Recommended | Recommended |
-| `GOOGLE_SERVICE_ACCOUNT_KEY_PATH` | Local JSON key path | One of path/JSON | Usually path | Prefer JSON on Render |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | Inline SA JSON | One of path/JSON | O | Recommended on hosts |
 | `GOOGLE_DRIVE_MAKE_PUBLIC` | Public link on upload | O (`false`) | O | O |
-| `GOOGLE_DRIVE_FETCH_TIMEOUT_MS` | Drive HTTP timeout | O (60000) | O | O |
 | `DRIVE_AUDIT_MAX_BYTES` | Audit log rotation | O | O | O |
 | `DRIVE_AUDIT_KEEP_FILES` | Keep N rotated audits | O | O | O |
 
-\* At least `GOOGLE_DRIVE_MAIN_FOLDER_ID` **or** legacy `GOOGLE_DRIVE_FOLDER_ID`.
+\* Required when using photo upload. Authorize once via `GET /auth/google`.
 
-This uses a **Google Cloud service account** with Drive API access. It is unrelated to Business OAuth.
+~~Service Account (`GOOGLE_SERVICE_ACCOUNT_JSON` / `KEY_PATH`) is no longer used for uploads.~~
 
 ### Google Business / OAuth (review sync)
 
@@ -175,9 +179,12 @@ Startup logs print **booleans** for secrets (`authSessionSecret`, Business secre
 NODE_ENV=development
 AUTH_SESSION_SECRET=
 PORT=3040
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=http://127.0.0.1:3040/auth/google/callback
+GOOGLE_REFRESH_TOKEN=...
 GOOGLE_DRIVE_MAIN_FOLDER_ID=...
 GOOGLE_DRIVE_DATA_FOLDER_ID=...
-GOOGLE_SERVICE_ACCOUNT_KEY_PATH=./credentials/google-service-account.json
 PUBLIC_BASE_URL=http://127.0.0.1:3040
 ```
 
@@ -187,9 +194,13 @@ PUBLIC_BASE_URL=http://127.0.0.1:3040
 NODE_ENV=production
 AUTH_SESSION_SECRET=<openssl rand -hex 32>
 PUBLIC_BASE_URL=https://your-app.onrender.com
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=https://your-app.onrender.com/auth/google/callback
+GOOGLE_REFRESH_TOKEN=...
+GOOGLE_DRIVE_MAIN_FOLDER_ID=...
+GOOGLE_DRIVE_DATA_FOLDER_ID=...
 ```
-
-Plus Drive SA JSON + folder IDs if uploads are enabled; plus Business OAuth vars if review sync is enabled; plus Notion / LINE as needed.
 
 ## Render (hosted) deployment
 

@@ -52,7 +52,8 @@ console.log('[ENV DEBUG]', {
   googleBusinessRedirect: Boolean(process.env.GOOGLE_BUSINESS_REDIRECT_URI),
   googleDriveConfigured: Boolean(
     (process.env.GOOGLE_DRIVE_MAIN_FOLDER_ID || process.env.GOOGLE_DRIVE_FOLDER_ID)
-    && (process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
+    && process.env.GOOGLE_CLIENT_ID
+    && process.env.GOOGLE_REFRESH_TOKEN
   )
 });
 
@@ -61,8 +62,10 @@ try {
   console.log('[ENV PRESENCE]', {
     NODE_ENV: String(process.env.NODE_ENV || 'development'),
     AUTH_SESSION_SECRET: Boolean(process.env.AUTH_SESSION_SECRET || process.env.SESSION_SECRET),
-    GOOGLE_SERVICE_ACCOUNT_JSON: Boolean(String(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '').trim()),
-    GOOGLE_SERVICE_ACCOUNT_KEY_PATH: Boolean(String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || '').trim()),
+    GOOGLE_CLIENT_ID: Boolean(String(process.env.GOOGLE_CLIENT_ID || '').trim()),
+    GOOGLE_CLIENT_SECRET: Boolean(String(process.env.GOOGLE_CLIENT_SECRET || '').trim()),
+    GOOGLE_REDIRECT_URI: Boolean(String(process.env.GOOGLE_REDIRECT_URI || '').trim()),
+    GOOGLE_REFRESH_TOKEN: Boolean(String(process.env.GOOGLE_REFRESH_TOKEN || '').trim()),
     GOOGLE_DRIVE_MAIN_FOLDER_ID: Boolean(String(process.env.GOOGLE_DRIVE_MAIN_FOLDER_ID || process.env.GOOGLE_DRIVE_FOLDER_ID || '').trim()),
     GOOGLE_DRIVE_DATA_FOLDER_ID: Boolean(String(process.env.GOOGLE_DRIVE_DATA_FOLDER_ID || '').trim())
   });
@@ -76,6 +79,7 @@ const { handleLineRoute } = require('./api/line-routes');
 const { handleGoogleReviewRoute } = require('./api/google-review-routes');
 const { handleFeedbackSuggestRoute } = require('./api/feedback-suggest-routes');
 const { handleGoogleDriveRoute } = require('./api/google-drive-routes');
+const { handleGoogleDriveOAuthRoute } = require('./api/google-drive-oauth-routes');
 const { startGoogleReviewScheduler } = require('./services/google-review-scheduler');
 const { getDriveStatus } = require('./services/google-drive');
 const {
@@ -177,6 +181,7 @@ function mapMetroCity(address) {
 async function handleApiRequest(req, res) {
   const urlPath = req.url.split('?')[0];
 
+  if (await handleGoogleDriveOAuthRoute(req, res, urlPath)) return true;
   if (await handleClientsRoute(req, res, urlPath)) return true;
   if (await handleCaseFlowRoute(req, res, urlPath)) return true;
   if (await handleLineRoute(req, res, urlPath)) return true;

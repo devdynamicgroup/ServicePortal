@@ -105,7 +105,10 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
         ok: true,
         configured: Boolean(ds.configured),
         folderConfigured: Boolean(ds.mainFolderConfigured),
-        credentialsLoaded: Boolean(ds.credentialsLoaded)
+        credentialsLoaded: Boolean(ds.credentialsLoaded),
+        authMode: ds.authMode || 'oauth',
+        oauthClientConfigured: Boolean(ds.oauthClientConfigured),
+        refreshTokenSet: Boolean(ds.refreshTokenSet)
       });
     } catch (e) {
       sendJson(res, 200, { ok: true, configured: false, folderConfigured: false, credentialsLoaded: false });
@@ -181,8 +184,8 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
           console.log('[drive] env presence', {
             GOOGLE_DRIVE_MAIN_FOLDER_ID: Boolean(String(process.env.GOOGLE_DRIVE_MAIN_FOLDER_ID || process.env.GOOGLE_DRIVE_FOLDER_ID || '').trim()),
             GOOGLE_DRIVE_DATA_FOLDER_ID: Boolean(String(process.env.GOOGLE_DRIVE_DATA_FOLDER_ID || '').trim()),
-            GOOGLE_SERVICE_ACCOUNT_JSON: Boolean(String(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '').trim()),
-            GOOGLE_SERVICE_ACCOUNT_KEY_PATH: Boolean(String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || '').trim())
+            GOOGLE_CLIENT_ID: Boolean(String(process.env.GOOGLE_CLIENT_ID || '').trim()),
+            GOOGLE_REFRESH_TOKEN: Boolean(String(process.env.GOOGLE_REFRESH_TOKEN || '').trim())
           });
         } catch (e) { /* ignore logging failures */ }
       } catch (e) {

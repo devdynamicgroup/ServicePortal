@@ -5,6 +5,7 @@
   "private": true,
   "dependencies": {
     "@notionhq/client": "^5.22.0",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "googleapis": "^173.0.0"
   }
 }

@@ -1,12 +1,13 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const { Readable } = require('stream');
+const {
+  isOAuthClientConfigured,
+  isDriveOAuthReady,
+  getDriveClient,
+  getRefreshToken,
+  getOAuthEnv
+} = require('./google-drive-oauth');
 
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
-const TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-const DRIVE_FETCH_TIMEOUT_MS = Number(process.env.GOOGLE_DRIVE_FETCH_TIMEOUT_MS || 60_000);
 
 /** Visit/display photos shown in the field job UI. */
 const MAIN_IMAGE_PURPOSES = new Set([
@@ -22,12 +23,6 @@ const DATA_IMAGE_PURPOSES = new Set([
   'reading', 'reading-source', 'meter-raw', 'chlorine-raw', 'internal'
 ]);
 
-let cachedCredentials = null;
-let tokenCache = {
-  accessToken: null,
-  expiresAt: 0
-};
-
 function driveError(message, statusCode = 500, details) {
   const error = new Error(message);
   error.statusCode = statusCode;
@@ -35,37 +30,20 @@ function driveError(message, statusCode = 500, details) {
   return error;
 }
 
-function clearTokenCache() {
-  tokenCache = { accessToken: null, expiresAt: 0 };
-}
-
-async function fetchWithTimeout(url, options = {}, timeoutMs = DRIVE_FETCH_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw driveError('Google Drive request timed out. Please try again.', 504);
-    }
-    throw driveError(error.message || 'Google Drive network error', 502);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 function classifyDriveApiError(status, data, fallbackMessage) {
-  const googleErrors = Array.isArray(data?.error?.errors) ? data.error.errors : [];
-  const reason = String(googleErrors[0]?.reason || data?.error?.errors?.[0]?.reason || data?.error || '');
+  const googleErrors = Array.isArray(data?.error?.errors)
+    ? data.error.errors
+    : (Array.isArray(data?.errors) ? data.errors : []);
+  const reason = String(googleErrors[0]?.reason || data?.error?.errors?.[0]?.reason || '');
   const raw = String(
     data?.error?.message
+    || data?.message
     || data?.error_description
     || (typeof data === 'string' ? data : '')
     || fallbackMessage
     || ''
   );
 
-  // Keep server logs actionable (no credentials / image bytes).
   try {
     console.warn('[google-drive] API error', {
       status,
@@ -74,46 +52,30 @@ function classifyDriveApiError(status, data, fallbackMessage) {
       errors: googleErrors.map(item => ({
         domain: item?.domain || null,
         reason: item?.reason || null,
-        message: item?.message || null,
-        location: item?.location || null,
-        locationType: item?.locationType || null
+        message: item?.message || null
       }))
     });
   } catch { /* ignore */ }
 
   if (status === 401 || /invalid_grant|unauthorized|invalid_client|invalid_token/i.test(raw + reason)) {
     return driveError(
-      'Google Drive authentication failed. Check the service account credentials.',
+      `Google Drive OAuth failed (${raw || reason || 'unauthorized'}). Re-authorize via /auth/google and update GOOGLE_REFRESH_TOKEN.`,
       401,
       data
     );
   }
-  if (/storageQuotaExceeded/i.test(reason + raw)) {
+  if (status === 403 || /insufficientPermissions|forbidden|accessNotConfigured/i.test(reason + raw)) {
     return driveError(
-      `Google Drive storageQuotaExceeded: service accounts cannot store files in My Drive. `
-      + `Put GOOGLE_DRIVE_MAIN_FOLDER_ID / GOOGLE_DRIVE_DATA_FOLDER_ID inside a Shared Drive `
-      + `(and ensure supportsAllDrives is enabled). Google said: ${raw || reason}`,
-      403,
-      data
-    );
-  }
-  if (
-    status === 403
-    || /insufficientPermissions|accessNotConfigured|forbidden/i.test(reason)
-    || /insufficient|permission|not been used|disabled|access denied/i.test(raw)
-  ) {
-    const detail = raw || reason || 'forbidden';
-    return driveError(
-      `Google Drive permission denied (${detail}). `
-      + `Share the target Shared Drive / folders with the service account as Content Manager or Editor, `
-      + `enable Drive API, and confirm folder IDs. Google errors: ${JSON.stringify(googleErrors || [])}`,
+      `Google Drive permission denied (${raw || reason || 'forbidden'}). `
+      + `Confirm the OAuth user owns the target folders and Drive API is enabled. `
+      + `Google errors: ${JSON.stringify(googleErrors || [])}`,
       403,
       data
     );
   }
   if (status === 404 || /notFound/i.test(reason)) {
     return driveError(
-      'Google Drive folder or file was not found. Check GOOGLE_DRIVE_MAIN_FOLDER_ID / GOOGLE_DRIVE_DATA_FOLDER_ID.',
+      `Google Drive folder or file was not found (${raw || 'notFound'}). Check GOOGLE_DRIVE_MAIN_FOLDER_ID / GOOGLE_DRIVE_DATA_FOLDER_ID.`,
       404,
       data
     );
@@ -122,18 +84,19 @@ function classifyDriveApiError(status, data, fallbackMessage) {
     return driveError(`Image exceeds max size of ${MAX_UPLOAD_BYTES} bytes`, 413, data);
   }
   return driveError(
-    raw || `Google Drive request failed (${status})`,
+    raw || fallbackMessage || `Google Drive request failed (${status})`,
     status >= 400 && status < 600 ? status : 502,
     data
   );
 }
 
-/** Append Shared Drive flags so uploads/list/get work outside "My Drive". */
-function withSharedDriveParams(url, { includeItems = false } = {}) {
-  const u = new URL(url.startsWith('http') ? url : `${DRIVE_API}${url}`);
-  u.searchParams.set('supportsAllDrives', 'true');
-  if (includeItems) u.searchParams.set('includeItemsFromAllDrives', 'true');
-  return u.toString();
+function mapGoogleError(error, fallbackMessage) {
+  const status = Number(error?.code || error?.response?.status || error?.statusCode) || 500;
+  const data = error?.response?.data || error?.errors || { error: { message: error?.message } };
+  if (error?.statusCode && !error?.response) {
+    return error;
+  }
+  return classifyDriveApiError(status, data, fallbackMessage || error?.message);
 }
 
 function estimateBase64DecodedBytes(b64) {
@@ -155,7 +118,6 @@ function getDataFolderId() {
   return String(process.env.GOOGLE_DRIVE_DATA_FOLDER_ID || '').trim();
 }
 
-/** @deprecated Prefer resolveFolderKey / getMainFolderId. Kept for callers expecting a single folder. */
 function getFolderId() {
   return getMainFolderId();
 }
@@ -171,11 +133,6 @@ function listAllowedFolderIds() {
   return Object.values(getConfiguredFolderIds()).filter(Boolean);
 }
 
-/**
- * Resolve which Drive folder to use.
- * Accepts: folder key ("main"|"data"), purpose/useCase, or a configured folder id.
- * Default: main (backward compatible).
- */
 function resolveFolderKey(input = {}) {
   const rawFolder = String(input.folder || input.folderKey || '').trim();
   const rawPurpose = String(input.purpose || input.useCase || input.type || '').trim().toLowerCase();
@@ -193,7 +150,6 @@ function resolveFolderKey(input = {}) {
   if (rawPurpose) {
     if (DATA_IMAGE_PURPOSES.has(rawPurpose)) return 'data';
     if (MAIN_IMAGE_PURPOSES.has(rawPurpose)) return 'main';
-    // Unknown purpose → main (safe default for field photos)
     return 'main';
   }
 
@@ -212,232 +168,38 @@ function requireFolderId(folderKey = 'main') {
   return folderId;
 }
 
-function getServiceAccountEmail() {
-  try {
-    return loadServiceAccountCredentials()?.client_email || null;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeServiceAccountJson(text) {
-  let raw = String(text || '').trim();
-  if (!raw) throw new Error('No GOOGLE_SERVICE_ACCOUNT_JSON value provided');
-
-  raw = raw.replace(/^[\s\n\r]*GOOGLE_SERVICE_ACCOUNT_JSON\s*=\s*/i, '').trim();
-  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
-    raw = raw.slice(1, -1).trim();
-  }
-
-  const parseJson = (value) => {
-    if (!value) throw new Error('Empty JSON after normalization');
-    return JSON.parse(value);
-  };
-
-  try {
-    return parseJson(raw);
-  } catch (firstError) {
-    const fixed = raw.replace(/("private_key"\s*:\s*")((?:\\.|[^"\\])*)(")/gs, (match, prefix, keyValue, suffix) => {
-      return prefix + keyValue.replace(/\r\n|\r|\n/g, '\\n') + suffix;
-    });
-    return parseJson(fixed);
-  }
-}
-
-function loadServiceAccountCredentials() {
-  if (cachedCredentials) return cachedCredentials;
-
-  const inlineRaw = String(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '');
-  const inline = inlineRaw.trim();
-  const configuredPath = String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || '').trim();
-  const envDiagnostics = {
-    hasGoogleJson: Boolean(inline),
-    jsonLength: inline.length,
-    parsed: false,
-    clientEmail: null
-  };
-
-  if (inline) {
-    try {
-      cachedCredentials = normalizeServiceAccountJson(inline);
-      envDiagnostics.parsed = true;
-      envDiagnostics.clientEmail = cachedCredentials?.client_email || null;
-      console.log('[google-drive] service account env', envDiagnostics);
-    } catch (error) {
-      console.log('[google-drive] service account env', {
-        hasGoogleJson: envDiagnostics.hasGoogleJson,
-        jsonLength: envDiagnostics.jsonLength,
-        parsed: false,
-        clientEmail: null
-      });
-      throw driveError('GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON', 500, error.message);
-    }
-  } else {
-    const candidate = configuredPath
-      ? (path.isAbsolute(configuredPath) ? configuredPath : path.join(process.cwd(), configuredPath))
-      : path.join(process.cwd(), 'credentials', 'google-service-account.json');
-
-    if (!fs.existsSync(candidate)) {
-      console.warn('[google-drive] credentials missing', {
-        hasGoogleJson: envDiagnostics.hasGoogleJson,
-        jsonLength: envDiagnostics.jsonLength,
-        parsed: false,
-        clientEmail: null
-      });
-      throw driveError(
-        'Google Drive service account credentials not found. Set GOOGLE_SERVICE_ACCOUNT_KEY_PATH or GOOGLE_SERVICE_ACCOUNT_JSON',
-        503
-      );
-    }
-    try {
-      cachedCredentials = JSON.parse(fs.readFileSync(candidate, 'utf8'));
-    } catch (error) {
-      throw driveError(`Unable to read service account credentials: ${error.message}`, 500);
-    }
-  }
-
-  if (!cachedCredentials?.client_email || !cachedCredentials?.private_key) {
-    throw driveError('Service account JSON must include client_email and private_key', 500);
-  }
-  return cachedCredentials;
-}
-
 function isDriveConfigured() {
-  try {
-    loadServiceAccountCredentials();
-    return Boolean(getMainFolderId());
-  } catch {
-    return false;
-  }
+  return Boolean(isDriveOAuthReady() && getMainFolderId());
 }
 
 function getDriveStatus() {
-  let credentialsLoaded = false;
-  let credentialsError = null;
-  try {
-    loadServiceAccountCredentials();
-    credentialsLoaded = true;
-  } catch (error) {
-    credentialsError = error.message;
-  }
-
-  // Do NOT expose raw credentials or private_key here. Only return booleans and service account email.
+  const env = getOAuthEnv();
+  const oauthClientConfigured = isOAuthClientConfigured();
+  const refreshTokenSet = Boolean(getRefreshToken());
   const mainConfigured = Boolean(getMainFolderId());
   const dataConfigured = Boolean(getDataFolderId());
-  const configured = Boolean(credentialsLoaded && mainConfigured);
+  const credentialsLoaded = oauthClientConfigured && refreshTokenSet;
+  let error = null;
+  if (!oauthClientConfigured) {
+    error = 'GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI missing';
+  } else if (!refreshTokenSet) {
+    error = 'GOOGLE_REFRESH_TOKEN missing — visit /auth/google to authorize';
+  }
 
   return {
-    configured,
-    credentialsLoaded: Boolean(credentialsLoaded),
-    serviceAccountEmail: credentialsLoaded ? getServiceAccountEmail() : null,
+    configured: Boolean(credentialsLoaded && mainConfigured),
+    credentialsLoaded,
+    authMode: 'oauth',
+    oauthClientConfigured,
+    refreshTokenSet,
+    serviceAccountEmail: null,
     mainFolderConfigured: mainConfigured,
     dataFolderConfigured: dataConfigured,
-    error: credentialsError || null
+    folders: getConfiguredFolderIds(),
+    makePublic: String(process.env.GOOGLE_DRIVE_MAKE_PUBLIC || '').toLowerCase() === 'true',
+    clientIdSet: Boolean(env.clientId),
+    error
   };
-}
-
-function base64url(input) {
-  return Buffer.from(input)
-    .toString('base64')
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-}
-
-function createSignedJwt(credentials) {
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const claim = {
-    iss: credentials.client_email,
-    scope: DRIVE_SCOPE,
-    aud: TOKEN_URL,
-    iat: now,
-    exp: now + 3600
-  };
-
-  const unsigned = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(claim))}`;
-  const signer = crypto.createSign('RSA-SHA256');
-  signer.update(unsigned);
-  signer.end();
-  const signature = signer.sign(credentials.private_key, 'base64')
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-  return `${unsigned}.${signature}`;
-}
-
-async function getAccessToken() {
-  if (tokenCache.accessToken && Date.now() < tokenCache.expiresAt - 30_000) {
-    return tokenCache.accessToken;
-  }
-
-  const credentials = loadServiceAccountCredentials();
-  const assertion = createSignedJwt(credentials);
-  const body = new URLSearchParams({
-    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-    assertion
-  });
-
-  let response;
-  try {
-    response = await fetchWithTimeout(TOKEN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body
-    });
-  } catch (error) {
-    clearTokenCache();
-    throw error;
-  }
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.access_token) {
-    clearTokenCache();
-    throw classifyDriveApiError(
-      response.status,
-      data,
-      `Failed to obtain Google Drive access token (${response.status})`
-    );
-  }
-
-  tokenCache = {
-    accessToken: data.access_token,
-    expiresAt: Date.now() + (Number(data.expires_in) || 3600) * 1000
-  };
-  return tokenCache.accessToken;
-}
-
-async function driveFetch(pathname, options = {}, _retried = false) {
-  const token = await getAccessToken();
-  const url = pathname.startsWith('http') ? pathname : `${DRIVE_API}${pathname}`;
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    ...(options.headers || {})
-  };
-
-  const response = await fetchWithTimeout(url, { ...options, headers });
-  const contentType = response.headers.get('content-type') || '';
-  let data = null;
-  if (contentType.includes('application/json')) {
-    data = await response.json().catch(() => ({}));
-  } else if (options.raw) {
-    data = response;
-  } else if (!response.ok) {
-    data = await response.text().catch(() => '');
-  }
-
-  if (!response.ok) {
-    if (response.status === 401 && !_retried) {
-      clearTokenCache();
-      return driveFetch(pathname, options, true);
-    }
-    throw classifyDriveApiError(
-      response.status,
-      typeof data === 'string' ? { error: { message: data } } : data,
-      `Google Drive request failed (${response.status})`
-    );
-  }
-  return data;
 }
 
 function parseDataUrlOrBase64(input) {
@@ -492,20 +254,25 @@ function mapFileMetadata(file, options = {}) {
     webContentLink: file.webContentLink || null,
     thumbnailLink: file.thumbnailLink || null,
     iconLink: file.iconLink || null,
-    // App-authenticated proxy URL (works without making the file public).
-    contentUrl: base ? `${base}/api/drive/images/${encodeURIComponent(file.id)}/content` : `/api/drive/images/${encodeURIComponent(file.id)}/content`
+    contentUrl: base
+      ? `${base}/api/drive/images/${encodeURIComponent(file.id)}/content`
+      : `/api/drive/images/${encodeURIComponent(file.id)}/content`
   };
 }
 
 async function makeFileReadableByLink(fileId) {
-  await driveFetch(withSharedDriveParams(`/files/${encodeURIComponent(fileId)}/permissions`), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      role: 'reader',
-      type: 'anyone'
-    })
-  });
+  const drive = getDriveClient();
+  try {
+    await drive.permissions.create({
+      fileId,
+      requestBody: {
+        role: 'reader',
+        type: 'anyone'
+      }
+    });
+  } catch (error) {
+    throw mapGoogleError(error, 'Unable to set public permission');
+  }
 }
 
 async function uploadImage({
@@ -523,7 +290,13 @@ async function uploadImage({
 } = {}) {
   const folderKey = resolveFolderKey({ folder, purpose, useCase, type });
   const folderId = requireFolderId(folderKey);
-  loadServiceAccountCredentials();
+
+  if (!isDriveOAuthReady()) {
+    throw driveError(
+      'Google Drive OAuth is not configured. Set GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI and GOOGLE_REFRESH_TOKEN (or visit /auth/google).',
+      503
+    );
+  }
 
   let bytes = buffer || null;
   let mime = contentType || 'application/octet-stream';
@@ -540,46 +313,38 @@ async function uploadImage({
     throw driveError(`Image exceeds max size of ${MAX_UPLOAD_BYTES} bytes`, 413);
   }
 
-  // Non-sensitive debug: log upload target and size (do NOT print credentials or image data)
-  try {
-    const saEmail = getServiceAccountEmail();
-    console.log('[google-drive] Uploading image', {
-      serviceAccountEmail: saEmail,
-      folderKey,
-      folderId,
-      bytes: bytes.length,
-      suggestedFilename: filename || null
-    });
-  } catch (e) { /* ignore logging failures */ }
-
   const safeName = sanitizeFilename(filename, mime);
-  const metadata = {
+  const mimeType = mime.startsWith('image/') ? mime : 'image/jpeg';
+  const requestBody = {
     name: safeName,
     parents: [folderId],
-    mimeType: mime.startsWith('image/') ? mime : 'image/jpeg'
+    mimeType
   };
-  if (description) metadata.description = String(description).slice(0, 1000);
+  if (description) requestBody.description = String(description).slice(0, 1000);
 
-  const boundary = `wmbound${crypto.randomBytes(12).toString('hex')}`;
-  const preamble = Buffer.from(
-    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`
-    + `--${boundary}\r\nContent-Type: ${metadata.mimeType}\r\nContent-Transfer-Encoding: binary\r\n\r\n`
-  );
-  const epilogue = Buffer.from(`\r\n--${boundary}--`);
-  const body = Buffer.concat([preamble, bytes, epilogue]);
-
-  // Shared Drive support: without supportsAllDrives, files.create into a Shared Drive folder returns 403.
-  const uploadUrl = withSharedDriveParams(
-    `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=${encodeURIComponent('id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink')}`
-  );
-  const created = await driveFetch(uploadUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': `multipart/related; boundary=${boundary}`,
-      'Content-Length': String(body.length)
-    },
-    body
+  console.log('[google-drive] Uploading image (OAuth)', {
+    authMode: 'oauth',
+    folderKey,
+    folderId,
+    bytes: bytes.length,
+    suggestedFilename: safeName
   });
+
+  const drive = getDriveClient();
+  let created;
+  try {
+    const response = await drive.files.create({
+      requestBody,
+      media: {
+        mimeType,
+        body: Readable.from(bytes)
+      },
+      fields: 'id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink'
+    });
+    created = response.data;
+  } catch (error) {
+    throw mapGoogleError(error, 'Google Drive upload failed');
+  }
 
   const shouldPublic = makePublic != null
     ? Boolean(makePublic)
@@ -600,33 +365,42 @@ async function listImages({ pageSize = 50, pageToken, folder, purpose, useCase, 
   const folderKey = resolveFolderKey({ folder, purpose, useCase, type });
   const folderId = requireFolderId(folderKey);
   const size = Math.min(Math.max(Number(pageSize) || 50, 1), 100);
-  const params = new URLSearchParams({
-    q: `'${folderId.replace(/'/g, "\\'")}' in parents and trashed = false and mimeType contains 'image/'`,
-    spaces: 'drive',
-    pageSize: String(size),
-    orderBy: 'createdTime desc',
-    fields: 'nextPageToken,files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink)',
-    supportsAllDrives: 'true',
-    includeItemsFromAllDrives: 'true'
-  });
-  if (pageToken) params.set('pageToken', pageToken);
+  const drive = getDriveClient();
 
-  const data = await driveFetch(`/files?${params.toString()}`);
-  return {
-    folder: folderKey,
-    folderId,
-    files: (data.files || []).map(file => mapFileMetadata(file, { folderKey, folderId })),
-    nextPageToken: data.nextPageToken || null
-  };
+  try {
+    const response = await drive.files.list({
+      q: `'${folderId.replace(/'/g, "\\'")}' in parents and trashed = false and mimeType contains 'image/'`,
+      spaces: 'drive',
+      pageSize: size,
+      pageToken: pageToken || undefined,
+      orderBy: 'createdTime desc',
+      fields: 'nextPageToken,files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink)'
+    });
+    return {
+      folder: folderKey,
+      folderId,
+      files: (response.data.files || []).map(file => mapFileMetadata(file, { folderKey, folderId })),
+      nextPageToken: response.data.nextPageToken || null
+    };
+  } catch (error) {
+    throw mapGoogleError(error, 'Unable to list Drive images');
+  }
 }
 
 async function getImage(fileId) {
   if (!fileId) throw driveError('File id is required', 400);
-  const file = await driveFetch(
-    withSharedDriveParams(
-      `/files/${encodeURIComponent(fileId)}?fields=${encodeURIComponent('id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink,parents,trashed')}`
-    )
-  );
+  const drive = getDriveClient();
+  let file;
+  try {
+    const response = await drive.files.get({
+      fileId,
+      fields: 'id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink,parents,trashed'
+    });
+    file = response.data;
+  } catch (error) {
+    throw mapGoogleError(error, 'Unable to get Drive image metadata');
+  }
+
   if (file.trashed) throw driveError('File is in trash', 404);
 
   const allowed = listAllowedFolderIds();
@@ -651,43 +425,30 @@ async function getImage(fileId) {
 
 async function deleteImage(fileId) {
   await getImage(fileId);
-  await driveFetch(withSharedDriveParams(`/files/${encodeURIComponent(fileId)}`), { method: 'DELETE' });
+  const drive = getDriveClient();
+  try {
+    await drive.files.delete({ fileId });
+  } catch (error) {
+    throw mapGoogleError(error, 'Unable to delete Drive image');
+  }
   return { deleted: true, id: fileId };
 }
 
 async function downloadImageContent(fileId) {
   await getImage(fileId);
-
-  const attempt = async (retried) => {
-    const token = await getAccessToken();
-    const response = await fetchWithTimeout(
-      withSharedDriveParams(`${DRIVE_API}/files/${encodeURIComponent(fileId)}?alt=media`),
-      { headers: { Authorization: `Bearer ${token}` } }
+  const drive = getDriveClient();
+  try {
+    const response = await drive.files.get(
+      { fileId, alt: 'media' },
+      { responseType: 'arraybuffer' }
     );
-    if (!response.ok) {
-      if (response.status === 401 && !retried) {
-        clearTokenCache();
-        return attempt(true);
-      }
-      const detail = await response.text().catch(() => '');
-      let parsed = detail;
-      try { parsed = detail ? JSON.parse(detail) : { error: { message: detail } }; } catch {
-        parsed = { error: { message: detail || `Unable to download file (${response.status})` } };
-      }
-      throw classifyDriveApiError(
-        response.status,
-        parsed,
-        `Unable to download file (${response.status})`
-      );
-    }
-    const arrayBuffer = await response.arrayBuffer();
     return {
-      buffer: Buffer.from(arrayBuffer),
-      contentType: response.headers.get('content-type') || 'application/octet-stream'
+      buffer: Buffer.from(response.data),
+      contentType: response.headers?.['content-type'] || 'application/octet-stream'
     };
-  };
-
-  return attempt(false);
+  } catch (error) {
+    throw mapGoogleError(error, 'Unable to download Drive image');
+  }
 }
 
 module.exports = {
@@ -695,6 +456,7 @@ module.exports = {
   getDriveStatus,
   getConfiguredFolderIds,
   resolveFolderKey,
+  getFolderId,
   uploadImage,
   listImages,
   getImage,

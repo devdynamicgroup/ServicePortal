@@ -11,3 +11,4 @@ credentials/
 *service-account*.json
 solar-bolt-*.json
 **/google-service-account.json
+render-google-service-account*.txt
