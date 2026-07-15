@@ -322,8 +322,35 @@ function purposeToFolder(purpose, contentType, filename) {
   ) {
     return 'data';
   }
-  // All image / field photo purposes → MAIN folder
-  return 'main';
+  if (mime.startsWith('image/') || !mime) {
+    return 'main';
+  }
+  // Non-image payloads without JSON purpose still go to the data folder.
+  return 'data';
+}
+
+/**
+ * Resolve the Drive folder key. Content type / filename always decide for
+ * images vs JSON — never rely on a missing folder field.
+ */
+function resolveUploadFolder({ folder, purpose, contentType, filename } = {}) {
+  const mime = String(contentType || '').toLowerCase().split(';')[0].trim();
+  const name = String(filename || '');
+
+  if (mime.startsWith('image/')) return 'main';
+  if (
+    mime === 'application/json'
+    || mime === 'text/json'
+    || mime.endsWith('+json')
+    || /\.jsonl?$/i.test(name)
+  ) {
+    return 'data';
+  }
+
+  const explicit = String(folder || '').trim().toLowerCase();
+  if (explicit === 'main' || explicit === 'data') return explicit;
+
+  return purposeToFolder(purpose, contentType, filename);
 }
 
 function guessContentType(dataUrl, fallback = 'image/jpeg') {
@@ -341,7 +368,26 @@ function buildDriveFilename(purpose, ext = 'jpg') {
 
 function currentJobId() {
   if (typeof S === 'undefined' || !S.activeJob) return null;
-  return S.activeJob.id || S.activeJob.notionId || null;
+  return S.activeJob.notionId || S.activeJob.id || null;
+}
+
+function currentNotionId() {
+  if (typeof S === 'undefined' || !S.activeJob) return null;
+  return S.activeJob.notionId || S.activeJob.id || null;
+}
+
+function currentCustomerName() {
+  if (typeof S === 'undefined' || !S.activeJob) return null;
+  const fields = S.activeJob.draft?.fields || {};
+  const full = [fields['ci-fname'], fields['ci-lname']].filter(Boolean).join(' ').trim();
+  return full || S.activeJob.name || null;
+}
+
+function currentCustomerFolderId() {
+  if (typeof S === 'undefined' || !S.activeJob) return null;
+  return S.activeJob.drive?.folderId
+    || S.activeJob.draft?.driveFolderId
+    || null;
 }
 
 function currentUsername() {
@@ -522,6 +568,10 @@ async function hydrateDriveImg(img, photo, fallbackDataUrl) {
   }
 }
 
+/**
+ * Single Drive upload entrypoint for images and JSON/data files.
+ * Always sends an explicit folder ("main" | "data") — never relies on server defaults.
+ */
 async function uploadDriveImage({
   dataUrl,
   filename,
@@ -529,41 +579,81 @@ async function uploadDriveImage({
   folder,
   contentType,
   description,
-  jobId
+  jobId,
+  notionId,
+  customerName,
+  customerFolderId,
+  json
 } = {}) {
-  if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
-    throw driveClientError('A data URL image is required for Drive upload', 'INVALID_IMAGE');
+  let payloadDataUrl = dataUrl;
+  let mime = contentType || null;
+  let resolvedPurpose = purpose || 'photo';
+  let resolvedFilename = filename || null;
+
+  if (json != null && (typeof json === 'object' || typeof json === 'string')) {
+    const text = typeof json === 'string' ? json : JSON.stringify(json);
+    payloadDataUrl = `data:application/json;base64,${btoa(unescape(encodeURIComponent(text)))}`;
+    mime = 'application/json';
+    resolvedPurpose = purpose || 'json';
+    resolvedFilename = resolvedFilename || `${resolvedPurpose}-${Date.now()}.json`;
   }
 
-  const compressed = await compressImageDataUrl(dataUrl);
-  const approxBytes = estimateDataUrlBytes(compressed);
+  if (!payloadDataUrl || typeof payloadDataUrl !== 'string' || !payloadDataUrl.startsWith('data:')) {
+    throw driveClientError('A data URL payload is required for Drive upload', 'INVALID_IMAGE');
+  }
+
+  const isJsonUpload = mime === 'application/json'
+    || mime === 'text/json'
+    || String(resolvedFilename || '').toLowerCase().endsWith('.json')
+    || payloadDataUrl.startsWith('data:application/json');
+
+  let bodyPayload = payloadDataUrl;
+  if (!isJsonUpload) {
+    bodyPayload = await compressImageDataUrl(payloadDataUrl);
+    mime = contentType || guessContentType(bodyPayload, 'image/jpeg');
+  } else {
+    mime = mime || guessContentType(payloadDataUrl, 'application/json');
+  }
+
+  const approxBytes = estimateDataUrlBytes(bodyPayload);
   if (approxBytes > DRIVE_MAX_UPLOAD_BYTES) {
     throw driveClientError(
-      `Image is too large to upload (max ${Math.round(DRIVE_MAX_UPLOAD_BYTES / (1024 * 1024))} MB).`,
+      `File is too large to upload (max ${Math.round(DRIVE_MAX_UPLOAD_BYTES / (1024 * 1024))} MB).`,
       'TOO_LARGE',
       413
     );
   }
 
-  const resolvedPurpose = purpose || 'photo';
-  const mime = contentType || guessContentType(compressed, 'image/jpeg');
-  const resolvedFilename = filename || buildDriveFilename(resolvedPurpose, mime.includes('png') ? 'png' : 'jpg');
-  const resolvedFolder = folder || purposeToFolder(resolvedPurpose, mime, resolvedFilename);
+  if (!resolvedFilename) {
+    resolvedFilename = isJsonUpload
+      ? `${resolvedPurpose}-${Date.now()}.json`
+      : buildDriveFilename(resolvedPurpose, mime.includes('png') ? 'png' : 'jpg');
+  }
+
+  // Always send an explicit folder — images → main, JSON/data → data.
+  const resolvedFolder = resolveUploadFolder({
+    folder,
+    purpose: resolvedPurpose,
+    contentType: mime,
+    filename: resolvedFilename
+  });
   const resolvedJobId = jobId != null ? String(jobId) : currentJobId();
+  const resolvedNotionId = notionId || currentNotionId() || resolvedJobId;
+  const resolvedCustomerName = customerName || currentCustomerName();
+  const resolvedCustomerFolderId = customerFolderId || currentCustomerFolderId();
+
+  console.log('[UPLOAD REQUEST]', {
+    filename: resolvedFilename,
+    purpose: resolvedPurpose,
+    folder: resolvedFolder,
+    mimeType: mime,
+    notionId: resolvedNotionId ? String(resolvedNotionId).slice(0, 8) + '…' : null,
+    caller: new Error().stack
+  });
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DRIVE_UPLOAD_TIMEOUT_MS);
   const requestUrl = '/api/drive/images';
-  // Non-sensitive debug: record upload attempt (do not include the image data)
-  try {
-    console.log('[drive-client] upload attempt', {
-      url: requestUrl,
-      purpose: resolvedPurpose,
-      folder: resolvedFolder,
-      filename: resolvedFilename,
-      approxBytes
-    });
-  } catch (e) { /* ignore */ }
 
   let response;
   try {
@@ -577,17 +667,19 @@ async function uploadDriveImage({
       cache: 'no-store',
       signal: controller.signal,
       body: JSON.stringify({
-        dataUrl: compressed,
+        dataUrl: bodyPayload,
         filename: resolvedFilename,
         contentType: mime,
         purpose: resolvedPurpose,
         folder: resolvedFolder,
         description,
-        jobId: resolvedJobId
+        jobId: resolvedJobId,
+        notionId: resolvedNotionId,
+        customerName: resolvedCustomerName,
+        customerFolderId: resolvedCustomerFolderId
       })
     });
   } catch (error) {
-    // Log network / fetch-level errors.
     try { console.error('[drive-client] network error', { url: requestUrl, message: error?.message || String(error) }); } catch (e) { /* ignore */ }
     if (error?.name === 'AbortError') {
       throw driveClientError('Upload timed out. Tap to retry.', 'UPLOAD_TIMEOUT');
@@ -597,7 +689,6 @@ async function uploadDriveImage({
     clearTimeout(timer);
   }
 
-  // Parse response body (JSON if possible) and log full body for diagnostics.
   let data;
   try {
     data = await response.json();
@@ -611,11 +702,29 @@ async function uploadDriveImage({
     throw mapUploadHttpError(response.status, data.error);
   }
 
+  // Cache customer folder id on the active job for subsequent uploads this session.
+  if (typeof S !== 'undefined' && S.activeJob && data.file.customerFolderId) {
+    S.activeJob.drive = {
+      ...(S.activeJob.drive || {}),
+      folderId: data.file.customerFolderId,
+      folderUrl: data.file.customerFolderUrl || S.activeJob.drive?.folderUrl || null
+    };
+    if (S.activeJob.draft) {
+      S.activeJob.draft.driveFolderId = data.file.customerFolderId;
+      S.activeJob.draft.driveFolderUrl = data.file.customerFolderUrl || null;
+    }
+  }
+
   return {
     fileId: data.file.id,
     filename: data.file.name,
     folder: data.file.folder || resolvedFolder,
     folderId: data.file.folderId || null,
+    category: data.file.category || null,
+    customerFolderId: data.file.customerFolderId || null,
+    customerFolderUrl: data.file.customerFolderUrl || null,
+    categoryFolderId: data.file.categoryFolderId || null,
+    categoryFolderUrl: data.file.categoryFolderUrl || null,
     purpose: data.file.purpose || resolvedPurpose,
     uploadedAt: data.file.createdTime || new Date().toISOString(),
     uploadedBy: data.file.uploadedBy || currentUsername(),
@@ -624,7 +733,7 @@ async function uploadDriveImage({
     mimeType: data.file.mimeType || mime,
     webViewLink: data.file.webViewLink || null,
     thumbnailLink: data.file.thumbnailLink || null,
-    previewUrl: compressed
+    previewUrl: isJsonUpload ? null : bodyPayload
   };
 }
 
@@ -637,20 +746,53 @@ async function uploadCapturedImageOnce({
   purpose,
   folder,
   filename,
+  contentType,
   inflightKey,
-  jobId
+  jobId,
+  notionId,
+  customerName,
+  customerFolderId,
+  json,
+  description
 } = {}) {
-  const key = inflightKey || `${purpose || 'photo'}:${String(dataUrl || '').slice(0, 64)}`;
+  const key = inflightKey
+    || `${folder || purpose || 'photo'}:${String(filename || dataUrl || '').slice(0, 64)}`;
   if (DriveUploadInflight.has(key)) {
     throw driveClientError('Upload already in progress', 'UPLOAD_IN_FLIGHT');
   }
 
   DriveUploadInflight.add(key);
   try {
-    return await uploadDriveImage({ dataUrl, purpose, folder, filename, jobId });
+    return await uploadDriveImage({
+      dataUrl,
+      purpose,
+      folder,
+      filename,
+      contentType,
+      jobId,
+      notionId,
+      customerName,
+      customerFolderId,
+      json,
+      description
+    });
   } finally {
     DriveUploadInflight.delete(key);
   }
+}
+
+/** Explicit JSON/data upload helper — always targets the data folder. */
+async function uploadDriveJson({ json, filename, purpose, jobId, description } = {}) {
+  return uploadCapturedImageOnce({
+    json,
+    filename: filename || `${purpose || 'assessment'}-${Date.now()}.json`,
+    purpose: purpose || 'json',
+    folder: 'data',
+    contentType: 'application/json',
+    inflightKey: `data:json:${filename || purpose || 'assessment'}`,
+    jobId,
+    description
+  });
 }
 
 window.DrivePhoto = {
@@ -659,8 +801,10 @@ window.DrivePhoto = {
   isUploaded: isDrivePhotoUploaded,
   shouldUpload: shouldUploadCapturedImage,
   purposeToFolder,
+  resolveUploadFolder,
   upload: uploadDriveImage,
   uploadOnce: uploadCapturedImageOnce,
+  uploadJson: uploadDriveJson,
   buildFilename: buildDriveFilename,
   compress: compressImageDataUrl,
   hydrateImg: hydrateDriveImg,

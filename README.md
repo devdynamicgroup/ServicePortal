@@ -63,8 +63,8 @@ Create two folders in that user's **My Drive** and set their IDs:
 
 | Env | Use |
 |-----|-----|
-| `GOOGLE_DRIVE_MAIN_FOLDER_ID` | All uploaded images (meter / tap / payment / OCR) |
-| `GOOGLE_DRIVE_DATA_FOLDER_ID` | JSON / data files only (assessment, export, metadata) |
+| `GOOGLE_DRIVE_MAIN_FOLDER_ID` | Root for customer folders + all images |
+| `GOOGLE_DRIVE_DATA_FOLDER_ID` | Fallback for anonymous JSON uploads |
 
 ### 5. Verify
 

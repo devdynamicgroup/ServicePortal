@@ -628,11 +628,18 @@ function buildStoredDrivePhotoMeta(meta, { purpose, previewUrl } = {}) {
     fileId: meta.fileId,
     filename: meta.filename,
     folder: meta.folder || folderFromPurpose,
+    folderId: meta.folderId || null,
+    category: meta.category || null,
+    customerFolderId: meta.customerFolderId || null,
+    customerFolderUrl: meta.customerFolderUrl || null,
+    categoryFolderId: meta.categoryFolderId || null,
+    categoryFolderUrl: meta.categoryFolderUrl || null,
     purpose: resolvedPurpose,
     uploadedAt: meta.uploadedAt || new Date().toISOString(),
     uploadedBy: meta.uploadedBy || S.user?.username || null,
-    jobId: meta.jobId || S.activeJob?.id || S.activeJob?.notionId || null,
+    jobId: meta.jobId || S.activeJob?.notionId || S.activeJob?.id || null,
     contentUrl: meta.contentUrl,
+    webViewLink: meta.webViewLink || null,
     mimeType: meta.mimeType || null,
     previewUrl: previewUrl || meta.previewUrl || null
   };
@@ -650,7 +657,7 @@ function markDriveUploadFailed(photoBase, error) {
 }
 
 function driveQueueKey(taskKey, tapIndex) {
-  const jobId = S.activeJob?.id || S.activeJob?.notionId || 'job';
+  const jobId = S.activeJob?.notionId || S.activeJob?.id || 'job';
   return `${jobId}:${tapIndex ?? 'x'}:${taskKey}`;
 }
 
@@ -660,38 +667,30 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
   const tapIndex = S.activeTap;
   const photos = S.tapData[tapIndex].photos;
   const existing = photos[taskKey];
-  const jobId = S.activeJob?.id || S.activeJob?.notionId || null;
+  const jobId = S.activeJob?.notionId || S.activeJob?.id || null;
   const queueKey = driveQueueKey(taskKey, tapIndex);
+
+  // Already uploaded — single Drive file only (no secondary OCR copy).
+  if (DrivePhoto.isUploaded(existing)) {
+    await DrivePhoto.dequeue?.(queueKey);
+    return existing;
+  }
+
+  // Live upload in progress for this tap/task — do not start a second POST.
+  if (existing?.uploading) {
+    return existing;
+  }
 
   const compressed = await DrivePhoto.compress(dataUrl);
 
-  if (DrivePhoto.isUploaded(existing)) {
-    // Main already stored — still try OCR copy if missing (meter/chlorine only).
-    if ((taskKey === 'meter' || taskKey === 'chlorine') && !existing.ocrFileId && compressed) {
-      try {
-        const ocrMeta = await DrivePhoto.uploadOnce({
-          dataUrl: compressed,
-          purpose: 'ocr',
-          folder: 'main',
-          filename: DrivePhoto.buildFilename(`${taskKey}-ocr`),
-          inflightKey: `main:ocr:${taskKey}:${tapIndex}`,
-          jobId
-        });
-        const merged = {
-          ...existing,
-          ocrFileId: ocrMeta.fileId,
-          ocrFolder: 'main',
-          ocrContentUrl: ocrMeta.contentUrl
-        };
-        if (S.tapData[tapIndex]?.photos) S.tapData[tapIndex].photos[taskKey] = merged;
-        saveActiveJobState?.();
-        return merged;
-      } catch (ocrError) {
-        console.warn('OCR Drive upload failed (non-blocking)', ocrError);
-      }
-    }
+  // Re-check after async compress (flush/retry may have finished meanwhile).
+  const latest = S.tapData[tapIndex]?.photos?.[taskKey];
+  if (DrivePhoto.isUploaded(latest)) {
     await DrivePhoto.dequeue?.(queueKey);
-    return existing;
+    return latest;
+  }
+  if (latest?.uploading) {
+    return latest;
   }
 
   photos[taskKey] = {
@@ -711,30 +710,12 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
       dataUrl: compressed,
       purpose: taskKey,
       folder: 'main',
+      contentType: 'image/jpeg',
       inflightKey: `main:${taskKey}:${tapIndex}`,
       jobId
     });
 
     const stored = buildStoredDrivePhotoMeta(meta, { purpose: taskKey, previewUrl: compressed });
-
-    // Secondary OCR/raw copy for meter & chlorine (images → main folder).
-    if (taskKey === 'meter' || taskKey === 'chlorine') {
-      try {
-        const ocrMeta = await DrivePhoto.uploadOnce({
-          dataUrl: compressed,
-          purpose: 'ocr',
-          folder: 'main',
-          filename: DrivePhoto.buildFilename(`${taskKey}-ocr`),
-          inflightKey: `main:ocr:${taskKey}:${tapIndex}`,
-          jobId
-        });
-        stored.ocrFileId = ocrMeta.fileId;
-        stored.ocrFolder = 'main';
-        stored.ocrContentUrl = ocrMeta.contentUrl;
-      } catch (ocrError) {
-        console.warn('OCR Drive upload failed (non-blocking)', ocrError);
-      }
-    }
 
     // Write back to the tap that started the upload (user may have switched taps).
     if (S.tapData[tapIndex]?.photos) S.tapData[tapIndex].photos[taskKey] = stored;
@@ -780,10 +761,17 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
 async function uploadSlipPhotoToDrive(dataUrl) {
   if (typeof DrivePhoto === 'undefined') return null;
   if (DrivePhoto.isUploaded(S.paymentSlipPhoto)) return S.paymentSlipPhoto;
+  if (S.paymentSlipPhoto?.uploading) return S.paymentSlipPhoto;
 
-  const jobId = S.activeJob?.id || S.activeJob?.notionId || null;
+  const jobId = S.activeJob?.notionId || S.activeJob?.id || null;
   const queueKey = driveQueueKey('payment', 'slip');
   const compressed = await DrivePhoto.compress(dataUrl);
+
+  if (DrivePhoto.isUploaded(S.paymentSlipPhoto)) {
+    await DrivePhoto.dequeue?.(queueKey);
+    return S.paymentSlipPhoto;
+  }
+  if (S.paymentSlipPhoto?.uploading) return S.paymentSlipPhoto;
 
   S.paymentSlipPhoto = {
     uploading: true,
@@ -802,6 +790,7 @@ async function uploadSlipPhotoToDrive(dataUrl) {
       dataUrl: compressed,
       purpose: 'payment',
       folder: 'main',
+      contentType: 'image/jpeg',
       filename: DrivePhoto.buildFilename('payment-slip'),
       inflightKey: 'main:payment:slip',
       jobId
@@ -860,8 +849,8 @@ async function flushPendingDriveUploads() {
       }
       try {
         if (item.isSlip || item.purpose === 'payment') {
-          if (DrivePhoto.isUploaded(S.paymentSlipPhoto)) {
-            await DrivePhoto.dequeue?.(item.queueKey);
+          if (DrivePhoto.isUploaded(S.paymentSlipPhoto) || S.paymentSlipPhoto?.uploading) {
+            if (DrivePhoto.isUploaded(S.paymentSlipPhoto)) await DrivePhoto.dequeue?.(item.queueKey);
             continue;
           }
           await uploadSlipPhotoToDrive(item.dataUrl);
@@ -871,8 +860,8 @@ async function flushPendingDriveUploads() {
           if (Number.isFinite(tapIndex)) S.activeTap = tapIndex;
           ensureTapData();
           const existing = S.tapData[tapIndex]?.photos?.[item.taskKey];
-          if (DrivePhoto.isUploaded(existing)) {
-            await DrivePhoto.dequeue?.(item.queueKey);
+          if (DrivePhoto.isUploaded(existing) || existing?.uploading) {
+            if (DrivePhoto.isUploaded(existing)) await DrivePhoto.dequeue?.(item.queueKey);
             S.activeTap = priorTap;
             continue;
           }
@@ -891,7 +880,7 @@ async function flushPendingDriveUploads() {
       for (let i = 0; i < S.tapData.length; i += 1) {
         const photos = S.tapData[i]?.photos || {};
         for (const [taskKey, photo] of Object.entries(photos)) {
-          if (!photo || photo.fileId || !photo.pendingAutoRetry || !photo.previewUrl) continue;
+          if (!photo || photo.fileId || photo.uploading || !photo.pendingAutoRetry || !photo.previewUrl) continue;
           const priorTap = S.activeTap;
           S.activeTap = i;
           const previewId = Object.entries(PHOTO_ID_TASKS).find(([, key]) => key === taskKey)?.[0];
@@ -904,7 +893,12 @@ async function flushPendingDriveUploads() {
         }
       }
     }
-    if (S.paymentSlipPhoto?.pendingAutoRetry && S.paymentSlipPhoto?.previewUrl && !S.paymentSlipPhoto.fileId) {
+    if (
+      S.paymentSlipPhoto?.pendingAutoRetry
+      && S.paymentSlipPhoto?.previewUrl
+      && !S.paymentSlipPhoto.fileId
+      && !S.paymentSlipPhoto.uploading
+    ) {
       try {
         await uploadSlipPhotoToDrive(S.paymentSlipPhoto.previewUrl);
       } catch (error) {
@@ -1004,7 +998,7 @@ function setPhotoPreview(previewId, src, options = {}) {
           previewUrl: dataUrl,
           folder: 'main',
           purpose: taskKey,
-          jobId: S.activeJob?.id || S.activeJob?.notionId || null
+          jobId: S.activeJob?.notionId || S.activeJob?.id || null
         };
       } else if (!DrivePhoto?.isUploaded(S.tapData[S.activeTap].photos[taskKey])) {
         S.tapData[S.activeTap].photos[taskKey] = dataUrl;

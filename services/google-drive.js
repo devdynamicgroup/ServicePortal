@@ -6,6 +6,12 @@ const {
   getRefreshToken,
   getOAuthEnv
 } = require('./google-drive-oauth');
+const {
+  resolveUploadTargetFolder,
+  isDescendantOfRoots,
+  expandNotionId,
+  resolveCategoryFromPurpose
+} = require('./google-drive-folders');
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
@@ -168,11 +174,11 @@ function isJsonFilename(filename) {
 }
 
 /**
- * Folder routing:
- * - Explicit folder "main" | "data" always wins.
- * - Else images (MIME / image purposes) → main (GOOGLE_DRIVE_MAIN_FOLDER_ID)
- * - Else JSON/data (MIME / .json / data purposes) → data (GOOGLE_DRIVE_DATA_FOLDER_ID)
- * - Default → main (image uploads are the common path)
+ * Folder routing (content wins over a mistaken explicit folder):
+ * - image/* → always "main" (GOOGLE_DRIVE_MAIN_FOLDER_ID)
+ * - application/json / *.json → always "data" (GOOGLE_DRIVE_DATA_FOLDER_ID)
+ * - else respect explicit folder "main" | "data"
+ * - else purpose heuristics, default "main"
  */
 function resolveFolderKey(input = {}) {
   const rawFolder = String(input.folder || input.folderKey || '').trim();
@@ -180,6 +186,10 @@ function resolveFolderKey(input = {}) {
   const mimeType = normalizeMimeType(input.contentType || input.mimeType);
   const filename = String(input.filename || input.name || '').trim();
   const folders = getConfiguredFolderIds();
+
+  // Hard rules from content — prevent JSON ending up in the image folder.
+  if (isJsonMimeType(mimeType) || isJsonFilename(filename)) return 'data';
+  if (isImageMimeType(mimeType)) return 'main';
 
   if (rawFolder) {
     const key = rawFolder.toLowerCase();
@@ -189,15 +199,6 @@ function resolveFolderKey(input = {}) {
     if (folders.data && rawFolder === folders.data) return 'data';
     throw driveError(`Unknown Drive folder "${rawFolder}". Use "main" or "data".`, 400);
   }
-
-  if (mimeType) {
-    if (isImageMimeType(mimeType)) return 'main';
-    if (isJsonMimeType(mimeType)) return 'data';
-    // Non-image binary without explicit folder → data folder
-    if (!mimeType.startsWith('image/')) return 'data';
-  }
-
-  if (isJsonFilename(filename)) return 'data';
 
   if (rawPurpose) {
     if (DATA_FILE_PURPOSES.has(rawPurpose)) return 'data';
@@ -304,6 +305,11 @@ function mapFileMetadata(file, options = {}) {
     modifiedTime: file.modifiedTime || null,
     folder: folderKey,
     folderId: options.folderId || null,
+    category: options.category || null,
+    customerFolderId: options.customerFolderId || null,
+    customerFolderUrl: options.customerFolderUrl || null,
+    categoryFolderId: options.categoryFolderId || null,
+    categoryFolderUrl: options.categoryFolderUrl || null,
     webViewLink: file.webViewLink || null,
     webContentLink: file.webContentLink || null,
     thumbnailLink: file.thumbnailLink || null,
@@ -340,7 +346,11 @@ async function uploadImage({
   folder,
   purpose,
   useCase,
-  type
+  type,
+  jobId,
+  notionId,
+  customerName,
+  customerFolderId: cachedCustomerFolderId
 } = {}) {
   if (!isDriveOAuthReady()) {
     throw driveError(
@@ -377,7 +387,6 @@ async function uploadImage({
     mimeType: mime,
     filename
   });
-  const folderId = requireFolderId(folderKey);
 
   const safeName = sanitizeFilename(filename, mime);
   // Preserve real MIME (images and JSON). Only default bare octet-streams that look like images.
@@ -385,18 +394,65 @@ async function uploadImage({
   if (mimeType === 'application/octet-stream' && folderKey === 'main' && !isJsonFilename(safeName)) {
     mimeType = 'image/jpeg';
   }
+
+  const resolvedNotionId = expandNotionId(notionId || jobId);
+  const rootFolderId = getMainFolderId();
+  let folderId = requireFolderId(folderKey);
+  let hierarchy = null;
+
+  // Customer hierarchy for images/docs when we know the case identity.
+  // Flat DATA root remains the fallback for anonymous JSON-only uploads.
+  if (resolvedNotionId && rootFolderId && (folderKey === 'main' || folderKey === 'data')) {
+    try {
+      hierarchy = await resolveUploadTargetFolder({
+        rootFolderId,
+        notionId: resolvedNotionId,
+        customerName: customerName || 'Customer',
+        cachedCustomerFolderId,
+        purpose: purpose || useCase || type,
+        contentType: mimeType,
+        filename: safeName
+      });
+      folderId = hierarchy.uploadFolderId;
+    } catch (error) {
+      console.error('[google-drive] customer folder resolve failed — falling back to root', {
+        message: error.message,
+        notionId: resolvedNotionId ? `${String(resolvedNotionId).slice(0, 8)}…` : null
+      });
+      // Keep flat root upload rather than failing the capture.
+      folderId = requireFolderId(folderKey);
+      hierarchy = null;
+    }
+  }
+
+  const category = hierarchy?.category
+    || resolveCategoryFromPurpose(purpose || useCase || type, {
+      contentType: mimeType,
+      filename: safeName
+    });
+
   const requestBody = {
     name: safeName,
     parents: [folderId],
     mimeType
   };
   if (description) requestBody.description = String(description).slice(0, 1000);
+  if (resolvedNotionId) {
+    requestBody.appProperties = {
+      wmCustomerId: resolvedNotionId,
+      wmPurpose: String(purpose || useCase || type || '').slice(0, 64),
+      wmCategory: String(category).slice(0, 64)
+    };
+  }
 
-  console.log('[Drive Upload]', {
+  console.log('[UPLOAD RECEIVED]', {
     filename: safeName,
-    mimeType,
     folder: folderKey,
-    selectedFolderId: folderId
+    mimeType,
+    selectedFolderId: folderId,
+    category,
+    customerFolderId: hierarchy?.customerFolderId || null,
+    notionId: resolvedNotionId ? `${String(resolvedNotionId).slice(0, 8)}…` : null
   });
 
   const drive = getDriveClient();
@@ -408,7 +464,7 @@ async function uploadImage({
         mimeType,
         body: Readable.from(bytes)
       },
-      fields: 'id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink'
+      fields: 'id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink,parents'
     });
     created = response.data;
   } catch (error) {
@@ -427,7 +483,15 @@ async function uploadImage({
     }
   }
 
-  return mapFileMetadata(created, { folderKey, folderId });
+  return mapFileMetadata(created, {
+    folderKey,
+    folderId,
+    category,
+    customerFolderId: hierarchy?.customerFolderId || null,
+    customerFolderUrl: hierarchy?.customerFolderUrl || null,
+    categoryFolderId: hierarchy?.categoryFolderId || null,
+    categoryFolderUrl: hierarchy?.categoryFolderUrl || null
+  });
 }
 
 async function listImages({ pageSize = 50, pageToken, folder, purpose, useCase, type } = {}) {
@@ -463,7 +527,7 @@ async function getImage(fileId) {
   try {
     const response = await drive.files.get({
       fileId,
-      fields: 'id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink,parents,trashed'
+      fields: 'id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,iconLink,parents,trashed,appProperties'
     });
     file = response.data;
   } catch (error) {
@@ -474,22 +538,30 @@ async function getImage(fileId) {
 
   const allowed = listAllowedFolderIds();
   const parents = Array.isArray(file.parents) ? file.parents : [];
-  if (allowed.length && !parents.some(id => allowed.includes(id))) {
+  const inRoot = allowed.length && parents.some(id => allowed.includes(id));
+  let underRoot = inRoot;
+  if (!underRoot && allowed.length) {
+    underRoot = await isDescendantOfRoots(fileId, allowed);
+  }
+  if (allowed.length && !underRoot) {
     throw driveError('File is outside the configured Drive folders', 403);
   }
 
   const folders = getConfiguredFolderIds();
   let folderKey = null;
-  let folderId = null;
-  if (folders.main && parents.includes(folders.main)) {
+  let folderId = parents[0] || null;
+  if (folders.main && (parents.includes(folders.main) || underRoot)) {
     folderKey = 'main';
-    folderId = folders.main;
   } else if (folders.data && parents.includes(folders.data)) {
     folderKey = 'data';
-    folderId = folders.data;
   }
 
-  return mapFileMetadata(file, { folderKey, folderId });
+  return mapFileMetadata(file, {
+    folderKey,
+    folderId,
+    category: file.appProperties?.wmCategory || null,
+    customerFolderId: null
+  });
 }
 
 async function deleteImage(fileId) {
@@ -531,5 +603,6 @@ module.exports = {
   getImage,
   deleteImage,
   downloadImageContent,
-  MAX_UPLOAD_BYTES
+  MAX_UPLOAD_BYTES,
+  expandNotionId
 };

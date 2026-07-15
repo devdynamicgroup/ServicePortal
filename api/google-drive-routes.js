@@ -1,4 +1,5 @@
 let isDriveConfigured, getDriveStatus, uploadImage, listImages, getImage, deleteImage, downloadImageContent, MAX_UPLOAD_BYTES;
+let resolveFolderKey, getConfiguredFolderIds;
 let __drive_module_error = null;
 try {
   const _gd = require('../services/google-drive');
@@ -31,6 +32,7 @@ try {
 }
 const { requireAppAuth } = require('../services/app-auth');
 const { appendDriveUploadAudit } = require('../services/drive-audit');
+const { persistDriveUploadToNotion } = require('../services/drive-notion');
 
 const IMAGE_ID_RE = /^\/api\/drive\/images\/([^/]+)(?:\/(content))?$/;
 // JSON uploads send base64 (~4/3 of binary) plus metadata wrapper.
@@ -172,37 +174,10 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
       folder = payload.folder || null;
       filename = payload.filename || payload.name || null;
       jobId = payload.jobId != null ? String(payload.jobId) : null;
+      const notionId = payload.notionId || payload.customerId || jobId || null;
+      const customerName = payload.customerName || payload.clientName || null;
+      const customerFolderId = payload.customerFolderId || payload.driveFolderId || null;
       const uploadContentType = payload.contentType || payload.mimeType || null;
-
-      // Log route entry and intended target folder key/id
-      try {
-        const folderKey = resolveFolderKey({
-          folder,
-          purpose,
-          contentType: uploadContentType,
-          mimeType: uploadContentType,
-          filename
-        });
-        const folders = getConfiguredFolderIds();
-        const folderId = folders && folders[folderKey] ? folders[folderKey] : null;
-        console.log('[Drive Upload]', {
-          filename,
-          mimeType: uploadContentType,
-          folder: folderKey,
-          selectedFolderId: folderId
-        });
-        // Safe, non-sensitive environment presence booleans to help diagnose missing config on hosts like Render.
-        try {
-          console.log('[drive] env presence', {
-            GOOGLE_DRIVE_MAIN_FOLDER_ID: Boolean(String(process.env.GOOGLE_DRIVE_MAIN_FOLDER_ID || process.env.GOOGLE_DRIVE_FOLDER_ID || '').trim()),
-            GOOGLE_DRIVE_DATA_FOLDER_ID: Boolean(String(process.env.GOOGLE_DRIVE_DATA_FOLDER_ID || '').trim()),
-            GOOGLE_CLIENT_ID: Boolean(String(process.env.GOOGLE_CLIENT_ID || '').trim()),
-            GOOGLE_REFRESH_TOKEN: Boolean(String(process.env.GOOGLE_REFRESH_TOKEN || '').trim())
-          });
-        } catch (e) { /* ignore logging failures */ }
-      } catch (e) {
-        console.warn('[drive] could not resolve folder key for upload', { folder, purpose, message: e && e.message ? e.message : String(e) });
-      }
 
       const file = await uploadImage({
         filename,
@@ -212,19 +187,45 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
         description: payload.description,
         makePublic: payload.makePublic,
         folder,
-        purpose
+        purpose,
+        jobId,
+        notionId,
+        customerName,
+        customerFolderId
       });
 
       try {
-        console.log('[drive] upload succeeded', { fileId: file.id, name: file.name, folder: file.folder, folderId: file.folderId, webViewLink: file.webViewLink || null });
+        console.log('[drive] upload succeeded', {
+          fileId: file.id,
+          name: file.name,
+          folder: file.folder,
+          folderId: file.folderId,
+          category: file.category || null,
+          customerFolderId: file.customerFolderId || null,
+          webViewLink: file.webViewLink || null
+        });
       } catch (e) { /* ignore logging failures */ }
+
+      // Best-effort Notion link — never block a successful Drive upload.
+      if (notionId && file.id) {
+        persistDriveUploadToNotion({
+          notionId,
+          customerFolderId: file.customerFolderId,
+          customerFolderUrl: file.customerFolderUrl,
+          fileId: file.id,
+          webViewLink: file.webViewLink,
+          contentUrl: file.contentUrl,
+          category: file.category,
+          purpose
+        }).catch(() => {});
+      }
 
       appendDriveUploadAudit({
         user: user.username,
         filename: file.name || filename,
         purpose,
         folder: file.folder || folder,
-        jobId,
+        jobId: notionId || jobId,
         success: true,
         fileId: file.id
       });
@@ -235,7 +236,7 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
           ...file,
           purpose: purpose || null,
           uploadedBy: user.username,
-          jobId
+          jobId: notionId || jobId
         }
       });
     } catch (error) {

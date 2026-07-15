@@ -42,6 +42,12 @@ const FIELD_ALIASES = {
   notificationStatus: ['Notification Status', 'notificationStatus'],
   lineMessageId: ['LINE Message ID', 'Line Message ID', 'lineMessageId'],
   lastNotificationError: ['Last Notification Error', 'lastNotificationError'],
+  driveFolderId: ['Drive Folder ID', 'Google Drive Folder ID', 'driveFolderId'],
+  driveFolderUrl: ['Drive Folder URL', 'Google Drive Folder URL', 'driveFolderUrl'],
+  driveLatestFileId: ['Drive Latest File ID', 'Latest Drive File ID', 'driveLatestFileId'],
+  driveLatestFileUrl: ['Drive Latest File URL', 'Latest Drive File URL', 'driveLatestFileUrl'],
+  driveLatestCategory: ['Drive Latest Category', 'Latest Drive Category', 'driveLatestCategory'],
+  driveLatestPurpose: ['Drive Latest Purpose', 'Latest Drive Purpose', 'driveLatestPurpose'],
   // Appointment date priority: the team's custom "Created 1" field is the real
   // appointment date and must win. "Created" (Notion's auto created_time) is
   // intentionally NOT listed here so it can never be used as the appointment.
@@ -282,6 +288,14 @@ function notionPageToJob(page, index) {
       status: getPropertyValue(properties, FIELD_ALIASES.notificationStatus) || 'not_sent',
       lineMessageId: getPropertyValue(properties, FIELD_ALIASES.lineMessageId) || '',
       lastError: getPropertyValue(properties, FIELD_ALIASES.lastNotificationError) || ''
+    },
+    drive: {
+      folderId: getPropertyValue(properties, FIELD_ALIASES.driveFolderId) || '',
+      folderUrl: getPropertyValue(properties, FIELD_ALIASES.driveFolderUrl) || '',
+      latestFileId: getPropertyValue(properties, FIELD_ALIASES.driveLatestFileId) || '',
+      latestFileUrl: getPropertyValue(properties, FIELD_ALIASES.driveLatestFileUrl) || '',
+      latestCategory: getPropertyValue(properties, FIELD_ALIASES.driveLatestCategory) || '',
+      latestPurpose: getPropertyValue(properties, FIELD_ALIASES.driveLatestPurpose) || ''
     }
   };
 

@@ -247,6 +247,12 @@ function buildNotionProperties(payload, schemaProperties = {}) {
   setText(FIELD_ALIASES.lineMessageId, payload.lineMessageId);
   setText(FIELD_ALIASES.lastNotificationError, payload.lastNotificationError);
   setCheckbox(FIELD_ALIASES.consentSigned, payload.consentSigned);
+  setText(FIELD_ALIASES.driveFolderId, payload.driveFolderId);
+  setText(FIELD_ALIASES.driveFolderUrl, payload.driveFolderUrl);
+  setText(FIELD_ALIASES.driveLatestFileId, payload.driveLatestFileId);
+  setText(FIELD_ALIASES.driveLatestFileUrl, payload.driveLatestFileUrl);
+  setText(FIELD_ALIASES.driveLatestCategory, payload.driveLatestCategory);
+  setText(FIELD_ALIASES.driveLatestPurpose, payload.driveLatestPurpose);
 
   return properties;
 }
