@@ -160,7 +160,7 @@ function stripQueueMeta(item = {}) {
     taskKey: item.taskKey || null,
     previewId: item.previewId || null,
     purpose: item.purpose || 'photo',
-    folder: item.folder || 'main',
+    folder: item.folder || purposeToFolder(item.purpose || 'photo'),
     isSlip: Boolean(item.isSlip),
     createdAt: item.createdAt || new Date().toISOString(),
     attempts: Number(item.attempts || 0),
@@ -303,10 +303,18 @@ function isRetryableDriveError(error) {
 
 function purposeToFolder(purpose) {
   const key = String(purpose || '').toLowerCase();
-  if (key === 'ocr' || key === 'raw' || key === 'backup' || key === 'internal' || key.endsWith('-raw')) {
-    return 'data';
+  // Payment slip → GOOGLE_DRIVE_MAIN_FOLDER_ID; everything else → data image folder.
+  if (
+    key === 'payment'
+    || key === 'slip'
+    || key === 'receipt'
+    || key === 'payment-slip'
+    || key === 'payment_slip'
+    || key === 'main'
+  ) {
+    return 'main';
   }
-  return 'main';
+  return 'data';
 }
 
 function guessContentType(dataUrl, fallback = 'image/jpeg') {

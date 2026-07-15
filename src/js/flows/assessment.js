@@ -620,11 +620,15 @@ function applyDriveContentSrc(img, photoOrUrl, fallbackDataUrl) {
 }
 
 function buildStoredDrivePhotoMeta(meta, { purpose, previewUrl } = {}) {
+  const resolvedPurpose = meta.purpose || purpose || null;
+  const folderFromPurpose = typeof DrivePhoto !== 'undefined' && DrivePhoto.purposeToFolder
+    ? DrivePhoto.purposeToFolder(resolvedPurpose)
+    : (String(resolvedPurpose || '').toLowerCase().match(/^(payment|slip|receipt|payment-slip|payment_slip|main)$/) ? 'main' : 'data');
   return {
     fileId: meta.fileId,
     filename: meta.filename,
-    folder: meta.folder || 'main',
-    purpose: meta.purpose || purpose || null,
+    folder: meta.folder || folderFromPurpose,
+    purpose: resolvedPurpose,
     uploadedAt: meta.uploadedAt || new Date().toISOString(),
     uploadedBy: meta.uploadedBy || S.user?.username || null,
     jobId: meta.jobId || S.activeJob?.id || S.activeJob?.notionId || null,
@@ -693,7 +697,7 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
   photos[taskKey] = {
     uploading: true,
     previewUrl: compressed,
-    folder: 'main',
+    folder: 'data',
     purpose: taskKey,
     uploadedAt: null,
     jobId,
@@ -706,8 +710,8 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
     const meta = await DrivePhoto.uploadOnce({
       dataUrl: compressed,
       purpose: taskKey,
-      folder: 'main',
-      inflightKey: `main:${taskKey}:${tapIndex}`,
+      folder: 'data',
+      inflightKey: `data:${taskKey}:${tapIndex}`,
       jobId
     });
 
@@ -745,7 +749,7 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
     console.warn('Drive upload failed', error);
     const failed = markDriveUploadFailed({
       previewUrl: compressed,
-      folder: 'main',
+      folder: 'data',
       purpose: taskKey,
       jobId
     }, error);
@@ -758,7 +762,7 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
         taskKey,
         previewId,
         purpose: taskKey,
-        folder: 'main',
+        folder: 'data',
         dataUrl: compressed,
         lastError: error.message
       });
@@ -998,7 +1002,7 @@ function setPhotoPreview(previewId, src, options = {}) {
         S.tapData[S.activeTap].photos[taskKey] = {
           uploading: true,
           previewUrl: dataUrl,
-          folder: 'main',
+          folder: 'data',
           purpose: taskKey,
           jobId: S.activeJob?.id || S.activeJob?.notionId || null
         };

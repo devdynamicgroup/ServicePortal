@@ -8,8 +8,8 @@ This replaces the previous **Service Account** flow (which fails with `storageQu
 
 | Key | Env var | Use |
 |-----|---------|-----|
-| `main` | `GOOGLE_DRIVE_MAIN_FOLDER_ID` | Visit/display photos: tap, visual, meter, chlorine, payment slip |
-| `data` | `GOOGLE_DRIVE_DATA_FOLDER_ID` | Secondary/raw/OCR/internal captures |
+| `main` | `GOOGLE_DRIVE_MAIN_FOLDER_ID` | Payment slip / receipt images only |
+| `data` | `GOOGLE_DRIVE_DATA_FOLDER_ID` | Task / data images: tap, visual, meter, chlorine, OCR |
 
 Legacy `GOOGLE_DRIVE_FOLDER_ID` still maps to **main**.
 

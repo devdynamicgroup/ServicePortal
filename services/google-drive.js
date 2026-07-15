@@ -9,18 +9,24 @@ const {
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
-/** Visit/display photos shown in the field job UI. */
+/**
+ * Payment slip folder → GOOGLE_DRIVE_MAIN_FOLDER_ID ("Payment slip").
+ * Only payment receipts go here.
+ */
 const MAIN_IMAGE_PURPOSES = new Set([
-  'main', 'image', 'photo', 'gallery',
-  'tap', 'tapphoto', 'tap-photo',
-  'visual', 'meter', 'chlorine',
-  'payment', 'slip', 'receipt'
+  'main', 'payment', 'slip', 'receipt', 'payment-slip', 'payment_slip'
 ]);
 
-/** Secondary/internal capture used for OCR, backups, or raw readings. */
+/**
+ * Data / task photos → GOOGLE_DRIVE_DATA_FOLDER_ID ("data image").
+ * Meter, tap, visual, chlorine, OCR, and other field captures.
+ */
 const DATA_IMAGE_PURPOSES = new Set([
-  'data', 'secondary', 'raw', 'ocr', 'backup',
-  'reading', 'reading-source', 'meter-raw', 'chlorine-raw', 'internal'
+  'data', 'secondary', 'raw', 'ocr', 'backup', 'internal',
+  'image', 'photo', 'gallery',
+  'tap', 'tapphoto', 'tap-photo',
+  'visual', 'meter', 'chlorine',
+  'reading', 'reading-source', 'meter-raw', 'chlorine-raw'
 ]);
 
 function driveError(message, statusCode = 500, details) {
@@ -148,12 +154,13 @@ function resolveFolderKey(input = {}) {
   }
 
   if (rawPurpose) {
-    if (DATA_IMAGE_PURPOSES.has(rawPurpose)) return 'data';
     if (MAIN_IMAGE_PURPOSES.has(rawPurpose)) return 'main';
-    return 'main';
+    if (DATA_IMAGE_PURPOSES.has(rawPurpose)) return 'data';
+    // Unknown purposes default to the data-image folder (field photos).
+    return 'data';
   }
 
-  return 'main';
+  return 'data';
 }
 
 function requireFolderId(folderKey = 'main') {
