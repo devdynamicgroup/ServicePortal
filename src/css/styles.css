@@ -272,12 +272,18 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 /* legacy pill tap-tab removed — use underline style in tap-bar-wrap */
 
 /* ─── Photo upload ───────────────────────────────── */
-.photo-capture{display:flex;flex-direction:column}
-.photo-box{border:1.5px dashed var(--border);border-radius:var(--radius-lg);padding:32px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--surface);position:relative;overflow:hidden;min-height:220px;transition:border-color .15s,background .15s;cursor:pointer;-webkit-user-select:none;user-select:none}
-.photo-box:active:not(.has-photo){background:var(--accent-50)}
-.photo-box.has-photo{border-style:solid;border-color:var(--blue);padding:0;min-height:220px}
+.photo-capture{display:flex;flex-direction:column;gap:10px}
+.photo-box{border:1.5px dashed var(--border);border-radius:var(--radius-lg);padding:28px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--surface);position:relative;overflow:hidden;min-height:260px;transition:border-color .15s,background .15s}
+.photo-box.has-photo{border-style:solid;border-color:var(--blue);padding:0;min-height:180px}
 .photo-box.is-uploading{opacity:.85}
 .photo-box.upload-failed,.slip-upload-card.upload-failed{border-color:var(--red)}
+.photo-status{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:2;font-size:12px;font-weight:600;color:#fff;background:rgba(12,10,9,.72);padding:5px 12px;border-radius:20px;white-space:nowrap}
+.photo-actions{display:none}
+.photo-action-btn{height:44px;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--surface);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--text);transition:background .15s,border-color .15s}
+.photo-action-btn:active{transform:scale(.98)}
+.photo-action-btn.camera{color:var(--blue);border-color:var(--accent-100);background:var(--accent-50)}
+.photo-action-btn.upload{background:var(--bg)}
+.slip-actions{margin-top:0}
 .photo-upload-status{
   position:absolute;left:10px;right:10px;bottom:10px;z-index:4;
   border:none;border-radius:8px;padding:8px 10px;
@@ -290,7 +296,7 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .photo-box .pb-icon{width:64px;height:64px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--muted);position:relative;z-index:0}
 .photo-box .pb-icon img{width:28px;height:28px}
 .photo-box .pb-label{font-size:14px;color:var(--muted);font-weight:500;text-align:center;max-width:220px;line-height:1.4;position:relative;z-index:0}
-.photo-box input[type=file]{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.photo-box input[type=file]{position:absolute;inset:0;opacity:0;width:100%;height:100%;pointer-events:auto;cursor:pointer;z-index:5}
 .photo-hint{font-size:13px;color:var(--muted);line-height:1.5;padding:0 4px}
 
 /* ─── Notice (icon, no emoji) ──────────────────── */
