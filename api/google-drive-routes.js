@@ -178,12 +178,14 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
       const customerName = payload.customerName || payload.clientName || null;
       const customerFolderId = payload.customerFolderId || payload.driveFolderId || null;
       const category = payload.category || null;
+      const subCategory = payload.subCategory || payload.uploadType || null;
       const uploadContentType = payload.contentType || payload.mimeType || null;
 
       console.log('[DRIVE REQUEST]', {
         notionId: notionId || null,
         customerName: customerName || null,
         category: category || null,
+        subCategory: subCategory || null,
         purpose: purpose || null,
         filename: filename || null
       });
@@ -192,6 +194,7 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
         notionId: notionId ? `${String(notionId).slice(0, 8)}…` : null,
         customerName: customerName || null,
         category: category || null,
+        subCategory: subCategory || null,
         purpose: purpose || null
       });
 
@@ -205,6 +208,8 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
         folder,
         purpose,
         category,
+        subCategory,
+        uploadType: payload.uploadType || subCategory,
         jobId,
         notionId,
         customerName,
@@ -218,8 +223,10 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
           folder: file.folder || file.category || null,
           folderId: file.folderId,
           category: file.category || null,
+          subCategory: file.subCategory || null,
           customerFolderId: file.customerFolderId || null,
           categoryFolderId: file.categoryFolderId || null,
+          subCategoryFolderId: file.subCategoryFolderId || null,
           webViewLink: file.webViewLink || null
         });
       } catch (e) { /* ignore logging failures */ }

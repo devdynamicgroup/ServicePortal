@@ -1,13 +1,19 @@
 /**
- * Customer / category folder hierarchy under the Drive roots.
+ * Customer / category / subCategory folder hierarchy under the Drive roots.
  *
  * GOOGLE_DRIVE_MAIN_FOLDER_ID
  * └── Customer Name [notionShortId]
- *     ├── Site Inspection   (lazy on first upload)
- *     ├── Before Service    (lazy)
- *     ├── After Service     (lazy)
- *     ├── Documents         (lazy — JSON / reports)
- *     └── Payment           (lazy — ONLY when a payment slip is uploaded)
+ *     ├── Site Inspection
+ *     │   ├── Tap
+ *     │   ├── Visual
+ *     │   ├── Meter
+ *     │   └── Chlorine
+ *     ├── Before Service
+ *     ├── After Service
+ *     ├── Documents
+ *     │   └── JSON
+ *     └── Payment
+ *         └── Slip
  *
  * Auth uses the existing OAuth client (not a Service Account).
  */
@@ -24,6 +30,23 @@ const CATEGORY = {
   PAYMENT: 'Payment'
 };
 
+const SUB_CATEGORY = {
+  TAP: 'Tap',
+  VISUAL: 'Visual',
+  METER: 'Meter',
+  CHLORINE: 'Chlorine',
+  PRESSURE: 'Pressure',
+  INFRA: 'Infra',
+  PHOTO: 'Photo',
+  BEFORE: 'Before',
+  AFTER: 'After',
+  JSON: 'JSON',
+  REPORT: 'Report',
+  SLIP: 'Slip',
+  RECEIPT: 'Receipt',
+  GENERAL: 'General'
+};
+
 const PURPOSE_TO_CATEGORY = {
   tapphoto: CATEGORY.SITE_INSPECTION,
   tap: CATEGORY.SITE_INSPECTION,
@@ -31,6 +54,8 @@ const PURPOSE_TO_CATEGORY = {
   visual: CATEGORY.SITE_INSPECTION,
   meter: CATEGORY.SITE_INSPECTION,
   chlorine: CATEGORY.SITE_INSPECTION,
+  pressure: CATEGORY.SITE_INSPECTION,
+  infra: CATEGORY.SITE_INSPECTION,
   ocr: CATEGORY.SITE_INSPECTION,
   photo: CATEGORY.SITE_INSPECTION,
   gallery: CATEGORY.SITE_INSPECTION,
@@ -60,6 +85,46 @@ const PURPOSE_TO_CATEGORY = {
   receipt: CATEGORY.PAYMENT,
   'payment-slip': CATEGORY.PAYMENT,
   payment_slip: CATEGORY.PAYMENT
+};
+
+const PURPOSE_TO_SUB_CATEGORY = {
+  tapphoto: SUB_CATEGORY.TAP,
+  tap: SUB_CATEGORY.TAP,
+  'tap-photo': SUB_CATEGORY.TAP,
+  visual: SUB_CATEGORY.VISUAL,
+  meter: SUB_CATEGORY.METER,
+  'meter-raw': SUB_CATEGORY.METER,
+  reading: SUB_CATEGORY.METER,
+  'reading-source': SUB_CATEGORY.METER,
+  chlorine: SUB_CATEGORY.CHLORINE,
+  'chlorine-raw': SUB_CATEGORY.CHLORINE,
+  pressure: SUB_CATEGORY.PRESSURE,
+  infra: SUB_CATEGORY.INFRA,
+  ocr: SUB_CATEGORY.PHOTO,
+  photo: SUB_CATEGORY.PHOTO,
+  gallery: SUB_CATEGORY.PHOTO,
+  image: SUB_CATEGORY.PHOTO,
+  before: SUB_CATEGORY.BEFORE,
+  'before-service': SUB_CATEGORY.BEFORE,
+  before_service: SUB_CATEGORY.BEFORE,
+  after: SUB_CATEGORY.AFTER,
+  'after-service': SUB_CATEGORY.AFTER,
+  after_service: SUB_CATEGORY.AFTER,
+  document: SUB_CATEGORY.JSON,
+  documents: SUB_CATEGORY.JSON,
+  assessment: SUB_CATEGORY.JSON,
+  export: SUB_CATEGORY.JSON,
+  backup: SUB_CATEGORY.JSON,
+  metadata: SUB_CATEGORY.JSON,
+  json: SUB_CATEGORY.JSON,
+  data: SUB_CATEGORY.JSON,
+  report: SUB_CATEGORY.REPORT,
+  reports: SUB_CATEGORY.REPORT,
+  payment: SUB_CATEGORY.SLIP,
+  slip: SUB_CATEGORY.SLIP,
+  'payment-slip': SUB_CATEGORY.SLIP,
+  payment_slip: SUB_CATEGORY.SLIP,
+  receipt: SUB_CATEGORY.RECEIPT
 };
 
 function driveFolderError(message, statusCode = 500, details) {
@@ -127,6 +192,31 @@ function resolveCategoryFromPurpose(purpose, options = {}) {
   if (/\.jsonl?$/i.test(String(options.filename || ''))) return CATEGORY.DOCUMENTS;
   if (mime.startsWith('image/')) return CATEGORY.SITE_INSPECTION;
   return CATEGORY.DOCUMENTS;
+}
+
+function sanitizeSubCategoryName(name) {
+  return sanitizeFolderLabel(name).replace(/^\.+/, '') || SUB_CATEGORY.GENERAL;
+}
+
+function resolveSubCategoryFromPurpose(purpose, options = {}) {
+  if (options.subCategory || options.uploadType) {
+    const raw = String(options.subCategory || options.uploadType).trim();
+    if (raw) {
+      const known = Object.values(SUB_CATEGORY).find(name => name.toLowerCase() === raw.toLowerCase());
+      return known || sanitizeSubCategoryName(raw);
+    }
+  }
+
+  const key = String(purpose || options.useCase || options.type || '').trim().toLowerCase();
+  if (PURPOSE_TO_SUB_CATEGORY[key]) return PURPOSE_TO_SUB_CATEGORY[key];
+
+  const mime = String(options.contentType || options.mimeType || '').toLowerCase().split(';')[0].trim();
+  if (mime === 'application/json' || mime === 'text/json' || mime.endsWith('+json')) {
+    return SUB_CATEGORY.JSON;
+  }
+  if (/\.jsonl?$/i.test(String(options.filename || ''))) return SUB_CATEGORY.JSON;
+  if (mime.startsWith('image/')) return SUB_CATEGORY.PHOTO;
+  return SUB_CATEGORY.GENERAL;
 }
 
 const DRIVE_FILE_OPTS = {
@@ -420,7 +510,83 @@ async function ensureCategoryFolder({
 }
 
 /**
+ * Ensure a subCategory folder under the category folder
+ * (e.g. Site Inspection / Tap).
+ */
+async function ensureSubCategoryFolder({
+  categoryFolderId,
+  subCategory,
+  createIfMissing = true
+} = {}) {
+  if (!categoryFolderId) {
+    throw driveFolderError('categoryFolderId is required', 400);
+  }
+  const subCategoryName = sanitizeSubCategoryName(subCategory);
+  if (!subCategoryName) {
+    throw driveFolderError('subCategory is required', 400);
+  }
+
+  let existing = null;
+  try {
+    existing = await findChildFolderByAppProperty(categoryFolderId, 'wmSubCategory', subCategoryName);
+  } catch (error) {
+    console.warn('[drive-folders] subCategory appProperty search failed', { message: error.message });
+  }
+  if (!existing) {
+    try {
+      existing = await findChildFolderByName(categoryFolderId, subCategoryName);
+    } catch (error) {
+      console.warn('[drive-folders] subCategory name search failed', { message: error.message });
+    }
+  }
+  if (existing) {
+    console.log('[drive-folders] reusing subCategory folder', {
+      folderId: existing.id,
+      subCategory: subCategoryName
+    });
+    return {
+      folderId: existing.id,
+      name: existing.name || subCategoryName,
+      webViewLink: existing.webViewLink || null,
+      created: false
+    };
+  }
+
+  if (!createIfMissing) {
+    return null;
+  }
+
+  try {
+    const created = await createFolder({
+      parentId: categoryFolderId,
+      name: subCategoryName,
+      appProperties: {
+        wmSubCategory: subCategoryName,
+        wmType: 'subCategory'
+      }
+    });
+    return {
+      folderId: created.id,
+      name: created.name,
+      webViewLink: created.webViewLink || null,
+      created: true
+    };
+  } catch (error) {
+    console.error('[drive-folders] ensureSubCategoryFolder failed', {
+      subCategory: subCategoryName,
+      message: error.message
+    });
+    throw driveFolderError(
+      `Unable to ensure subCategory folder "${subCategoryName}" (${error.message || 'unknown'})`,
+      error.statusCode || error.code || 502,
+      error.errors || error.response?.data
+    );
+  }
+}
+
+/**
  * Resolve the upload parent folder for a customer + purpose.
+ * Path: Customer → Category → SubCategory → file
  * Payment category is created only for payment purposes.
  */
 async function resolveUploadTargetFolder({
@@ -430,6 +596,8 @@ async function resolveUploadTargetFolder({
   cachedCustomerFolderId,
   purpose,
   category: explicitCategory,
+  subCategory: explicitSubCategory,
+  uploadType,
   contentType,
   filename
 } = {}) {
@@ -438,6 +606,13 @@ async function resolveUploadTargetFolder({
     contentType,
     filename
   });
+  const subCategory = resolveSubCategoryFromPurpose(purpose, {
+    subCategory: explicitSubCategory,
+    uploadType,
+    contentType,
+    filename
+  });
+
   const customer = await ensureCustomerFolder({
     rootFolderId,
     notionId,
@@ -452,8 +627,15 @@ async function resolveUploadTargetFolder({
     createIfMissing: true
   });
 
+  const subCategoryFolder = await ensureSubCategoryFolder({
+    categoryFolderId: categoryFolder.folderId,
+    subCategory,
+    createIfMissing: true
+  });
+
   return {
     category,
+    subCategory,
     customerFolderId: customer.folderId,
     customerFolderName: customer.name,
     customerFolderUrl: customer.webViewLink,
@@ -462,7 +644,11 @@ async function resolveUploadTargetFolder({
     categoryFolderName: categoryFolder.name,
     categoryFolderUrl: categoryFolder.webViewLink,
     categoryFolderCreated: categoryFolder.created,
-    uploadFolderId: categoryFolder.folderId
+    subCategoryFolderId: subCategoryFolder.folderId,
+    subCategoryFolderName: subCategoryFolder.name,
+    subCategoryFolderUrl: subCategoryFolder.webViewLink,
+    subCategoryFolderCreated: subCategoryFolder.created,
+    uploadFolderId: subCategoryFolder.folderId
   };
 }
 
@@ -501,13 +687,17 @@ async function isDescendantOfRoots(fileId, rootIds = []) {
 
 module.exports = {
   CATEGORY,
+  SUB_CATEGORY,
   PURPOSE_TO_CATEGORY,
+  PURPOSE_TO_SUB_CATEGORY,
   expandNotionId,
   shortNotionId,
   buildCustomerFolderName,
   resolveCategoryFromPurpose,
+  resolveSubCategoryFromPurpose,
   ensureCustomerFolder,
   ensureCategoryFolder,
+  ensureSubCategoryFolder,
   resolveUploadTargetFolder,
   isDescendantOfRoots,
   getFolderMeta

@@ -10,7 +10,8 @@ const {
   resolveUploadTargetFolder,
   isDescendantOfRoots,
   expandNotionId,
-  resolveCategoryFromPurpose
+  resolveCategoryFromPurpose,
+  resolveSubCategoryFromPurpose
 } = require('./google-drive-folders');
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -306,10 +307,13 @@ function mapFileMetadata(file, options = {}) {
     folder: folderKey,
     folderId: options.folderId || null,
     category: options.category || null,
+    subCategory: options.subCategory || null,
     customerFolderId: options.customerFolderId || null,
     customerFolderUrl: options.customerFolderUrl || null,
     categoryFolderId: options.categoryFolderId || null,
     categoryFolderUrl: options.categoryFolderUrl || null,
+    subCategoryFolderId: options.subCategoryFolderId || null,
+    subCategoryFolderUrl: options.subCategoryFolderUrl || null,
     webViewLink: file.webViewLink || null,
     webContentLink: file.webContentLink || null,
     thumbnailLink: file.thumbnailLink || null,
@@ -348,6 +352,8 @@ async function uploadImage({
   useCase,
   type,
   category: explicitCategory,
+  subCategory: explicitSubCategory,
+  uploadType,
   jobId,
   notionId,
   customerName,
@@ -411,8 +417,14 @@ async function uploadImage({
     contentType: mimeType,
     filename: safeName
   });
+  let subCategory = resolveSubCategoryFromPurpose(purpose || useCase || type, {
+    subCategory: explicitSubCategory,
+    uploadType,
+    contentType: mimeType,
+    filename: safeName
+  });
 
-  // Prefer customer → category hierarchy.
+  // Prefer customer → category → subCategory hierarchy.
   // MAIN fallback only when customer identity is missing (debug / break-glass).
   if (resolvedNotionId) {
     hierarchy = await resolveUploadTargetFolder({
@@ -422,15 +434,20 @@ async function uploadImage({
       cachedCustomerFolderId,
       purpose: purpose || useCase || type,
       category: explicitCategory,
+      subCategory: explicitSubCategory,
+      uploadType,
       contentType: mimeType,
       filename: safeName
     });
     folderId = hierarchy.uploadFolderId;
     category = hierarchy.category;
+    subCategory = hierarchy.subCategory;
     console.log('[DRIVE TARGET]', {
       customerFolderId: hierarchy.customerFolderId,
       categoryFolderId: hierarchy.categoryFolderId,
+      subCategoryFolderId: hierarchy.subCategoryFolderId,
       category,
+      subCategory,
       customerName: resolvedCustomerName,
       notionId: `${String(resolvedNotionId).slice(0, 8)}…`
     });
@@ -439,6 +456,7 @@ async function uploadImage({
       notionId: null,
       customerName: resolvedCustomerName || null,
       category,
+      subCategory,
       reason: 'missing_notionId_temporary_main_fallback'
     });
     console.warn('[drive] Missing customer context — uploading to MAIN_FOLDER for debugging');
@@ -455,16 +473,18 @@ async function uploadImage({
     requestBody.appProperties = {
       wmCustomerId: resolvedNotionId,
       wmPurpose: String(purpose || useCase || type || '').slice(0, 64),
-      wmCategory: String(category).slice(0, 64)
+      wmCategory: String(category).slice(0, 64),
+      wmSubCategory: String(subCategory).slice(0, 64)
     };
   }
 
   console.log('[UPLOAD RECEIVED]', {
     filename: safeName,
-    folder: hierarchy ? category : 'main',
+    folder: hierarchy ? `${category}/${subCategory}` : 'main',
     mimeType,
     selectedFolderId: folderId,
     category,
+    subCategory,
     customerFolderId: hierarchy?.customerFolderId || null,
     notionId: resolvedNotionId ? `${String(resolvedNotionId).slice(0, 8)}…` : null,
     customerName: resolvedCustomerName
@@ -488,7 +508,8 @@ async function uploadImage({
       folderId,
       parents: created.parents || [folderId],
       name: created.name,
-      category: hierarchy ? category : 'main'
+      category: hierarchy ? category : 'main',
+      subCategory: hierarchy ? subCategory : null
     });
   } catch (error) {
     // Retry without appProperties if Drive rejects them (common on some Shared Drives).
@@ -514,6 +535,7 @@ async function uploadImage({
           parents: created.parents || [folderId],
           name: created.name,
           category: hierarchy ? category : 'main',
+          subCategory: hierarchy ? subCategory : null,
           note: 'uploaded_without_appProperties'
         });
       } catch (retryError) {
@@ -549,13 +571,16 @@ async function uploadImage({
   }
 
   return mapFileMetadata(created, {
-    folderKey: hierarchy ? category : 'main',
+    folderKey: hierarchy ? `${category}/${subCategory}` : 'main',
     folderId,
     category: hierarchy ? category : null,
+    subCategory: hierarchy ? subCategory : null,
     customerFolderId: hierarchy?.customerFolderId || null,
     customerFolderUrl: hierarchy?.customerFolderUrl || null,
     categoryFolderId: hierarchy?.categoryFolderId || null,
-    categoryFolderUrl: hierarchy?.categoryFolderUrl || null
+    categoryFolderUrl: hierarchy?.categoryFolderUrl || null,
+    subCategoryFolderId: hierarchy?.subCategoryFolderId || null,
+    subCategoryFolderUrl: hierarchy?.subCategoryFolderUrl || null
   });
 }
 

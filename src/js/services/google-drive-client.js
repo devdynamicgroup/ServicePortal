@@ -455,6 +455,81 @@ function resolveClientCategory(purpose, contentType, filename, explicitCategory)
           : 'Site Inspection')));
 }
 
+function resolveClientSubCategory(purpose, contentType, filename, explicitSubCategory) {
+  if (explicitSubCategory && String(explicitSubCategory).trim()) {
+    const raw = String(explicitSubCategory).trim();
+    const known = {
+      tap: 'Tap',
+      visual: 'Visual',
+      meter: 'Meter',
+      chlorine: 'Chlorine',
+      pressure: 'Pressure',
+      infra: 'Infra',
+      photo: 'Photo',
+      before: 'Before',
+      after: 'After',
+      json: 'JSON',
+      report: 'Report',
+      slip: 'Slip',
+      receipt: 'Receipt',
+      general: 'General'
+    };
+    const hit = known[raw.toLowerCase()];
+    if (hit) return hit;
+    const titled = Object.values(known).find(name => name.toLowerCase() === raw.toLowerCase());
+    return titled || raw;
+  }
+
+  const key = String(purpose || '').trim().toLowerCase();
+  const byPurpose = {
+    tapphoto: 'Tap',
+    tap: 'Tap',
+    'tap-photo': 'Tap',
+    visual: 'Visual',
+    meter: 'Meter',
+    'meter-raw': 'Meter',
+    reading: 'Meter',
+    'reading-source': 'Meter',
+    chlorine: 'Chlorine',
+    'chlorine-raw': 'Chlorine',
+    pressure: 'Pressure',
+    infra: 'Infra',
+    ocr: 'Photo',
+    photo: 'Photo',
+    gallery: 'Photo',
+    image: 'Photo',
+    before: 'Before',
+    'before-service': 'Before',
+    before_service: 'Before',
+    after: 'After',
+    'after-service': 'After',
+    after_service: 'After',
+    document: 'JSON',
+    documents: 'JSON',
+    assessment: 'JSON',
+    export: 'JSON',
+    backup: 'JSON',
+    metadata: 'JSON',
+    json: 'JSON',
+    data: 'JSON',
+    report: 'Report',
+    reports: 'Report',
+    payment: 'Slip',
+    slip: 'Slip',
+    'payment-slip': 'Slip',
+    payment_slip: 'Slip',
+    receipt: 'Receipt'
+  };
+  if (byPurpose[key]) return byPurpose[key];
+
+  const mime = String(contentType || '').toLowerCase().split(';')[0].trim();
+  if (mime === 'application/json' || mime === 'text/json' || /\.jsonl?$/i.test(String(filename || ''))) {
+    return 'JSON';
+  }
+  if (mime.startsWith('image/')) return 'Photo';
+  return 'General';
+}
+
 function currentJobId() {
   return resolveActiveCustomerContext().jobId;
 }
@@ -665,6 +740,8 @@ async function uploadDriveImage({
   customerName,
   customerFolderId,
   category,
+  subCategory,
+  uploadType,
   json
 } = {}) {
   let payloadDataUrl = dataUrl;
@@ -732,6 +809,12 @@ async function uploadDriveImage({
     resolvedFilename,
     category
   );
+  const resolvedSubCategory = resolveClientSubCategory(
+    resolvedPurpose,
+    mime,
+    resolvedFilename,
+    subCategory || uploadType
+  );
 
   if (!customer.notionId) {
     console.warn('[UPLOAD REQUEST] missing notionId — open a customer case before uploading', {
@@ -747,6 +830,7 @@ async function uploadDriveImage({
     notionId: customer.notionId || null,
     customerName: customer.customerName || null,
     category: resolvedCategory,
+    subCategory: resolvedSubCategory,
     fileName: resolvedFilename,
     hasActiveJob: Boolean(typeof S !== 'undefined' && S.activeJob),
     activeJobId: (typeof S !== 'undefined' && S.activeJob)
@@ -759,6 +843,7 @@ async function uploadDriveImage({
     purpose: resolvedPurpose,
     folder: resolvedFolder,
     category: resolvedCategory,
+    subCategory: resolvedSubCategory,
     mimeType: mime,
     notionId: customer.notionId ? String(customer.notionId).slice(0, 8) + '…' : null,
     customerName: customer.customerName || null,
@@ -787,6 +872,8 @@ async function uploadDriveImage({
         purpose: resolvedPurpose,
         folder: resolvedFolder,
         category: resolvedCategory,
+        subCategory: resolvedSubCategory,
+        uploadType: resolvedSubCategory,
         description,
         jobId: customer.jobId,
         notionId: customer.notionId,
@@ -839,10 +926,13 @@ async function uploadDriveImage({
     folder: data.file.folder || data.file.category || resolvedFolder,
     folderId: data.file.folderId || null,
     category: data.file.category || resolvedCategory,
+    subCategory: data.file.subCategory || resolvedSubCategory,
     customerFolderId: data.file.customerFolderId || null,
     customerFolderUrl: data.file.customerFolderUrl || null,
     categoryFolderId: data.file.categoryFolderId || null,
     categoryFolderUrl: data.file.categoryFolderUrl || null,
+    subCategoryFolderId: data.file.subCategoryFolderId || null,
+    subCategoryFolderUrl: data.file.subCategoryFolderUrl || null,
     purpose: data.file.purpose || resolvedPurpose,
     uploadedAt: data.file.createdTime || new Date().toISOString(),
     uploadedBy: data.file.uploadedBy || currentUsername(),
@@ -871,6 +961,8 @@ async function uploadCapturedImageOnce({
   customerName,
   customerFolderId,
   category,
+  subCategory,
+  uploadType,
   json,
   description
 } = {}) {
@@ -893,6 +985,8 @@ async function uploadCapturedImageOnce({
       customerName,
       customerFolderId,
       category,
+      subCategory,
+      uploadType,
       json,
       description
     });
@@ -924,6 +1018,7 @@ window.DrivePhoto = {
   resolveUploadFolder,
   resolveActiveCustomerContext,
   resolveClientCategory,
+  resolveClientSubCategory,
   upload: uploadDriveImage,
   uploadOnce: uploadCapturedImageOnce,
   uploadJson: uploadDriveJson,

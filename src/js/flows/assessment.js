@@ -630,10 +630,13 @@ function buildStoredDrivePhotoMeta(meta, { purpose, previewUrl } = {}) {
     folder: meta.folder || folderFromPurpose,
     folderId: meta.folderId || null,
     category: meta.category || null,
+    subCategory: meta.subCategory || null,
     customerFolderId: meta.customerFolderId || null,
     customerFolderUrl: meta.customerFolderUrl || null,
     categoryFolderId: meta.categoryFolderId || null,
     categoryFolderUrl: meta.categoryFolderUrl || null,
+    subCategoryFolderId: meta.subCategoryFolderId || null,
+    subCategoryFolderUrl: meta.subCategoryFolderUrl || null,
     purpose: resolvedPurpose,
     uploadedAt: meta.uploadedAt || new Date().toISOString(),
     uploadedBy: meta.uploadedBy || S.user?.username || null,
@@ -678,6 +681,9 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
   const category = typeof DrivePhoto.resolveClientCategory === 'function'
     ? DrivePhoto.resolveClientCategory(taskKey, 'image/jpeg')
     : 'Site Inspection';
+  const subCategory = typeof DrivePhoto.resolveClientSubCategory === 'function'
+    ? DrivePhoto.resolveClientSubCategory(taskKey, 'image/jpeg')
+    : taskKey;
   const jobId = customer.jobId;
   const queueKey = driveQueueKey(taskKey, tapIndex);
 
@@ -710,6 +716,7 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
     folder: 'main',
     purpose: taskKey,
     category,
+    subCategory,
     notionId: customer.notionId,
     uploadedAt: null,
     jobId,
@@ -724,6 +731,8 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
       purpose: taskKey,
       folder: 'main',
       category,
+      subCategory,
+      uploadType: subCategory,
       contentType: 'image/jpeg',
       inflightKey: `main:${taskKey}:${tapIndex}`,
       jobId,
@@ -750,6 +759,7 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
       folder: 'main',
       purpose: taskKey,
       category,
+      subCategory,
       notionId: customer.notionId,
       jobId
     }, error);
@@ -766,6 +776,7 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
         previewId,
         purpose: taskKey,
         category,
+        subCategory,
         folder: 'main',
         dataUrl: compressed,
         lastError: error.message
@@ -816,6 +827,7 @@ async function uploadSlipPhotoToDrive(dataUrl) {
     folder: 'main',
     purpose: 'payment',
     category: 'Payment',
+    subCategory: 'Slip',
     notionId: customer.notionId,
     jobId,
     pendingAutoRetry: false
@@ -830,6 +842,8 @@ async function uploadSlipPhotoToDrive(dataUrl) {
       purpose: 'payment',
       folder: 'main',
       category: 'Payment',
+      subCategory: 'Slip',
+      uploadType: 'Slip',
       contentType: 'image/jpeg',
       filename: DrivePhoto.buildFilename('payment-slip'),
       inflightKey: 'main:payment:slip',
@@ -852,6 +866,7 @@ async function uploadSlipPhotoToDrive(dataUrl) {
       folder: 'main',
       purpose: 'payment',
       category: 'Payment',
+      subCategory: 'Slip',
       notionId: customer.notionId,
       jobId
     }, error);
@@ -867,6 +882,7 @@ async function uploadSlipPhotoToDrive(dataUrl) {
         previewId: 'slip-preview',
         purpose: 'payment',
         category: 'Payment',
+        subCategory: 'Slip',
         folder: 'main',
         isSlip: true,
         dataUrl: compressed,
