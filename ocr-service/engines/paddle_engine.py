@@ -10,6 +10,9 @@ EngineUnavailableError / OCR_INTERNAL_ERROR without crashing the process.
 from __future__ import annotations
 
 import threading
+import time
+import traceback
+import sys
 from typing import Any
 
 from engines.base_engine import BaseOcrEngine
@@ -114,27 +117,95 @@ class PaddleEngine(BaseOcrEngine):
                 )
                 self._available = True
                 self._init_error = None
+                self._init_error_trace = None
             except Exception as exc:  # noqa: BLE001 — engine must never crash the service
+                # Preserve original exception message and full traceback for diagnostics.
                 self._ocr = None
                 self._available = False
                 self._init_error = str(exc)
+                self._init_error_trace = traceback.format_exc()
+                try:
+                    # Print original exception and full traceback to stderr for debugging.
+                    print("[paddle-engine] init exception:", repr(exc), file=sys.stderr)
+                    print(self._init_error_trace, file=sys.stderr)
+                    # Additional diagnostics: environment variables and model cache inspection
+                    try:
+                        import os
+                        from pathlib import Path
+
+                        env_keys = [k for k in os.environ.keys() if 'PADDLE' in k.upper() or 'PADDLEX' in k.upper()]
+                        env_snapshot = {k: (os.environ.get(k)[:100] + '...') if len(os.environ.get(k) or '') > 100 else os.environ.get(k) for k in env_keys}
+                        print('[paddle-engine] paddle-related env keys:', env_snapshot, file=sys.stderr)
+
+                        home = Path.home()
+                        paddlex_cache = home.joinpath('.paddlex', 'official_models')
+                        print('[paddle-engine] paddlex cache exists:', paddlex_cache.exists(), file=sys.stderr)
+                        if paddlex_cache.exists():
+                            # list top-level model dirs and first few filenames
+                            try:
+                                entries = []
+                                for child in sorted(paddlex_cache.iterdir()):
+                                    if child.is_dir():
+                                        files = [p.name for p in sorted(child.glob('*'))][:10]
+                                        entries.append({ 'model': child.name, 'files_sample': files })
+                                print('[paddle-engine] paddlex cache contents sample:', entries, file=sys.stderr)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
 
     def extract_text(self, image_path: str, *, meter_type: str | None = None) -> dict[str, Any]:
         self._ensure_init()
         if not self._available or self._ocr is None:
-            raise RuntimeError(
-                self._init_error or "PaddleOCR engine is not available"
-            )
+            # When unavailable, surface the original init error and traceback to stderr
+            try:
+                print("[paddle-engine] engine unavailable:", self._init_error or "PaddleOCR engine is not available", file=sys.stderr)
+                if hasattr(self, '_init_error_trace') and self._init_error_trace:
+                    print(self._init_error_trace, file=sys.stderr)
+            except Exception:
+                pass
+            raise RuntimeError(self._init_error or "PaddleOCR engine is not available")
 
         path = str(image_path or "").strip()
         if not path:
             raise ValueError("image_path is required")
 
-        result = self._ocr.predict(path)
+        start = time.perf_counter()
+        # Run OCR predict and capture raw result
+        try:
+            result = self._ocr.predict(path)
+        except Exception as exc:
+            # If predict itself fails, print traceback then re-raise
+            tb = traceback.format_exc()
+            try:
+                print('[paddle-engine] predict exception:', repr(exc), file=sys.stderr)
+                print(tb, file=sys.stderr)
+            except Exception:
+                pass
+            raise
+
+        elapsed = (time.perf_counter() - start) * 1000.0
+
+        # Diagnostics: print raw OCR output before parsing
+        try:
+            print('[paddle-engine] RAW OCR RESULT:', repr(result))
+        except Exception:
+            pass
+
         texts = _extract_texts(result)
         confidence = _average_confidence(result)
         if confidence is None:
             confidence = 0.0
+
+        # Also print parsed diagnostics (raw text, parsed result, confidence, elapsed time)
+        try:
+            print('[paddle-engine] PARSED TEXTS:', texts)
+            print('[paddle-engine] CONFIDENCE:', float(confidence))
+            print('[paddle-engine] ELAPSED_MS:', round(elapsed, 2))
+        except Exception:
+            pass
 
         return {
             "texts": texts,
