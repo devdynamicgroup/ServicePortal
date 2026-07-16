@@ -420,6 +420,7 @@ function openPhotoCapture(inputId) {
   if (!input) return;
 
   input.accept = 'image/*';
+  // By default do not force native capture UI. Caller can pass keepCapture=true to request camera capture.
   input.removeAttribute('capture');
   input.value = '';
   input.click();
@@ -474,6 +475,19 @@ async function openCameraCapture(inputId, previewId) {
   } catch (errorObj) {
     console.warn(errorObj);
     error?.classList.remove('hidden');
+    // Fallback: if camera permission or API fails, open native photo picker (prefer camera capture on mobile)
+    if (inputId) {
+      try {
+        const inputEl = document.getElementById(inputId);
+        if (inputEl) {
+          // Request native camera capture where supported
+          inputEl.setAttribute('capture', 'environment');
+          openPhotoCapture(inputId);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
   }
 }
 
@@ -540,6 +554,7 @@ function previewPhoto(input, previewId) {
   const file = input.files[0];
   if (!file) return;
   readImageFile(file, src => {
+    console.debug('[photo] previewPhoto -> setPhotoPreview', previewId, file.name);
     setPhotoPreview(previewId, src);
     showToast('Photo uploaded');
   });
@@ -1011,6 +1026,7 @@ function retryDrivePhotoUpload(previewId) {
 function setPhotoPreview(previewId, src, options = {}) {
   const img = document.getElementById(previewId);
   if (!img) return;
+  console.debug('[photo] setPhotoPreview', previewId, typeof src === 'string' ? src.slice(0,40) : src && src.previewUrl ? src.previewUrl.slice(0,40) : Object.keys(src || {}));
 
   const isMeta = typeof DrivePhoto !== 'undefined' && DrivePhoto.isMeta(src);
   const displaySrc = typeof DrivePhoto !== 'undefined'
