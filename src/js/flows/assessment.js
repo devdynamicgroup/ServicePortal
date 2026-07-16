@@ -414,14 +414,17 @@ function handlePhotoFile(input, previewId) {
   });
 }
 
-function openPhotoCapture(inputId) {
+function openPhotoCapture(inputId, keepCapture = false) {
   closeCameraCapture?.();
   const input = document.getElementById(inputId);
   if (!input) return;
 
   input.accept = 'image/*';
-  // By default do not force native capture UI. Caller can pass keepCapture=true to request camera capture.
-  input.removeAttribute('capture');
+  if (keepCapture) {
+    input.setAttribute('capture', 'environment');
+  } else {
+    input.removeAttribute('capture');
+  }
   input.value = '';
   input.click();
 }
@@ -459,28 +462,21 @@ async function openCameraCapture(inputId, previewId) {
 
   closeTransientOverlays?.();
   error?.classList.add('hidden');
-  overlay.classList.remove('hidden');
   stopCameraStream();
 
-  // On many mobile browsers the MediaDevices API is restricted (file://, non-HTTPS, or permission issues).
-  // Prefer native file picker capture on mobile devices to ensure camera opens.
+  // On mobile, use native capture instead of getUserMedia to open the phone camera reliably.
   try {
     const ua = navigator.userAgent || '';
     const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-    const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    if (isMobile && !isSecure) {
-      // Use native picker with capture attribute - more reliable on mobile browsers served over file:// or non-HTTPS
-      const inputEl = document.getElementById(inputId);
-      if (inputEl) {
-        inputEl.setAttribute('capture', 'environment');
-        inputEl.click();
-        overlay.classList.add('hidden');
-        return;
-      }
+    if (isMobile) {
+      openPhotoCapture(inputId, true);
+      return;
     }
   } catch (e) {
     // ignore and continue to attempt getUserMedia
   }
+
+  overlay.classList.remove('hidden');
 
   try {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera API unavailable');
@@ -495,15 +491,9 @@ async function openCameraCapture(inputId, previewId) {
   } catch (errorObj) {
     console.warn(errorObj);
     error?.classList.remove('hidden');
-    // Fallback: if camera permission or API fails, open native photo picker (prefer camera capture on mobile)
     if (inputId) {
       try {
-        const inputEl = document.getElementById(inputId);
-        if (inputEl) {
-          // Request native camera capture where supported
-          inputEl.setAttribute('capture', 'environment');
-          openPhotoCapture(inputId);
-        }
+        openPhotoCapture(inputId, true);
       } catch (e) {
         // ignore
       }
