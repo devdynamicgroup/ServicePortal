@@ -1,0 +1,7 @@
+{
+  "meter_type": "ph",
+  "expected": {
+    "ph": 7.29,
+    "mv": -15.0
+  }
+}

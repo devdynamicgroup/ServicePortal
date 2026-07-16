@@ -1,0 +1,9 @@
+# Water Motion OCR Service — Phase 5 pipeline (stdlib runtime)
+# Tests use unittest (stdlib).
+#
+# Optional:
+#   pillow          — real preprocess steps (otherwise no-op)
+#   paddleocr       — OCR_ENGINE=paddle
+#
+# OCR_HOST / OCR_PORT / OCR_ENGINE / OCR_MAX_BODY_BYTES / OCR_SERVICE_PHASE
+# OCR_PREPROCESS_* / OCR_ALLOW_VIRTUAL_IMAGES / OCR_IMAGE_*

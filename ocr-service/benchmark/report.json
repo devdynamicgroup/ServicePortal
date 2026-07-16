@@ -1,0 +1,124 @@
+{
+  "engine": "mock",
+  "dataset": "D:/Service Portal/ocr-service/datasets/meters",
+  "total_images": 2,
+  "labeled_images": 2,
+  "summary": {
+    "average_accuracy": 1.0,
+    "average_latency_ms": 6.388,
+    "failure_rate": 0.0,
+    "success_count": 2,
+    "failure_count": 0
+  },
+  "worst_images": [
+    {
+      "image": "demo_ph_001.png",
+      "accuracy": 1.0,
+      "confidence": 0.99,
+      "processing_time_ms": 11.02,
+      "expected_value": 7.29,
+      "ocr_value": 7.29,
+      "error": null
+    },
+    {
+      "image": "demo_tds_001.png",
+      "accuracy": 1.0,
+      "confidence": 0.99,
+      "processing_time_ms": 1.756,
+      "expected_value": 280,
+      "ocr_value": 280,
+      "error": null
+    }
+  ],
+  "best_images": [
+    {
+      "image": "demo_tds_001.png",
+      "accuracy": 1.0,
+      "confidence": 0.99,
+      "processing_time_ms": 1.756,
+      "expected_value": 280,
+      "ocr_value": 280
+    },
+    {
+      "image": "demo_ph_001.png",
+      "accuracy": 1.0,
+      "confidence": 0.99,
+      "processing_time_ms": 11.02,
+      "expected_value": 7.29,
+      "ocr_value": 7.29
+    }
+  ],
+  "results": [
+    {
+      "image": "demo_ph_001.png",
+      "path": "D:\\Service Portal\\ocr-service\\datasets\\meters\\demo_ph_001.png",
+      "meter_type": "ph",
+      "expected_value": 7.29,
+      "expected": {
+        "ph": 7.29,
+        "mv": -15.0
+      },
+      "ocr_value": 7.29,
+      "ocr_data": {
+        "ph": 7.29,
+        "mv": -15.0
+      },
+      "accuracy": 1.0,
+      "confidence": 0.99,
+      "processing_time_ms": 11.02,
+      "engine": "mock",
+      "success": true,
+      "error": null,
+      "ocr_text": [
+        "pH 7.29",
+        "-15.0 mV"
+      ],
+      "stage_timings": {
+        "image_validate_ms": 10.426,
+        "preprocess_ms": 0.028,
+        "ocr_ms": 0.166,
+        "reader_ms": 0.281,
+        "parser_ms": 0.013,
+        "validator_ms": 0.021,
+        "confidence_ms": 0.012
+      }
+    },
+    {
+      "image": "demo_tds_001.png",
+      "path": "D:\\Service Portal\\ocr-service\\datasets\\meters\\demo_tds_001.png",
+      "meter_type": "tds",
+      "expected_value": 280,
+      "expected": {
+        "tds": 280,
+        "ec": 400,
+        "temperature": 28
+      },
+      "ocr_value": 280,
+      "ocr_data": {
+        "tds": 280,
+        "ec": 400,
+        "temperature": 28
+      },
+      "accuracy": 1.0,
+      "confidence": 0.99,
+      "processing_time_ms": 1.756,
+      "engine": "mock",
+      "success": true,
+      "error": null,
+      "ocr_text": [
+        "TDS 280 ppm",
+        "EC 400 uS/cm",
+        "Temp 28.0 C"
+      ],
+      "stage_timings": {
+        "image_validate_ms": 1.511,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 0.014,
+        "reader_ms": 0.122,
+        "parser_ms": 0.01,
+        "validator_ms": 0.019,
+        "confidence_ms": 0.015
+      }
+    }
+  ]
+}

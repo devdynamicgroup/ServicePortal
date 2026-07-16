@@ -1,0 +1,2 @@
+# Placeholder — JSON/CSV labels paired with datasets/meters samples.
+# Example label shape: {"image":"sample_001.jpg","meter_type":"tds","expected":{"tds":280}}

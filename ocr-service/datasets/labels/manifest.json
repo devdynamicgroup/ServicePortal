@@ -1,0 +1,17 @@
+{
+  "demo_tds_001.png": {
+    "meter_type": "tds",
+    "expected": {
+      "tds": 280,
+      "ec": 400,
+      "temperature": 28
+    }
+  },
+  "demo_ph_001.png": {
+    "meter_type": "ph",
+    "expected": {
+      "ph": 7.29,
+      "mv": -15.0
+    }
+  }
+}

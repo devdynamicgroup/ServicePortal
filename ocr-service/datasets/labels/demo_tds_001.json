@@ -1,0 +1,8 @@
+{
+  "meter_type": "tds",
+  "expected": {
+    "tds": 280,
+    "ec": 400,
+    "temperature": 28
+  }
+}
