@@ -454,8 +454,13 @@ async function openCameraCapture(inputId, previewId) {
   const overlay = document.getElementById('camera-overlay');
   const video = document.getElementById('camera-video');
   const error = document.getElementById('camera-error');
-  if (!overlay || !video) {
-    if (inputId) openPhotoCapture(inputId);
+  const ua = navigator.userAgent || '';
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+
+  // Live camera overlay (desktop + mobile) when getUserMedia is available.
+  // Fallback: native capture / file picker if live camera cannot start.
+  if (!overlay || !video || !navigator.mediaDevices?.getUserMedia) {
+    if (inputId) openPhotoCapture(inputId, isMobile);
     else showToast('Camera not available on this device');
     return;
   }
@@ -463,23 +468,9 @@ async function openCameraCapture(inputId, previewId) {
   closeTransientOverlays?.();
   error?.classList.add('hidden');
   stopCameraStream();
-
-  // On mobile, use native capture instead of getUserMedia to open the phone camera reliably.
-  try {
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-    if (isMobile) {
-      openPhotoCapture(inputId, true);
-      return;
-    }
-  } catch (e) {
-    // ignore and continue to attempt getUserMedia
-  }
-
   overlay.classList.remove('hidden');
 
   try {
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera API unavailable');
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' } },
       audio: false
@@ -490,14 +481,13 @@ async function openCameraCapture(inputId, previewId) {
     await waitForVideoFrame(video).catch(() => {});
   } catch (errorObj) {
     console.warn(errorObj);
-    error?.classList.remove('hidden');
+    closeCameraCapture();
     if (inputId) {
-      try {
-        openPhotoCapture(inputId, true);
-      } catch (e) {
-        // ignore
-      }
+      openPhotoCapture(inputId, isMobile);
+      return;
     }
+    error?.classList.remove('hidden');
+    overlay.classList.remove('hidden');
   }
 }
 

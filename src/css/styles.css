@@ -271,18 +271,14 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 /* ─── Tap tab bar ────────────────────────────────── */
 /* legacy pill tap-tab removed — use underline style in tap-bar-wrap */
 
-/* ─── Photo upload (Meter Readings pattern — used everywhere) ─ */
+/* ─── Photo upload — tap center box to open camera ─ */
 .photo-capture{display:flex;flex-direction:column;gap:10px}
-.photo-box{border:1.5px dashed var(--border);border-radius:var(--radius-lg);padding:28px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--surface);position:relative;overflow:hidden;min-height:180px;transition:border-color .15s,background .15s}
+.photo-box{border:1.5px dashed var(--border);border-radius:var(--radius-lg);padding:28px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--surface);position:relative;overflow:hidden;min-height:180px;transition:border-color .15s,background .15s;cursor:pointer;-webkit-user-select:none;user-select:none}
+.photo-box:active:not(.has-photo){background:var(--accent-50)}
 .photo-box.has-photo{border-style:solid;border-color:var(--blue);padding:0;min-height:180px}
 .photo-box.is-uploading{opacity:.85}
 .photo-box.upload-failed,.slip-upload-card.upload-failed{border-color:var(--red)}
 .photo-status{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:2;font-size:12px;font-weight:600;color:#fff;background:rgba(12,10,9,.72);padding:5px 12px;border-radius:20px;white-space:nowrap}
-.photo-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.photo-action-btn{height:44px;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--surface);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--text);transition:background .15s,border-color .15s}
-.photo-action-btn:active{transform:scale(.98)}
-.photo-action-btn.camera{color:var(--blue);border-color:var(--accent-100);background:var(--accent-50)}
-.photo-action-btn.upload{background:var(--bg)}
 .photo-upload-status{
   position:absolute;left:10px;right:10px;bottom:10px;z-index:4;
   border:none;border-radius:8px;padding:8px 10px;
