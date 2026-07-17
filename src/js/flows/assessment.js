@@ -444,8 +444,21 @@ function waitForVideoFrame(video, timeoutMs = 4000) {
 const CameraCapture = {
   stream: null,
   inputId: null,
-  previewId: null
+  previewId: null,
+  capturedDataUrl: null
 };
+
+function setCameraMode(mode) {
+  const video = document.getElementById('camera-video');
+  const review = document.getElementById('camera-review');
+  const liveActions = document.getElementById('camera-actions-live');
+  const reviewActions = document.getElementById('camera-actions-review');
+  const isReview = mode === 'review';
+  video?.classList.toggle('hidden', isReview);
+  review?.classList.toggle('hidden', !isReview);
+  liveActions?.classList.toggle('hidden', isReview);
+  reviewActions?.classList.toggle('hidden', !isReview);
+}
 
 async function openCameraCapture(inputId, previewId) {
   CameraCapture.inputId = inputId;
@@ -468,6 +481,8 @@ async function openCameraCapture(inputId, previewId) {
   closeTransientOverlays?.();
   error?.classList.add('hidden');
   stopCameraStream();
+  CameraCapture.capturedDataUrl = null;
+  setCameraMode('live');
   overlay.classList.remove('hidden');
 
   try {
@@ -500,6 +515,10 @@ function stopCameraStream() {
 
 function closeCameraCapture() {
   stopCameraStream();
+  CameraCapture.capturedDataUrl = null;
+  const review = document.getElementById('camera-review');
+  if (review) review.src = '';
+  setCameraMode('live');
   document.getElementById('camera-overlay')?.classList.add('hidden');
 }
 
@@ -533,12 +552,33 @@ async function captureCameraFrame() {
   canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
   const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
 
+  // Show a review step so the user can confirm the shot before returning.
+  CameraCapture.capturedDataUrl = dataUrl;
+  const review = document.getElementById('camera-review');
+  if (review) review.src = dataUrl;
+  stopCameraStream();
+  setCameraMode('review');
+}
+
+function retakeCameraPhoto() {
+  CameraCapture.capturedDataUrl = null;
+  const review = document.getElementById('camera-review');
+  if (review) review.src = '';
+  // Reopen the live stream, keeping the same target input/preview.
+  openCameraCapture(CameraCapture.inputId, CameraCapture.previewId);
+}
+
+function useCameraPhoto() {
+  const dataUrl = CameraCapture.capturedDataUrl;
+  if (!dataUrl) {
+    closeCameraCapture();
+    return;
+  }
   if (CameraCapture.inputId === 'slip-input') {
     handleSlipCapture(dataUrl);
   } else if (CameraCapture.previewId) {
     setPhotoPreview(CameraCapture.previewId, dataUrl);
   }
-
   closeCameraCapture();
 }
 

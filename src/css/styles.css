@@ -461,16 +461,27 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .camera-panel{width:100%;max-width:390px;min-height:100%;display:flex;flex-direction:column;background:#050505;color:#fff}
 .camera-topbar{height:58px;display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0c0a09;flex-shrink:0}
 .camera-title{flex:1;text-align:center;font-size:15px;font-weight:600}
-.camera-close,.camera-file{border:none;background:none;color:#fff;font-family:inherit;cursor:pointer}
-.camera-close{width:34px;height:34px;border-radius:50%;font-size:26px;line-height:1}
-.camera-file{font-size:14px;font-weight:600;color:#9db2ff;padding:6px 0}
+.camera-close{border:none;background:none;color:#fff;font-family:inherit;cursor:pointer;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.camera-close:active{background:rgba(255,255,255,.12)}
+.camera-top-spacer{width:38px;height:38px;flex-shrink:0}
 .camera-stage{flex:1;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .camera-stage video{width:100%;height:100%;object-fit:cover}
+.camera-review{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.camera-review.hidden{display:none}
 .camera-error{position:absolute;left:20px;right:20px;text-align:center;font-size:14px;line-height:1.45;color:#e7e5e1}
-.camera-actions{height:92px;display:flex;align-items:center;justify-content:center;gap:28px;background:#0c0a09;padding:0 24px calc(8px + env(safe-area-inset-bottom));flex-shrink:0}
-.camera-top-spacer{width:42px;height:42px;flex-shrink:0}
-.camera-upload-btn{width:42px;height:42px;border-radius:50%;border:1.5px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
-.camera-shutter{width:62px;height:62px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 5px #0c0a09;cursor:pointer;flex-shrink:0}
+.camera-actions{min-height:104px;display:flex;align-items:center;justify-content:space-between;gap:20px;background:#0c0a09;padding:14px 34px calc(16px + env(safe-area-inset-bottom));flex-shrink:0}
+.camera-actions.hidden{display:none}
+.camera-gallery-btn{width:48px;height:48px;border-radius:14px;border:1.5px solid rgba(255,255,255,.28);background:rgba(255,255,255,.06);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.camera-gallery-btn:active{background:rgba(255,255,255,.16)}
+.camera-ghost{opacity:0;pointer-events:none}
+.camera-shutter{width:70px;height:70px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 5px #0c0a09;cursor:pointer;flex-shrink:0}
+.camera-shutter:active{transform:scale(.94)}
+.camera-review-actions{justify-content:center;gap:14px}
+.camera-review-btn{flex:1;max-width:170px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.camera-review-btn span{line-height:1}
+.camera-review-btn.retake{border:1.5px solid rgba(255,255,255,.35);background:rgba(255,255,255,.06);color:#fff}
+.camera-review-btn.use{border:none;background:#2563eb;color:#fff}
+.camera-review-btn:active{transform:scale(.97)}
 
 /* ─── Package detail sheet ───────────────────────── */
 .pkg-detail-card{border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:10px;background:var(--surface);cursor:pointer;transition:all .15s}

@@ -4,16 +4,33 @@
 <div id="camera-overlay" class="camera-overlay hidden">
   <div class="camera-panel">
     <div class="camera-topbar">
-      <button class="camera-close" type="button" onclick="closeCameraCapture()" aria-label="Close">×</button>
+      <button class="camera-close" type="button" onclick="closeCameraCapture()" aria-label="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       <div class="camera-title" data-i18n="pay.camera">Camera</div>
-      <button class="camera-file" type="button" onclick="fallbackPhotoPicker()">Choose File</button>
+      <span class="camera-top-spacer"></span>
     </div>
     <div class="camera-stage">
       <video id="camera-video" autoplay playsinline muted></video>
-      <div id="camera-error" class="camera-error hidden">Camera is unavailable. You can choose a photo instead.</div>
+      <img id="camera-review" class="camera-review hidden" src="" alt="">
+      <div id="camera-error" class="camera-error hidden">Camera is unavailable. Tap the gallery button below to upload a photo instead.</div>
     </div>
-    <div class="camera-actions">
+    <!-- Live capture actions -->
+    <div class="camera-actions" id="camera-actions-live">
+      <button class="camera-gallery-btn" type="button" onclick="fallbackPhotoPicker(event)" aria-label="Upload from device">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      </button>
       <button class="camera-shutter" type="button" onclick="captureCameraFrame()" aria-label="Take photo"></button>
+      <span class="camera-gallery-btn camera-ghost"></span>
+    </div>
+    <!-- Review actions (after capture) -->
+    <div class="camera-actions camera-review-actions hidden" id="camera-actions-review">
+      <button class="camera-review-btn retake" type="button" onclick="retakeCameraPhoto()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        <span>Retake</span>
+      </button>
+      <button class="camera-review-btn use" type="button" onclick="useCameraPhoto()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Use Photo</span>
+      </button>
     </div>
   </div>
 </div>
