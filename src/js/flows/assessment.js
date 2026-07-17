@@ -574,17 +574,25 @@ function useCameraPhoto() {
     closeCameraCapture();
     return;
   }
-  if (CameraCapture.inputId === 'slip-input') {
-    handleSlipCapture(dataUrl);
-  } else if (CameraCapture.previewId) {
-    setPhotoPreview(CameraCapture.previewId, dataUrl);
-  }
+  const inputId = CameraCapture.inputId;
+  const previewId = CameraCapture.previewId;
+
+  // Return to the source screen first; preview/OCR/upload work may take time.
   closeCameraCapture();
+  if (inputId === 'slip-input') {
+    handleSlipCapture(dataUrl);
+  } else if (previewId) {
+    setPhotoPreview(previewId, dataUrl);
+  }
 }
 
 document.addEventListener('change', event => {
   const input = event.target;
   if (!input?.matches?.('input[type="file"][accept^="image"]')) return;
+
+  // A native file picker can suspend browser painting. Hide the camera again
+  // as soon as selection returns, before reading or processing the image.
+  closeCameraCapture();
   if (input.id === 'slip-input') return;
   const previewId = input.dataset.previewId;
   if (previewId && typeof handlePhotoFile === 'function') handlePhotoFile(input, previewId);
