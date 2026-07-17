@@ -1065,7 +1065,9 @@ function setPhotoPreview(previewId, src, options = {}) {
   if (slipCard && hasVisual) {
     slipCard.classList.add('has-photo');
     slipCard.querySelector('.slip-cam-icon')?.classList.add('hidden');
-    const sub = slipCard.querySelector('#slip-sub');
+  }
+  if (previewId === 'slip-preview' && hasVisual) {
+    const sub = document.getElementById('slip-sub');
     if (sub) sub.textContent = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
   }
 

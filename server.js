@@ -80,6 +80,7 @@ const { handleGoogleReviewRoute } = require('./api/google-review-routes');
 const { handleFeedbackSuggestRoute } = require('./api/feedback-suggest-routes');
 const { handleGoogleDriveRoute } = require('./api/google-drive-routes');
 const { handleGoogleDriveOAuthRoute } = require('./api/google-drive-oauth-routes');
+const { handleOcrProxyRoute } = require('./api/ocr-proxy-routes');
 const { startGoogleReviewScheduler } = require('./services/google-review-scheduler');
 const { getDriveStatus } = require('./services/google-drive');
 const {
@@ -187,6 +188,7 @@ async function handleApiRequest(req, res) {
   if (await handleLineRoute(req, res, urlPath)) return true;
   if (await handleGoogleReviewRoute(req, res, urlPath)) return true;
   if (await handleFeedbackSuggestRoute(req, res, urlPath)) return true;
+  if (await handleOcrProxyRoute(req, res, urlPath)) return true;
   if (await handleGoogleDriveRoute(req, res, urlPath)) return true;
 
   if (urlPath === '/api/auth-config' && req.method === 'GET') {

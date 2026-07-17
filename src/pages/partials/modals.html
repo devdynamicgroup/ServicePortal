@@ -6,18 +6,14 @@
     <div class="camera-topbar">
       <button class="camera-close" type="button" onclick="closeCameraCapture()" aria-label="Close">×</button>
       <div class="camera-title" data-i18n="pay.camera">Camera</div>
-      <span class="camera-top-spacer"></span>
+      <button class="camera-file" type="button" onclick="fallbackPhotoPicker()">Choose File</button>
     </div>
     <div class="camera-stage">
       <video id="camera-video" autoplay playsinline muted></video>
-      <div id="camera-error" class="camera-error hidden">Camera is unavailable. Tap upload below.</div>
+      <div id="camera-error" class="camera-error hidden">Camera is unavailable. You can choose a photo instead.</div>
     </div>
     <div class="camera-actions">
-      <button class="camera-upload-btn" type="button" onclick="fallbackPhotoPicker(event)" aria-label="Upload photo">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      </button>
       <button class="camera-shutter" type="button" onclick="captureCameraFrame()" aria-label="Take photo"></button>
-      <span class="camera-top-spacer"></span>
     </div>
   </div>
 </div>

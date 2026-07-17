@@ -15,13 +15,6 @@ function slipAttachedLabel() {
   return typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
 }
 
-function openSlipPicker(event) {
-  event?.preventDefault();
-  event?.stopPropagation();
-  if (typeof openPhotoStudio === 'function') openPhotoStudio('slip-input', 'slip-preview');
-  else if (typeof openPhotoCapture === 'function') openPhotoCapture('slip-input');
-}
-
 function updatePaymentScreen() {
   const screen = ensurePaymentScreen();
   if (!screen) {
@@ -104,16 +97,25 @@ function getPaymentMarkup() {
       </button>
     </div>
     <div class="section-title pay-sec-gap" data-i18n="pay.record">Payment Record</div>
-    <div class="slip-upload-card" id="slip-upload-card" onclick="openSlipPicker(event)">
-      <div class="slip-upload-body">
-        <div class="ut-title" data-i18n="pay.uploadTitle">Upload slip or receipt</div>
-        <div class="ut-sub" id="slip-sub">Photo of transfer confirmation or cash receipt</div>
-      </div>
-      <div class="slip-preview-frame">
+    <p class="photo-hint" id="slip-sub" data-i18n="pay.uploadTitle">Upload slip or receipt</p>
+    <div class="photo-capture" id="slip-upload-card">
+      <div class="photo-box">
         <img id="slip-preview" src="" style="display:none" alt="">
-        <svg class="slip-cam-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <span class="pb-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78716c" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+        <span class="pb-label">No slip attached</span>
+        <span class="photo-status hidden">Photo added</span>
+        <input type="file" id="slip-input" accept="image/*" onchange="handleSlipUpload(this)">
       </div>
-      <input type="file" id="slip-input" accept="image/*" data-preview-id="slip-preview" onchange="handleSlipUpload(this)">
+      <div class="photo-actions">
+        <button class="photo-action-btn camera" type="button" onclick="event.stopPropagation();openCameraCapture('slip-input','slip-preview')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span data-i18n="pay.camera">Camera</span>
+        </button>
+        <button class="photo-action-btn upload" type="button" onclick="event.stopPropagation();openPhotoCapture('slip-input')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span data-i18n="pay.upload">Upload</span>
+        </button>
+      </div>
     </div>
   </div>
   <div class="foot">

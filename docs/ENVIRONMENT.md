@@ -26,6 +26,7 @@ Copy `.env.example` → `.env` for local work. **Never commit `.env`.**
 | Notion | `NOTION_*` | Jobs, feedback, reviews storage |
 | LINE | `LINE_*` | Messaging / webhook |
 | Hosting | `PORT`, `NODE_ENV`, `PUBLIC_BASE_URL`, `RENDER*` | Runtime / public URLs |
+| OCR Service | `OCR_SERVICE_URL`, `OCR_TIMEOUT` | Proxy to isolated Python OCR service |
 
 > Do **not** use a Service Account for Drive uploads (`GOOGLE_SERVICE_ACCOUNT_JSON` is deprecated for this app).  
 > Do **not** substitute `GOOGLE_BUSINESS_CLIENT_SECRET` for `GOOGLE_CLIENT_SECRET` unless you intentionally share one OAuth client.
@@ -224,3 +225,24 @@ GOOGLE_DRIVE_DATA_FOLDER_ID=14Fug6zCjbtBt6I9ab4R-bWOo1FXRkHQx
 ```
 
 Do not expose `private_key` or other secret fields in logs. The app intentionally only reports the service account email and boolean flags for configured state.
+
+---
+
+## OCR Service (isolated Python process)
+
+The main Node backend does **not** run OCR. It proxies to a separate service.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OCR_SERVICE_URL` | `http://127.0.0.1:5055` | Base URL of the OCR Service |
+| `OCR_TIMEOUT` | `10000` | Outbound request timeout in milliseconds |
+| `OCR_DEBUG` | unset | When `true`, log connection error details |
+
+Example:
+
+```
+OCR_SERVICE_URL=http://127.0.0.1:5055
+OCR_TIMEOUT=10000
+```
+
+Portal route: `POST /api/ocr/read-meter` → OCR Service `POST /ocr/read-meter`.
