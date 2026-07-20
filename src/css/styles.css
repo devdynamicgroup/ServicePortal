@@ -991,6 +991,15 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .fb-foot{gap:10px}
 .fb-foot .btn-complete-narrow{width:120px;flex-shrink:0}
 .fb-foot .btn-google{flex:1}
+.feedback-modal .row{margin-top:16px}
+.feedback-modal .btn-complete-narrow{width:120px;flex-shrink:0}
+.feedback-modal .btn-google{flex:1}
+.feedback-review-card{padding:16px;border-radius:var(--radius-lg);margin-top:8px;display:flex;flex-direction:column;gap:12px}
+.feedback-review-lead{font-size:17px;font-weight:600;color:var(--text);line-height:1.35;margin:0}
+.feedback-review-body{font-size:14px;color:var(--muted);line-height:1.5;margin:0}
+.feedback-review-qr{display:block;width:160px;height:160px;margin:8px auto 0;border-radius:var(--radius);border:1px solid var(--border);background:#fff;object-fit:contain}
+.feedback-review-url{display:block;font-size:13px;color:var(--blue);word-break:break-all;line-height:1.45;padding:10px 12px;background:var(--accent-50);border-radius:var(--radius);border:1px solid var(--accent-100);text-decoration:underline}
+.feedback-review-actions{gap:10px;margin-top:16px}
 .consent-row{display:flex;gap:16px;align-items:flex-start}
 .consent-row img{width:24px;height:24px;flex-shrink:0;margin-top:2px}
 .inp[readonly]{background:var(--bg);color:var(--text);cursor:default}

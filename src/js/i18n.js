@@ -306,6 +306,8 @@ const I18N = {
 
     'fb.title': 'Client Feedback',
     'fb.shareLink': 'Share Link',
+    'fb.reviewLead': 'Thank you for choosing Water Motion.',
+    'fb.reviewBody': 'Scan the QR code or tap the link below to leave a Google review.',
     'fb.question': 'How was your experience?',
     'fb.thoughts': 'Your thoughts (optional)',
     'fb.thoughtsPh': "What was most helpful about today's visit?",
@@ -633,6 +635,8 @@ const I18N = {
 
     'fb.title': 'ความคิดเห็นลูกค้า',
     'fb.shareLink': 'แชร์ลิงก์',
+    'fb.reviewLead': 'ขอบคุณที่เลือกใช้บริการ Water Motion',
+    'fb.reviewBody': 'สแกน QR Code หรือแตะลิงก์ด้านล่างเพื่อรีวิวบน Google',
     'fb.question': 'วันนี้ประทับใจแค่ไหน?',
     'fb.thoughts': 'ความคิดเห็นเพิ่มเติม (ไม่บังคับ)',
     'fb.thoughtsPh': 'วันนี้สิ่งไหนที่ช่วยคุณได้มากที่สุด?',
