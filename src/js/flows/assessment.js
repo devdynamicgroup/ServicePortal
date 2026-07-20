@@ -318,6 +318,36 @@ function resetMeterCapturePreview() {
   }
 }
 
+function renderMeterThumbnailRow() {
+  const section = document.getElementById('meter-thumb-section');
+  const row = document.getElementById('meter-thumb-row');
+  if (!section || !row) return;
+
+  const tap = getActiveTapRecord();
+  const images = ensureMeterImages(tap);
+  if (!images.length) {
+    row.innerHTML = '';
+    section.classList.add('hidden');
+    return;
+  }
+
+  section.classList.remove('hidden');
+  row.innerHTML = images.map((entry, index) => {
+    const src = meterPhotoPreviewSrc(entry.photo);
+    const visual = src
+      ? `<img src="${src.replace(/"/g, '&quot;')}" alt="Meter image ${index + 1}">`
+      : `<span class="meter-thumb-placeholder" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </span>`;
+    return `
+      <div class="meter-thumb-item">
+        <div class="meter-thumb-box">${visual}</div>
+        <div class="meter-thumb-index">${index + 1}</div>
+      </div>
+    `;
+  }).join('');
+}
+
 async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
   if (!dataUrl || typeof DrivePhoto === 'undefined') return null;
   ensureTapData();
@@ -375,6 +405,7 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
     await DrivePhoto.dequeue?.(queueKey);
     saveActiveJobState?.();
     renderAssessList();
+    renderMeterThumbnailRow();
     return entry.photo;
   } catch (error) {
     console.warn('Meter session Drive upload failed', error);
@@ -389,6 +420,7 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
     }, error);
     syncMeterThumbFromSession(tap);
     saveActiveJobState?.();
+    renderMeterThumbnailRow();
     return entry.photo;
   }
 }
@@ -425,6 +457,7 @@ async function appendMeterSessionPhoto(photoSrc) {
     }
     saveActiveJobState?.();
     renderAssessList();
+    renderMeterThumbnailRow();
     resetMeterCapturePreview();
     showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
 
@@ -582,6 +615,7 @@ window.MeterReadingCapture = {
     ensureMeterImages(tap);
     writeMeterReadingFields(tap.meterReadings || {});
     this.bindFieldPersistence();
+    renderMeterThumbnailRow();
     if (tap.photos?.meter) {
       setPhotoPreview('meter-photo-preview', tap.photos.meter, { silent: true, skipUpload: true });
     } else {

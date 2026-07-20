@@ -161,6 +161,7 @@ const I18N = {
 
     'meter.title': 'Meter Readings',
     'meter.hint': 'Photo the meter screen to auto-fill values, or enter readings manually below.',
+    'meter.capturedImages': 'Captured images:',
     'meter.multiHint': 'Add one photo per meter screen. Each image adds readings to the same assessment — previous photos are kept.',
     'meter.captureLabel': 'Tap to add a meter photo',
     'meter.collected': 'Current collected data',
@@ -490,6 +491,7 @@ const I18N = {
 
     'meter.title': 'ค่ามิเตอร์',
     'meter.hint': 'ถ่ายรูปหน้าจอมิเตอร์เพื่อเติมค่าอัตโนมัติ หรือกรอกค่าด้านล่างเอง',
+    'meter.capturedImages': 'รูปที่ถ่ายแล้ว:',
     'meter.multiHint': 'เพิ่มรูปทีละหน้าจอมิเตอร์ แต่ละรูปจะเพิ่มค่าในการประเมินเดียวกัน — รูปเดิมจะไม่ถูกลบ',
     'meter.captureLabel': 'แตะเพื่อเพิ่มรูปมิเตอร์',
     'meter.collected': 'ค่าที่รวบรวมแล้ว',
