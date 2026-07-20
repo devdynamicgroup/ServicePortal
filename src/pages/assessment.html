@@ -2,7 +2,7 @@
   <div class="hdr">
     <button class="hdr-back" type="button" onclick="goBack('s-job')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
     <span class="hdr-title" data-i18n="assess.title">Water Assessment</span>
-    <button class="hdr-action" type="button" onclick="showPkgSheet()">Change Package</button>
+    <button class="hdr-action" type="button" onclick="showPkgSheet()" data-i18n="assess.changePkg">Change Package</button>
   </div>
   <div class="content" style="padding-top:0">
     <div class="tap-bar-wrap">
@@ -12,56 +12,56 @@
 
     <div class="tap-name-card">
       <div class="field">
-        <label>Tap Name</label>
+        <label data-i18n="assess.tapName">Tap Name</label>
         <div class="inp-inline-wrap">
-          <input class="inp inp-inline" id="tap-name" placeholder="e.g. kitchen, master bath, shower">
-          <button type="button" class="inp-inline-action" onclick="updateTapName()">Update</button>
+          <input class="inp inp-inline" id="tap-name" data-i18n-placeholder="assess.tapNamePh" placeholder="e.g. kitchen, master bath, shower">
+          <button type="button" class="inp-inline-action" onclick="updateTapName()" data-i18n="assess.update">Update</button>
         </div>
       </div>
     </div>
 
-    <div class="sec-label-row"><span class="sec-label-upper">Essential</span><span class="sec-label-hint">Required for all packages</span></div>
+    <div class="sec-label-row"><span class="sec-label-upper" data-i18n="assess.essential">Essential</span><span class="sec-label-hint" data-i18n="assess.essentialHint">Required for all packages</span></div>
     <div class="assess-list-card">
       <div class="assess-list-row" onclick="goScreen('s-photo')">
         <span id="tapphoto-check" class="li-check assess-check"></span>
-        <div class="assess-body"><div class="assess-title">Add tap photo</div><div class="assess-sub">Photograph tap &amp; surrounding area</div></div>
+        <div class="assess-body"><div class="assess-title" data-i18n="assess.task.tapPhoto">Add tap photo</div><div class="assess-sub" data-i18n="assess.task.tapPhotoSub">Photograph tap &amp; surrounding area</div></div>
         <div class="assess-thumb" id="thumb-tapphoto" aria-hidden="true"></div>
       </div>
       <div class="assess-list-row" onclick="goScreen('s-visual')">
         <span id="visual-check" class="li-check assess-check"></span>
-        <div class="assess-body"><div class="assess-title">Visual Check</div><div class="assess-sub">Appearance and smell before measuring</div></div>
+        <div class="assess-body"><div class="assess-title" data-i18n="assess.task.visual">Visual Check</div><div class="assess-sub" data-i18n="assess.task.visualSub">Appearance and smell before measuring</div></div>
         <span class="assess-chevron"><img src="" data-icon="chevron" alt="" width="16" height="16"></span>
       </div>
       <div class="assess-list-row" onclick="goScreen('s-meter')">
         <span id="meter-check" class="li-check assess-check"></span>
-        <div class="assess-body"><div class="assess-title">Meter Readings</div><div class="assess-sub">pH · TDS · EC · Temp · Turbidity · ORP · DO</div></div>
+        <div class="assess-body"><div class="assess-title" data-i18n="assess.task.meter">Meter Readings</div><div class="assess-sub" data-i18n="assess.task.meterSub">pH · TDS · EC · Temp · Turbidity · ORP · DO</div></div>
         <div class="assess-thumb" id="thumb-meter" aria-hidden="true"></div>
       </div>
       <div class="assess-list-row" onclick="goScreen('s-chlorine')">
         <span id="chlorine-check" class="li-check assess-check"></span>
-        <div class="assess-body"><div class="assess-title">Chlorine Test</div><div class="assess-sub">Free chlorine · Total chlorine</div></div>
+        <div class="assess-body"><div class="assess-title" data-i18n="assess.task.chlorine">Chlorine Test</div><div class="assess-sub" data-i18n="assess.task.chlorineSub">Free chlorine · Total chlorine</div></div>
         <div class="assess-thumb" id="thumb-chlorine" aria-hidden="true"></div>
       </div>
     </div>
 
-    <div class="sec-label-row" id="full-section-label"><span class="sec-label-upper">Full Assessment</span><span class="sec-label-hint">Upgrade to unlock additional tests</span></div>
+    <div class="sec-label-row" id="full-section-label"><span class="sec-label-upper" data-i18n="assess.full">Full Assessment</span><span class="sec-label-hint" data-i18n="assess.fullHint">Upgrade to unlock additional tests</span></div>
     <div id="full-section">
       <div class="assess-row locked" id="row-pressure" onclick="requireFull('s-pressure')">
         <div class="assess-lock"><img src="" data-icon="lock" alt=""></div>
         <span id="pressure-check" class="li-check assess-check hidden"></span>
-        <div class="assess-body"><div class="assess-title assess-title-lock">Pressure &amp; Flow</div><div class="assess-sub">Measure pressure and flow rate</div></div>
-        <button type="button" class="upgrade-link" id="btn-upgrade-pf" onclick="event.stopPropagation();showPkgSheet()">Upgrade</button>
+        <div class="assess-body"><div class="assess-title assess-title-lock" data-i18n="assess.task.pressure">Pressure &amp; Flow</div><div class="assess-sub" data-i18n="assess.task.pressureSub">Measure pressure and flow rate</div></div>
+        <button type="button" class="upgrade-link" id="btn-upgrade-pf" onclick="event.stopPropagation();showPkgSheet()" data-i18n="common.upgrade">Upgrade</button>
       </div>
       <div class="assess-row locked" id="row-infra" onclick="requireFull('s-infra')">
         <div class="assess-lock"><img src="" data-icon="lock" alt=""></div>
         <span id="infra-check" class="li-check assess-check hidden"></span>
-        <div class="assess-body"><div class="assess-title assess-title-lock">Infrastructure</div><div class="assess-sub">Inspect pipes, joints, and shutoff valves</div></div>
-        <button type="button" class="upgrade-link" id="btn-upgrade-inf" onclick="event.stopPropagation();showPkgSheet()">Upgrade</button>
+        <div class="assess-body"><div class="assess-title assess-title-lock" data-i18n="assess.task.infra">Infrastructure</div><div class="assess-sub" data-i18n="assess.task.infraSub">Inspect pipes, joints, and shutoff valves</div></div>
+        <button type="button" class="upgrade-link" id="btn-upgrade-inf" onclick="event.stopPropagation();showPkgSheet()" data-i18n="common.upgrade">Upgrade</button>
       </div>
     </div>
   </div>
   <div class="foot">
-    <button class="btn btn-secondary btn-draft" type="button" onclick="saveDraft()">Save Draft</button>
-    <button class="btn btn-primary" type="button" onclick="goScreen('s-score')">View Water Score</button>
+    <button class="btn btn-secondary btn-draft" type="button" onclick="saveDraft()" data-i18n="common.saveDraft">Save Draft</button>
+    <button class="btn btn-primary" type="button" onclick="goScreen('s-score')" data-i18n="assess.viewScore">View Water Score</button>
   </div>
 </div>

@@ -176,6 +176,8 @@ const I18N = {
     'meter.toastFilled': 'Readings filled',
     'meter.toastError': 'Could not read image',
 
+    'photo.noMeter': 'No meter photo attached',
+    'photo.added': 'Photo added',
     'photo.tapHint': 'Tap to capture or upload',
     'photo.uploadFailed': 'Photo saved locally — Drive upload failed',
     'photo.uploadFailedRetry': 'Upload failed · Tap to retry',
@@ -501,6 +503,8 @@ const I18N = {
     'meter.toastFilled': 'เติมค่าแล้ว',
     'meter.toastError': 'อ่านภาพไม่สำเร็จ',
 
+    'photo.noMeter': 'ยังไม่มีรูปมิเตอร์',
+    'photo.added': 'เพิ่มรูปแล้ว',
     'photo.tapHint': 'แตะเพื่อถ่ายหรืออัปโหลด',
     'photo.uploadFailed': 'บันทึกรูปในเครื่องแล้ว — อัปโหลด Drive ไม่สำเร็จ',
     'photo.uploadFailedRetry': 'อัปโหลดไม่สำเร็จ · แตะเพื่อลองใหม่',

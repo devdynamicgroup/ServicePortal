@@ -341,7 +341,12 @@ function renderNotifications() {
 function setNotifFilter(type) { notifFilter = type || 'all'; renderNotifications(); }
 function openNotifModal(){ notifFilter = notifFilter || 'all'; renderNotifications(); document.getElementById('notif-overlay').classList.remove('hidden'); }
 function closeNotifModal(){ document.getElementById('notif-overlay').classList.add('hidden'); }
-function openLangModal(){ document.getElementById('lang-overlay').classList.remove('hidden'); }
+function openLangModal(){
+  const lang = S?.lang || 'en';
+  document.getElementById('lang-en')?.classList.toggle('sel', lang === 'en');
+  document.getElementById('lang-th')?.classList.toggle('sel', lang === 'th');
+  document.getElementById('lang-overlay')?.classList.remove('hidden');
+}
 function closeLangModal(){ document.getElementById('lang-overlay').classList.add('hidden'); }
 function openSignoutModal(){ document.getElementById('signout-overlay').classList.remove('hidden'); }
 function closeSignoutModal(){ document.getElementById('signout-overlay').classList.add('hidden'); }

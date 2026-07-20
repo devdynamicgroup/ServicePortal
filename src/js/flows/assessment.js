@@ -222,16 +222,6 @@ const METER_READING_FIELDS = {
   do: 'm-do'
 };
 
-const METER_SESSION_PARAMS = [
-  { key: 'ph', label: 'pH', unit: '' },
-  { key: 'orp', label: 'ORP', unit: 'mV' },
-  { key: 'do', label: 'DO', unit: 'mg/L' },
-  { key: 'tds', label: 'TDS', unit: 'mg/L' },
-  { key: 'ec', label: 'EC', unit: 'µS/cm' },
-  { key: 'temp', label: 'Temperature', unit: '°C' },
-  { key: 'turbidity', label: 'Turbidity', unit: 'NTU' }
-];
-
 /** Simulates different meter LCD screens per capture (mock OCR). */
 const METER_OCR_SLICES = [
   ['ph', 'orp', 'do'],
@@ -300,28 +290,6 @@ function pickMeterReadingFields(readings = {}) {
   );
 }
 
-function hasMeterReadingValue(value) {
-  if (value === undefined || value === null || value === '') return false;
-  const n = Number(value);
-  return Number.isFinite(n) ? true : String(value).trim().length > 0;
-}
-
-function currentMeterReadingsFromTap(tap) {
-  const merged = { ...(tap?.meterReadings || {}) };
-  const fromFields = readMeterReadingFields();
-  Object.entries(fromFields).forEach(([key, value]) => {
-    if (hasMeterReadingValue(value)) merged[key] = value;
-  });
-  return merged;
-}
-
-function formatMeterParamValue(key, value) {
-  if (!hasMeterReadingValue(value)) return '';
-  const def = METER_SESSION_PARAMS.find(p => p.key === key);
-  const unit = def?.unit ? ` ${def.unit}` : '';
-  return `${value}${unit}`;
-}
-
 function generatePartialMockMeterReadings(imageIndex) {
   const full = generateRandomScoreReadings();
   const keys = METER_OCR_SLICES[imageIndex % METER_OCR_SLICES.length] || METER_OCR_SLICES[0];
@@ -336,7 +304,7 @@ function generatePartialMockMeterReadings(imageIndex) {
 
 function resetMeterCapturePreview() {
   const img = document.getElementById('meter-photo-preview');
-  const box = document.getElementById('meter-capture-box');
+  const box = img?.closest('.photo-box');
   if (img) {
     img.removeAttribute('src');
     img.style.display = 'none';
@@ -348,95 +316,6 @@ function resetMeterCapturePreview() {
     box.querySelector('.pb-label')?.classList.remove('hidden');
     box.querySelector('.photo-status')?.classList.add('hidden');
   }
-}
-
-function renderMeterSessionStatus() {
-  const host = document.getElementById('meter-session-status');
-  if (!host) return;
-  const tap = getActiveTapRecord();
-  ensureMeterImages(tap);
-  const readings = currentMeterReadingsFromTap(tap);
-  const collected = METER_SESSION_PARAMS.filter(p => hasMeterReadingValue(readings[p.key]));
-  const missing = METER_SESSION_PARAMS.filter(p => !hasMeterReadingValue(readings[p.key]));
-
-  const collectedTitle = typeof t === 'function' ? t('meter.collected') : 'Current collected data';
-  const missingTitle = typeof t === 'function' ? t('meter.missing') : 'Missing';
-
-  const collectedHtml = collected.length
-    ? collected.map(p => `<div class="meter-param-row"><span class="meter-param-mark">✓</span><span>${p.label} ${formatMeterParamValue(p.key, readings[p.key])}</span></div>`).join('')
-    : `<div class="meter-param-row is-missing"><span class="meter-param-mark">○</span><span>${missingTitle}</span></div>`;
-
-  const missingHtml = missing.length
-    ? missing.map(p => `<div class="meter-param-row is-missing"><span class="meter-param-mark">○</span><span>${p.label}</span></div>`).join('')
-    : '';
-
-  host.innerHTML = `
-    <div class="meter-session-block">
-      <h4>${collectedTitle}</h4>
-      <div class="meter-param-list">${collectedHtml}</div>
-    </div>
-    ${missing.length ? `<div class="meter-session-block"><h4>${missingTitle}</h4><div class="meter-param-list">${missingHtml}</div></div>` : ''}
-  `;
-
-  const note = document.getElementById('meter-missing-note');
-  if (note) {
-    if (missing.length) {
-      const names = missing.map(p => p.label).join(', ');
-      note.textContent = `${typeof t === 'function' ? t('meter.validation.missing') : 'Some readings are still missing:'} ${names}`;
-      note.classList.remove('hidden');
-    } else {
-      note.textContent = '';
-      note.classList.add('hidden');
-    }
-  }
-}
-
-function renderMeterImageGallery() {
-  const host = document.getElementById('meter-image-gallery');
-  if (!host) return;
-  const tap = getActiveTapRecord();
-  const images = ensureMeterImages(tap);
-  if (!images.length) {
-    host.innerHTML = '';
-    return;
-  }
-  const imageLabel = typeof t === 'function' ? t('meter.imageN') : 'Image';
-  const detectedLabel = typeof t === 'function' ? t('meter.detectedFrom') : 'Detected from this image';
-  host.innerHTML = images.map((entry, index) => {
-    const src = meterPhotoPreviewSrc(entry.photo);
-    const detected = Object.entries(entry.detected || {})
-      .filter(([, value]) => hasMeterReadingValue(value))
-      .map(([key, value]) => {
-        const def = METER_SESSION_PARAMS.find(p => p.key === key);
-        const label = def?.label || key;
-        return `${label} ${formatMeterParamValue(key, value)}`.trim();
-      })
-      .join(' · ');
-    const thumb = src
-      ? `<img src="${src.replace(/"/g, '&quot;')}" alt="">`
-      : '<span class="pb-label" style="font-size:11px;padding:8px">—</span>';
-    return `
-      <div class="meter-image-card" data-meter-image-id="${entry.id}">
-        <div class="meter-image-thumb">${thumb}</div>
-        <div class="meter-image-meta">
-          <strong>${imageLabel} ${index + 1}</strong>
-          <div class="meter-image-detected">${detectedLabel}: ${detected || '—'}</div>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function validateMeterSession({ showMessage = true } = {}) {
-  const tap = getActiveTapRecord();
-  ensureMeterImages(tap);
-  const readings = currentMeterReadingsFromTap(tap);
-  const missing = METER_SESSION_PARAMS.filter(p => !hasMeterReadingValue(readings[p.key]));
-  if (!missing.length) return { ok: true, missing: [] };
-  if (showMessage) {
-    const names = missing.map(p => p.label).join(', ');
-    showToast(`${typeof t === 'function' ? t('meter.validation.missing') : 'Some readings are still missing:'} ${names}`);
-  }
-  return { ok: false, missing };
 }
 
 async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
@@ -496,7 +375,6 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
     await DrivePhoto.dequeue?.(queueKey);
     saveActiveJobState?.();
     renderAssessList();
-    renderMeterImageGallery();
     return entry.photo;
   } catch (error) {
     console.warn('Meter session Drive upload failed', error);
@@ -546,8 +424,6 @@ async function appendMeterSessionPhoto(photoSrc) {
       S.activeJob.draft.scoreVal = null;
     }
     saveActiveJobState?.();
-    renderMeterSessionStatus();
-    renderMeterImageGallery();
     renderAssessList();
     resetMeterCapturePreview();
     showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
@@ -706,17 +582,11 @@ window.MeterReadingCapture = {
     ensureMeterImages(tap);
     writeMeterReadingFields(tap.meterReadings || {});
     this.bindFieldPersistence();
-    this.renderSession();
-    resetMeterCapturePreview();
-  },
-
-  renderSession() {
-    renderMeterSessionStatus();
-    renderMeterImageGallery();
-  },
-
-  openAddImage() {
-    openCameraCapture('meter-photo-input', 'meter-photo-preview');
+    if (tap.photos?.meter) {
+      setPhotoPreview('meter-photo-preview', tap.photos.meter, { silent: true, skipUpload: true });
+    } else {
+      resetMeterCapturePreview();
+    }
   },
 
   bindFieldPersistence() {
@@ -724,14 +594,8 @@ window.MeterReadingCapture = {
       const el = document.getElementById(id);
       if (!el || el.dataset.meterBound) return;
       el.dataset.meterBound = 'true';
-      el.addEventListener('input', () => {
-        persistMeterReadings();
-        renderMeterSessionStatus();
-      });
-      el.addEventListener('change', () => {
-        persistMeterReadings();
-        renderMeterSessionStatus();
-      });
+      el.addEventListener('input', persistMeterReadings);
+      el.addEventListener('change', persistMeterReadings);
     });
   },
 
@@ -750,12 +614,6 @@ window.MeterReadingCapture = {
 
   save() {
     persistMeterReadings();
-    const validation = validateMeterSession({ showMessage: false });
-    renderMeterSessionStatus();
-    if (!validation.ok) {
-      const names = validation.missing.map(p => p.label).join(', ');
-      showToast(`${typeof t === 'function' ? t('meter.validation.missing') : 'Some readings are still missing:'} ${names}`);
-    }
     completeSub('meter-check', 's-assess');
     saveActiveJobState?.();
   }

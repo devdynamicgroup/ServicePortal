@@ -1,0 +1,514 @@
+{
+  "total": 7,
+  "ok": 4,
+  "fail": 3,
+  "images": [
+    {
+      "filename": "line_oa_chat_260720_084708.jpg",
+      "image_loaded": true,
+      "status": "ok",
+      "ocr_texts": [
+        "HANNA",
+        "6.67",
+        "FFmDO",
+        "319",
+        "μsem",
+        "329",
+        "μSema",
+        "0.0031",
+        "MO.cm",
+        "HI98194",
+        "pH/EC/DO Multiparameter",
+        "ESC",
+        "HELP",
+        "1",
+        "2 abc",
+        "3 def",
+        "4 ghi",
+        "5 jkl",
+        "6 mno",
+        "7 pqrs",
+        "8 tuv",
+        "9wxyz",
+        "A",
+        "0"
+      ],
+      "ocr_score_avg": 0.9328,
+      "boxes_count": 24,
+      "spatial_ok": false,
+      "profile": "hanna_hi98194",
+      "spatial_data": {
+        "do_percent": 6.67
+      },
+      "spatial_issues": [
+        "low_confidence:orp",
+        "missing:ph"
+      ],
+      "field_summary": {
+        "do_percent": {
+          "value": 6.67,
+          "confidence": 0.9,
+          "rejected": false,
+          "reason": null
+        },
+        "orp": {
+          "value": null,
+          "confidence": 0.63,
+          "rejected": true,
+          "reason": "low_confidence"
+        }
+      },
+      "measurement_payload": {
+        "ok": false,
+        "data": {
+          "do_percent": 6.67
+        },
+        "confidence": 0.885,
+        "auto_fill": {
+          "do_percent": true,
+          "orp": false
+        },
+        "issues": [
+          "low_confidence:orp",
+          "missing:ph"
+        ]
+      },
+      "api_style_data": {
+        "do_percent": 6.67
+      },
+      "validation_issues": [
+        "missing:ph"
+      ],
+      "errors": [],
+      "elapsed_s": 6.85
+    },
+    {
+      "filename": "line_oa_chat_260720_084716.jpg",
+      "image_loaded": true,
+      "status": "ok",
+      "ocr_texts": [
+        "HANNA",
+        "-15.0",
+        "mVpH",
+        "7.29",
+        "PH",
+        "208.3",
+        "mVORP",
+        "89.4",
+        "%00",
+        "Log",
+        "Menu",
+        "HI98194",
+        "pH/EC/DO Multiparameter",
+        "ESC",
+        "HELP"
+      ],
+      "ocr_score_avg": 0.9875,
+      "boxes_count": 15,
+      "spatial_ok": true,
+      "profile": "hanna_hi98194",
+      "spatial_data": {
+        "mv": -15.0,
+        "ph": 7.29,
+        "orp": 208.3,
+        "do_percent": 89.4
+      },
+      "spatial_issues": [],
+      "field_summary": {
+        "mv": {
+          "value": -15.0,
+          "confidence": 0.9993,
+          "rejected": false,
+          "reason": null
+        },
+        "ph": {
+          "value": 7.29,
+          "confidence": 0.9999,
+          "rejected": false,
+          "reason": null
+        },
+        "orp": {
+          "value": 208.3,
+          "confidence": 0.999,
+          "rejected": false,
+          "reason": null
+        },
+        "do_percent": {
+          "value": 89.4,
+          "confidence": 0.97,
+          "rejected": false,
+          "reason": null
+        }
+      },
+      "measurement_payload": {
+        "ok": true,
+        "data": {
+          "mv": -15.0,
+          "ph": 7.29,
+          "orp": 208.3,
+          "do_percent": 89.4
+        },
+        "confidence": 0.99,
+        "auto_fill": {
+          "mv": true,
+          "ph": true,
+          "orp": true,
+          "do_percent": true
+        },
+        "issues": []
+      },
+      "api_style_data": {
+        "mv": -15.0,
+        "ph": 7.29,
+        "orp": 208.3,
+        "do_percent": 89.4
+      },
+      "validation_issues": [],
+      "errors": [],
+      "elapsed_s": 4.483
+    },
+    {
+      "filename": "line_oa_chat_260720_084720.jpg",
+      "image_loaded": true,
+      "status": "ok",
+      "ocr_texts": [
+        "HANNA",
+        "-4.3",
+        "mVpH",
+        "7.10",
+        "PH",
+        "181.1",
+        "mVORP",
+        "104.5",
+        "%D0",
+        "Log",
+        "Menu",
+        "HI98194",
+        "pH/EC/DO Multiparameter",
+        "ESC",
+        "HELP",
+        "1",
+        "2 abc",
+        "3 def",
+        "4 ghi",
+        "5 jkl",
+        "6 mno",
+        "7 pqrs",
+        "8 tuv",
+        "9wxyz"
+      ],
+      "ocr_score_avg": 0.9837,
+      "boxes_count": 24,
+      "spatial_ok": true,
+      "profile": "hanna_hi98194",
+      "spatial_data": {
+        "mv": -4.3,
+        "ph": 7.1,
+        "orp": 181.1,
+        "do_percent": 104.5
+      },
+      "spatial_issues": [],
+      "field_summary": {
+        "mv": {
+          "value": -4.3,
+          "confidence": 0.9998,
+          "rejected": false,
+          "reason": null
+        },
+        "ph": {
+          "value": 7.1,
+          "confidence": 1.0,
+          "rejected": false,
+          "reason": null
+        },
+        "orp": {
+          "value": 181.1,
+          "confidence": 1.0,
+          "rejected": false,
+          "reason": null
+        },
+        "do_percent": {
+          "value": 104.5,
+          "confidence": 0.83,
+          "rejected": false,
+          "reason": null
+        }
+      },
+      "measurement_payload": {
+        "ok": true,
+        "data": {
+          "mv": -4.3,
+          "ph": 7.1,
+          "orp": 181.1,
+          "do_percent": 104.5
+        },
+        "confidence": 0.99,
+        "auto_fill": {
+          "mv": true,
+          "ph": true,
+          "orp": true,
+          "do_percent": true
+        },
+        "issues": []
+      },
+      "api_style_data": {
+        "mv": -4.3,
+        "ph": 7.1,
+        "orp": 181.1,
+        "do_percent": 104.5
+      },
+      "validation_issues": [],
+      "errors": [],
+      "elapsed_s": 5.646
+    },
+    {
+      "filename": "line_oa_chat_260720_084725.jpg",
+      "image_loaded": true,
+      "status": "fail",
+      "ocr_texts": [
+        "HACH",
+        "Cert No.: STCR-2412052-1",
+        "S/N, ID No.: TO731620001",
+        "Cal Date: Dec 17, 2024",
+        "STC",
+        "Due Date: Dec 17, 2025",
+        "SMART TECH CALIBRATION",
+        "Tel. 02-1143148",
+        "TO731620001",
+        "DR300",
+        "Chlorine",
+        "LR",
+        "mg/L Cl2",
+        "HR",
+        "口"
+      ],
+      "ocr_score_avg": 0.9725,
+      "boxes_count": 15,
+      "spatial_ok": false,
+      "profile": "hanna_hi98194",
+      "spatial_data": {},
+      "spatial_issues": [
+        "missing:ph"
+      ],
+      "field_summary": {},
+      "measurement_payload": {
+        "ok": false,
+        "data": {},
+        "confidence": 0.0,
+        "auto_fill": {},
+        "issues": [
+          "missing:ph"
+        ]
+      },
+      "api_style_data": {},
+      "validation_issues": [
+        "missing_values"
+      ],
+      "errors": [
+        "empty_measurement_data"
+      ],
+      "elapsed_s": 5.115
+    },
+    {
+      "filename": "line_oa_chat_260720_084730.jpg",
+      "image_loaded": true,
+      "status": "fail",
+      "ocr_texts": [
+        "HACH",
+        "Cert No.: STCR-2412052-1",
+        "S/N. ID No.: TO731620001",
+        "Cal Date: Dec 17, 2024",
+        "STC",
+        "Due Date: Dec 17, 2025",
+        "SMART TECH CALIBRATION",
+        "Tel.02-1143148",
+        "TO731620001",
+        "DR300",
+        "Chlorine",
+        "LR",
+        "mg/L Cl_2",
+        "HR",
+        "0.0",
+        "口"
+      ],
+      "ocr_score_avg": 0.9551,
+      "boxes_count": 16,
+      "spatial_ok": false,
+      "profile": "hanna_hi98194",
+      "spatial_data": {},
+      "spatial_issues": [
+        "low_confidence:mv",
+        "missing:ph"
+      ],
+      "field_summary": {
+        "mv": {
+          "value": null,
+          "confidence": 0.63,
+          "rejected": true,
+          "reason": "low_confidence"
+        }
+      },
+      "measurement_payload": {
+        "ok": false,
+        "data": {},
+        "confidence": 0.0,
+        "auto_fill": {
+          "mv": false
+        },
+        "issues": [
+          "low_confidence:mv",
+          "missing:ph"
+        ]
+      },
+      "api_style_data": {},
+      "validation_issues": [
+        "missing_values"
+      ],
+      "errors": [
+        "empty_measurement_data"
+      ],
+      "elapsed_s": 5.746
+    },
+    {
+      "filename": "line_oa_chat_260720_084735.jpg",
+      "image_loaded": true,
+      "status": "fail",
+      "ocr_texts": [
+        "HACH",
+        "2100Q",
+        "OK",
+        "Turbidity",
+        "0.41",
+        "日",
+        "NTU",
+        "15:43:52",
+        "2026-07-15",
+        "Verify Cal",
+        "Options",
+        "Read"
+      ],
+      "ocr_score_avg": 0.9518,
+      "boxes_count": 12,
+      "spatial_ok": false,
+      "profile": "hanna_hi98194",
+      "spatial_data": {},
+      "spatial_issues": [
+        "low_confidence:mv",
+        "missing:ph"
+      ],
+      "field_summary": {
+        "mv": {
+          "value": null,
+          "confidence": 0.63,
+          "rejected": true,
+          "reason": "low_confidence"
+        }
+      },
+      "measurement_payload": {
+        "ok": false,
+        "data": {},
+        "confidence": 0.0,
+        "auto_fill": {
+          "mv": false
+        },
+        "issues": [
+          "low_confidence:mv",
+          "missing:ph"
+        ]
+      },
+      "api_style_data": {},
+      "validation_issues": [
+        "missing_values"
+      ],
+      "errors": [
+        "empty_measurement_data"
+      ],
+      "elapsed_s": 4.019
+    },
+    {
+      "filename": "test-images.jpg",
+      "image_loaded": true,
+      "status": "ok",
+      "ocr_texts": [
+        "HANNA",
+        "-15.0",
+        "mVpH",
+        "7.29",
+        "PH",
+        "208.3",
+        "mVORP",
+        "89.4",
+        "%00",
+        "Log",
+        "Menu",
+        "HI98194",
+        "pH/EC/DO Multiparameter",
+        "ESC",
+        "HELP"
+      ],
+      "ocr_score_avg": 0.9875,
+      "boxes_count": 15,
+      "spatial_ok": true,
+      "profile": "hanna_hi98194",
+      "spatial_data": {
+        "mv": -15.0,
+        "ph": 7.29,
+        "orp": 208.3,
+        "do_percent": 89.4
+      },
+      "spatial_issues": [],
+      "field_summary": {
+        "mv": {
+          "value": -15.0,
+          "confidence": 0.9993,
+          "rejected": false,
+          "reason": null
+        },
+        "ph": {
+          "value": 7.29,
+          "confidence": 0.9999,
+          "rejected": false,
+          "reason": null
+        },
+        "orp": {
+          "value": 208.3,
+          "confidence": 0.999,
+          "rejected": false,
+          "reason": null
+        },
+        "do_percent": {
+          "value": 89.4,
+          "confidence": 0.97,
+          "rejected": false,
+          "reason": null
+        }
+      },
+      "measurement_payload": {
+        "ok": true,
+        "data": {
+          "mv": -15.0,
+          "ph": 7.29,
+          "orp": 208.3,
+          "do_percent": 89.4
+        },
+        "confidence": 0.99,
+        "auto_fill": {
+          "mv": true,
+          "ph": true,
+          "orp": true,
+          "do_percent": true
+        },
+        "issues": []
+      },
+      "api_style_data": {
+        "mv": -15.0,
+        "ph": 7.29,
+        "orp": 208.3,
+        "do_percent": 89.4
+      },
+      "validation_issues": [],
+      "errors": [],
+      "elapsed_s": 4.64
+    }
+  ]
+}

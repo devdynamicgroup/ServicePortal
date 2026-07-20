@@ -1,0 +1,1865 @@
+{
+  "engine": "paddle",
+  "images_dir": "D:\\Service Portal\\ocr\\test_images",
+  "total": 7,
+  "ok": 4,
+  "partial": 0,
+  "fail": 3,
+  "results": [
+    {
+      "filename": "line_oa_chat_260720_084708.jpg",
+      "path": "D:\\Service Portal\\ocr\\test_images\\line_oa_chat_260720_084708.jpg",
+      "image_loaded": true,
+      "ocr_texts": [
+        "HANNA",
+        "6.67",
+        "FFmDO",
+        "319",
+        "μsem",
+        "329",
+        "μSema",
+        "0.0031",
+        "MO.cm",
+        "HI98194",
+        "pH/EC/DO Multiparameter",
+        "ESC",
+        "HELP",
+        "1",
+        "2 abc",
+        "3 def",
+        "4 ghi",
+        "5 jkl",
+        "6 mno",
+        "7 pqrs",
+        "8 tuv",
+        "9wxyz",
+        "A",
+        "0"
+      ],
+      "ocr_scores": [
+        0.999986469745636,
+        0.9963147044181824,
+        0.8832300901412964,
+        0.9999291300773621,
+        0.6783593893051147,
+        0.9999728202819824,
+        0.5779376029968262,
+        0.9121996760368347,
+        0.8474254608154297,
+        0.9968014359474182,
+        0.9927486181259155,
+        0.9999944567680359,
+        0.9999827146530151,
+        0.9997909665107727,
+        0.9989897608757019,
+        0.9997485280036926,
+        0.9990679025650024,
+        0.9681020975112915,
+        0.9482342004776001,
+        0.9991504549980164,
+        0.9995689392089844,
+        0.9998037219047546,
+        0.5925365686416626,
+        0.9977654218673706
+      ],
+      "bounding_boxes": [
+        [
+          347.0,
+          68.0,
+          608.0,
+          139.0
+        ],
+        [
+          363.0,
+          228.0,
+          481.0,
+          282.0
+        ],
+        [
+          482.0,
+          232.0,
+          586.0,
+          274.0
+        ],
+        [
+          370.0,
+          276.0,
+          474.0,
+          328.0
+        ],
+        [
+          484.0,
+          279.0,
+          571.0,
+          316.0
+        ],
+        [
+          369.0,
+          320.0,
+          470.0,
+          373.0
+        ],
+        [
+          479.0,
+          322.0,
+          579.0,
+          365.0
+        ],
+        [
+          289.0,
+          362.0,
+          467.0,
+          422.0
+        ],
+        [
+          473.0,
+          368.0,
+          577.0,
+          411.0
+        ],
+        [
+          184.0,
+          468.0,
+          332.0,
+          509.0
+        ],
+        [
+          182.0,
+          509.0,
+          553.0,
+          551.0
+        ],
+        [
+          568.0,
+          729.0,
+          631.0,
+          768.0
+        ],
+        [
+          553.0,
+          831.0,
+          635.0,
+          866.0
+        ],
+        [
+          204.0,
+          922.0,
+          232.0,
+          959.0
+        ],
+        [
+          368.0,
+          926.0,
+          466.0,
+          970.0
+        ],
+        [
+          543.0,
+          935.0,
+          639.0,
+          979.0
+        ],
+        [
+          192.0,
+          1030.0,
+          286.0,
+          1076.0
+        ],
+        [
+          357.0,
+          1042.0,
+          458.0,
+          1087.0
+        ],
+        [
+          536.0,
+          1049.0,
+          634.0,
+          1096.0
+        ],
+        [
+          180.0,
+          1141.0,
+          276.0,
+          1192.0
+        ],
+        [
+          347.0,
+          1156.0,
+          451.0,
+          1206.0
+        ],
+        [
+          531.0,
+          1168.0,
+          634.0,
+          1215.0
+        ],
+        [
+          457.0,
+          1225.0,
+          462.0,
+          1232.0
+        ],
+        [
+          374.0,
+          1277.0,
+          407.0,
+          1321.0
+        ]
+      ],
+      "detections_count": 24,
+      "spatial": {
+        "ok": false,
+        "profile": "hanna_hi98194",
+        "data": {
+          "do_percent": 6.67
+        },
+        "confidence": 0.885,
+        "auto_fill": {
+          "do_percent": true,
+          "orp": false
+        },
+        "fields": {
+          "do_percent": {
+            "value": 6.67,
+            "confidence": 0.9,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9963147044181824,
+            "unit_match_score": 0.9,
+            "row_index": 0,
+            "value_token": "6.67",
+            "unit_token": "FFmDO",
+            "unit_normalized": "ffmdo"
+          },
+          "orp": {
+            "value": null,
+            "confidence": 0.63,
+            "rejected": true,
+            "reject_reason": "low_confidence",
+            "auto_fill": false,
+            "value_score": 0.9999728202819824,
+            "unit_match_score": 0.7000000000000001,
+            "row_index": 2,
+            "value_token": "329",
+            "unit_token": "μSema",
+            "unit_normalized": "μsema"
+          }
+        },
+        "issues": [
+          "low_confidence:orp",
+          "missing:ph"
+        ],
+        "rows": [
+          {
+            "index": 0,
+            "cy": 254.0,
+            "tokens": [
+              "6.67",
+              "FFmDO"
+            ],
+            "value": "6.67",
+            "label": "FFmDO"
+          },
+          {
+            "index": 1,
+            "cy": 299.75,
+            "tokens": [
+              "319",
+              "μsem"
+            ],
+            "value": "319",
+            "label": "μsem"
+          },
+          {
+            "index": 2,
+            "cy": 345.0,
+            "tokens": [
+              "329",
+              "μSema"
+            ],
+            "value": "329",
+            "label": "μSema"
+          },
+          {
+            "index": 3,
+            "cy": 390.75,
+            "tokens": [
+              "0.0031",
+              "MO.cm"
+            ],
+            "value": "0.0031",
+            "label": "MO.cm"
+          },
+          {
+            "index": 4,
+            "cy": 948.5,
+            "tokens": [
+              "1",
+              "2 abc",
+              "3 def"
+            ],
+            "value": "1",
+            "label": "3 def"
+          },
+          {
+            "index": 5,
+            "cy": 1299.0,
+            "tokens": [
+              "0"
+            ],
+            "value": "0",
+            "label": null
+          }
+        ],
+        "corrections": []
+      },
+      "measurement_payload": {
+        "ok": false,
+        "data": {
+          "do_percent": 6.67
+        },
+        "confidence": 0.885,
+        "auto_fill": {
+          "do_percent": true,
+          "orp": false
+        },
+        "issues": [
+          "low_confidence:orp",
+          "missing:ph"
+        ]
+      },
+      "api_style_data": {
+        "do_percent": 6.67
+      },
+      "confidence": 0.8843,
+      "validation_issues": [
+        "missing:ph"
+      ],
+      "timings_ms": {
+        "image_validate_ms": 1.443,
+        "preprocess_ms": 0.024,
+        "ocr_ms": 6838.376,
+        "reader_ms": 6.622,
+        "parser_ms": 0.013,
+        "validator_ms": 0.033,
+        "confidence_ms": 0.024
+      },
+      "errors": [],
+      "status": "ok",
+      "elapsed_s": 6.85
+    },
+    {
+      "filename": "line_oa_chat_260720_084716.jpg",
+      "path": "D:\\Service Portal\\ocr\\test_images\\line_oa_chat_260720_084716.jpg",
+      "image_loaded": true,
+      "ocr_texts": [
+        "HANNA",
+        "-15.0",
+        "mVpH",
+        "7.29",
+        "PH",
+        "208.3",
+        "mVORP",
+        "89.4",
+        "%00",
+        "Log",
+        "Menu",
+        "HI98194",
+        "pH/EC/DO Multiparameter",
+        "ESC",
+        "HELP"
+      ],
+      "ocr_scores": [
+        0.9999600648880005,
+        0.9992705583572388,
+        0.94640052318573,
+        0.9999369382858276,
+        0.9783772230148315,
+        0.9990214109420776,
+        0.9934020042419434,
+        0.9999765157699585,
+        0.9041686654090881,
+        0.9995806813240051,
+        0.999921441078186,
+        0.997670590877533,
+        0.9949119687080383,
+        0.9999968409538269,
+        0.9999908208847046
+      ],
+      "bounding_boxes": [
+        [
+          332.0,
+          251.0,
+          710.0,
+          362.0
+        ],
+        [
+          333.0,
+          477.0,
+          530.0,
+          553.0
+        ],
+        [
+          527.0,
+          477.0,
+          659.0,
+          534.0
+        ],
+        [
+          367.0,
+          541.0,
+          526.0,
+          620.0
+        ],
+        [
+          527.0,
+          546.0,
+          594.0,
+          601.0
+        ],
+        [
+          323.0,
+          608.0,
+          519.0,
+          684.0
+        ],
+        [
+          529.0,
+          609.0,
+          679.0,
+          663.0
+        ],
+        [
+          363.0,
+          673.0,
+          518.0,
+          752.0
+        ],
+        [
+          529.0,
+          674.0,
+          638.0,
+          730.0
+        ],
+        [
+          308.0,
+          759.0,
+          410.0,
+          811.0
+        ],
+        [
+          607.0,
+          755.0,
+          756.0,
+          805.0
+        ],
+        [
+          152.0,
+          857.0,
+          355.0,
+          909.0
+        ],
+        [
+          151.0,
+          914.0,
+          660.0,
+          967.0
+        ],
+        [
+          702.0,
+          1213.0,
+          784.0,
+          1264.0
+        ],
+        [
+          686.0,
+          1347.0,
+          799.0,
+          1403.0
+        ]
+      ],
+      "detections_count": 15,
+      "spatial": {
+        "ok": true,
+        "profile": "hanna_hi98194",
+        "data": {
+          "mv": -15.0,
+          "ph": 7.29,
+          "orp": 208.3,
+          "do_percent": 89.4
+        },
+        "confidence": 0.99,
+        "auto_fill": {
+          "mv": true,
+          "ph": true,
+          "orp": true,
+          "do_percent": true
+        },
+        "fields": {
+          "mv": {
+            "value": -15.0,
+            "confidence": 0.9993,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9992705583572388,
+            "unit_match_score": 1.0,
+            "row_index": 0,
+            "value_token": "-15.0",
+            "unit_token": "mVpH",
+            "unit_normalized": "mvph"
+          },
+          "ph": {
+            "value": 7.29,
+            "confidence": 0.9999,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9999369382858276,
+            "unit_match_score": 1.0,
+            "row_index": 1,
+            "value_token": "7.29",
+            "unit_token": "PH",
+            "unit_normalized": "ph"
+          },
+          "orp": {
+            "value": 208.3,
+            "confidence": 0.999,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9990214109420776,
+            "unit_match_score": 1.0,
+            "row_index": 2,
+            "value_token": "208.3",
+            "unit_token": "mVORP",
+            "unit_normalized": "mvorp"
+          },
+          "do_percent": {
+            "value": 89.4,
+            "confidence": 0.97,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9999765157699585,
+            "unit_match_score": 1.0,
+            "row_index": 3,
+            "value_token": "89.4",
+            "unit_token": "%00",
+            "unit_normalized": "%do"
+          }
+        },
+        "issues": [],
+        "rows": [
+          {
+            "index": 0,
+            "cy": 510.25,
+            "tokens": [
+              "-15.0",
+              "mVpH"
+            ],
+            "value": "-15.0",
+            "label": "mVpH"
+          },
+          {
+            "index": 1,
+            "cy": 577.0,
+            "tokens": [
+              "7.29",
+              "PH"
+            ],
+            "value": "7.29",
+            "label": "PH"
+          },
+          {
+            "index": 2,
+            "cy": 641.0,
+            "tokens": [
+              "208.3",
+              "mVORP"
+            ],
+            "value": "208.3",
+            "label": "mVORP"
+          },
+          {
+            "index": 3,
+            "cy": 707.25,
+            "tokens": [
+              "89.4",
+              "%00"
+            ],
+            "value": "89.4",
+            "label": "%00"
+          }
+        ],
+        "corrections": [
+          {
+            "from": "%00",
+            "to": "%do",
+            "stage": "unit_normalize"
+          }
+        ]
+      },
+      "measurement_payload": {
+        "ok": true,
+        "data": {
+          "mv": -15.0,
+          "ph": 7.29,
+          "orp": 208.3,
+          "do_percent": 89.4
+        },
+        "confidence": 0.99,
+        "auto_fill": {
+          "mv": true,
+          "ph": true,
+          "orp": true,
+          "do_percent": true
+        },
+        "issues": []
+      },
+      "api_style_data": {
+        "mv": -15.0,
+        "ph": 7.29,
+        "orp": 208.3,
+        "do_percent": 89.4
+      },
+      "confidence": 0.99,
+      "validation_issues": [],
+      "timings_ms": {
+        "image_validate_ms": 1.314,
+        "preprocess_ms": 0.017,
+        "ocr_ms": 4478.188,
+        "reader_ms": 1.663,
+        "parser_ms": 0.014,
+        "validator_ms": 0.031,
+        "confidence_ms": 0.019
+      },
+      "errors": [],
+      "status": "ok",
+      "elapsed_s": 4.483
+    },
+    {
+      "filename": "line_oa_chat_260720_084720.jpg",
+      "path": "D:\\Service Portal\\ocr\\test_images\\line_oa_chat_260720_084720.jpg",
+      "image_loaded": true,
+      "ocr_texts": [
+        "HANNA",
+        "-4.3",
+        "mVpH",
+        "7.10",
+        "PH",
+        "181.1",
+        "mVORP",
+        "104.5",
+        "%D0",
+        "Log",
+        "Menu",
+        "HI98194",
+        "pH/EC/DO Multiparameter",
+        "ESC",
+        "HELP",
+        "1",
+        "2 abc",
+        "3 def",
+        "4 ghi",
+        "5 jkl",
+        "6 mno",
+        "7 pqrs",
+        "8 tuv",
+        "9wxyz"
+      ],
+      "ocr_scores": [
+        0.9999505877494812,
+        0.9998012781143188,
+        0.9861321449279785,
+        0.9999575614929199,
+        0.9194130897521973,
+        0.9999514818191528,
+        0.9934099912643433,
+        0.9999968409538269,
+        0.8522536158561707,
+        0.9999545216560364,
+        0.9996826648712158,
+        0.9981581568717957,
+        0.9964343309402466,
+        0.9999955296516418,
+        0.9999863505363464,
+        0.9999181032180786,
+        0.9154504537582397,
+        0.9997925758361816,
+        0.999810516834259,
+        0.976478099822998,
+        0.9768492579460144,
+        0.999502420425415,
+        0.9995317459106445,
+        0.9970186352729797
+      ],
+      "bounding_boxes": [
+        [
+          426.0,
+          208.0,
+          733.0,
+          304.0
+        ],
+        [
+          451.0,
+          394.0,
+          586.0,
+          459.0
+        ],
+        [
+          586.0,
+          396.0,
+          693.0,
+          445.0
+        ],
+        [
+          449.0,
+          449.0,
+          579.0,
+          512.0
+        ],
+        [
+          586.0,
+          451.0,
+          640.0,
+          500.0
+        ],
+        [
+          429.0,
+          505.0,
+          575.0,
+          564.0
+        ],
+        [
+          585.0,
+          507.0,
+          705.0,
+          551.0
+        ],
+        [
+          426.0,
+          558.0,
+          578.0,
+          620.0
+        ],
+        [
+          581.0,
+          558.0,
+          669.0,
+          607.0
+        ],
+        [
+          406.0,
+          619.0,
+          485.0,
+          665.0
+        ],
+        [
+          644.0,
+          628.0,
+          763.0,
+          668.0
+        ],
+        [
+          286.0,
+          695.0,
+          440.0,
+          738.0
+        ],
+        [
+          288.0,
+          739.0,
+          675.0,
+          789.0
+        ],
+        [
+          699.0,
+          977.0,
+          763.0,
+          1020.0
+        ],
+        [
+          687.0,
+          1084.0,
+          771.0,
+          1121.0
+        ],
+        [
+          345.0,
+          1169.0,
+          374.0,
+          1208.0
+        ],
+        [
+          505.0,
+          1180.0,
+          604.0,
+          1226.0
+        ],
+        [
+          680.0,
+          1189.0,
+          774.0,
+          1230.0
+        ],
+        [
+          339.0,
+          1271.0,
+          433.0,
+          1320.0
+        ],
+        [
+          500.0,
+          1287.0,
+          601.0,
+          1335.0
+        ],
+        [
+          676.0,
+          1296.0,
+          770.0,
+          1338.0
+        ],
+        [
+          335.0,
+          1370.0,
+          430.0,
+          1423.0
+        ],
+        [
+          497.0,
+          1391.0,
+          597.0,
+          1438.0
+        ],
+        [
+          673.0,
+          1403.0,
+          771.0,
+          1443.0
+        ]
+      ],
+      "detections_count": 24,
+      "spatial": {
+        "ok": true,
+        "profile": "hanna_hi98194",
+        "data": {
+          "mv": -4.3,
+          "ph": 7.1,
+          "orp": 181.1,
+          "do_percent": 104.5
+        },
+        "confidence": 0.99,
+        "auto_fill": {
+          "mv": true,
+          "ph": true,
+          "orp": true,
+          "do_percent": true
+        },
+        "fields": {
+          "mv": {
+            "value": -4.3,
+            "confidence": 0.9998,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9998012781143188,
+            "unit_match_score": 1.0,
+            "row_index": 0,
+            "value_token": "-4.3",
+            "unit_token": "mVpH",
+            "unit_normalized": "mvph"
+          },
+          "ph": {
+            "value": 7.1,
+            "confidence": 1.0,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9999575614929199,
+            "unit_match_score": 1.0,
+            "row_index": 1,
+            "value_token": "7.10",
+            "unit_token": "PH",
+            "unit_normalized": "ph"
+          },
+          "orp": {
+            "value": 181.1,
+            "confidence": 1.0,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9999514818191528,
+            "unit_match_score": 1.0,
+            "row_index": 2,
+            "value_token": "181.1",
+            "unit_token": "mVORP",
+            "unit_normalized": "mvorp"
+          },
+          "do_percent": {
+            "value": 104.5,
+            "confidence": 0.83,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9999968409538269,
+            "unit_match_score": 0.8300000000000001,
+            "row_index": 3,
+            "value_token": "104.5",
+            "unit_token": "%D0",
+            "unit_normalized": "%d0"
+          }
+        },
+        "issues": [],
+        "rows": [
+          {
+            "index": 0,
+            "cy": 423.5,
+            "tokens": [
+              "-4.3",
+              "mVpH"
+            ],
+            "value": "-4.3",
+            "label": "mVpH"
+          },
+          {
+            "index": 1,
+            "cy": 478.0,
+            "tokens": [
+              "7.10",
+              "PH"
+            ],
+            "value": "7.10",
+            "label": "PH"
+          },
+          {
+            "index": 2,
+            "cy": 531.75,
+            "tokens": [
+              "181.1",
+              "mVORP"
+            ],
+            "value": "181.1",
+            "label": "mVORP"
+          },
+          {
+            "index": 3,
+            "cy": 585.75,
+            "tokens": [
+              "104.5",
+              "%D0"
+            ],
+            "value": "104.5",
+            "label": "%D0"
+          },
+          {
+            "index": 4,
+            "cy": 1200.3333333333333,
+            "tokens": [
+              "1",
+              "2 abc",
+              "3 def"
+            ],
+            "value": "1",
+            "label": "3 def"
+          }
+        ],
+        "corrections": []
+      },
+      "measurement_payload": {
+        "ok": true,
+        "data": {
+          "mv": -4.3,
+          "ph": 7.1,
+          "orp": 181.1,
+          "do_percent": 104.5
+        },
+        "confidence": 0.99,
+        "auto_fill": {
+          "mv": true,
+          "ph": true,
+          "orp": true,
+          "do_percent": true
+        },
+        "issues": []
+      },
+      "api_style_data": {
+        "mv": -4.3,
+        "ph": 7.1,
+        "orp": 181.1,
+        "do_percent": 104.5
+      },
+      "confidence": 0.99,
+      "validation_issues": [],
+      "timings_ms": {
+        "image_validate_ms": 24.078,
+        "preprocess_ms": 0.055,
+        "ocr_ms": 5614.388,
+        "reader_ms": 2.648,
+        "parser_ms": 0.01,
+        "validator_ms": 0.026,
+        "confidence_ms": 0.018
+      },
+      "errors": [],
+      "status": "ok",
+      "elapsed_s": 5.646
+    },
+    {
+      "filename": "line_oa_chat_260720_084725.jpg",
+      "path": "D:\\Service Portal\\ocr\\test_images\\line_oa_chat_260720_084725.jpg",
+      "image_loaded": true,
+      "ocr_texts": [
+        "HACH",
+        "Cert No.: STCR-2412052-1",
+        "S/N, ID No.: TO731620001",
+        "Cal Date: Dec 17, 2024",
+        "STC",
+        "Due Date: Dec 17, 2025",
+        "SMART TECH CALIBRATION",
+        "Tel. 02-1143148",
+        "TO731620001",
+        "DR300",
+        "Chlorine",
+        "LR",
+        "mg/L Cl2",
+        "HR",
+        "口"
+      ],
+      "ocr_scores": [
+        0.9999870657920837,
+        0.9972877502441406,
+        0.9798968434333801,
+        0.9830474853515625,
+        0.9999825358390808,
+        0.9997310042381287,
+        0.9995962381362915,
+        0.9748157858848572,
+        0.9995192885398865,
+        0.9998214840888977,
+        0.9999631643295288,
+        0.9999783039093018,
+        0.9531105756759644,
+        0.9999899864196777,
+        0.7001240849494934
+      ],
+      "bounding_boxes": [
+        [
+          417.0,
+          226.0,
+          597.0,
+          267.0
+        ],
+        [
+          359.0,
+          354.0,
+          571.0,
+          374.0
+        ],
+        [
+          366.0,
+          374.0,
+          563.0,
+          391.0
+        ],
+        [
+          370.0,
+          388.0,
+          545.0,
+          407.0
+        ],
+        [
+          635.0,
+          386.0,
+          690.0,
+          413.0
+        ],
+        [
+          375.0,
+          403.0,
+          548.0,
+          424.0
+        ],
+        [
+          382.0,
+          424.0,
+          590.0,
+          444.0
+        ],
+        [
+          431.0,
+          438.0,
+          543.0,
+          455.0
+        ],
+        [
+          385.0,
+          480.0,
+          706.0,
+          512.0
+        ],
+        [
+          557.0,
+          604.0,
+          714.0,
+          649.0
+        ],
+        [
+          472.0,
+          650.0,
+          599.0,
+          684.0
+        ],
+        [
+          391.0,
+          673.0,
+          427.0,
+          702.0
+        ],
+        [
+          482.0,
+          677.0,
+          582.0,
+          711.0
+        ],
+        [
+          638.0,
+          684.0,
+          680.0,
+          711.0
+        ],
+        [
+          328.0,
+          995.0,
+          417.0,
+          1089.0
+        ]
+      ],
+      "detections_count": 15,
+      "spatial": {
+        "ok": false,
+        "profile": "hanna_hi98194",
+        "data": {},
+        "confidence": 0.0,
+        "auto_fill": {},
+        "fields": {},
+        "issues": [
+          "missing:ph"
+        ],
+        "rows": [],
+        "corrections": []
+      },
+      "measurement_payload": {
+        "ok": false,
+        "data": {},
+        "confidence": 0.0,
+        "auto_fill": {},
+        "issues": [
+          "missing:ph"
+        ]
+      },
+      "api_style_data": {},
+      "confidence": 0.1,
+      "validation_issues": [
+        "missing_values"
+      ],
+      "timings_ms": {
+        "image_validate_ms": 48.94,
+        "preprocess_ms": 0.019,
+        "ocr_ms": 5064.437,
+        "reader_ms": 0.599,
+        "parser_ms": 0.006,
+        "validator_ms": 0.009,
+        "confidence_ms": 0.019
+      },
+      "errors": [
+        "empty_measurement_data"
+      ],
+      "status": "fail",
+      "elapsed_s": 5.115
+    },
+    {
+      "filename": "line_oa_chat_260720_084730.jpg",
+      "path": "D:\\Service Portal\\ocr\\test_images\\line_oa_chat_260720_084730.jpg",
+      "image_loaded": true,
+      "ocr_texts": [
+        "HACH",
+        "Cert No.: STCR-2412052-1",
+        "S/N. ID No.: TO731620001",
+        "Cal Date: Dec 17, 2024",
+        "STC",
+        "Due Date: Dec 17, 2025",
+        "SMART TECH CALIBRATION",
+        "Tel.02-1143148",
+        "TO731620001",
+        "DR300",
+        "Chlorine",
+        "LR",
+        "mg/L Cl_2",
+        "HR",
+        "0.0",
+        "口"
+      ],
+      "ocr_scores": [
+        0.9999889135360718,
+        0.9852046966552734,
+        0.9582920670509338,
+        0.9726259708404541,
+        0.9999783635139465,
+        0.9989385008811951,
+        0.9999061226844788,
+        0.9988293051719666,
+        0.9997362494468689,
+        0.9995940923690796,
+        0.9995763897895813,
+        0.9999839663505554,
+        0.8980117440223694,
+        0.999987006187439,
+        0.9984920620918274,
+        0.4722851514816284
+      ],
+      "bounding_boxes": [
+        [
+          401.0,
+          247.0,
+          600.0,
+          295.0
+        ],
+        [
+          333.0,
+          390.0,
+          564.0,
+          410.0
+        ],
+        [
+          337.0,
+          410.0,
+          554.0,
+          432.0
+        ],
+        [
+          342.0,
+          427.0,
+          533.0,
+          448.0
+        ],
+        [
+          628.0,
+          423.0,
+          692.0,
+          456.0
+        ],
+        [
+          348.0,
+          443.0,
+          535.0,
+          465.0
+        ],
+        [
+          353.0,
+          466.0,
+          582.0,
+          487.0
+        ],
+        [
+          408.0,
+          482.0,
+          529.0,
+          498.0
+        ],
+        [
+          355.0,
+          527.0,
+          702.0,
+          559.0
+        ],
+        [
+          547.0,
+          659.0,
+          715.0,
+          705.0
+        ],
+        [
+          454.0,
+          708.0,
+          593.0,
+          744.0
+        ],
+        [
+          368.0,
+          737.0,
+          406.0,
+          766.0
+        ],
+        [
+          466.0,
+          738.0,
+          576.0,
+          774.0
+        ],
+        [
+          637.0,
+          746.0,
+          681.0,
+          773.0
+        ],
+        [
+          512.0,
+          816.0,
+          698.0,
+          962.0
+        ],
+        [
+          311.0,
+          1105.0,
+          397.0,
+          1198.0
+        ]
+      ],
+      "detections_count": 16,
+      "spatial": {
+        "ok": false,
+        "profile": "hanna_hi98194",
+        "data": {},
+        "confidence": 0.0,
+        "auto_fill": {
+          "mv": false
+        },
+        "fields": {
+          "mv": {
+            "value": null,
+            "confidence": 0.63,
+            "rejected": true,
+            "reject_reason": "low_confidence",
+            "auto_fill": false,
+            "value_score": 0.9984920620918274,
+            "unit_match_score": 0.7000000000000001,
+            "row_index": 0,
+            "value_token": "0.0",
+            "unit_token": null,
+            "unit_normalized": null
+          }
+        },
+        "issues": [
+          "low_confidence:mv",
+          "missing:ph"
+        ],
+        "rows": [
+          {
+            "index": 0,
+            "cy": 889.0,
+            "tokens": [
+              "0.0"
+            ],
+            "value": "0.0",
+            "label": null
+          }
+        ],
+        "corrections": []
+      },
+      "measurement_payload": {
+        "ok": false,
+        "data": {},
+        "confidence": 0.0,
+        "auto_fill": {
+          "mv": false
+        },
+        "issues": [
+          "low_confidence:mv",
+          "missing:ph"
+        ]
+      },
+      "api_style_data": {},
+      "confidence": 0.1,
+      "validation_issues": [
+        "missing_values"
+      ],
+      "timings_ms": {
+        "image_validate_ms": 32.767,
+        "preprocess_ms": 0.016,
+        "ocr_ms": 5712.014,
+        "reader_ms": 0.672,
+        "parser_ms": 0.006,
+        "validator_ms": 0.009,
+        "confidence_ms": 0.018
+      },
+      "errors": [
+        "empty_measurement_data"
+      ],
+      "status": "fail",
+      "elapsed_s": 5.746
+    },
+    {
+      "filename": "line_oa_chat_260720_084735.jpg",
+      "path": "D:\\Service Portal\\ocr\\test_images\\line_oa_chat_260720_084735.jpg",
+      "image_loaded": true,
+      "ocr_texts": [
+        "HACH",
+        "2100Q",
+        "OK",
+        "Turbidity",
+        "0.41",
+        "日",
+        "NTU",
+        "15:43:52",
+        "2026-07-15",
+        "Verify Cal",
+        "Options",
+        "Read"
+      ],
+      "ocr_scores": [
+        0.9999946355819702,
+        0.9999719858169556,
+        0.9991381168365479,
+        0.9999879002571106,
+        0.9999982714653015,
+        0.45112428069114685,
+        0.9999938011169434,
+        0.9999862909317017,
+        0.9999747276306152,
+        0.971234142780304,
+        0.9999686479568481,
+        0.9999938011169434
+      ],
+      "bounding_boxes": [
+        [
+          513.0,
+          306.0,
+          677.0,
+          348.0
+        ],
+        [
+          681.0,
+          434.0,
+          908.0,
+          497.0
+        ],
+        [
+          358.0,
+          518.0,
+          433.0,
+          560.0
+        ],
+        [
+          514.0,
+          519.0,
+          667.0,
+          563.0
+        ],
+        [
+          460.0,
+          556.0,
+          763.0,
+          700.0
+        ],
+        [
+          306.0,
+          574.0,
+          343.0,
+          624.0
+        ],
+        [
+          777.0,
+          567.0,
+          872.0,
+          614.0
+        ],
+        [
+          758.0,
+          770.0,
+          895.0,
+          809.0
+        ],
+        [
+          722.0,
+          823.0,
+          897.0,
+          859.0
+        ],
+        [
+          310.0,
+          874.0,
+          468.0,
+          912.0
+        ],
+        [
+          519.0,
+          873.0,
+          654.0,
+          918.0
+        ],
+        [
+          748.0,
+          877.0,
+          841.0,
+          917.0
+        ]
+      ],
+      "detections_count": 12,
+      "spatial": {
+        "ok": false,
+        "profile": "hanna_hi98194",
+        "data": {},
+        "confidence": 0.0,
+        "auto_fill": {
+          "mv": false
+        },
+        "fields": {
+          "mv": {
+            "value": null,
+            "confidence": 0.63,
+            "rejected": true,
+            "reject_reason": "low_confidence",
+            "auto_fill": false,
+            "value_score": 0.9999982714653015,
+            "unit_match_score": 0.7000000000000001,
+            "row_index": 0,
+            "value_token": "0.41",
+            "unit_token": null,
+            "unit_normalized": null
+          }
+        },
+        "issues": [
+          "low_confidence:mv",
+          "missing:ph"
+        ],
+        "rows": [
+          {
+            "index": 0,
+            "cy": 628.0,
+            "tokens": [
+              "0.41"
+            ],
+            "value": "0.41",
+            "label": null
+          }
+        ],
+        "corrections": []
+      },
+      "measurement_payload": {
+        "ok": false,
+        "data": {},
+        "confidence": 0.0,
+        "auto_fill": {
+          "mv": false
+        },
+        "issues": [
+          "low_confidence:mv",
+          "missing:ph"
+        ]
+      },
+      "api_style_data": {},
+      "confidence": 0.1,
+      "validation_issues": [
+        "missing_values"
+      ],
+      "timings_ms": {
+        "image_validate_ms": 26.896,
+        "preprocess_ms": 0.018,
+        "ocr_ms": 3990.258,
+        "reader_ms": 0.569,
+        "parser_ms": 0.006,
+        "validator_ms": 0.008,
+        "confidence_ms": 0.019
+      },
+      "errors": [
+        "empty_measurement_data"
+      ],
+      "status": "fail",
+      "elapsed_s": 4.019
+    },
+    {
+      "filename": "test-images.jpg",
+      "path": "D:\\Service Portal\\ocr\\test_images\\test-images.jpg",
+      "image_loaded": true,
+      "ocr_texts": [
+        "HANNA",
+        "-15.0",
+        "mVpH",
+        "7.29",
+        "PH",
+        "208.3",
+        "mVORP",
+        "89.4",
+        "%00",
+        "Log",
+        "Menu",
+        "HI98194",
+        "pH/EC/DO Multiparameter",
+        "ESC",
+        "HELP"
+      ],
+      "ocr_scores": [
+        0.9999600648880005,
+        0.9992705583572388,
+        0.94640052318573,
+        0.9999369382858276,
+        0.9783772230148315,
+        0.9990214109420776,
+        0.9934020042419434,
+        0.9999765157699585,
+        0.9041686654090881,
+        0.9995806813240051,
+        0.999921441078186,
+        0.997670590877533,
+        0.9949119687080383,
+        0.9999968409538269,
+        0.9999908208847046
+      ],
+      "bounding_boxes": [
+        [
+          332.0,
+          251.0,
+          710.0,
+          362.0
+        ],
+        [
+          333.0,
+          477.0,
+          530.0,
+          553.0
+        ],
+        [
+          527.0,
+          477.0,
+          659.0,
+          534.0
+        ],
+        [
+          367.0,
+          541.0,
+          526.0,
+          620.0
+        ],
+        [
+          527.0,
+          546.0,
+          594.0,
+          601.0
+        ],
+        [
+          323.0,
+          608.0,
+          519.0,
+          684.0
+        ],
+        [
+          529.0,
+          609.0,
+          679.0,
+          663.0
+        ],
+        [
+          363.0,
+          673.0,
+          518.0,
+          752.0
+        ],
+        [
+          529.0,
+          674.0,
+          638.0,
+          730.0
+        ],
+        [
+          308.0,
+          759.0,
+          410.0,
+          811.0
+        ],
+        [
+          607.0,
+          755.0,
+          756.0,
+          805.0
+        ],
+        [
+          152.0,
+          857.0,
+          355.0,
+          909.0
+        ],
+        [
+          151.0,
+          914.0,
+          660.0,
+          967.0
+        ],
+        [
+          702.0,
+          1213.0,
+          784.0,
+          1264.0
+        ],
+        [
+          686.0,
+          1347.0,
+          799.0,
+          1403.0
+        ]
+      ],
+      "detections_count": 15,
+      "spatial": {
+        "ok": true,
+        "profile": "hanna_hi98194",
+        "data": {
+          "mv": -15.0,
+          "ph": 7.29,
+          "orp": 208.3,
+          "do_percent": 89.4
+        },
+        "confidence": 0.99,
+        "auto_fill": {
+          "mv": true,
+          "ph": true,
+          "orp": true,
+          "do_percent": true
+        },
+        "fields": {
+          "mv": {
+            "value": -15.0,
+            "confidence": 0.9993,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9992705583572388,
+            "unit_match_score": 1.0,
+            "row_index": 0,
+            "value_token": "-15.0",
+            "unit_token": "mVpH",
+            "unit_normalized": "mvph"
+          },
+          "ph": {
+            "value": 7.29,
+            "confidence": 0.9999,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9999369382858276,
+            "unit_match_score": 1.0,
+            "row_index": 1,
+            "value_token": "7.29",
+            "unit_token": "PH",
+            "unit_normalized": "ph"
+          },
+          "orp": {
+            "value": 208.3,
+            "confidence": 0.999,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9990214109420776,
+            "unit_match_score": 1.0,
+            "row_index": 2,
+            "value_token": "208.3",
+            "unit_token": "mVORP",
+            "unit_normalized": "mvorp"
+          },
+          "do_percent": {
+            "value": 89.4,
+            "confidence": 0.97,
+            "rejected": false,
+            "reject_reason": null,
+            "auto_fill": true,
+            "value_score": 0.9999765157699585,
+            "unit_match_score": 1.0,
+            "row_index": 3,
+            "value_token": "89.4",
+            "unit_token": "%00",
+            "unit_normalized": "%do"
+          }
+        },
+        "issues": [],
+        "rows": [
+          {
+            "index": 0,
+            "cy": 510.25,
+            "tokens": [
+              "-15.0",
+              "mVpH"
+            ],
+            "value": "-15.0",
+            "label": "mVpH"
+          },
+          {
+            "index": 1,
+            "cy": 577.0,
+            "tokens": [
+              "7.29",
+              "PH"
+            ],
+            "value": "7.29",
+            "label": "PH"
+          },
+          {
+            "index": 2,
+            "cy": 641.0,
+            "tokens": [
+              "208.3",
+              "mVORP"
+            ],
+            "value": "208.3",
+            "label": "mVORP"
+          },
+          {
+            "index": 3,
+            "cy": 707.25,
+            "tokens": [
+              "89.4",
+              "%00"
+            ],
+            "value": "89.4",
+            "label": "%00"
+          }
+        ],
+        "corrections": [
+          {
+            "from": "%00",
+            "to": "%do",
+            "stage": "unit_normalize"
+          }
+        ]
+      },
+      "measurement_payload": {
+        "ok": true,
+        "data": {
+          "mv": -15.0,
+          "ph": 7.29,
+          "orp": 208.3,
+          "do_percent": 89.4
+        },
+        "confidence": 0.99,
+        "auto_fill": {
+          "mv": true,
+          "ph": true,
+          "orp": true,
+          "do_percent": true
+        },
+        "issues": []
+      },
+      "api_style_data": {
+        "mv": -15.0,
+        "ph": 7.29,
+        "orp": 208.3,
+        "do_percent": 89.4
+      },
+      "confidence": 0.99,
+      "validation_issues": [],
+      "timings_ms": {
+        "image_validate_ms": 32.02,
+        "preprocess_ms": 0.018,
+        "ocr_ms": 4604.741,
+        "reader_ms": 1.669,
+        "parser_ms": 0.011,
+        "validator_ms": 0.025,
+        "confidence_ms": 0.016
+      },
+      "errors": [],
+      "status": "ok",
+      "elapsed_s": 4.64
+    }
+  ]
+}
