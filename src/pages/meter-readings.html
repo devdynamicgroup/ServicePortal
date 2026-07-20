@@ -4,16 +4,24 @@
     <span class="hdr-title" data-i18n="meter.title">Meter Readings</span>
   </div>
   <div class="content gap12">
-    <p class="photo-hint" data-i18n="meter.hint">Photo the meter screen to auto-fill values, or enter readings manually below.</p>
+    <p class="photo-hint" data-i18n="meter.multiHint">Add one photo per meter screen. Each image adds readings to the same assessment — previous photos are kept.</p>
+
+    <div id="meter-session-status" class="meter-session-status" aria-live="polite"></div>
+
+    <div id="meter-image-gallery" class="meter-image-gallery" aria-label="Meter photos"></div>
+
     <div class="photo-capture">
-      <div class="photo-box" onclick="openCameraCapture('meter-photo-input','meter-photo-preview')">
+      <div class="photo-box" id="meter-capture-box" onclick="openCameraCapture('meter-photo-input','meter-photo-preview')">
         <img id="meter-photo-preview" src="" style="display:none" alt="">
         <span class="pb-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78716c" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
-        <span class="pb-label">No meter photo attached</span>
-        <span class="photo-status hidden">Photo added</span>
-        <input type="file" id="meter-photo-input" accept="image/*" onchange="previewPhoto(this,'meter-photo-preview')">
+        <span class="pb-label" data-i18n="meter.captureLabel">Tap to add a meter photo</span>
+        <span class="photo-status hidden" data-i18n="photo.tapHint">Tap to capture or upload</span>
+        <input type="file" id="meter-photo-input" accept="image/*" data-preview-id="meter-photo-preview">
       </div>
     </div>
+
+    <button type="button" class="btn btn-secondary btn-block" id="meter-add-another" onclick="MeterReadingCapture.openAddImage()" data-i18n="meter.addAnother">Add another image</button>
+
     <div class="sec-label" data-i18n="meter.formLabel">Enter Readings</div>
     <div class="card gap12">
       <div class="row2">
@@ -33,9 +41,10 @@
         <div class="field"></div>
       </div>
     </div>
+    <p id="meter-missing-note" class="meter-missing-note hidden" role="status"></p>
   </div>
   <div class="foot">
-    <button class="btn btn-ghost" onclick="goBack('s-assess')">Cancel</button>
-    <button class="btn btn-primary" onclick="MeterReadingCapture.save()">Complete</button>
+    <button class="btn btn-ghost" type="button" onclick="goBack('s-assess')" data-i18n="common.cancel">Cancel</button>
+    <button class="btn btn-primary" type="button" onclick="MeterReadingCapture.save()" data-i18n="meter.continue">Continue</button>
   </div>
 </div>

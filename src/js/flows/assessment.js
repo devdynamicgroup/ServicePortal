@@ -51,6 +51,10 @@ function switchTap(i) {
 
 function restoreTaskPhoto(previewId) {
   ensureTapData();
+  if (previewId === 'meter-photo-preview') {
+    if (window.MeterReadingCapture) MeterReadingCapture.init();
+    return;
+  }
   const key = PHOTO_ID_TASKS[previewId];
   let photo = key ? S.tapData[S.activeTap]?.photos?.[key] : null;
   photo = normalizeInterruptedPhoto(photo);
@@ -119,6 +123,10 @@ function captureTaskPhoto(key) {
   const previewId = TASK_PHOTO_IDS[key];
   if (!previewId) return;
   ensureTapData();
+  if (key === 'meter') {
+    syncMeterThumbFromSession(S.tapData[S.activeTap]);
+    return;
+  }
   const existing = S.tapData[S.activeTap].photos[key];
   // Never replace Drive metadata with a live <img> content URL.
   if (typeof DrivePhoto !== 'undefined' && DrivePhoto.isUploaded(existing)) return;
@@ -145,7 +153,13 @@ function renderAssessList() {
   ['tapphoto', 'meter', 'chlorine'].forEach(key => {
     const thumbEl = document.getElementById(`thumb-${key}`);
     if (!thumbEl) return;
-    const photo = data.photos[key];
+    let photo = data.photos[key];
+    if (key === 'meter') {
+      ensureMeterImages(data);
+      if (data.meterImages?.length) {
+        photo = data.meterImages[data.meterImages.length - 1].photo;
+      }
+    }
     const src = typeof DrivePhoto !== 'undefined' ? DrivePhoto.previewSrc(photo) : (typeof photo === 'string' ? photo : '');
     if (src) {
       thumbEl.innerHTML = '';
@@ -208,6 +222,345 @@ const METER_READING_FIELDS = {
   do: 'm-do'
 };
 
+const METER_SESSION_PARAMS = [
+  { key: 'ph', label: 'pH', unit: '' },
+  { key: 'orp', label: 'ORP', unit: 'mV' },
+  { key: 'do', label: 'DO', unit: 'mg/L' },
+  { key: 'tds', label: 'TDS', unit: 'mg/L' },
+  { key: 'ec', label: 'EC', unit: 'µS/cm' },
+  { key: 'temp', label: 'Temperature', unit: '°C' },
+  { key: 'turbidity', label: 'Turbidity', unit: 'NTU' }
+];
+
+/** Simulates different meter LCD screens per capture (mock OCR). */
+const METER_OCR_SLICES = [
+  ['ph', 'orp', 'do'],
+  ['tds', 'ec', 'temp'],
+  ['turbidity']
+];
+
+function getAssessmentSessionId() {
+  return S.activeJob?.notionId || S.activeJob?.id || 'session';
+}
+
+function newMeterImageId() {
+  return `meter-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function ensureMeterImages(tap) {
+  if (!tap) return [];
+  if (!Array.isArray(tap.meterImages)) tap.meterImages = [];
+  if (
+    tap.meterImages.length === 0
+    && tap.photos?.meter
+    && tap.meterReadings
+    && Object.keys(tap.meterReadings).some(k => tap.meterReadings[k] !== '' && tap.meterReadings[k] != null)
+  ) {
+    tap.meterImages.push({
+      id: 'legacy',
+      photo: tap.photos.meter,
+      uploadedAt: (typeof tap.photos.meter === 'object' && tap.photos.meter.uploadedAt)
+        ? tap.photos.meter.uploadedAt
+        : new Date().toISOString(),
+      sessionId: getAssessmentSessionId(),
+      detected: { ...tap.meterReadings }
+    });
+  }
+  return tap.meterImages;
+}
+
+function meterPhotoPreviewSrc(photo) {
+  if (typeof DrivePhoto !== 'undefined' && DrivePhoto.previewSrc) {
+    return DrivePhoto.previewSrc(photo);
+  }
+  return typeof photo === 'string' ? photo : (photo?.previewUrl || photo?.contentUrl || '');
+}
+
+function syncMeterThumbFromSession(tap) {
+  if (!tap) return;
+  tap.photos = tap.photos || {};
+  const images = ensureMeterImages(tap);
+  if (images.length) {
+    tap.photos.meter = images[images.length - 1].photo;
+  }
+}
+
+function mergeMeterReadings(existing = {}, detected = {}) {
+  const out = { ...(existing || {}) };
+  Object.entries(detected || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    out[key] = value;
+  });
+  return out;
+}
+
+function pickMeterReadingFields(readings = {}) {
+  return Object.fromEntries(
+    Object.keys(METER_READING_FIELDS).map(key => [key, readings[key]])
+  );
+}
+
+function hasMeterReadingValue(value) {
+  if (value === undefined || value === null || value === '') return false;
+  const n = Number(value);
+  return Number.isFinite(n) ? true : String(value).trim().length > 0;
+}
+
+function currentMeterReadingsFromTap(tap) {
+  const merged = { ...(tap?.meterReadings || {}) };
+  const fromFields = readMeterReadingFields();
+  Object.entries(fromFields).forEach(([key, value]) => {
+    if (hasMeterReadingValue(value)) merged[key] = value;
+  });
+  return merged;
+}
+
+function formatMeterParamValue(key, value) {
+  if (!hasMeterReadingValue(value)) return '';
+  const def = METER_SESSION_PARAMS.find(p => p.key === key);
+  const unit = def?.unit ? ` ${def.unit}` : '';
+  return `${value}${unit}`;
+}
+
+function generatePartialMockMeterReadings(imageIndex) {
+  const full = generateRandomScoreReadings();
+  const keys = METER_OCR_SLICES[imageIndex % METER_OCR_SLICES.length] || METER_OCR_SLICES[0];
+  const picked = {};
+  keys.forEach(key => {
+    if (full[key] !== undefined && full[key] !== null && full[key] !== '') {
+      picked[key] = full[key];
+    }
+  });
+  return picked;
+}
+
+function resetMeterCapturePreview() {
+  const img = document.getElementById('meter-photo-preview');
+  const box = document.getElementById('meter-capture-box');
+  if (img) {
+    img.removeAttribute('src');
+    img.style.display = 'none';
+    img.classList.remove('preview');
+  }
+  if (box) {
+    box.classList.remove('has-photo', 'is-uploading', 'upload-failed');
+    box.querySelector('.pb-icon')?.classList.remove('hidden');
+    box.querySelector('.pb-label')?.classList.remove('hidden');
+    box.querySelector('.photo-status')?.classList.add('hidden');
+  }
+}
+
+function renderMeterSessionStatus() {
+  const host = document.getElementById('meter-session-status');
+  if (!host) return;
+  const tap = getActiveTapRecord();
+  ensureMeterImages(tap);
+  const readings = currentMeterReadingsFromTap(tap);
+  const collected = METER_SESSION_PARAMS.filter(p => hasMeterReadingValue(readings[p.key]));
+  const missing = METER_SESSION_PARAMS.filter(p => !hasMeterReadingValue(readings[p.key]));
+
+  const collectedTitle = typeof t === 'function' ? t('meter.collected') : 'Current collected data';
+  const missingTitle = typeof t === 'function' ? t('meter.missing') : 'Missing';
+
+  const collectedHtml = collected.length
+    ? collected.map(p => `<div class="meter-param-row"><span class="meter-param-mark">✓</span><span>${p.label} ${formatMeterParamValue(p.key, readings[p.key])}</span></div>`).join('')
+    : `<div class="meter-param-row is-missing"><span class="meter-param-mark">○</span><span>${missingTitle}</span></div>`;
+
+  const missingHtml = missing.length
+    ? missing.map(p => `<div class="meter-param-row is-missing"><span class="meter-param-mark">○</span><span>${p.label}</span></div>`).join('')
+    : '';
+
+  host.innerHTML = `
+    <div class="meter-session-block">
+      <h4>${collectedTitle}</h4>
+      <div class="meter-param-list">${collectedHtml}</div>
+    </div>
+    ${missing.length ? `<div class="meter-session-block"><h4>${missingTitle}</h4><div class="meter-param-list">${missingHtml}</div></div>` : ''}
+  `;
+
+  const note = document.getElementById('meter-missing-note');
+  if (note) {
+    if (missing.length) {
+      const names = missing.map(p => p.label).join(', ');
+      note.textContent = `${typeof t === 'function' ? t('meter.validation.missing') : 'Some readings are still missing:'} ${names}`;
+      note.classList.remove('hidden');
+    } else {
+      note.textContent = '';
+      note.classList.add('hidden');
+    }
+  }
+}
+
+function renderMeterImageGallery() {
+  const host = document.getElementById('meter-image-gallery');
+  if (!host) return;
+  const tap = getActiveTapRecord();
+  const images = ensureMeterImages(tap);
+  if (!images.length) {
+    host.innerHTML = '';
+    return;
+  }
+  const imageLabel = typeof t === 'function' ? t('meter.imageN') : 'Image';
+  const detectedLabel = typeof t === 'function' ? t('meter.detectedFrom') : 'Detected from this image';
+  host.innerHTML = images.map((entry, index) => {
+    const src = meterPhotoPreviewSrc(entry.photo);
+    const detected = Object.entries(entry.detected || {})
+      .filter(([, value]) => hasMeterReadingValue(value))
+      .map(([key, value]) => {
+        const def = METER_SESSION_PARAMS.find(p => p.key === key);
+        const label = def?.label || key;
+        return `${label} ${formatMeterParamValue(key, value)}`.trim();
+      })
+      .join(' · ');
+    const thumb = src
+      ? `<img src="${src.replace(/"/g, '&quot;')}" alt="">`
+      : '<span class="pb-label" style="font-size:11px;padding:8px">—</span>';
+    return `
+      <div class="meter-image-card" data-meter-image-id="${entry.id}">
+        <div class="meter-image-thumb">${thumb}</div>
+        <div class="meter-image-meta">
+          <strong>${imageLabel} ${index + 1}</strong>
+          <div class="meter-image-detected">${detectedLabel}: ${detected || '—'}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function validateMeterSession({ showMessage = true } = {}) {
+  const tap = getActiveTapRecord();
+  ensureMeterImages(tap);
+  const readings = currentMeterReadingsFromTap(tap);
+  const missing = METER_SESSION_PARAMS.filter(p => !hasMeterReadingValue(readings[p.key]));
+  if (!missing.length) return { ok: true, missing: [] };
+  if (showMessage) {
+    const names = missing.map(p => p.label).join(', ');
+    showToast(`${typeof t === 'function' ? t('meter.validation.missing') : 'Some readings are still missing:'} ${names}`);
+  }
+  return { ok: false, missing };
+}
+
+async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
+  if (!dataUrl || typeof DrivePhoto === 'undefined') return null;
+  ensureTapData();
+  const tap = S.tapData[tapIndex];
+  if (!tap) return null;
+  const images = ensureMeterImages(tap);
+  const entry = images.find(img => img.id === imageId);
+  if (!entry) return null;
+
+  const customer = typeof DrivePhoto.resolveActiveCustomerContext === 'function'
+    ? DrivePhoto.resolveActiveCustomerContext()
+    : {
+        notionId: S.activeJob?.notionId || S.activeJob?.id || null,
+        customerName: S.activeJob?.name || null,
+        jobId: S.activeJob?.notionId || S.activeJob?.id || null,
+        customerFolderId: S.activeJob?.drive?.folderId || null
+      };
+  const jobId = customer.jobId;
+  const queueKey = `${driveQueueKey('meter', tapIndex)}:${imageId}`;
+
+  const compressed = await DrivePhoto.compress(dataUrl);
+  entry.photo = {
+    uploading: true,
+    previewUrl: compressed,
+    folder: 'main',
+    purpose: 'meter',
+    category: typeof DrivePhoto.resolveClientCategory === 'function'
+      ? DrivePhoto.resolveClientCategory('meter', 'image/jpeg')
+      : 'Site Inspection',
+    subCategory: imageId,
+    notionId: customer.notionId,
+    uploadedAt: null,
+    jobId,
+    pendingAutoRetry: false
+  };
+  saveActiveJobState?.();
+
+  try {
+    const meta = await DrivePhoto.uploadOnce({
+      dataUrl: compressed,
+      purpose: 'meter',
+      folder: 'main',
+      category: entry.photo.category,
+      subCategory: imageId,
+      uploadType: imageId,
+      contentType: 'image/jpeg',
+      inflightKey: `main:meter:${tapIndex}:${imageId}`,
+      jobId,
+      notionId: customer.notionId,
+      customerName: customer.customerName,
+      customerFolderId: customer.customerFolderId
+    });
+    entry.photo = buildStoredDrivePhotoMeta(meta, { purpose: 'meter', previewUrl: compressed });
+    syncMeterThumbFromSession(tap);
+    await DrivePhoto.dequeue?.(queueKey);
+    saveActiveJobState?.();
+    renderAssessList();
+    renderMeterImageGallery();
+    return entry.photo;
+  } catch (error) {
+    console.warn('Meter session Drive upload failed', error);
+    entry.photo = markDriveUploadFailed({
+      previewUrl: compressed,
+      folder: 'main',
+      purpose: 'meter',
+      category: entry.photo.category,
+      subCategory: imageId,
+      notionId: customer.notionId,
+      jobId
+    }, error);
+    syncMeterThumbFromSession(tap);
+    saveActiveJobState?.();
+    return entry.photo;
+  }
+}
+
+async function appendMeterSessionPhoto(photoSrc) {
+  if (!photoSrc || processAssessmentPhoto._busy) return null;
+  processAssessmentPhoto._busy = true;
+  const tapIndex = S.activeTap;
+  try {
+    showToast(typeof t === 'function' ? t('meter.processingTitle') : 'Reading image...');
+    await new Promise(resolve => setTimeout(resolve, 650));
+
+    const tap = getActiveTapRecord();
+    const images = ensureMeterImages(tap);
+    const detected = pickMeterReadingFields(generatePartialMockMeterReadings(images.length));
+    const entry = {
+      id: newMeterImageId(),
+      photo: photoSrc,
+      uploadedAt: new Date().toISOString(),
+      sessionId: getAssessmentSessionId(),
+      detected
+    };
+    images.push(entry);
+    tap.meterReadings = mergeMeterReadings(tap.meterReadings, detected);
+    tap.meterSource = 'mock-ocr';
+    syncMeterThumbFromSession(tap);
+
+    writeMeterReadingFields(tap.meterReadings);
+    S.scoreBaseReadings = null;
+    S.scoreVal = null;
+    if (S.activeJob?.draft) {
+      S.activeJob.draft.scoreBaseReadings = null;
+      S.activeJob.draft.scoreVal = null;
+    }
+    saveActiveJobState?.();
+    renderMeterSessionStatus();
+    renderMeterImageGallery();
+    renderAssessList();
+    resetMeterCapturePreview();
+    showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
+
+    uploadMeterSessionImage(tapIndex, entry.id, photoSrc).catch(error => {
+      console.warn('Meter session upload failed', error);
+    });
+    return entry;
+  } finally {
+    processAssessmentPhoto._busy = false;
+  }
+}
+
 const CHLORINE_READING_FIELDS = {
   freeChlorine: 'm-free-cl',
   totalChlorine: 'm-total-cl'
@@ -228,7 +581,7 @@ const PHOTO_SCAN_PROFILES = {
       };
     },
     persist(tap, readings) {
-      tap.meterReadings = readings;
+      tap.meterReadings = mergeMeterReadings(tap.meterReadings, readings);
       tap.meterSource = 'mock-ocr';
     }
   },
@@ -286,6 +639,10 @@ function writeReadingFields(fieldMap, readings = {}) {
 }
 
 async function processAssessmentPhoto(previewId, photoSrc) {
+  if (previewId === 'meter-photo-preview') {
+    return appendMeterSessionPhoto(photoSrc);
+  }
+
   const profile = PHOTO_SCAN_PROFILES[previewId];
   if (!profile || !photoSrc || processAssessmentPhoto._busy) return;
   processAssessmentPhoto._busy = true;
@@ -300,7 +657,6 @@ async function processAssessmentPhoto(previewId, photoSrc) {
 
     const tap = getActiveTapRecord();
     profile.persist(tap, readings);
-    // Invalidate cached score readings so the next Water Score uses fresh OCR values.
     S.scoreBaseReadings = null;
     S.scoreVal = null;
     if (S.activeJob?.draft) {
@@ -337,7 +693,7 @@ function writeMeterReadingFields(readings = {}) {
 
 function persistMeterReadings() {
   const tap = getActiveTapRecord();
-  tap.meterReadings = readMeterReadingFields();
+  tap.meterReadings = mergeMeterReadings(tap.meterReadings, readMeterReadingFields());
   saveActiveJobState?.();
 }
 
@@ -347,9 +703,20 @@ window.MeterReadingCapture = {
 
   init() {
     const tap = getActiveTapRecord();
+    ensureMeterImages(tap);
     writeMeterReadingFields(tap.meterReadings || {});
     this.bindFieldPersistence();
-    if (tap.photos?.meter) setPhotoPreview('meter-photo-preview', tap.photos.meter, { silent: true, skipUpload: true });
+    this.renderSession();
+    resetMeterCapturePreview();
+  },
+
+  renderSession() {
+    renderMeterSessionStatus();
+    renderMeterImageGallery();
+  },
+
+  openAddImage() {
+    openCameraCapture('meter-photo-input', 'meter-photo-preview');
   },
 
   bindFieldPersistence() {
@@ -357,8 +724,14 @@ window.MeterReadingCapture = {
       const el = document.getElementById(id);
       if (!el || el.dataset.meterBound) return;
       el.dataset.meterBound = 'true';
-      el.addEventListener('input', persistMeterReadings);
-      el.addEventListener('change', persistMeterReadings);
+      el.addEventListener('input', () => {
+        persistMeterReadings();
+        renderMeterSessionStatus();
+      });
+      el.addEventListener('change', () => {
+        persistMeterReadings();
+        renderMeterSessionStatus();
+      });
     });
   },
 
@@ -366,7 +739,7 @@ window.MeterReadingCapture = {
     if (this._processing || !photoSrc) return;
     this._processing = true;
     try {
-      await processAssessmentPhoto('meter-photo-preview', photoSrc);
+      await appendMeterSessionPhoto(photoSrc);
     } catch (error) {
       console.error(error);
       showToast(typeof t === 'function' ? t('meter.toastError') : 'Could not read image');
@@ -377,6 +750,12 @@ window.MeterReadingCapture = {
 
   save() {
     persistMeterReadings();
+    const validation = validateMeterSession({ showMessage: false });
+    renderMeterSessionStatus();
+    if (!validation.ok) {
+      const names = validation.missing.map(p => p.label).join(', ');
+      showToast(`${typeof t === 'function' ? t('meter.validation.missing') : 'Some readings are still missing:'} ${names}`);
+    }
     completeSub('meter-check', 's-assess');
     saveActiveJobState?.();
   }
@@ -1112,8 +1491,9 @@ function setPhotoPreview(previewId, src, options = {}) {
   const taskKey = PHOTO_ID_TASKS[previewId];
   const skipUpload = Boolean(options.skipUpload || options.silent);
   const dataUrl = typeof src === 'string' && src.startsWith('data:') ? src : resolveCaptureDataUrl(src);
+  const isMeterSession = previewId === 'meter-photo-preview';
 
-  if (taskKey) {
+  if (taskKey && !isMeterSession) {
     ensureTapData();
     if (isMeta) {
       S.tapData[S.activeTap].photos[taskKey] = src;
@@ -1123,7 +1503,6 @@ function setPhotoPreview(previewId, src, options = {}) {
       );
     } else if (dataUrl) {
       // Preview only — uploadTaskPhotoToDrive owns the uploading flag.
-      // Setting uploading:true here caused a race that skipped the Drive POST.
       if (!skipUpload) {
         S.tapData[S.activeTap].photos[taskKey] = {
           previewUrl: dataUrl,
@@ -1150,7 +1529,7 @@ function setPhotoPreview(previewId, src, options = {}) {
   // OCR still runs on the local data URL (not Drive download).
   const ocrSource = dataUrl || (typeof src === 'string' ? src : '');
   if (!options.silent && ocrSource) {
-    if (previewId === 'meter-photo-preview' && window.MeterReadingCapture?.processPhoto) {
+    if (isMeterSession && window.MeterReadingCapture?.processPhoto) {
       MeterReadingCapture.processPhoto(ocrSource);
     } else if (previewId === 'cl-photo-preview') {
       processAssessmentPhoto('cl-photo-preview', ocrSource).catch(error => {
@@ -1160,7 +1539,7 @@ function setPhotoPreview(previewId, src, options = {}) {
     }
   }
 
-  if (!skipUpload && dataUrl && taskKey) {
+  if (!skipUpload && dataUrl && taskKey && !isMeterSession) {
     uploadTaskPhotoToDrive(taskKey, previewId, dataUrl);
   }
 }
