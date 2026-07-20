@@ -42,4 +42,17 @@
     <button class="btn btn-ghost" type="button" onclick="goBack('s-assess')" data-i18n="common.cancel">Cancel</button>
     <button class="btn btn-primary" type="button" onclick="MeterReadingCapture.save()" data-i18n="common.complete">Complete</button>
   </div>
+
+  <div id="meter-viewer-overlay" class="meter-viewer-overlay hidden" role="dialog" aria-modal="true" aria-label="Meter image preview">
+    <div class="meter-viewer-top">
+      <button type="button" class="meter-viewer-close" onclick="closeMeterImageViewer()" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <span id="meter-viewer-counter" class="meter-viewer-counter">1 / 1</span>
+      <span class="meter-viewer-top-spacer" aria-hidden="true"></span>
+    </div>
+    <div id="meter-viewer-stage" class="meter-viewer-stage">
+      <button type="button" class="meter-viewer-nav prev" id="meter-viewer-prev" onclick="meterViewerStep(-1)" aria-label="Previous image"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <img id="meter-viewer-img" class="meter-viewer-img" src="" alt="">
+      <button type="button" class="meter-viewer-nav next" id="meter-viewer-next" onclick="meterViewerStep(1)" aria-label="Next image"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+  </div>
 </div>

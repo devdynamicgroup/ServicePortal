@@ -318,6 +318,107 @@ function resetMeterCapturePreview() {
   }
 }
 
+const meterImageViewer = { index: 0, bound: false };
+
+function getMeterViewerImages() {
+  return ensureMeterImages(getActiveTapRecord());
+}
+
+function updateMeterImageViewerUi() {
+  const images = getMeterViewerImages();
+  const overlay = document.getElementById('meter-viewer-overlay');
+  const img = document.getElementById('meter-viewer-img');
+  const counter = document.getElementById('meter-viewer-counter');
+  const prevBtn = document.getElementById('meter-viewer-prev');
+  const nextBtn = document.getElementById('meter-viewer-next');
+  if (!overlay || !img || !counter) return;
+
+  if (!images.length) {
+    closeMeterImageViewer();
+    return;
+  }
+
+  const index = Math.max(0, Math.min(meterImageViewer.index, images.length - 1));
+  meterImageViewer.index = index;
+  const entry = images[index];
+  const src = meterPhotoPreviewSrc(entry?.photo);
+
+  counter.textContent = `${index + 1} / ${images.length}`;
+  if (src) {
+    img.src = src;
+    img.alt = `Meter image ${index + 1}`;
+    img.classList.remove('hidden');
+  } else {
+    img.removeAttribute('src');
+    img.alt = '';
+  }
+
+  const multi = images.length > 1;
+  if (prevBtn) {
+    prevBtn.disabled = index <= 0;
+    prevBtn.classList.toggle('hidden', !multi);
+  }
+  if (nextBtn) {
+    nextBtn.disabled = index >= images.length - 1;
+    nextBtn.classList.toggle('hidden', !multi);
+  }
+}
+
+function openMeterImageViewer(index = 0) {
+  const images = getMeterViewerImages();
+  if (!images.length) return;
+  meterImageViewer.index = Math.max(0, Math.min(Number(index) || 0, images.length - 1));
+  bindMeterImageViewer();
+  document.getElementById('meter-viewer-overlay')?.classList.remove('hidden');
+  updateMeterImageViewerUi();
+}
+
+function closeMeterImageViewer() {
+  document.getElementById('meter-viewer-overlay')?.classList.add('hidden');
+  const img = document.getElementById('meter-viewer-img');
+  if (img) img.removeAttribute('src');
+}
+
+function meterViewerStep(delta) {
+  const images = getMeterViewerImages();
+  if (!images.length) return;
+  meterImageViewer.index = Math.max(0, Math.min(meterImageViewer.index + delta, images.length - 1));
+  updateMeterImageViewerUi();
+}
+
+function bindMeterImageViewer() {
+  if (meterImageViewer.bound) return;
+  const stage = document.getElementById('meter-viewer-stage');
+  const overlay = document.getElementById('meter-viewer-overlay');
+  if (!stage || !overlay) return;
+  meterImageViewer.bound = true;
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  stage.addEventListener('touchstart', event => {
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+  }, { passive: true });
+
+  stage.addEventListener('touchend', event => {
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+    const dx = touch.clientX - touchStartX;
+    const dy = touch.clientY - touchStartY;
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) return;
+    meterViewerStep(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  document.addEventListener('keydown', event => {
+    if (overlay.classList.contains('hidden')) return;
+    if (event.key === 'Escape') closeMeterImageViewer();
+    else if (event.key === 'ArrowLeft') meterViewerStep(-1);
+    else if (event.key === 'ArrowRight') meterViewerStep(1);
+  });
+}
+
 function renderMeterThumbnailRow() {
   const section = document.getElementById('meter-thumb-section');
   const row = document.getElementById('meter-thumb-row');
@@ -328,6 +429,7 @@ function renderMeterThumbnailRow() {
   if (!images.length) {
     row.innerHTML = '';
     section.classList.add('hidden');
+    closeMeterImageViewer();
     return;
   }
 
@@ -340,12 +442,16 @@ function renderMeterThumbnailRow() {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </span>`;
     return `
-      <div class="meter-thumb-item">
+      <button type="button" class="meter-thumb-item" onclick="openMeterImageViewer(${index})" aria-label="View meter image ${index + 1}">
         <div class="meter-thumb-box">${visual}</div>
         <div class="meter-thumb-index">${index + 1}</div>
-      </div>
+      </button>
     `;
   }).join('');
+
+  if (!document.getElementById('meter-viewer-overlay')?.classList.contains('hidden')) {
+    updateMeterImageViewerUi();
+  }
 }
 
 async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
