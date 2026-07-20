@@ -42,11 +42,15 @@ Defaults: `http://0.0.0.0:5055`
 
 ## Environment
 
+Copy `.env.example` → `.env` for local development (gitignored). Process environment
+variables always override `.env` values.
+
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `OCR_HOST` | `0.0.0.0` | Bind host |
 | `OCR_PORT` | `5055` | Bind port |
 | `OCR_ENGINE` | `mock` | `mock` / `paddle` / `easyocr` |
+| `PADDLE_PDX_CACHE_HOME` | _(unset)_ | ASCII-only PaddleX model cache (recommended on Windows) |
 | `OCR_MAX_BODY_BYTES` | `262144` | Max POST body |
 | `OCR_SERVICE_PHASE` | `3.5` | Reported phase (keep for contract tests) |
 | `OCR_ALLOW_VIRTUAL_IMAGES` | `true` | Allow non-file paths (mock/contract) |
@@ -57,6 +61,16 @@ Defaults: `http://0.0.0.0:5055`
 | `OCR_PREPROCESS_THRESHOLD` | `false` | Enable threshold step |
 | `OCR_PREPROCESS_DENOISE` | `false` | Enable denoise step |
 | `OCR_PREPROCESS_NORMALIZE` | `false` | Enable normalize step |
+
+### Use PaddleOCR locally
+
+```powershell
+cd ocr-service
+# Ensure .env has OCR_ENGINE=paddle (see .env.example)
+.\.venv\Scripts\python.exe main.py
+```
+
+Startup log should show `engine=paddle`. Contract tests still force `OCR_ENGINE=mock`.
 
 Pillow is optional; preprocess steps no-op when Pillow is not installed.
 

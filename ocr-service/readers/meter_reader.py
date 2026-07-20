@@ -1,5 +1,9 @@
 """
-Meter readers — interpret corrected OCR lines into field candidates.
+Meter readers — interpret OCR output into field candidates.
+
+Supports two paths:
+  1. SpatialMeasurementParser when detections (boxes) are available
+  2. Legacy flat-text readers as fallback
 
 Readers never call OCR engines or HTTP routes.
 """
@@ -10,6 +14,7 @@ import re
 from typing import Any, Protocol
 
 from parser.normalize import correct_texts, extract_numbers
+from parser.spatial_parser import SpatialMeasurementParser, has_spatial_detections
 
 
 class MeterReader(Protocol):
@@ -131,7 +136,48 @@ _READERS: dict[str, MeterReader] = {
     "do": DoReader(),
 }
 
+_spatial_parser = SpatialMeasurementParser()
+
 
 def get_reader(meter_type: str) -> MeterReader:
     kind = (meter_type or "tds").lower()
     return _READERS.get(kind, GenericMeterReader())
+
+
+def read_measurements(
+    meter_type: str,
+    texts: list[str],
+    *,
+    detections: list[dict[str, Any]] | None = None,
+    extraction: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Preferred entry point for the pipeline.
+
+    Tries spatial parsing when detections with boxes are available.
+    Falls back to legacy flat-text readers on failure or missing boxes.
+    """
+    kind = (meter_type or "tds").lower()
+    dets = detections
+    if dets is None and extraction is not None:
+        raw_dets = extraction.get("detections")
+        if isinstance(raw_dets, list):
+            dets = raw_dets
+
+    if has_spatial_detections({"detections": dets or []}):
+        try:
+            payload = _spatial_parser.parse_detections(
+                list(dets or []),
+                meter_type=kind,
+            )
+            # Spatial path owns the result when boxes exist — even if empty.
+            # Falling back to legacy first-number readers invents garbage from
+            # model IDs / dates (e.g. 2100Q → ph, 2026-07-15 → mv).
+            result = payload.to_reader_result()
+            result["spatial_confidence"] = payload.confidence
+            result["spatial_ok"] = payload.ok
+            return result
+        except Exception:  # noqa: BLE001 — never break production path
+            pass
+
+    return get_reader(kind).read(list(texts or []))

@@ -1,0 +1,17 @@
+{
+  "id": "generic_ec",
+  "name": "Generic EC meter",
+  "fields": {
+    "ec": {
+      "aliases": ["ec", "us", "us/cm", "uscm"],
+      "range": [0, 10000],
+      "required": true
+    },
+    "temperature": {
+      "aliases": ["temp", "c", "°c", "temperature"],
+      "range": [0, 100],
+      "required": false
+    }
+  },
+  "primary_field": "ec"
+}

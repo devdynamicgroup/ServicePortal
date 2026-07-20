@@ -2,12 +2,37 @@
 OCR Service configuration.
 
 All runtime settings come from environment variables with safe defaults.
+Optionally loads `ocr-service/.env` for local development (does not override
+variables already set in the process environment).
 """
 
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+
+def _load_dotenv(path: Path) -> None:
+    """Load KEY=VALUE pairs from a .env file into os.environ if not already set."""
+    if not path.is_file():
+        return
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not key or key in os.environ:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        os.environ[key] = value
 
 
 def _env(name: str, default: str) -> str:
@@ -75,6 +100,9 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    # Local overrides (gitignored). Existing process env wins (tests set OCR_ENGINE=mock).
+    _load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
     engine_raw = _env("OCR_ENGINE", "mock").lower()
     if engine_raw in ("", "none", "null"):
         engine = "mock"

@@ -8,6 +8,7 @@ from readers.meter_reader import (
     PhReader,
     TdsReader,
     get_reader,
+    read_measurements,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "PhReader",
     "TdsReader",
     "get_reader",
+    "read_measurements",
 ]

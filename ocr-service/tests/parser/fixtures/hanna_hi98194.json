@@ -1,0 +1,27 @@
+{
+  "source": "ocr/test_images/test-images.jpg",
+  "device": "HANNA HI98194",
+  "expected": {
+    "ph": 7.29,
+    "mv": -15.0,
+    "orp": 208.3,
+    "do_percent": 89.4
+  },
+  "detections": [
+    {"text": "HANNA", "score": 1.0, "box": [332, 251, 710, 362]},
+    {"text": "-15.0", "score": 0.9993, "box": [333, 477, 530, 553]},
+    {"text": "mVpH", "score": 0.9464, "box": [527, 477, 659, 534]},
+    {"text": "7.29", "score": 0.9999, "box": [367, 541, 526, 620]},
+    {"text": "PH", "score": 0.9784, "box": [527, 546, 594, 601]},
+    {"text": "208.3", "score": 0.999, "box": [323, 608, 519, 684]},
+    {"text": "mVORP", "score": 0.9934, "box": [529, 609, 679, 663]},
+    {"text": "89.4", "score": 1.0, "box": [363, 673, 518, 752]},
+    {"text": "%00", "score": 0.9042, "box": [529, 674, 638, 730]},
+    {"text": "Log", "score": 0.9996, "box": [308, 759, 410, 811]},
+    {"text": "Menu", "score": 0.9999, "box": [607, 755, 756, 805]},
+    {"text": "HI98194", "score": 0.9977, "box": [152, 857, 355, 909]},
+    {"text": "pH/EC/DO Multiparameter", "score": 0.9949, "box": [151, 914, 660, 967]},
+    {"text": "ESC", "score": 1.0, "box": [702, 1213, 784, 1264]},
+    {"text": "HELP", "score": 1.0, "box": [686, 1347, 799, 1403]}
+  ]
+}

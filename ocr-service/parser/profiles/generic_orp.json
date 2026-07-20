@@ -1,0 +1,12 @@
+{
+  "id": "generic_orp",
+  "name": "Generic ORP meter",
+  "fields": {
+    "orp": {
+      "aliases": ["orp", "mvorp", "mv"],
+      "range": [-2000, 2000],
+      "required": true
+    }
+  },
+  "primary_field": "orp"
+}

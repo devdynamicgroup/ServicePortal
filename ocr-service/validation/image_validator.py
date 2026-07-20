@@ -15,7 +15,8 @@ from pathlib import Path
 
 from core.exceptions import ValidationError
 
-SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".gif", ".tif", ".tiff"}
+# Content formats accepted after magic-byte detection (not filename extensions).
+SUPPORTED_CONTENT_FORMATS = frozenset({"jpeg", "png", "bmp", "webp", "gif"})
 VIRTUAL_PATH_RE = re.compile(r"^__(force_engine_error__|slow_\d+(?:\.\d+)?s__)$")
 
 
@@ -130,10 +131,7 @@ class ImageValidator:
         if size_bytes > self.max_bytes:
             raise ValidationError("Image file exceeds maximum size")
 
-        ext = Path(path).suffix.lower()
-        if ext and ext not in SUPPORTED_EXTENSIONS:
-            raise ValidationError(f"Unsupported image format: {ext}")
-
+        # Format/type decisions use file CONTENT only — never the filename.
         try:
             with open(path, "rb") as fh:
                 header = fh.read(min(65536, size_bytes))
@@ -141,11 +139,10 @@ class ImageValidator:
             raise ValidationError("Unable to read image file") from exc
 
         fmt, dims = _detect_format_and_size(header)
-        if fmt is None and size_bytes < 16:
-            raise ValidationError("Corrupted or unrecognized image")
         if fmt is None:
-            # Extension allowed but magic unknown — treat as potentially corrupted
             raise ValidationError("Corrupted or unrecognized image")
+        if fmt not in SUPPORTED_CONTENT_FORMATS:
+            raise ValidationError(f"Unsupported image format: {fmt}")
 
         width = height = None
         if dims:

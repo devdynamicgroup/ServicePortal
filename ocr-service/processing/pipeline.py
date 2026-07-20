@@ -17,7 +17,7 @@ from engines.base_engine import BaseOcrEngine
 from parser.normalize import merge_with_fallback
 from preprocess import run_preprocess_chain
 from processing.context import PipelineContext
-from readers.meter_reader import get_reader
+from readers.meter_reader import read_measurements
 from validation.image_validator import ImageValidator
 from validation.result_validator import ResultValidator
 
@@ -96,12 +96,23 @@ class OcrPipeline:
         conf = extraction.get("confidence")
         ctx.ocr_confidence = float(conf) if conf is not None else None
 
-        # 4) Reader
+        # 4) Reader — spatial parser when detections present, else legacy
         t0 = time.perf_counter()
-        reader = get_reader(ctx.meter_type)
-        reader_result = reader.read(ctx.texts)
+        reader_result = read_measurements(
+            ctx.meter_type,
+            ctx.texts,
+            extraction=ctx.raw_extraction,
+        )
         ctx.reader_result = reader_result
         ctx.timings["reader_ms"] = _ms_since(t0)
+
+        # Prefer spatial field confidence when available
+        spatial_conf = reader_result.get("spatial_confidence")
+        if spatial_conf is not None:
+            try:
+                ctx.ocr_confidence = float(spatial_conf)
+            except (TypeError, ValueError):
+                pass
 
         # 5) Parser (merge reader fields + contract fallbacks)
         t0 = time.perf_counter()
@@ -109,7 +120,13 @@ class OcrPipeline:
         reader_data = dict(reader_result.get("data") or {})
         ctx.texts = list(reader_result.get("texts") or ctx.texts)
         ctx.corrections = corrections
-        ctx.parsed_data = merge_with_fallback(ctx.meter_type, reader_data)
+        # Spatial path must never invent demo form values when parse is empty.
+        allow_demo = "spatial_ok" not in reader_result
+        ctx.parsed_data = merge_with_fallback(
+            ctx.meter_type,
+            reader_data,
+            allow_demo_fallback=allow_demo,
+        )
         # Prefer numeric types that match prior contract (ints for whole numbers where sensible)
         ctx.parsed_data = _canonicalize_numbers(ctx.parsed_data)
         ctx.timings["parser_ms"] = _ms_since(t0)

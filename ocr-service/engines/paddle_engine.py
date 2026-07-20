@@ -17,6 +17,7 @@ import traceback
 from typing import Any
 
 from engines.base_engine import BaseOcrEngine
+from parser.tokens import extract_detections_from_paddle_result
 
 
 def _diag(msg: str) -> None:
@@ -26,63 +27,17 @@ def _diag(msg: str) -> None:
 
 def _extract_texts(ocr_result: Any) -> list[str]:
     """Collect raw recognized text lines from PaddleOCR 3.x predict() output."""
-    lines: list[str] = []
-    if not ocr_result:
-        return lines
-
-    for item in ocr_result:
-        if item is None:
-            continue
-
-        rec_texts = None
-
-        if hasattr(item, "keys") and "rec_texts" in item:
-            rec_texts = item["rec_texts"]
-        elif hasattr(item, "get"):
-            rec_texts = item.get("rec_texts")
-            if rec_texts is None and "res" in item:
-                nested = item["res"]
-                if hasattr(nested, "get"):
-                    rec_texts = nested.get("rec_texts")
-                elif isinstance(nested, dict):
-                    rec_texts = nested.get("rec_texts")
-        elif hasattr(item, "rec_texts"):
-            rec_texts = item.rec_texts
-
-        if not rec_texts:
-            continue
-
-        for text in rec_texts:
-            text = str(text).strip()
-            if text:
-                lines.append(text)
-
-    return lines
+    detections = extract_detections_from_paddle_result(ocr_result)
+    return [str(d["text"]) for d in detections if d.get("text")]
 
 
-def _average_confidence(ocr_result: Any) -> float | None:
+def _average_confidence_from_detections(detections: list[dict[str, Any]]) -> float | None:
     scores: list[float] = []
-    if not ocr_result:
-        return None
-
-    for item in ocr_result:
-        if item is None:
+    for det in detections:
+        try:
+            scores.append(float(det.get("score", 0.0)))
+        except (TypeError, ValueError):
             continue
-        rec_scores = None
-        if hasattr(item, "keys") and "rec_scores" in item:
-            rec_scores = item["rec_scores"]
-        elif hasattr(item, "get"):
-            rec_scores = item.get("rec_scores")
-        elif hasattr(item, "rec_scores"):
-            rec_scores = item.rec_scores
-        if not rec_scores:
-            continue
-        for score in rec_scores:
-            try:
-                scores.append(float(score))
-            except (TypeError, ValueError):
-                continue
-
     if not scores:
         return None
     return sum(scores) / len(scores)
@@ -158,18 +113,23 @@ class PaddleEngine(BaseOcrEngine):
             _diag(traceback.format_exc())
             raise
 
-        texts = _extract_texts(result)
+        detections = extract_detections_from_paddle_result(result)
+        texts = [str(d["text"]) for d in detections if d.get("text")]
         _diag(f"[6] OCR text: {texts}")
+        _diag(f"[6b] OCR detections: {len(detections)} tokens with boxes")
 
-        confidence = _average_confidence(result)
+        confidence = _average_confidence_from_detections(detections)
         if confidence is None:
             confidence = 0.0
 
         return {
             "texts": texts,
             "confidence": float(confidence),
+            # Spatial payload for measurement parser (boxes + per-token scores)
+            "detections": detections,
             "raw": {
                 "engine": self.name,
                 "meter_type": (meter_type or "").lower() or None,
+                "detection_count": len(detections),
             },
         }

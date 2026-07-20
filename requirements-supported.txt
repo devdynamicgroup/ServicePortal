@@ -1,0 +1,30 @@
+# Water Motion — Officially Supported Paddle OCR Runtime
+#
+# This file documents the recommended runtime versions for the real PaddleOCR
+# engine. It does NOT replace ocr-service/requirements.txt.
+#
+# Sources:
+# - PaddleOCR 3.x PaddlePaddle installation guide (pins paddlepaddle==3.2.0)
+#   https://www.paddleocr.ai/latest/en/version3.x/paddlepaddle_installation.html
+# - PaddleOCR installation guide (paddleocr >= 3.8 Python for optional groups;
+#   core OCR supports Python >= 3.8)
+#   https://www.paddleocr.ai/main/en/version3.x/installation.html
+# - PaddleOCR maintainer guidance on PaddlePaddle 3.3.1 incompatibility
+#   https://github.com/PaddlePaddle/PaddleOCR/issues/18162
+#
+# Recommended Python (not installable via pip): 3.12.x, 64-bit, Windows 11 CPU
+#
+# Install PaddlePaddle from the official CPU index BEFORE paddleocr:
+#   python -m pip install --upgrade pip
+#   python -m pip install paddlepaddle==3.2.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+#   python -m pip install -r requirements-supported.txt
+#
+# Maintainer-confirmed workaround if 3.2.0 is unavailable or unstable:
+#   python -m pip install paddlepaddle==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+
+paddlepaddle==3.2.0
+paddleocr==3.7.0
+
+# paddlex is installed transitively by paddleocr.
+# paddleocr 3.7.0 requires: paddlex>=3.7.0,<3.8.0
+# Expected resolved version: paddlex==3.7.2

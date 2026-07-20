@@ -5,6 +5,19 @@ node_modules/
 *.log
 data/
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+build/
+dist/
+
 # Google service-account credentials (never commit)
 credentials/
 *-service-account*.json

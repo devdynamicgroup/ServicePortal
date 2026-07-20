@@ -1,0 +1,25 @@
+{
+  "id": "generic_tds",
+  "name": "Generic TDS / EC meter",
+  "row_grouping": {
+    "y_threshold_ratio": 0.55
+  },
+  "fields": {
+    "tds": {
+      "aliases": ["tds", "ppm"],
+      "range": [0, 5000],
+      "required": true
+    },
+    "ec": {
+      "aliases": ["ec", "us", "us/cm", "uscm", "µs"],
+      "range": [0, 10000],
+      "required": false
+    },
+    "temperature": {
+      "aliases": ["temp", "c", "°c", "temperature"],
+      "range": [0, 100],
+      "required": false
+    }
+  },
+  "primary_field": "tds"
+}

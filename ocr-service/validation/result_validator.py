@@ -12,8 +12,8 @@ from typing import Any
 
 RANGES: dict[str, tuple[float, float]] = {
     "tds": (0.0, 5000.0),
-    "ec": (0.0, 20000.0),
-    "temperature": (-5.0, 100.0),
+    "ec": (0.0, 10000.0),
+    "temperature": (0.0, 100.0),
     "ph": (0.0, 14.0),
     "mv": (-2000.0, 2000.0),
     "orp": (-2000.0, 2000.0),

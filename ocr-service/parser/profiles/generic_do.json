@@ -1,0 +1,12 @@
+{
+  "id": "generic_do",
+  "name": "Generic DO meter",
+  "fields": {
+    "do_percent": {
+      "aliases": ["do", "%do", "%00", "sat", "do_percent"],
+      "range": [0, 200],
+      "required": true
+    }
+  },
+  "primary_field": "do_percent"
+}

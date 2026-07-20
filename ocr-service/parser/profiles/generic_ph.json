@@ -1,0 +1,20 @@
+{
+  "id": "generic_ph",
+  "name": "Generic pH meter",
+  "row_grouping": {
+    "y_threshold_ratio": 0.55
+  },
+  "fields": {
+    "ph": {
+      "aliases": ["ph"],
+      "range": [0, 14],
+      "required": true
+    },
+    "mv": {
+      "aliases": ["mv", "mvph", "mv_ph"],
+      "range": [-2000, 2000],
+      "required": false
+    }
+  },
+  "primary_field": "ph"
+}

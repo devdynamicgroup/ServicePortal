@@ -32,4 +32,7 @@ class BaseOcrEngine(ABC):
           - texts: list[str] raw lines
           - confidence: float | None
           - raw: optional engine-specific payload
+
+        Optional spatial fields (when the engine provides them):
+          - detections: list[{text, score, box}] where box is [x1,y1,x2,y2]
         """

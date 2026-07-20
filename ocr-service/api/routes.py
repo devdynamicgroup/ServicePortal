@@ -127,7 +127,7 @@ def _handle_read_meter(
         )
         return 200, api_response.success(
             data=result.get("data") or {},
-            message="Mock OCR read complete",
+            message="OCR read complete",
             request_id=request_id,
             meter_type=result.get("meter_type"),
             confidence=result.get("confidence"),

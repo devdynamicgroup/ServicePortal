@@ -1,0 +1,39 @@
+{
+  "id": "hanna_hi98194",
+  "name": "HANNA HI98194 Multiparameter",
+  "match_hints": {
+    "text_any": ["HI98194", "Multiparameter", "HANNA"]
+  },
+  "ignore_tokens": ["ESC", "HELP", "MENU", "LOG"],
+  "row_grouping": {
+    "y_threshold_ratio": 0.55
+  },
+  "fields": {
+    "mv": {
+      "aliases": ["mv", "mvph", "mv_ph", "mvp"],
+      "range": [-2000, 2000],
+      "required": false,
+      "row_hint": 0
+    },
+    "ph": {
+      "aliases": ["ph"],
+      "exclude_aliases": ["orp", "mvorp"],
+      "range": [0, 14],
+      "required": true,
+      "row_hint": 1
+    },
+    "orp": {
+      "aliases": ["orp", "mvorp", "orp_mv", "orpmv"],
+      "range": [-2000, 2000],
+      "required": false,
+      "row_hint": 2
+    },
+    "do_percent": {
+      "aliases": ["do", "%do", "%00", "do_percent", "sat"],
+      "range": [0, 200],
+      "required": false,
+      "row_hint": 3
+    }
+  },
+  "primary_field": "ph"
+}
