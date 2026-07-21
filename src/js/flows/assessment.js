@@ -477,16 +477,33 @@ function renderMeterThumbnailRow() {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </span>`;
     return `
-      <button type="button" class="meter-thumb-item" onclick="openMeterImageViewer(${index})" aria-label="View meter image ${index + 1}">
-        <div class="meter-thumb-box">${visual}</div>
-        <div class="meter-thumb-index">${index + 1}</div>
-      </button>
+      <div class="meter-thumb-wrap">
+        <button type="button" class="meter-thumb-item" onclick="openMeterImageViewer(${index})" aria-label="View meter image ${index + 1}">
+          <div class="meter-thumb-box">${visual}</div>
+          <div class="meter-thumb-index">${index + 1}</div>
+        </button>
+        <button type="button" class="meter-thumb-delete" onclick="event.stopPropagation(); removeMeterSessionImage(${index})" aria-label="Remove meter image ${index + 1}">×</button>
+      </div>
     `;
   }).join('');
 
   if (!document.getElementById('meter-viewer-overlay')?.classList.contains('hidden')) {
     updateMeterImageViewerUi();
   }
+}
+
+/** Remove one captured meter image. Does not recalculate readings or change manual values. */
+function removeMeterSessionImage(index) {
+  const tap = getActiveTapRecord();
+  const images = ensureMeterImages(tap);
+  const i = Number(index);
+  if (!Number.isInteger(i) || i < 0 || i >= images.length) return;
+
+  images.splice(i, 1);
+  syncMeterThumbFromSession(tap);
+  saveActiveJobState?.();
+  renderMeterThumbnailRow();
+  renderAssessList?.();
 }
 
 async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
