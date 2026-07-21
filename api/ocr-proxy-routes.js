@@ -36,6 +36,13 @@ function readBody(req) {
 async function handleOcrProxyRoute(req, res, urlPath) {
   if (urlPath !== '/api/ocr/read-meter') return false;
 
+  // TEMP debug — remove after OCR fill investigation (visible in Render logs)
+  console.warn('[OCR] proxy request received', {
+    method: req.method,
+    path: urlPath,
+    contentLength: req.headers['content-length'] || null
+  });
+
   if (req.method !== 'POST') {
     sendJson(res, 405, {
       success: false,
@@ -53,6 +60,9 @@ async function handleOcrProxyRoute(req, res, urlPath) {
       throw new Error('Body must be a JSON object');
     }
   } catch (error) {
+    console.warn('[OCR] proxy rejected before ocr-client', {
+      reason: error?.message || String(error)
+    });
     sendJson(res, 400, {
       success: false,
       error: 'INVALID_REQUEST',
@@ -65,6 +75,11 @@ async function handleOcrProxyRoute(req, res, urlPath) {
   const meterType = payload.meter_type != null ? String(payload.meter_type).trim() : '';
 
   if (!imageUrl || !meterType) {
+    console.warn('[OCR] proxy validation failed', {
+      hasImageUrl: Boolean(imageUrl),
+      hasMeterType: Boolean(meterType),
+      imageUrlLen: imageUrl.length
+    });
     sendJson(res, 400, {
       success: false,
       error: 'VALIDATION_ERROR',
@@ -72,6 +87,13 @@ async function handleOcrProxyRoute(req, res, urlPath) {
     });
     return true;
   }
+
+  console.warn('[OCR] proxy calling ocr-client', {
+    meter_type: meterType,
+    imageUrlLen: imageUrl.length,
+    imageUrlPrefix: imageUrl.slice(0, 48),
+    ocrServiceUrl: process.env.OCR_SERVICE_URL || '(default http://127.0.0.1:5055)'
+  });
 
   const result = await readMeter({
     image_url: imageUrl,

@@ -318,9 +318,22 @@ async function detectMeterReadingsFromImage(photoSrc) {
   const imageUrl = typeof photoSrc === 'string'
     ? photoSrc
     : resolveCaptureDataUrl(photoSrc);
-  if (!imageUrl) return {};
+  if (!imageUrl) {
+    console.warn('[OCR FLOW] missing imageSrc — aborting detectMeterReadingsFromImage', {
+      photoSrcType: typeof photoSrc,
+      isString: typeof photoSrc === 'string',
+      stringPrefix: typeof photoSrc === 'string' ? photoSrc.slice(0, 32) : null
+    });
+    return {};
+  }
 
   try {
+    console.warn('[OCR] request started', {
+      endpoint: '/api/ocr/read-meter',
+      meter_type: 'ph',
+      imageUrlLen: imageUrl.length,
+      imageUrlPrefix: imageUrl.slice(0, 48)
+    });
     const response = await fetch('/api/ocr/read-meter', {
       method: 'POST',
       headers: {
@@ -335,18 +348,35 @@ async function detectMeterReadingsFromImage(photoSrc) {
       })
     });
     const body = await response.json().catch(() => ({}));
+    // TEMP debug — remove after OCR fill investigation
+    console.warn('[OCR] response received', {
+      httpStatus: response.status,
+      success: body?.success,
+      error: body?.error || null,
+      message: body?.message || null,
+      dataKeys: body?.data && typeof body.data === 'object' ? Object.keys(body.data) : []
+    });
+    console.warn('[OCR] detected data:', body?.data && typeof body.data === 'object' ? body.data : null);
     if (body && body.success === false && OCR_USER_ERROR_CODES.has(body.error)) {
       const err = new Error(body.message || 'OCR is not available');
       err.code = body.error;
       throw err;
     }
     if (!body || body.success === false || !body.data || typeof body.data !== 'object') {
+      console.warn('[OCR] mapped readings:', {});
       return {};
     }
-    return mapOcrDataToMeterReadings(body.data);
+    const mapped = mapOcrDataToMeterReadings(body.data);
+    console.warn('[OCR] mapped readings:', mapped);
+    return mapped;
   } catch (error) {
     if (OCR_USER_ERROR_CODES.has(error?.code)) throw error;
     console.warn('Meter OCR request failed', error);
+    console.warn('[OCR] response received', {
+      failed: true,
+      message: error?.message || String(error),
+      code: error?.code || null
+    });
     return {};
   }
 }
@@ -641,70 +671,104 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
   }
 }
 
+/**
+ * One meter capture: save → OCR → merge/write fields → Drive upload.
+ * OCR always runs when imageSrc exists. Drive upload does not skip or replace OCR.
+ */
 async function appendMeterSessionPhoto(photoSrc) {
-  if (!photoSrc || processAssessmentPhoto._busy) return null;
-  processAssessmentPhoto._busy = true;
-  const tapIndex = S.activeTap;
-  try {
-    showToast(typeof t === 'function' ? t('meter.processingTitle') : 'Reading image...');
+  const imageSrc = typeof photoSrc === 'string'
+    ? photoSrc
+    : resolveCaptureDataUrl(photoSrc);
 
-    const tap = getActiveTapRecord();
-    const images = ensureMeterImages(tap);
-    let detected = {};
-    let ocrUnavailable = false;
-    try {
-      detected = await detectMeterReadingsFromImage(photoSrc);
-    } catch (error) {
-      if (OCR_USER_ERROR_CODES.has(error?.code)) {
-        ocrUnavailable = true;
-        detected = {};
-      } else {
-        throw error;
-      }
-    }
-    const readingsBefore = { ...(tap.meterReadings || {}) };
-    const entry = {
-      id: newMeterImageId(),
-      photo: photoSrc,
-      uploadedAt: new Date().toISOString(),
-      sessionId: getAssessmentSessionId(),
-      detected
-    };
-    images.push(entry);
-    tap.meterReadings = mergeMeterReadings(tap.meterReadings, detected);
-    if (Object.keys(detected).length) tap.meterSource = 'ocr';
-    syncMeterThumbFromSession(tap);
-
-    writeMeterReadingFields(tap.meterReadings);
-    S.scoreBaseReadings = null;
-    S.scoreVal = null;
-    if (S.activeJob?.draft) {
-      S.activeJob.draft.scoreBaseReadings = null;
-      S.activeJob.draft.scoreVal = null;
-    }
-    saveActiveJobState?.();
-    renderAssessList();
-    renderMeterThumbnailRow();
-    resetMeterCapturePreview();
-
-    const fieldsUpdated = Object.keys(detected).some(
-      key => String(detected[key]) !== '' && String(readingsBefore[key] ?? '') !== String(tap.meterReadings[key] ?? '')
-    );
-    if (ocrUnavailable) {
-      showToast(typeof t === 'function' ? t('meter.toastOcrUnavailable') : 'OCR is not ready. Enter readings manually.');
-    } else if (fieldsUpdated) {
-      showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
-    } else {
-      showToast(typeof t === 'function' ? t('meter.toastNoValues') : 'No values detected. Enter readings manually.');
-    }
-
-    uploadMeterSessionImage(tapIndex, entry.id, photoSrc).catch(error => {
-      console.warn('Meter session upload failed', error);
+  if (!imageSrc) {
+    console.warn('[OCR FLOW] missing imageSrc — aborting (no silent continue)', {
+      photoSrcType: typeof photoSrc,
+      hasPhotoSrc: Boolean(photoSrc)
     });
-    return entry;
-  } finally {
-    processAssessmentPhoto._busy = false;
+    return null;
   }
+
+  const tapIndex = S.activeTap;
+  const tap = getActiveTapRecord();
+  const images = ensureMeterImages(tap);
+  const meterImageId = newMeterImageId();
+  const readingsBefore = { ...(tap.meterReadings || {}) };
+
+  // 1) Save meterImages entry first (detected filled after OCR).
+  const entry = {
+    id: meterImageId,
+    photo: imageSrc,
+    uploadedAt: new Date().toISOString(),
+    sessionId: getAssessmentSessionId(),
+    detected: {}
+  };
+  images.push(entry);
+  syncMeterThumbFromSession(tap);
+  saveActiveJobState?.();
+  renderMeterThumbnailRow();
+  resetMeterCapturePreview();
+  renderAssessList();
+
+  showToast(typeof t === 'function' ? t('meter.processingTitle') : 'Reading image...');
+
+  // 2) Always run OCR for this image (never skip because Drive/busy).
+  let detected = {};
+  let ocrUnavailable = false;
+  console.warn('[OCR FLOW] starting detection', {
+    imageLength: imageSrc.length,
+    imageType: typeof imageSrc === 'string' ? imageSrc.slice(0, 40) : typeof imageSrc,
+    meterImageId
+  });
+  try {
+    detected = await detectMeterReadingsFromImage(imageSrc);
+  } catch (error) {
+    if (OCR_USER_ERROR_CODES.has(error?.code)) {
+      ocrUnavailable = true;
+      detected = {};
+      console.warn('[OCR FLOW] detection unavailable', {
+        meterImageId,
+        code: error.code,
+        message: error.message
+      });
+    } else {
+      throw error;
+    }
+  }
+  console.warn('[OCR FLOW] detected result', { meterImageId, detected, ocrUnavailable });
+
+  // 3) Merge + write form fields from OCR result only (no mock/fallback values).
+  entry.detected = detected;
+  tap.meterReadings = mergeMeterReadings(tap.meterReadings, detected);
+  if (Object.keys(detected).length) tap.meterSource = 'ocr';
+  syncMeterThumbFromSession(tap);
+  writeMeterReadingFields(tap.meterReadings);
+  S.scoreBaseReadings = null;
+  S.scoreVal = null;
+  if (S.activeJob?.draft) {
+    S.activeJob.draft.scoreBaseReadings = null;
+    S.activeJob.draft.scoreVal = null;
+  }
+  saveActiveJobState?.();
+  renderAssessList();
+  renderMeterThumbnailRow();
+
+  const fieldsUpdated = Object.keys(detected).some(
+    key => String(detected[key]) !== '' && String(readingsBefore[key] ?? '') !== String(tap.meterReadings[key] ?? '')
+  );
+  if (ocrUnavailable) {
+    showToast(typeof t === 'function' ? t('meter.toastOcrUnavailable') : 'OCR is not ready. Enter readings manually.');
+  } else if (fieldsUpdated) {
+    showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
+  } else {
+    showToast(typeof t === 'function' ? t('meter.toastNoValues') : 'No values detected. Enter readings manually.');
+  }
+
+  // 4) Drive upload after OCR completes (success or empty) — does not hide OCR outcome.
+  console.warn('[OCR FLOW] uploading image', { meterImageId, tapIndex });
+  uploadMeterSessionImage(tapIndex, entry.id, imageSrc).catch(error => {
+    console.warn('Meter session upload failed', error);
+  });
+  return entry;
 }
 
 const CHLORINE_READING_FIELDS = {
@@ -785,7 +849,11 @@ function writeReadingFields(fieldMap, readings = {}) {
 }
 
 async function processAssessmentPhoto(previewId, photoSrc) {
+  // Meter session uses the dedicated OCR queue — never the chlorine mock busy lock.
   if (previewId === 'meter-photo-preview') {
+    if (window.MeterReadingCapture?.processPhoto) {
+      return MeterReadingCapture.processPhoto(photoSrc);
+    }
     return appendMeterSessionPhoto(photoSrc);
   }
 
@@ -846,6 +914,8 @@ function persistMeterReadings() {
 window.MeterReadingCapture = {
   provider: MeterReadingOcrProvider,
   _processing: false,
+  /** Serial queue so image 2/3 still get OCR while image 1 is in flight. */
+  _queue: [],
 
   init() {
     const tap = getActiveTapRecord();
@@ -871,15 +941,53 @@ window.MeterReadingCapture = {
   },
 
   async processPhoto(photoSrc) {
-    if (this._processing || !photoSrc) return;
+    const imageSrc = typeof photoSrc === 'string'
+      ? photoSrc
+      : resolveCaptureDataUrl(photoSrc);
+
+    console.warn('[METERRAW] image captured', {
+      hasPhoto: Boolean(imageSrc),
+      photoSrcType: typeof photoSrc,
+      imageLength: typeof imageSrc === 'string' ? imageSrc.length : null,
+      queueLength: this._queue.length,
+      alreadyProcessing: Boolean(this._processing)
+    });
+
+    if (!imageSrc) {
+      console.warn('[OCR FLOW] missing imageSrc — aborting (no silent continue)', {
+        photoSrcType: typeof photoSrc
+      });
+      return;
+    }
+
+    this._queue.push(imageSrc);
+    if (this._processing) {
+      console.warn('[OCR FLOW] queued for OCR after current image', {
+        queueLength: this._queue.length
+      });
+      return;
+    }
+
+    await this._drainMeterOcrQueue();
+  },
+
+  async _drainMeterOcrQueue() {
+    if (this._processing) return;
     this._processing = true;
     try {
-      await appendMeterSessionPhoto(photoSrc);
+      while (this._queue.length) {
+        const nextSrc = this._queue.shift();
+        await appendMeterSessionPhoto(nextSrc);
+      }
     } catch (error) {
       console.error(error);
       showToast(typeof t === 'function' ? t('meter.toastError') : 'Could not read image');
     } finally {
       this._processing = false;
+    }
+    // Catch enqueues that arrived after the while-loop emptied but before unlock.
+    if (this._queue.length) {
+      await this._drainMeterOcrQueue();
     }
   },
 
@@ -1685,13 +1793,27 @@ function setPhotoPreview(previewId, src, options = {}) {
   const ocrSource = dataUrl || (typeof src === 'string' ? src : '');
   if (!options.silent && ocrSource) {
     if (isMeterSession && window.MeterReadingCapture?.processPhoto) {
+      // TEMP debug — remove after OCR fill investigation
+      console.warn('[OCR] setPhotoPreview → processPhoto', {
+        previewId,
+        silent: Boolean(options.silent),
+        ocrSourceLen: typeof ocrSource === 'string' ? ocrSource.length : null
+      });
       MeterReadingCapture.processPhoto(ocrSource);
+    } else if (isMeterSession) {
+      console.warn('[OCR] setPhotoPreview meter path skipped — MeterReadingCapture missing');
     } else if (previewId === 'cl-photo-preview') {
       processAssessmentPhoto('cl-photo-preview', ocrSource).catch(error => {
         console.error(error);
         showToast(typeof t === 'function' ? t('meter.toastError') : 'Could not read image');
       });
     }
+  } else if (isMeterSession) {
+    console.warn('[OCR] setPhotoPreview did not start OCR', {
+      silent: Boolean(options.silent),
+      hasOcrSource: Boolean(ocrSource),
+      skipUpload: Boolean(options.skipUpload)
+    });
   }
 
   if (!skipUpload && dataUrl && taskKey && !isMeterSession) {
