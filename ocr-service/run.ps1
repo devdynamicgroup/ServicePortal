@@ -29,6 +29,8 @@ for name in ('paddle', 'paddleocr', 'paddlex'):
         print(f'{name:10}: IMPORT_FAIL', e)
 "@
 
+$prevErrorAction = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 $check = & $VenvPython -c @"
 import sys
 maj, min = sys.version_info[:2]
@@ -42,12 +44,14 @@ o = importlib.import_module('paddleocr')
 if not str(getattr(o, '__version__', '')).startswith('3.7.'):
     raise SystemExit(f'Expected paddleocr 3.7.x, got {getattr(o, \"__version__\", \"?\")}')
 print('runtime_check: OK')
-"@ 2>&1
+"@ 2>&1 | Out-String
+$checkExit = $LASTEXITCODE
+$ErrorActionPreference = $prevErrorAction
 
-if ($LASTEXITCODE -ne 0) {
+if ($checkExit -ne 0) {
     Write-Error "Runtime check failed:`n$check"
 }
-Write-Host $check
+Write-Host $check.TrimEnd()
 Write-Host "=== Starting main.py ==="
 Set-Location $ServiceRoot
 & $VenvPython main.py
