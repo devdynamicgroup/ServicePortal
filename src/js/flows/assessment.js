@@ -305,6 +305,7 @@ function mapOcrDataToMeterReadings(data = {}) {
 /**
  * Read meter values from the image via OCR.
  * Returns only fields actually present in the OCR response — never invents values.
+ * Throws with code ENGINE_UNAVAILABLE when the OCR engine is not ready.
  */
 async function detectMeterReadingsFromImage(photoSrc) {
   const imageUrl = typeof photoSrc === 'string'
@@ -327,11 +328,17 @@ async function detectMeterReadingsFromImage(photoSrc) {
       })
     });
     const body = await response.json().catch(() => ({}));
+    if (body && body.success === false && body.error === 'ENGINE_UNAVAILABLE') {
+      const err = new Error(body.message || 'OCR engine is not available');
+      err.code = 'ENGINE_UNAVAILABLE';
+      throw err;
+    }
     if (!body || body.success === false || !body.data || typeof body.data !== 'object') {
       return {};
     }
     return mapOcrDataToMeterReadings(body.data);
   } catch (error) {
+    if (error?.code === 'ENGINE_UNAVAILABLE') throw error;
     console.warn('Meter OCR request failed', error);
     return {};
   }
@@ -636,7 +643,18 @@ async function appendMeterSessionPhoto(photoSrc) {
 
     const tap = getActiveTapRecord();
     const images = ensureMeterImages(tap);
-    const detected = await detectMeterReadingsFromImage(photoSrc);
+    let detected = {};
+    let ocrUnavailable = false;
+    try {
+      detected = await detectMeterReadingsFromImage(photoSrc);
+    } catch (error) {
+      if (error?.code === 'ENGINE_UNAVAILABLE') {
+        ocrUnavailable = true;
+        detected = {};
+      } else {
+        throw error;
+      }
+    }
     const entry = {
       id: newMeterImageId(),
       photo: photoSrc,
@@ -660,7 +678,11 @@ async function appendMeterSessionPhoto(photoSrc) {
     renderAssessList();
     renderMeterThumbnailRow();
     resetMeterCapturePreview();
-    showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
+    if (ocrUnavailable) {
+      showToast(typeof t === 'function' ? t('meter.toastOcrUnavailable') : 'OCR is not ready. Enter readings manually.');
+    } else {
+      showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
+    }
 
     uploadMeterSessionImage(tapIndex, entry.id, photoSrc).catch(error => {
       console.warn('Meter session upload failed', error);

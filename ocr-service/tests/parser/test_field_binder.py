@@ -37,6 +37,57 @@ class TestFieldBinder(unittest.TestCase):
         by_key = {c.key: c.value for c in bound}
         self.assertNotEqual(by_key.get("ph"), -15.0)
 
+    def test_binds_mvph_when_unit_on_separate_row(self) -> None:
+        """Value and mVpH split across OCR clusters still bind as mv."""
+        from parser.field_confidence import build_data_payload, validate_candidates
+
+        detections = [
+            {"text": "HANNA", "score": 0.99, "box": [100, 40, 300, 90]},
+            {"text": "-19.2", "score": 0.999, "box": [120, 200, 320, 280]},
+            # Unit below/beside value enough to form its own non-numeric cluster
+            {"text": "mVpH", "score": 0.98, "box": [340, 310, 460, 360]},
+            {"text": "HI98194", "score": 0.99, "box": [80, 500, 220, 540]},
+            {"text": "1", "score": 0.99, "box": [100, 700, 130, 740]},
+            {"text": "2 abc", "score": 0.99, "box": [200, 700, 280, 740]},
+        ]
+        tokens = tokens_from_detections(detections)
+        profile = get_profile(profile_id="hanna_hi98194")
+
+        rows_plain = group_rows(tokens, y_threshold_ratio=profile.y_threshold_ratio)
+        self.assertTrue(any(r.value_token and r.value_token.text == "-19.2" for r in rows_plain))
+        data_plain = build_data_payload(validate_candidates(bind_fields(rows_plain, profile), profile))
+        self.assertNotIn("mv", data_plain)
+
+        rows = group_rows(tokens, y_threshold_ratio=profile.y_threshold_ratio)
+        bound = bind_fields(rows, profile, tokens=tokens)
+        by_key = {c.key: c for c in bound}
+        self.assertIn("mv", by_key)
+        self.assertEqual(by_key["mv"].value, -19.2)
+        self.assertIsNotNone(by_key["mv"].label_token)
+        self.assertEqual(by_key["mv"].label_token.text, "mVpH")
+        self.assertGreaterEqual(by_key["mv"].unit_match_score, 0.70)
+
+        data = build_data_payload(validate_candidates(bound, profile))
+        self.assertEqual(data.get("mv"), -19.2)
+        self.assertNotEqual(data.get("ph"), -19.2)
+
+    def test_does_not_bind_keypad_number_without_unit(self) -> None:
+        from parser.field_confidence import build_data_payload, validate_candidates
+
+        detections = [
+            {"text": "HANNA", "score": 0.99, "box": [100, 40, 300, 90]},
+            {"text": "6", "score": 0.99, "box": [200, 200, 240, 250]},
+            {"text": "Menu", "score": 0.99, "box": [300, 210, 380, 250]},
+            {"text": "2 abc", "score": 0.99, "box": [200, 700, 280, 740]},
+        ]
+        tokens = tokens_from_detections(detections)
+        profile = get_profile(profile_id="hanna_hi98194")
+        rows = group_rows(tokens)
+        bound = bind_fields(rows, profile, tokens=tokens)
+        data = build_data_payload(validate_candidates(bound, profile))
+        # Keypad/chrome must not become accepted measurement fields
+        self.assertEqual(data, {})
+
 
 if __name__ == "__main__":
     unittest.main()

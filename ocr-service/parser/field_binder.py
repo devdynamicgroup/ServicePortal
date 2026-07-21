@@ -7,7 +7,7 @@ Associates MeasurementRow value/label pairs with profile field keys.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Sequence
 
 from parser.normalize import extract_numbers
 from parser.profile_loader import FieldConfig, MeterProfile
@@ -42,6 +42,83 @@ def _label_excluded(label: str, field_cfg: FieldConfig) -> bool:
         return False
     score = unit_match_score(label, list(field_cfg.exclude_aliases))
     return score >= 0.8
+
+
+def _token_height(token: OcrToken) -> float:
+    return max(1.0, float(token.box[3] - token.box[1]))
+
+
+def _profile_alias_lists(profile: MeterProfile) -> list[list[str]]:
+    return [list(f.aliases) + [f.key] for f in profile.fields]
+
+
+def _looks_like_unit_token(token: OcrToken, profile: MeterProfile) -> bool:
+    """Only attach tokens that match a profile unit/alias (never keypad/chrome)."""
+    text = str(token.text or "").strip()
+    if not text or len(text) > 16:
+        return False
+    for aliases in _profile_alias_lists(profile):
+        if unit_match_score(text, aliases) >= 0.70:
+            return True
+    return False
+
+
+def attach_nearby_unit_labels(
+    rows: list[MeasurementRow],
+    tokens: Sequence[OcrToken],
+    profile: MeterProfile,
+) -> list[MeasurementRow]:
+    """
+    When a value row has no label (unit-only OCR cluster was dropped), attach a
+    nearby orphan unit token that matches a profile alias (e.g. -19.2 + mVpH).
+
+    Does not invent values; only restores spatially adjacent unit labels.
+    """
+    if not rows or not tokens:
+        return rows
+
+    used = {id(t) for row in rows for t in row.tokens}
+    orphans = [
+        t
+        for t in tokens
+        if id(t) not in used
+        and not t.is_numeric
+        and not t.ignored
+        and not t.debug_only
+        and _looks_like_unit_token(t, profile)
+    ]
+    if not orphans:
+        return rows
+
+    for row in rows:
+        if row.value_token is None or row.label_token is not None:
+            continue
+
+        value = row.value_token
+        max_dy = max(_token_height(value) * 1.25, 48.0)
+        ranked: list[tuple[float, float, OcrToken]] = []
+        for orphan in orphans:
+            dy = abs(float(orphan.cy) - float(value.cy))
+            if dy > max_dy:
+                continue
+            # Prefer labels to the right of the value (HANNA LCD layout).
+            if float(orphan.cx) < float(value.cx) - _token_height(value):
+                continue
+            dx = abs(float(orphan.cx) - float(value.cx))
+            right_penalty = 0.0 if float(orphan.cx) >= float(value.cx) else 50.0
+            ranked.append((dy + right_penalty, dx, orphan))
+
+        if not ranked:
+            continue
+
+        ranked.sort(key=lambda item: (item[0], item[1]))
+        best = ranked[0][2]
+        row.label_token = best
+        if best not in row.tokens:
+            row.tokens = sorted([*row.tokens, best], key=lambda t: t.cx)
+        orphans = [t for t in orphans if id(t) != id(best)]
+
+    return rows
 
 
 def score_row_against_field(
@@ -90,12 +167,21 @@ def _value_in_range(value: float, field_cfg: FieldConfig) -> bool:
     return lo <= value <= hi
 
 
-def bind_fields(rows: list[MeasurementRow], profile: MeterProfile) -> list[FieldCandidate]:
+def bind_fields(
+    rows: list[MeasurementRow],
+    profile: MeterProfile,
+    tokens: Sequence[OcrToken] | None = None,
+) -> list[FieldCandidate]:
     """
     Bind each measurement row to at most one field; each field at most once.
 
     Greedy: highest (row, field) score first, subject to range validity.
+    When ``tokens`` is provided, nearby orphan unit labels may be attached to
+    value rows that were split across OCR clusters (e.g. -19.2 / mVpH).
     """
+    if tokens:
+        rows = attach_nearby_unit_labels(rows, tokens, profile)
+
     candidates: list[tuple[float, MeasurementRow, FieldConfig, float, str | None, list, bool, float]] = []
 
     for row in rows:

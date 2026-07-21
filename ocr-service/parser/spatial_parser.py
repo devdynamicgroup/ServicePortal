@@ -97,7 +97,7 @@ class SpatialMeasurementParser:
         texts = [t.text for t in tokens]
         profile = get_profile(profile_id=profile_id, meter_type=meter_type, texts=texts)
         rows = group_rows(tokens, y_threshold_ratio=profile.y_threshold_ratio)
-        candidates = bind_fields(rows, profile)
+        candidates = bind_fields(rows, profile, tokens=tokens)
         results = validate_candidates(candidates, profile)
 
         data = build_data_payload(results)
