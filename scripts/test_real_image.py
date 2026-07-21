@@ -2,9 +2,9 @@
 Phase 6A — Real OCR validation against the existing pipeline.
 
 Usage (from repo root):
-  python scripts/test_real_image.py path/to/meter.jpg
-  python scripts/test_real_image.py path/to/meter.jpg --meter-type tds
-  python scripts/test_real_image.py path/to/meter.jpg --engine paddle
+  powershell -File scripts/run_test_real_image.ps1 path/to/meter.jpg
+  powershell -File scripts/run_test_real_image.ps1 path/to/meter.jpg -MeterType tds
+  powershell -File scripts/run_test_real_image.ps1 path/to/meter.jpg -Engine paddle
 
 Uses ocr-service processing pipeline only. No HTTP / frontend / API changes.
 """

@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "OCR Service (venv)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/ocr-service/main.py",
+      "cwd": "${workspaceFolder}/ocr-service",
+      "python": "${workspaceFolder}/ocr-service/.venv/Scripts/python.exe",
+      "env": {
+        "PADDLE_PDX_CACHE_HOME": "C:\\paddlex_cache"
+      },
+      "console": "integratedTerminal"
+    }
+  ]
+}

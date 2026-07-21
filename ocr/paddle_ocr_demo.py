@@ -2,7 +2,7 @@
 Standalone PaddleOCR 3.7 proof of concept.
 
 Usage:
-    python ocr/paddle_ocr_demo.py test_images/meter.jpg
+    ocr-service\.venv\Scripts\python.exe ocr/paddle_ocr_demo.py test_images/meter.jpg
 """
 
 import sys
@@ -49,7 +49,7 @@ def extract_texts(ocr_result):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python ocr/paddle_ocr_demo.py <image_path>")
+        print("Usage: ocr-service\\.venv\\Scripts\\python.exe ocr/paddle_ocr_demo.py <image_path>")
         sys.exit(1)
 
     image_path = sys.argv[1]

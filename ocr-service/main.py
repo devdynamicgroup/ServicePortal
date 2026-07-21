@@ -14,6 +14,7 @@ from api.routes import handle_request
 from config.settings import settings
 from core import response as api_response
 from core.logger import get_logger
+from core.runtime_env import enforce_supported_runtime, log_runtime_diagnostics
 
 logger = get_logger("main")
 
@@ -73,6 +74,8 @@ class OcrServiceHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    enforce_supported_runtime()
+    log_runtime_diagnostics()
     server = ThreadingHTTPServer((settings.host, settings.port), OcrServiceHandler)
     logger.info(
         "starting %s v%s phase=%s on http://%s:%s engine=%s",

@@ -14,9 +14,9 @@ Label formats supported:
      {"sample_001.png":{"meter_type":"tds","expected":{"tds":280}}}
 
 Usage (from ocr-service/):
-  python -m benchmark.benchmark
-  python -m benchmark.benchmark --engine mock
-  python -m benchmark.benchmark --seed-demo
+  .\.venv\Scripts\python.exe -m benchmark.benchmark
+  .\.venv\Scripts\python.exe -m benchmark.benchmark --engine mock
+  .\.venv\Scripts\python.exe -m benchmark.benchmark --seed-demo
 """
 
 from __future__ import annotations

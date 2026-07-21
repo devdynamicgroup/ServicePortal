@@ -13,9 +13,9 @@ tests/
 
 ## Run
 
-```bash
+```powershell
 cd ocr-service
-python -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
 Requires:

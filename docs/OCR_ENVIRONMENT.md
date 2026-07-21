@@ -191,8 +191,7 @@ If this prints `init ok`, predictor creation succeeded. Then test `predict()` wi
 
 ```powershell
 cd ocr-service
-$env:OCR_ENGINE="paddle"
-python server.py
+.\run.ps1
 ```
 
 No changes to service code, API, or pipeline are required.

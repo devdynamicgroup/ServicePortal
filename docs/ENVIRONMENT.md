@@ -245,7 +245,7 @@ The main Node backend does **not** run OCR. It proxies to a separate service.
 
 ### Local development
 
-1. Start OCR: `cd ocr-service && python main.py` (binds `http://0.0.0.0:5055`).
+1. Start OCR: `cd ocr-service && .\run.ps1` (uses `.\.venv\Scripts\python.exe`, verifies versions, sets `PADDLE_PDX_CACHE_HOME=C:\paddlex_cache` when missing, then binds `http://0.0.0.0:5055`).
 2. Leave `OCR_SERVICE_URL` unset in portal `.env`, or set:
 
 ```

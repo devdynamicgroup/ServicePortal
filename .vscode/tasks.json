@@ -1,0 +1,44 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "OCR Service: run (venv)",
+      "type": "shell",
+      "command": "${workspaceFolder}/ocr-service/.venv/Scripts/python.exe",
+      "args": ["main.py"],
+      "options": {
+        "cwd": "${workspaceFolder}/ocr-service",
+        "env": {
+          "PADDLE_PDX_CACHE_HOME": "C:\\paddlex_cache"
+        }
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "OCR: test real image (venv)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "${workspaceFolder}/scripts/run_test_real_image.ps1",
+        "${workspaceFolder}/ocr/test_images/line_oa_chat_260720_084708.jpg",
+        "-MeterType",
+        "ph"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always"
+      }
+    }
+  ]
+}

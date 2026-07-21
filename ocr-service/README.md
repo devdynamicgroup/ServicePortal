@@ -33,9 +33,9 @@ ocr-service/
 
 ## Startup
 
-```bash
+```powershell
 cd ocr-service
-python main.py
+.\run.ps1
 ```
 
 Defaults: `http://0.0.0.0:5055`
@@ -76,8 +76,8 @@ variables always override `.env` values.
 
 ```powershell
 cd ocr-service
-# Ensure .env has OCR_ENGINE=paddle (see .env.example)
-.\.venv\Scripts\python.exe main.py
+# Supported local launcher — verifies runtime + sets ASCII cache path
+.\run.ps1
 ```
 
 Startup log should show `engine=paddle`. Contract tests still force `OCR_ENGINE=mock`.
@@ -118,16 +118,16 @@ Stage timings are recorded on the pipeline context (`preprocess_ms`, `ocr_ms`, `
 
 ## Benchmark
 
-```bash
+```powershell
 cd ocr-service
-python -m benchmark.benchmark --samples 20
+.\.venv\Scripts\python.exe -m benchmark.benchmark --samples 20
 ```
 
 ## Test instructions
 
-```bash
+```powershell
 cd ocr-service
-python -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
 Existing contract / integration / performance tests must pass unchanged.
