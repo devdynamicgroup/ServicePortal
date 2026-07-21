@@ -111,6 +111,7 @@ class ContractTests(unittest.TestCase):
             self.assertIn("request_id", body)
 
     def test_10_large_payload(self):
+        # Contract process keeps OCR_MAX_BODY_BYTES=256 KiB (see helpers.OcrServiceProcess).
         huge = {"image_url": "x" * (300 * 1024), "meter_type": "tds"}
         raw = json.dumps(huge).encode("utf-8")
         status, body = http_json(

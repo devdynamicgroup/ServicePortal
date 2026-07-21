@@ -73,7 +73,9 @@ class Settings:
     port: int = 5055
 
     request_timeout_seconds: float = 30.0
-    max_body_bytes: int = 262144  # 256 KiB
+    # Enough for browser data URLs (base64 ≈ 4/3 of decoded image) + JSON wrapper.
+    # Decoded image cap remains image_max_bytes (20 MiB).
+    max_body_bytes: int = 28_000_000
 
     # Engine selection: empty/mock → MockOcrEngine
     ocr_engine: str = "mock"
@@ -116,7 +118,7 @@ def load_settings() -> Settings:
         host=_env("OCR_HOST", "0.0.0.0"),
         port=_env_int("OCR_PORT", 5055),
         request_timeout_seconds=_env_float("OCR_REQUEST_TIMEOUT", 30.0),
-        max_body_bytes=_env_int("OCR_MAX_BODY_BYTES", 262144),
+        max_body_bytes=_env_int("OCR_MAX_BODY_BYTES", 28_000_000),
         ocr_engine=engine,
         log_dir=_env("OCR_LOG_DIR", "logs"),
         log_level=_env("OCR_LOG_LEVEL", "INFO").upper(),

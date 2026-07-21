@@ -14,6 +14,7 @@ from core.logger import get_logger
 from core.metrics import metrics
 from engines.factory import get_engine
 from processing.pipeline import OcrPipeline
+from validation.image_input import cleanup_temp_image, materialize_image_url
 
 logger = get_logger("services.ocr")
 
@@ -61,11 +62,13 @@ class OcrService:
         if not self._engine.is_available():
             raise EngineUnavailableError("OCR engine is not available")
 
+        # data: URLs → temp file; filesystem / virtual paths pass through unchanged.
+        normalized = materialize_image_url(image_url)
         try:
             ctx = self._pipeline.run(
                 request_id=request_id,
                 meter_type=meter_type,
-                image_path=image_url,
+                image_path=normalized.path,
             )
             logger.info(
                 "read_meter success request_id=%s meter_type=%s confidence=%s timings=%s",
@@ -89,6 +92,8 @@ class OcrService:
                 exc,
             )
             raise EngineInternalError("OCR engine failed internally") from exc
+        finally:
+            cleanup_temp_image(normalized.temp_path)
 
 
 ocr_service = OcrService()

@@ -14,12 +14,16 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
+// Browser meter captures send data:image/...;base64,... which exceeds the old 256 KiB cap.
+// Keep aligned with ocr-service OCR_MAX_BODY_BYTES default (decoded image still capped there).
+const MAX_OCR_PROXY_BODY_BYTES = Number(process.env.OCR_PROXY_MAX_BODY_BYTES) || 28_000_000;
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', chunk => {
       body += chunk;
-      if (body.length > 256 * 1024) {
+      if (body.length > MAX_OCR_PROXY_BODY_BYTES) {
         req.destroy();
         reject(new Error('Request body too large'));
       }

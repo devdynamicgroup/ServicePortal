@@ -82,6 +82,8 @@ class OcrServiceProcess:
         env["OCR_PORT"] = str(self.port)
         env["OCR_ENGINE"] = "mock"
         env["OCR_SERVICE_PHASE"] = "3.5"
+        # Keep contract payload-size tests small; production default is larger for data URLs.
+        env.setdefault("OCR_MAX_BODY_BYTES", "262144")
         self.proc = subprocess.Popen(
             [sys.executable, "main.py"],
             cwd=str(SERVICE_ROOT),
