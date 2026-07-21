@@ -222,13 +222,6 @@ const METER_READING_FIELDS = {
   do: 'm-do'
 };
 
-/** Simulates different meter LCD screens per capture (mock OCR). */
-const METER_OCR_SLICES = [
-  ['ph', 'orp', 'do'],
-  ['tds', 'ec', 'temp'],
-  ['turbidity']
-];
-
 function getAssessmentSessionId() {
   return S.activeJob?.notionId || S.activeJob?.id || 'session';
 }
@@ -290,16 +283,58 @@ function pickMeterReadingFields(readings = {}) {
   );
 }
 
-function generatePartialMockMeterReadings(imageIndex) {
-  const full = generateRandomScoreReadings();
-  const keys = METER_OCR_SLICES[imageIndex % METER_OCR_SLICES.length] || METER_OCR_SLICES[0];
-  const picked = {};
-  keys.forEach(key => {
-    if (full[key] !== undefined && full[key] !== null && full[key] !== '') {
-      picked[key] = full[key];
-    }
+/** Map OCR service payload → meter form keys. Only keep non-empty detected values. */
+function mapOcrDataToMeterReadings(data = {}) {
+  const mapped = {
+    ph: data.ph,
+    tds: data.tds,
+    ec: data.ec,
+    temp: data.temp ?? data.temperature,
+    turbidity: data.turbidity,
+    orp: data.orp,
+    do: data.do_mg_l ?? data.do ?? data.do_percent
+  };
+  const out = {};
+  Object.entries(mapped).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    out[key] = String(value);
   });
-  return picked;
+  return out;
+}
+
+/**
+ * Read meter values from the image via OCR.
+ * Returns only fields actually present in the OCR response — never invents values.
+ */
+async function detectMeterReadingsFromImage(photoSrc) {
+  const imageUrl = typeof photoSrc === 'string'
+    ? photoSrc
+    : resolveCaptureDataUrl(photoSrc);
+  if (!imageUrl) return {};
+
+  try {
+    const response = await fetch('/api/ocr/read-meter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      cache: 'no-store',
+      body: JSON.stringify({
+        image_url: imageUrl,
+        // Multiparameter LCD profiles (e.g. HANNA) are keyed under ph.
+        meter_type: 'ph'
+      })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!body || body.success === false || !body.data || typeof body.data !== 'object') {
+      return {};
+    }
+    return mapOcrDataToMeterReadings(body.data);
+  } catch (error) {
+    console.warn('Meter OCR request failed', error);
+    return {};
+  }
 }
 
 function resetMeterCapturePreview() {
@@ -473,22 +508,50 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
       };
   const jobId = customer.jobId;
   const queueKey = `${driveQueueKey('meter', tapIndex)}:${imageId}`;
+  const existing = entry.photo;
+
+  // Already uploaded for THIS capture — skip. A new dataUrl must always upload.
+  if (DrivePhoto.isUploaded(existing) && resolveCaptureDataUrl(existing) === dataUrl) {
+    await DrivePhoto.dequeue?.(queueKey);
+    return existing;
+  }
+
+  // Live upload in progress for the same capture — do not start a second POST.
+  if (existing?.uploading && resolveCaptureDataUrl(existing) === dataUrl) {
+    return existing;
+  }
 
   const compressed = await DrivePhoto.compress(dataUrl);
-  entry.photo = {
+
+  // Re-check after async compress (flush/retry may have finished meanwhile).
+  const latestEntry = images.find(img => img.id === imageId);
+  const latest = latestEntry?.photo;
+  if (DrivePhoto.isUploaded(latest) && resolveCaptureDataUrl(latest) === compressed) {
+    await DrivePhoto.dequeue?.(queueKey);
+    return latest;
+  }
+  if (latest?.uploading && resolveCaptureDataUrl(latest) === compressed) {
+    return latest;
+  }
+  if (!latestEntry) return null;
+
+  const category = typeof DrivePhoto.resolveClientCategory === 'function'
+    ? DrivePhoto.resolveClientCategory('meter', 'image/jpeg')
+    : 'Site Inspection';
+
+  latestEntry.photo = {
     uploading: true,
     previewUrl: compressed,
     folder: 'main',
     purpose: 'meter',
-    category: typeof DrivePhoto.resolveClientCategory === 'function'
-      ? DrivePhoto.resolveClientCategory('meter', 'image/jpeg')
-      : 'Site Inspection',
+    category,
     subCategory: imageId,
     notionId: customer.notionId,
     uploadedAt: null,
     jobId,
     pendingAutoRetry: false
   };
+  syncMeterThumbFromSession(tap);
   saveActiveJobState?.();
 
   try {
@@ -496,7 +559,7 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
       dataUrl: compressed,
       purpose: 'meter',
       folder: 'main',
-      category: entry.photo.category,
+      category,
       subCategory: imageId,
       uploadType: imageId,
       contentType: 'image/jpeg',
@@ -506,28 +569,44 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
       customerName: customer.customerName,
       customerFolderId: customer.customerFolderId
     });
-    entry.photo = buildStoredDrivePhotoMeta(meta, { purpose: 'meter', previewUrl: compressed });
+    latestEntry.photo = buildStoredDrivePhotoMeta(meta, { purpose: 'meter', previewUrl: compressed });
     syncMeterThumbFromSession(tap);
     await DrivePhoto.dequeue?.(queueKey);
     saveActiveJobState?.();
     renderAssessList();
     renderMeterThumbnailRow();
-    return entry.photo;
+    return latestEntry.photo;
   } catch (error) {
+    if (error?.code === 'UPLOAD_IN_FLIGHT') return latestEntry.photo;
     console.warn('Meter session Drive upload failed', error);
-    entry.photo = markDriveUploadFailed({
+    latestEntry.photo = markDriveUploadFailed({
       previewUrl: compressed,
       folder: 'main',
       purpose: 'meter',
-      category: entry.photo.category,
+      category,
       subCategory: imageId,
       notionId: customer.notionId,
       jobId
     }, error);
+    if (DrivePhoto.isRetryableError?.(error)) {
+      await DrivePhoto.enqueue?.({
+        queueKey,
+        jobId,
+        notionId: customer.notionId,
+        customerName: customer.customerName,
+        customerFolderId: customer.customerFolderId,
+        tapIndex,
+        meterImageId: imageId,
+        purpose: 'meter',
+        folder: 'main',
+        dataUrl: compressed,
+        lastError: error.message
+      });
+    }
     syncMeterThumbFromSession(tap);
     saveActiveJobState?.();
     renderMeterThumbnailRow();
-    return entry.photo;
+    return latestEntry.photo;
   }
 }
 
@@ -537,11 +616,10 @@ async function appendMeterSessionPhoto(photoSrc) {
   const tapIndex = S.activeTap;
   try {
     showToast(typeof t === 'function' ? t('meter.processingTitle') : 'Reading image...');
-    await new Promise(resolve => setTimeout(resolve, 650));
 
     const tap = getActiveTapRecord();
     const images = ensureMeterImages(tap);
-    const detected = pickMeterReadingFields(generatePartialMockMeterReadings(images.length));
+    const detected = await detectMeterReadingsFromImage(photoSrc);
     const entry = {
       id: newMeterImageId(),
       photo: photoSrc,
@@ -551,7 +629,7 @@ async function appendMeterSessionPhoto(photoSrc) {
     };
     images.push(entry);
     tap.meterReadings = mergeMeterReadings(tap.meterReadings, detected);
-    tap.meterSource = 'mock-ocr';
+    if (Object.keys(detected).length) tap.meterSource = 'ocr';
     syncMeterThumbFromSession(tap);
 
     writeMeterReadingFields(tap.meterReadings);
@@ -1359,6 +1437,16 @@ async function flushPendingDriveUploads() {
             continue;
           }
           await uploadSlipPhotoToDrive(item.dataUrl);
+        } else if (item.meterImageId) {
+          const tapIndex = Number.isFinite(item.tapIndex) ? item.tapIndex : S.activeTap;
+          ensureTapData();
+          const entry = S.tapData[tapIndex]?.meterImages?.find(img => img.id === item.meterImageId);
+          const existing = entry?.photo;
+          if (DrivePhoto.isUploaded(existing) || existing?.uploading) {
+            if (DrivePhoto.isUploaded(existing)) await DrivePhoto.dequeue?.(item.queueKey);
+            continue;
+          }
+          await uploadMeterSessionImage(tapIndex, item.meterImageId, item.dataUrl);
         } else if (item.taskKey) {
           const tapIndex = Number.isFinite(item.tapIndex) ? item.tapIndex : S.activeTap;
           const priorTap = S.activeTap;
@@ -1384,7 +1472,10 @@ async function flushPendingDriveUploads() {
     if (S.activeJob && Array.isArray(S.tapData)) {
       for (let i = 0; i < S.tapData.length; i += 1) {
         const photos = S.tapData[i]?.photos || {};
+        const hasMeterSession = Array.isArray(S.tapData[i]?.meterImages) && S.tapData[i].meterImages.length > 0;
         for (const [taskKey, photo] of Object.entries(photos)) {
+          // Session meter images own retry via meterImages[] — do not rewrite photos.meter alone.
+          if (taskKey === 'meter' && hasMeterSession) continue;
           if (!photo || photo.fileId || photo.uploading || !photo.pendingAutoRetry || !photo.previewUrl) continue;
           const priorTap = S.activeTap;
           S.activeTap = i;
@@ -1395,6 +1486,19 @@ async function flushPendingDriveUploads() {
             console.warn('Pending photo auto-retry failed', error);
           }
           S.activeTap = priorTap;
+        }
+
+        const meterImages = S.tapData[i]?.meterImages || [];
+        for (const entry of meterImages) {
+          const photo = entry?.photo;
+          if (!entry?.id || !photo || photo.fileId || photo.uploading || !photo.pendingAutoRetry || !photo.previewUrl) {
+            continue;
+          }
+          try {
+            await uploadMeterSessionImage(i, entry.id, photo.previewUrl);
+          } catch (error) {
+            console.warn('Pending meter image auto-retry failed', error);
+          }
         }
       }
     }

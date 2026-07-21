@@ -215,10 +215,19 @@ function loadJobState(job) {
   // Normalize abandoned in-flight uploads so previews + retry work after reload.
   if (typeof normalizeInterruptedPhoto === 'function') {
     S.tapData.forEach(tap => {
-      if (!tap?.photos) return;
-      Object.keys(tap.photos).forEach(key => {
-        tap.photos[key] = normalizeInterruptedPhoto(tap.photos[key]);
-      });
+      if (tap?.photos) {
+        Object.keys(tap.photos).forEach(key => {
+          tap.photos[key] = normalizeInterruptedPhoto(tap.photos[key]);
+        });
+      }
+      if (Array.isArray(tap?.meterImages)) {
+        tap.meterImages.forEach(entry => {
+          if (entry?.photo && typeof entry.photo === 'object') {
+            entry.photo = normalizeInterruptedPhoto(entry.photo);
+          }
+        });
+        if (typeof syncMeterThumbFromSession === 'function') syncMeterThumbFromSession(tap);
+      }
     });
     if (S.paymentSlipPhoto && typeof S.paymentSlipPhoto === 'object') {
       S.paymentSlipPhoto = normalizeInterruptedPhoto(S.paymentSlipPhoto);
@@ -427,6 +436,43 @@ function clearJobsCache() {
 }
 window.clearJobsCache = clearJobsCache;
 
+function jobDraftLookupKeys(job) {
+  const keys = [];
+  if (job?.id != null && job.id !== '') keys.push(String(job.id));
+  if (job?.notionId != null && job.notionId !== '') keys.push(String(job.notionId));
+  return keys;
+}
+
+/** Collect local drafts so Notion refresh does not wipe meterImages / tapData. */
+function collectLocalJobDrafts() {
+  const drafts = new Map();
+  const ingest = (jobs) => {
+    if (!Array.isArray(jobs)) return;
+    jobs.forEach(job => {
+      if (!job?.draft) return;
+      jobDraftLookupKeys(job).forEach(key => {
+        drafts.set(key, job.draft);
+      });
+    });
+  };
+  ingest(JOBS);
+  try {
+    const raw = localStorage.getItem('wm-jobs');
+    if (raw) ingest(JSON.parse(raw));
+  } catch {
+    /* ignore corrupt cache */
+  }
+  return drafts;
+}
+
+function findPreservedDraft(job, draftMap) {
+  if (!job || !draftMap?.size) return null;
+  for (const key of jobDraftLookupKeys(job)) {
+    if (draftMap.has(key)) return draftMap.get(key);
+  }
+  return null;
+}
+
 async function loadJobsFromApi() {
   try {
     const response = await fetch('/api/clients', { cache: 'no-store' });
@@ -452,19 +498,29 @@ async function loadJobsFromApi() {
       count: jobs.length
     });
 
-    // Notion is authoritative: replace (never merge) so CSV rows cannot mix in.
+    // Notion is authoritative for the job list, but local drafts (meterImages,
+    // photos, readings, steps) must survive refresh / dashboard re-fetch.
+    const preservedDrafts = collectLocalJobDrafts();
     const locallyInProgress = new Set(
       JOBS
         .filter(job => job.status === 'in_progress')
         .map(job => String(job.id))
     );
+    const activeJobId = S.activeJob?.id != null ? String(S.activeJob.id) : null;
     const normalizedJobs = jobs.map(job => {
+      const next = { ...job };
       if (locallyInProgress.has(String(job.id)) && !['done', 'cancelled'].includes(job.status)) {
-        return { ...job, status: 'in_progress' };
+        next.status = 'in_progress';
       }
-      return job;
+      const localDraft = findPreservedDraft(job, preservedDrafts);
+      if (localDraft) next.draft = localDraft;
+      return next;
     });
     JOBS.splice(0, JOBS.length, ...normalizedJobs);
+    if (activeJobId) {
+      const refreshed = JOBS.find(job => String(job.id) === activeJobId);
+      if (refreshed) S.activeJob = refreshed;
+    }
     persistJobs();
     setDataSource('notion', {
       count: jobs.length,

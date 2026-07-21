@@ -284,22 +284,46 @@ function openGoogleReview() {
   const reviewUrl = resolveGoogleReviewUrl();
   S.googleReviewUrl = reviewUrl;
   window.open(reviewUrl, '_blank', 'noopener,noreferrer');
+  // Opening the review link / QR path must not complete the feedback step.
+}
+
+function isFeedbackQrModalOpen() {
+  const overlay = document.getElementById('feedback-overlay');
+  return Boolean(overlay && !overlay.classList.contains('hidden'));
 }
 
 function completeFeedback() {
+  // QR popup Complete / dismiss — close only; never mark the step done.
+  if (isFeedbackQrModalOpen()) {
+    closeFeedbackModal();
+    return;
+  }
+
+  // Feedback is only completed from the feedback form screen after collecting data.
+  if (S.screen !== 's-feedback') return;
+
   const commentEl = document.getElementById('fb-comment');
   const consentEl = document.getElementById('fb-consent');
-  if (feedbackRating) S.rating = feedbackRating;
+  const rating = feedbackRating != null
+    ? feedbackRating
+    : Number(S.rating);
+
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    showToast(typeof t === 'function' ? t('fb.validation.rating') : 'Please select a rating');
+    return;
+  }
+
+  S.rating = rating;
   if (S.activeJob?.draft) {
     S.activeJob.draft.fields = S.activeJob.draft.fields || {};
     if (commentEl) S.activeJob.draft.fields['fb-comment'] = commentEl.value;
     if (consentEl) S.activeJob.draft.fields['fb-consent'] = consentEl.checked ? 'true' : 'false';
+    S.activeJob.draft.rating = rating;
   }
   S.stepsDone.feedback = true;
   S.googleReviewUrl = resolveGoogleReviewUrl();
   saveActiveJobState();
   renderJobSteps();
-  closeFeedbackModal();
   goScreen('s-job');
   showToast(typeof t === 'function' ? t('fb.saved') : 'Feedback saved');
 }

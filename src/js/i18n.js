@@ -322,6 +322,7 @@ const I18N = {
     'fb.linkCopied': 'Review link copied',
     'fb.shareFailed': 'Could not share link',
     'fb.saved': 'Feedback saved',
+    'fb.validation.rating': 'Please select a rating',
 
     'lang.en': 'English',
     'lang.th': 'Thai',
@@ -652,6 +653,7 @@ const I18N = {
     'fb.linkCopied': 'คัดลอกลิงก์รีวิวแล้ว',
     'fb.shareFailed': 'แชร์ลิงก์ไม่สำเร็จ',
     'fb.saved': 'บันทึกความคิดเห็นแล้ว',
+    'fb.validation.rating': 'กรุณาเลือกคะแนน',
 
     'lang.en': 'English',
     'lang.th': 'ไทย',

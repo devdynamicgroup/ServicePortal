@@ -159,6 +159,7 @@ function stripQueueMeta(item = {}) {
     tapIndex: item.tapIndex ?? null,
     taskKey: item.taskKey || null,
     previewId: item.previewId || null,
+    meterImageId: item.meterImageId || null,
     purpose: item.purpose || 'photo',
     folder: item.folder || purposeToFolder(item.purpose || 'photo', item.contentType, item.filename),
     isSlip: Boolean(item.isSlip),
