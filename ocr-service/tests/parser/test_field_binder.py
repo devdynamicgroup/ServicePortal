@@ -88,6 +88,47 @@ class TestFieldBinder(unittest.TestCase):
         # Keypad/chrome must not become accepted measurement fields
         self.assertEqual(data, {})
 
+    def test_do_ec_conductivity_screen_binds_do_and_ec(self) -> None:
+        from parser.field_confidence import build_data_payload, validate_candidates
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "HANNA", "score": 0.99, "box": [300, 60, 500, 120]},
+            {"text": "6.67", "score": 0.99, "box": [300, 200, 420, 260]},
+            {"text": "FFmDO", "score": 0.88, "box": [430, 205, 520, 250]},
+            {"text": "319", "score": 0.99, "box": [300, 270, 420, 330]},
+            {"text": "μsem", "score": 0.70, "box": [430, 275, 520, 320]},
+            {"text": "329", "score": 0.99, "box": [300, 340, 420, 400]},
+            {"text": "μSema", "score": 0.60, "box": [430, 345, 520, 390]},
+            {"text": "0.0031", "score": 0.90, "box": [250, 410, 420, 470]},
+            {"text": "MO.cm", "score": 0.85, "box": [430, 415, 520, 460]},
+            {"text": "HI98194", "score": 0.99, "box": [150, 500, 320, 540]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id="hanna_hi98194"
+        )
+        self.assertEqual(payload.data.get("do"), 6.67)
+        self.assertEqual(payload.data.get("ec"), 319.0)
+        self.assertNotIn("orp", payload.data)
+        self.assertNotIn("do_percent", payload.data)
+        self.assertNotIn("missing:ph", payload.issues)
+
+    def test_ph_only_mv_page_does_not_require_ph(self) -> None:
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "HANNA", "score": 0.99, "box": [100, 40, 300, 90]},
+            {"text": "-19.2", "score": 0.999, "box": [120, 200, 320, 280]},
+            {"text": "mVpH", "score": 0.98, "box": [340, 220, 460, 270]},
+            {"text": "HI98194", "score": 0.99, "box": [80, 500, 220, 540]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id="hanna_hi98194"
+        )
+        self.assertEqual(payload.data.get("mv"), -19.2)
+        self.assertNotIn("missing:ph", payload.issues)
+        self.assertTrue(payload.ok)
+
 
 if __name__ == "__main__":
     unittest.main()

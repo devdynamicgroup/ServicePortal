@@ -11,28 +11,46 @@
   "fields": {
     "mv": {
       "aliases": ["mv", "mvph", "mv_ph", "mvp"],
+      "exclude_aliases": ["orp", "mvorp", "orpmv"],
       "range": [-2000, 2000],
-      "required": false,
-      "row_hint": 0
+      "required": false
     },
     "ph": {
       "aliases": ["ph"],
-      "exclude_aliases": ["orp", "mvorp"],
+      "exclude_aliases": ["orp", "mvorp", "orpmv"],
       "range": [0, 14],
-      "required": true,
-      "row_hint": 1
+      "required": false
     },
     "orp": {
       "aliases": ["orp", "mvorp", "orp_mv", "orpmv"],
+      "exclude_aliases": [
+        "ec", "us", "us/cm", "uscm", "usem", "usema",
+        "μs", "μs/cm", "μsem", "μsema", "µs", "µs/cm", "µsem", "µsema",
+        "mo.cm", "mohm", "resistivity"
+      ],
       "range": [-2000, 2000],
-      "required": false,
-      "row_hint": 2
+      "required": false
+    },
+    "ec": {
+      "aliases": [
+        "ec", "us", "us/cm", "uscm", "usem", "usema",
+        "μs", "μs/cm", "μsem", "μsema", "µs", "µs/cm", "µsem", "µsema"
+      ],
+      "exclude_aliases": ["orp", "mvorp", "orpmv", "mvph"],
+      "range": [0, 10000],
+      "required": false
+    },
+    "do": {
+      "aliases": ["do_mg", "do_mgl", "mg/l", "mgl", "ppm", "ffmdo", "mgdo"],
+      "exclude_aliases": ["%do", "%00", "%d0", "sat", "do_percent"],
+      "range": [0, 20],
+      "required": false
     },
     "do_percent": {
-      "aliases": ["do", "%do", "%00", "do_percent", "sat"],
+      "aliases": ["do_percent", "%do", "%00", "%d0", "sat"],
+      "exclude_aliases": ["ffmdo", "mg/l", "mgl", "ppm", "mgdo"],
       "range": [0, 200],
-      "required": false,
-      "row_hint": 3
+      "required": false
     }
   },
   "primary_field": "ph"
