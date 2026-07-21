@@ -211,7 +211,9 @@ When deploying to Render (or similar managed hosts), follow these rules:
 - For Google Drive service account credentials, set `GOOGLE_SERVICE_ACCOUNT_JSON` with the entire JSON content (recommended) or use Render secret file storage and set `GOOGLE_SERVICE_ACCOUNT_KEY_PATH` to that secure path.
 - Set `GOOGLE_DRIVE_MAIN_FOLDER_ID` and `GOOGLE_DRIVE_DATA_FOLDER_ID` in the dashboard.
 - Ensure `AUTH_SESSION_SECRET` is set to a strong random value (server exits if missing in production).
+- Deploy **both** Blueprint services (`water-motion-service-portal` and `water-motion-ocr-service`). Sync the Blueprint or create the OCR service and set portal `OCR_SERVICE_URL` to the OCR public URL.
 - After deployment restart, verify with `GET /api/drive/status` which reports non-sensitive fields: `configured`, `credentialsLoaded`, `mainFolderConfigured`, `dataFolderConfigured`, and `serviceAccountEmail`.
+- Verify OCR with `GET {OCR_SERVICE_URL}/health` and confirm portal logs do not use `127.0.0.1:5055`.
 
 Recommended Render env variables example:
 
@@ -222,6 +224,9 @@ PUBLIC_BASE_URL=https://your-app.onrender.com
 GOOGLE_SERVICE_ACCOUNT_JSON=<paste entire JSON here>
 GOOGLE_DRIVE_MAIN_FOLDER_ID=1-mS_IbW95JGqbD9JZFvpIRkSxTjCjLXH
 GOOGLE_DRIVE_DATA_FOLDER_ID=14Fug6zCjbtBt6I9ab4R-bWOo1FXRkHQx
+# Set automatically by render.yaml Blueprint fromService; override only if needed:
+# OCR_SERVICE_URL=https://water-motion-ocr-service.onrender.com
+OCR_TIMEOUT=30000
 ```
 
 Do not expose `private_key` or other secret fields in logs. The app intentionally only reports the service account email and boolean flags for configured state.
@@ -234,15 +239,37 @@ The main Node backend does **not** run OCR. It proxies to a separate service.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `OCR_SERVICE_URL` | `http://127.0.0.1:5055` | Base URL of the OCR Service |
-| `OCR_TIMEOUT` | `10000` | Outbound request timeout in milliseconds |
+| `OCR_SERVICE_URL` | `http://127.0.0.1:5055` | Base URL of the OCR Service (**required** in production — must not be localhost on Render) |
+| `OCR_TIMEOUT` | `30000` | Outbound request timeout in milliseconds |
 | `OCR_DEBUG` | unset | When `true`, log connection error details |
 
-Example:
+### Local development
+
+1. Start OCR: `cd ocr-service && python main.py` (binds `http://0.0.0.0:5055`).
+2. Leave `OCR_SERVICE_URL` unset in portal `.env`, or set:
 
 ```
 OCR_SERVICE_URL=http://127.0.0.1:5055
-OCR_TIMEOUT=10000
+OCR_TIMEOUT=30000
 ```
+
+### Production (Render)
+
+`render.yaml` defines two web services:
+
+| Service | Role |
+|---------|------|
+| `water-motion-service-portal` | Node portal |
+| `water-motion-ocr-service` | Python OCR (`rootDir: ocr-service`) |
+
+The portal receives `OCR_SERVICE_URL` from the OCR service’s `RENDER_EXTERNAL_URL` (Blueprint `fromService`). Do **not** set `OCR_SERVICE_URL=http://127.0.0.1:5055` on Render — that targets the portal process and yields `[ocr-client] … reason: 'offline'`.
+
+If the Blueprint is not synced, set the portal env manually to the OCR service URL, e.g. `https://water-motion-ocr-service.onrender.com` (no trailing slash).
+
+Verify after deploy:
+
+1. `GET {OCR_SERVICE_URL}/health` → `ready: true`
+2. Portal logs for OCR must show that host, **not** `127.0.0.1:5055`
+3. Meter Reading capture → `POST /api/ocr/read-meter` succeeds and form fields update
 
 Portal route: `POST /api/ocr/read-meter` → OCR Service `POST /ocr/read-meter`.

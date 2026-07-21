@@ -1,4 +1,7 @@
 services:
+  # ---------------------------------------------------------------------------
+  # Portal (Node) — proxies OCR to the dedicated OCR service via OCR_SERVICE_URL
+  # ---------------------------------------------------------------------------
   - type: web
     name: water-motion-service-portal
     runtime: node
@@ -22,3 +25,35 @@ services:
         sync: false
       - key: CALCOM_API_KEY
         sync: false
+      # Must point at the OCR web service (never leave unset on Render —
+      # unset falls back to http://127.0.0.1:5055 and fails with connection_error).
+      - key: OCR_SERVICE_URL
+        fromService:
+          name: water-motion-ocr-service
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: OCR_TIMEOUT
+        value: "30000"
+
+  # ---------------------------------------------------------------------------
+  # OCR (Python) — isolated process; portal calls POST {OCR_SERVICE_URL}/ocr/read-meter
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: water-motion-ocr-service
+    runtime: python
+    plan: free
+    rootDir: ocr-service
+    # PaddlePaddle must come from the official CPU index before paddleocr.
+    buildCommand: pip install --upgrade pip && pip install paddlepaddle==3.2.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/ && pip install -r requirements-render.txt
+    # Render injects PORT; map it to OCR_PORT so main.py binds correctly.
+    startCommand: sh -c 'export OCR_PORT="${PORT:-5055}"; python main.py'
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: OCR_HOST
+        value: 0.0.0.0
+      - key: OCR_ENGINE
+        value: paddle
+      - key: OCR_LOG_LEVEL
+        value: INFO

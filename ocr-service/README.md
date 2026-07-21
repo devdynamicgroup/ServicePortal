@@ -40,6 +40,16 @@ python main.py
 
 Defaults: `http://0.0.0.0:5055`
 
+## Production (Render)
+
+The Blueprint in repo-root `render.yaml` deploys this folder as `water-motion-ocr-service` and sets the portal’s `OCR_SERVICE_URL` to that service’s `RENDER_EXTERNAL_URL`.
+
+- Build uses `requirements-render.txt` + PaddlePaddle CPU wheels (see `docs/OCR_ENVIRONMENT.md`).
+- Start maps Render’s `PORT` → `OCR_PORT` (do not hardcode 5055 on Render).
+- Health check: `GET /health`.
+
+Local portal development still defaults to `http://127.0.0.1:5055` when `OCR_SERVICE_URL` is unset.
+
 ## Environment
 
 Copy `.env.example` → `.env` for local development (gitignored). Process environment

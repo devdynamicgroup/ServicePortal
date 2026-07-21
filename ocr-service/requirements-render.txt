@@ -1,0 +1,9 @@
+# Render / Linux production deps for the OCR web service.
+# Install paddlepaddle from the official CPU index BEFORE this file
+# (see render.yaml buildCommand). Do not use this file for local Windows
+# unless you follow docs/OCR_ENVIRONMENT.md.
+#
+# Pins align with requirements-supported.txt / docs/OCR_ENVIRONMENT.md.
+
+paddleocr==3.7.0
+pillow>=10.0.0
