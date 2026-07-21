@@ -291,7 +291,8 @@ function mapOcrDataToMeterReadings(data = {}) {
     ec: data.ec,
     temp: data.temp ?? data.temperature,
     turbidity: data.turbidity,
-    orp: data.orp,
+    // mVpH electrode mV fills ORP only when true ORP is absent (partial Hanna pages).
+    orp: data.orp ?? data.mv,
     do: data.do_mg_l ?? data.do ?? data.do_percent
   };
   const out = {};
@@ -302,10 +303,16 @@ function mapOcrDataToMeterReadings(data = {}) {
   return out;
 }
 
+const OCR_USER_ERROR_CODES = new Set([
+  'ENGINE_UNAVAILABLE',
+  'OCR_OFFLINE',
+  'OCR_TIMEOUT'
+]);
+
 /**
  * Read meter values from the image via OCR.
  * Returns only fields actually present in the OCR response — never invents values.
- * Throws with code ENGINE_UNAVAILABLE when the OCR engine is not ready.
+ * Throws with code ENGINE_UNAVAILABLE / OCR_OFFLINE / OCR_TIMEOUT when OCR cannot run.
  */
 async function detectMeterReadingsFromImage(photoSrc) {
   const imageUrl = typeof photoSrc === 'string'
@@ -328,9 +335,9 @@ async function detectMeterReadingsFromImage(photoSrc) {
       })
     });
     const body = await response.json().catch(() => ({}));
-    if (body && body.success === false && body.error === 'ENGINE_UNAVAILABLE') {
-      const err = new Error(body.message || 'OCR engine is not available');
-      err.code = 'ENGINE_UNAVAILABLE';
+    if (body && body.success === false && OCR_USER_ERROR_CODES.has(body.error)) {
+      const err = new Error(body.message || 'OCR is not available');
+      err.code = body.error;
       throw err;
     }
     if (!body || body.success === false || !body.data || typeof body.data !== 'object') {
@@ -338,7 +345,7 @@ async function detectMeterReadingsFromImage(photoSrc) {
     }
     return mapOcrDataToMeterReadings(body.data);
   } catch (error) {
-    if (error?.code === 'ENGINE_UNAVAILABLE') throw error;
+    if (OCR_USER_ERROR_CODES.has(error?.code)) throw error;
     console.warn('Meter OCR request failed', error);
     return {};
   }
@@ -648,13 +655,14 @@ async function appendMeterSessionPhoto(photoSrc) {
     try {
       detected = await detectMeterReadingsFromImage(photoSrc);
     } catch (error) {
-      if (error?.code === 'ENGINE_UNAVAILABLE') {
+      if (OCR_USER_ERROR_CODES.has(error?.code)) {
         ocrUnavailable = true;
         detected = {};
       } else {
         throw error;
       }
     }
+    const readingsBefore = { ...(tap.meterReadings || {}) };
     const entry = {
       id: newMeterImageId(),
       photo: photoSrc,
@@ -678,10 +686,16 @@ async function appendMeterSessionPhoto(photoSrc) {
     renderAssessList();
     renderMeterThumbnailRow();
     resetMeterCapturePreview();
+
+    const fieldsUpdated = Object.keys(detected).some(
+      key => String(detected[key]) !== '' && String(readingsBefore[key] ?? '') !== String(tap.meterReadings[key] ?? '')
+    );
     if (ocrUnavailable) {
       showToast(typeof t === 'function' ? t('meter.toastOcrUnavailable') : 'OCR is not ready. Enter readings manually.');
-    } else {
+    } else if (fieldsUpdated) {
       showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
+    } else {
+      showToast(typeof t === 'function' ? t('meter.toastNoValues') : 'No values detected. Enter readings manually.');
     }
 
     uploadMeterSessionImage(tapIndex, entry.id, photoSrc).catch(error => {

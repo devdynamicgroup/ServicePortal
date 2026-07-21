@@ -176,6 +176,7 @@ const I18N = {
     'meter.processingTitle': 'Reading image...',
     'meter.toastFilled': 'Readings filled',
     'meter.toastOcrUnavailable': 'OCR is not ready. Enter readings manually.',
+    'meter.toastNoValues': 'No values detected. Enter readings manually.',
     'meter.toastError': 'Could not read image',
 
     'photo.noMeter': 'No meter photo attached',
@@ -508,6 +509,7 @@ const I18N = {
     'meter.processingTitle': 'กำลังอ่านภาพ...',
     'meter.toastFilled': 'เติมค่าแล้ว',
     'meter.toastOcrUnavailable': 'OCR ยังไม่พร้อม กรุณากรอกค่าด้วยตนเอง',
+    'meter.toastNoValues': 'ไม่พบค่าจากภาพ กรุณากรอกค่าด้วยตนเอง',
     'meter.toastError': 'อ่านภาพไม่สำเร็จ',
 
     'photo.noMeter': 'ยังไม่มีรูปมิเตอร์',

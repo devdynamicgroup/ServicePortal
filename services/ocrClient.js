@@ -12,7 +12,7 @@ function getOcrServiceUrl() {
 function getOcrTimeoutMs() {
   const raw = Number(process.env.OCR_TIMEOUT);
   if (Number.isFinite(raw) && raw > 0) return Math.floor(raw);
-  return 10000;
+  return 30000;
 }
 
 function isDebug() {
