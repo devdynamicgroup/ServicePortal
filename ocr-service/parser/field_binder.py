@@ -40,6 +40,13 @@ def _parse_value(token: OcrToken) -> float | None:
 def _label_excluded(label: str, field_cfg: FieldConfig) -> bool:
     if not field_cfg.exclude_aliases:
         return False
+    # A field's own key/alias can never be self-excluding. Bare "do" fuzzy-matches
+    # the do field's own exclude_aliases entry "%do" (both resolve to the same
+    # UNIT_SYNONYMS canonical field), which would otherwise make the "do" field
+    # reject its own literal label.
+    normalized_label, _ = normalize_unit(label)
+    if normalized_label == field_cfg.key or normalized_label in field_cfg.aliases:
+        return False
     score = unit_match_score(label, list(field_cfg.exclude_aliases))
     return score >= 0.8
 

@@ -30,6 +30,13 @@ _CHAR_MAP = str.maketrans(
 _NUMBER_RE = re.compile(r"[-+]?\d+(?:\.\d+)?")
 
 
+# Real parameter labels that happen to be spelled entirely from digit-confusable
+# glyphs (e.g. "DO" = Dissolved Oxygen: D and O are both in _CHAR_MAP). Without
+# this guard, a clean OCR read of the label "DO" gets glyph-corrected to "00",
+# which then makes make_token() classify the label as a numeric value.
+_PROTECTED_LABELS = frozenset({"do", "ph", "ec", "tds", "orp"})
+
+
 def correct_ocr_token(token: str) -> tuple[str, bool]:
     """
     Correct a single OCR token (e.g. '28O' → '280', '7.O' → '7.0').
@@ -37,6 +44,12 @@ def correct_ocr_token(token: str) -> tuple[str, bool]:
     """
     raw = str(token or "")
     if not raw:
+        return raw, False
+
+    # Strip abbreviation dots only for the protected-label check (e.g. "D.O.")
+    # — periods are otherwise meaningful (decimals), so the raw token itself
+    # is still returned unchanged, never with its dots removed.
+    if raw.strip().lower().replace(".", "") in _PROTECTED_LABELS:
         return raw, False
 
     # Model / serial codes (e.g. 2100Q, HI98194) — never glyph-correct into numbers.

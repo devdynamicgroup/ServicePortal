@@ -26,6 +26,7 @@
       "exclude_aliases": [
         "ec", "us", "us/cm", "uscm", "usem", "usema",
         "μs", "μs/cm", "μsem", "μsema", "µs", "µs/cm", "µsem", "µsema",
+        "cond", "cond.", "conductivity",
         "mo.cm", "mohm", "resistivity"
       ],
       "range": [-2000, 2000],
@@ -34,21 +35,28 @@
     "ec": {
       "aliases": [
         "ec", "us", "us/cm", "uscm", "usem", "usema",
-        "μs", "μs/cm", "μsem", "μsema", "µs", "µs/cm", "µsem", "µsema"
+        "μs", "μs/cm", "μsem", "μsema", "µs", "µs/cm", "µsem", "µsema",
+        "cond", "cond.", "conductivity"
       ],
       "exclude_aliases": ["orp", "mvorp", "orpmv", "mvph"],
       "range": [0, 10000],
       "required": false
     },
+    "temperature": {
+      "aliases": ["temp", "temperature", "°c"],
+      "exclude_aliases": ["mo.cm", "mohm", "resistivity"],
+      "range": [0, 100],
+      "required": false
+    },
     "do": {
-      "aliases": ["do_mg", "do_mgl", "mg/l", "mgl", "ppm", "ffmdo", "mgdo"],
-      "exclude_aliases": ["%do", "%00", "%d0", "sat", "do_percent"],
+      "aliases": ["do_mg", "do_mgl", "mg/l", "mgl", "ppm", "ffmdo", "mgdo", "d.o.", "do."],
+      "exclude_aliases": ["%do", "%00", "%d0", "sat", "sat.", "do_percent"],
       "range": [0, 20],
       "required": false
     },
     "do_percent": {
-      "aliases": ["do_percent", "%do", "%00", "%d0", "sat"],
-      "exclude_aliases": ["ffmdo", "mg/l", "mgl", "ppm", "mgdo"],
+      "aliases": ["do_percent", "%do", "%00", "%d0", "sat", "sat."],
+      "exclude_aliases": ["ffmdo", "mg/l", "mgl", "ppm", "mgdo", "d.o.", "do."],
       "range": [0, 200],
       "required": false
     }

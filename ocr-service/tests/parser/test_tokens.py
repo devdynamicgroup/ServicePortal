@@ -14,9 +14,25 @@ class TestTokens(unittest.TestCase):
             self.assertTrue(tok.is_numeric, text)
 
     def test_non_numeric(self) -> None:
-        for text in ("PH", "mVpH", "%00", "HANNA", "ESC"):
+        for text in ("PH", "mVpH", "%00", "HANNA", "ESC", "DO"):
             tok = make_token(text, score=0.99, box=[0, 0, 10, 10])
             self.assertFalse(tok.is_numeric, text)
+
+    def test_do_label_not_glyph_corrupted(self) -> None:
+        """'DO' (Dissolved Oxygen label) is spelled entirely from digit-confusable
+        glyphs (D->0, O->0). It must stay 'DO', not become '00' and get
+        misclassified as a numeric value token."""
+        tok = make_token("DO", score=0.95, box=[0, 0, 10, 10])
+        self.assertEqual(tok.text_corrected, "DO")
+        self.assertFalse(tok.is_numeric)
+
+    def test_punctuated_do_label_not_glyph_corrupted(self) -> None:
+        """'D.O.' must also survive: naive glyph correction turns it into '0.0.'
+        which the multi-dot collapse then cleans into the valid-looking number
+        '0.0', silently misclassifying the label as a numeric token."""
+        tok = make_token("D.O.", score=0.95, box=[0, 0, 10, 10])
+        self.assertEqual(tok.text_corrected, "D.O.")
+        self.assertFalse(tok.is_numeric)
 
     def test_glyph_correction_before_numeric(self) -> None:
         tok = make_token("7.O", score=1.0, box=[0, 0, 10, 10])
