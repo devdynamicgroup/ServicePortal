@@ -6,6 +6,7 @@ Clusters OCR tokens into screen rows using bounding-box centers.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from statistics import median
 from typing import Sequence
@@ -24,6 +25,18 @@ class MeasurementRow:
 
 def _token_height(token: OcrToken) -> float:
     return max(1.0, float(token.box[3] - token.box[1]))
+
+
+def _normalize_ignore_key(text: str) -> str:
+    """Same normalization tokens.py._classify_ignore uses, so profile
+    ignore_tokens (JSON) match the same way the hardcoded IGNORE_TOKENS do."""
+    return re.sub(r"[^a-z0-9%]", "", str(text or "").lower())
+
+
+def _is_profile_ignored(token: OcrToken, extra_ignore: frozenset[str]) -> bool:
+    if not extra_ignore:
+        return False
+    return _normalize_ignore_key(token.text) in extra_ignore
 
 
 def _y_threshold(tokens: Sequence[OcrToken], *, ratio: float = 0.55) -> float:
@@ -62,17 +75,26 @@ def group_rows(
     y_threshold_ratio: float = 0.55,
     y_threshold: float | None = None,
     include_debug: bool = False,
+    extra_ignore_tokens: Sequence[str] = (),
 ) -> list[MeasurementRow]:
     """
     Cluster tokens into rows by cy proximity, then sort each row by cx.
 
     Tokens marked ignored (ESC/HELP/...) are excluded from measurement rows
     unless they somehow sit alone — they never become value/label.
+
+    ``extra_ignore_tokens`` is profile-specific (e.g. resistivity units like
+    "MO.cm" that a given meter's screen shows but that should never become a
+    label/value candidate), matched with the same normalization as the
+    built-in IGNORE_TOKENS set in tokens.py.
     """
+    extra_ignore = frozenset(_normalize_ignore_key(t) for t in extra_ignore_tokens if t)
     usable = [
         t
         for t in tokens
-        if not t.ignored and (include_debug or not t.debug_only)
+        if not t.ignored
+        and (include_debug or not t.debug_only)
+        and not _is_profile_ignored(t, extra_ignore)
     ]
     # Always keep numeric + unit-like tokens; drop pure brand/debug unless include_debug.
     # Multiparameter model strings may appear as debug_only — exclude from rows.

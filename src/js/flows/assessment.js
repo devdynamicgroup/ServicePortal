@@ -219,7 +219,8 @@ const METER_READING_FIELDS = {
   temp: 'm-temp',
   turbidity: 'm-turb',
   orp: 'm-orp',
-  do: 'm-do'
+  do: 'm-do',
+  doPercent: 'm-do-percent'
 };
 
 function getAssessmentSessionId() {
@@ -293,7 +294,10 @@ function mapOcrDataToMeterReadings(data = {}) {
     turbidity: data.turbidity,
     // mVpH electrode mV fills ORP only when true ORP is absent (partial Hanna pages).
     orp: data.orp ?? data.mv,
-    do: data.do_mg_l ?? data.do ?? data.do_percent
+    // DO mg/L and DO % are physically different quantities — never conflate them
+    // into one field (a %-saturation reading like 89.4 is not 89.4 mg/L).
+    do: data.do_mg_l ?? data.do,
+    doPercent: data.do_percent
   };
   const out = {};
   Object.entries(mapped).forEach(([key, value]) => {

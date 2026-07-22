@@ -47,5 +47,49 @@ class TestRowGrouper(unittest.TestCase):
             self.assertNotIn(ui, all_texts)
 
 
+class TestProfileIgnoreTokens(unittest.TestCase):
+    """profile.ignore_tokens (JSON) must actually reach row formation, not
+    just sit unused on the MeterProfile dataclass."""
+
+    def test_extra_ignore_tokens_removed_before_row_formation(self) -> None:
+        from parser.tokens import tokens_from_detections
+
+        detections = [
+            {"text": "0.0031", "score": 0.90, "box": [250, 410, 420, 470]},
+            {"text": "MO.cm", "score": 0.85, "box": [430, 415, 520, 460]},
+        ]
+        tokens = tokens_from_detections(detections)
+
+        rows_unfiltered = group_rows(tokens)
+        self.assertTrue(any(r.label_token and r.label_token.text == "MO.cm" for r in rows_unfiltered))
+
+        rows_filtered = group_rows(tokens, extra_ignore_tokens=["MO.cm", "resistivity"])
+        all_texts = [t.text for row in rows_filtered for t in row.tokens]
+        self.assertNotIn("MO.cm", all_texts)
+
+    def test_hanna_profile_ignore_tokens_wired_through_spatial_parser(self) -> None:
+        """Resistivity readout on the DO/EC screen must never surface as a row token
+        when parsed through the real hanna_hi98194 profile (end-to-end wiring check)."""
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "HANNA", "score": 0.99, "box": [300, 60, 500, 120]},
+            {"text": "6.67", "score": 0.99, "box": [300, 200, 420, 260]},
+            {"text": "FFmDO", "score": 0.88, "box": [430, 205, 520, 250]},
+            {"text": "319", "score": 0.99, "box": [300, 270, 420, 330]},
+            {"text": "μsem", "score": 0.70, "box": [430, 275, 520, 320]},
+            {"text": "0.0031", "score": 0.90, "box": [250, 410, 420, 470]},
+            {"text": "MO.cm", "score": 0.85, "box": [430, 415, 520, 460]},
+            {"text": "HI98194", "score": 0.99, "box": [150, 500, 320, 540]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id="hanna_hi98194"
+        )
+        row_texts = [t for row in payload.rows for t in row["tokens"]]
+        self.assertNotIn("MO.cm", row_texts)
+        self.assertEqual(payload.data.get("do"), 6.67)
+        self.assertEqual(payload.data.get("ec"), 319.0)
+
+
 if __name__ == "__main__":
     unittest.main()

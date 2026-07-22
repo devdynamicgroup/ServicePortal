@@ -4,7 +4,7 @@
   "match_hints": {
     "text_any": ["HI98194", "Multiparameter", "HANNA"]
   },
-  "ignore_tokens": ["ESC", "HELP", "MENU", "LOG"],
+  "ignore_tokens": ["ESC", "HELP", "MENU", "LOG", "MO.cm", "MOhm", "Mohm", "resistivity", "MO.cm resistivity"],
   "row_grouping": {
     "y_threshold_ratio": 0.55
   },
