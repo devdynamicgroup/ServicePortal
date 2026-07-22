@@ -79,6 +79,11 @@ def handle_request(
             ok = bool(payload.get("success"))
             return status, payload
 
+        if method == "POST" and route == "/ocr/debug-read":
+            status, payload = _handle_debug_read(body, headers, request_id)
+            ok = bool(payload.get("success"))
+            return status, payload
+
         logger.warning(
             "route not found request_id=%s method=%s path=%s",
             request_id,
@@ -136,6 +141,40 @@ def _handle_read_meter(
         return api_response.from_exception(exc, request_id=request_id)
     except Exception as exc:  # noqa: BLE001
         logger.error("unexpected error request_id=%s error=%s", request_id, exc)
+        return 200, api_response.failure(
+            "OCR_INTERNAL_ERROR",
+            "OCR engine failed internally",
+            retry=True,
+            request_id=request_id,
+        )
+
+
+def _handle_debug_read(
+    body: bytes | None,
+    headers: dict[str, str] | None,
+    request_id: str,
+) -> tuple[int, dict[str, Any]]:
+    """Diagnostic-only endpoint — same input contract as /ocr/read-meter, but
+    returns raw detections/preprocessing/confidence instead of just the final
+    data dict. Never used by the frontend; for manual investigation only."""
+    try:
+        validators.require_json_content_type(headers)
+        payload = validators.parse_json_body(body)
+        image_url, meter_type = validators.validate_read_meter_payload(payload)
+        result = ocr_service.debug_read(
+            image_url=image_url,
+            meter_type=meter_type,
+            request_id=request_id,
+        )
+        return 200, api_response.success(
+            data=result,
+            message="OCR debug read complete",
+            request_id=request_id,
+        )
+    except OcrServiceError as exc:
+        return api_response.from_exception(exc, request_id=request_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("unexpected debug_read error request_id=%s error=%s", request_id, exc)
         return 200, api_response.failure(
             "OCR_INTERNAL_ERROR",
             "OCR engine failed internally",

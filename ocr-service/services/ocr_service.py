@@ -95,5 +95,43 @@ class OcrService:
         finally:
             cleanup_temp_image(normalized.temp_path)
 
+    def debug_read(self, *, image_url: str, meter_type: str, request_id: str) -> dict[str, Any]:
+        """Full diagnostic bundle for a single image: raw OCR detections
+        (text/confidence/box, before any parsing), parsed field values,
+        confidence breakdown, and the preprocessing steps actually applied —
+        for manually tracing exactly where a specific image's result goes
+        wrong instead of guessing from the final API response alone."""
+        logger.info(
+            "debug_read start request_id=%s meter_type=%s engine=%s",
+            request_id,
+            meter_type,
+            self._engine.name,
+        )
+        if not self._engine.is_available():
+            raise EngineUnavailableError("OCR engine is not available")
+
+        normalized = materialize_image_url(image_url)
+        try:
+            ctx = self._pipeline.run(
+                request_id=request_id,
+                meter_type=meter_type,
+                image_path=normalized.path,
+            )
+            detections = list((ctx.raw_extraction or {}).get("detections") or [])
+            return {
+                "engine": ctx.engine,
+                "meter_type": ctx.meter_type,
+                "raw_text": list(ctx.texts or []),
+                "detections": detections,
+                "parsed_values": dict(ctx.parsed_data or {}),
+                "confidence": dict(ctx.confidence_detail or {}),
+                "validation_issues": list(ctx.validation_issues or []),
+                "preprocessing": list(ctx.preprocessing_history or []),
+                "processed_image_path": ctx.processed_image_path,
+                "timings_ms": dict(ctx.timings or {}),
+            }
+        finally:
+            cleanup_temp_image(normalized.temp_path)
+
 
 ocr_service = OcrService()
