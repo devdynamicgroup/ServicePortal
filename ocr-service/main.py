@@ -19,6 +19,30 @@ from core.runtime_env import enforce_supported_runtime, log_runtime_diagnostics
 logger = get_logger("main")
 
 
+def _fail_if_paddle_expected_but_unavailable() -> None:
+    """Refuse to start serving traffic if OCR_ENGINE=paddle was configured but
+    the PaddleOCR engine cannot actually initialize (missing paddle/paddleocr/
+    paddlex, model load failure, etc). Never silently serve a degraded engine
+    labeled "paddle" — that behaves like a black-box mock to callers, only
+    worse (results depend on undiagnosed partial state).
+    """
+    if settings.ocr_engine.strip().lower() not in ("paddle", "paddleocr"):
+        return
+
+    from services.ocr_service import ocr_service
+
+    if not ocr_service.health()["ready"]:
+        msg = (
+            "[FATAL] OCR_ENGINE=paddle is configured but the PaddleOCR engine "
+            "failed to initialize (paddle/paddleocr/paddlex not importable, or "
+            "model load failed — see [runtime] *_version log lines above and "
+            "[paddle-engine] INIT FAILED trace). Refusing to start rather than "
+            "silently serving a non-functional engine."
+        )
+        logger.error(msg)
+        raise RuntimeError(msg)
+
+
 class OcrServiceHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -76,6 +100,7 @@ class OcrServiceHandler(BaseHTTPRequestHandler):
 def main() -> None:
     enforce_supported_runtime()
     log_runtime_diagnostics()
+    _fail_if_paddle_expected_but_unavailable()
     server = ThreadingHTTPServer((settings.host, settings.port), OcrServiceHandler)
     logger.info(
         "starting %s v%s phase=%s on http://%s:%s engine=%s",
