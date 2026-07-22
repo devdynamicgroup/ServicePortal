@@ -11,7 +11,10 @@ from dataclasses import dataclass, field
 from statistics import median
 from typing import Sequence
 
+from core.logger import get_logger
 from parser.tokens import OcrToken
+
+logger = get_logger("parser.row_grouper")
 
 
 @dataclass
@@ -46,27 +49,71 @@ def _y_threshold(tokens: Sequence[OcrToken], *, ratio: float = 0.55) -> float:
     return max(12.0, float(median(heights)) * float(ratio))
 
 
-def _pick_value_and_label(tokens: Sequence[OcrToken]) -> tuple[OcrToken | None, OcrToken | None]:
+def _match_labels_to_values(
+    tokens: Sequence[OcrToken],
+) -> list[tuple[OcrToken, OcrToken | None]]:
     """
-    Within a left-to-right row:
-      value = leftmost numeric (non-ignored) token
-      label = rightmost non-numeric binding token (or nearest right of value)
+    Pair every label token in a row-cluster with the nearest valid value
+    token, instead of assuming a single value/label per detected row.
+
+    Matching rules (spatial, never relies on OCR array order):
+      - Candidates are ranked by (same-line already guaranteed by the
+        caller's cy clustering, side, horizontal distance): a value to the
+        RIGHT of a label always outranks a value to its left, and within the
+        same side the nearest one wins.
+      - Matching is resolved greedily across the whole row: the globally
+        closest label/value pair is assigned first, so a tight pair is never
+        stolen by a farther-away label later in the same row.
+      - If a label has no candidate to its right at all, the nearest
+        available value on either side is used as a fallback (logged).
+      - Numeric tokens left over with no label are still returned
+        (label=None) so callers relying on positional/row hints keep working;
+        labels left over with no available value are dropped (nothing to
+        bind them to).
     """
     bindable = [t for t in tokens if not t.ignored and not t.debug_only]
     numerics = [t for t in bindable if t.is_numeric]
     labels = [t for t in bindable if not t.is_numeric]
 
-    value = numerics[0] if numerics else None
-    if not value:
-        return None, None
+    if not numerics:
+        return []
+    if not labels:
+        return [(v, None) for v in numerics]
 
-    # Prefer label to the right of the value.
-    right_labels = [t for t in labels if t.cx >= value.cx]
-    if right_labels:
-        return value, right_labels[-1]  # rightmost among right-side labels
-    if labels:
-        return value, labels[-1]
-    return value, None
+    candidates: list[tuple[tuple[int, float], OcrToken, OcrToken, str, float]] = []
+    for label in labels:
+        for value in numerics:
+            dx = float(value.cx) - float(label.cx)
+            is_right = dx >= 0
+            reason = "right_of_label" if is_right else "nearest_fallback_left_of_label"
+            rank = (0 if is_right else 1, abs(dx))
+            candidates.append((rank, label, value, reason, dx))
+
+    candidates.sort(key=lambda c: c[0])
+
+    used_labels: set[int] = set()
+    used_values: set[int] = set()
+    pairs: list[tuple[OcrToken, OcrToken | None]] = []
+    for _rank, label, value, reason, dx in candidates:
+        if id(label) in used_labels or id(value) in used_values:
+            continue
+        used_labels.add(id(label))
+        used_values.add(id(value))
+        logger.debug(
+            "label=%r box=%s matched value=%r box=%s dx=%.1f reason=%s",
+            label.text, label.box, value.text, value.box, dx, reason,
+        )
+        pairs.append((value, label))
+
+    for value in numerics:
+        if id(value) not in used_values:
+            logger.debug(
+                "value=%r box=%s left unmatched: no label candidate available in this row",
+                value.text, value.box,
+            )
+            pairs.append((value, None))
+
+    return pairs
 
 
 def group_rows(
@@ -123,16 +170,21 @@ def group_rows(
         if not any(t.is_numeric for t in cluster):
             continue
         sorted_tokens = sorted(cluster, key=lambda t: t.cx)
-        value, label = _pick_value_and_label(sorted_tokens)
         mean_cy = sum(t.cy for t in sorted_tokens) / len(sorted_tokens)
-        rows.append(
-            MeasurementRow(
-                index=row_index,
-                cy=mean_cy,
-                tokens=sorted_tokens,
-                value_token=value,
-                label_token=label,
+        pairs = _match_labels_to_values(sorted_tokens)
+        # A single OCR row-cluster can contain more than one label/value pair
+        # (e.g. two readings printed on the same physical line). Emit one
+        # MeasurementRow per pair so the field binder can bind each label to
+        # its own field instead of merging them into a single value/label.
+        for value, label in pairs:
+            rows.append(
+                MeasurementRow(
+                    index=row_index,
+                    cy=mean_cy,
+                    tokens=sorted_tokens,
+                    value_token=value,
+                    label_token=label,
+                )
             )
-        )
-        row_index += 1
+            row_index += 1
     return rows

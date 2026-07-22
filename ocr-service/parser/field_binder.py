@@ -9,11 +9,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
+from core.logger import get_logger
 from parser.normalize import extract_numbers
 from parser.profile_loader import FieldConfig, MeterProfile
 from parser.row_grouper import MeasurementRow
 from parser.tokens import OcrToken
 from parser.unit_normalizer import normalize_unit, unit_match_score
+
+logger = get_logger("parser.field_binder")
 
 
 @dataclass
@@ -212,6 +215,13 @@ def bind_fields(
             # Prefer in-range values
             range_ok = _value_in_range(value, field_cfg)
             effective = score + (0.05 if range_ok else -0.2)
+            logger.debug(
+                "candidate field=%s value=%s label=%r unit_score=%.3f value_conf=%.3f "
+                "effective_score=%.3f row=%s",
+                field_cfg.key, value,
+                row.label_token.text if row.label_token else None,
+                score, float(row.value_token.score), effective, row.index,
+            )
             candidates.append(
                 (effective, row, field_cfg, value, unit_norm, corrections, used_hint, score)
             )
@@ -238,6 +248,12 @@ def bind_fields(
 
         used_rows.add(row.index)
         used_fields.add(field_cfg.key)
+        logger.info(
+            "WINNER field=%s value=%s label=%r unit_score=%.3f effective_score=%.3f row=%s",
+            field_cfg.key, value,
+            row.label_token.text if row.label_token else None,
+            unit_score, effective, row.index,
+        )
         bound.append(
             FieldCandidate(
                 key=field_cfg.key,
