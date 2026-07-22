@@ -43,13 +43,13 @@
       "required": false
     },
     "temperature": {
-      "aliases": ["temp", "temperature", "c", "°c", "ºc", "˚c", "degc"],
+      "aliases": ["temp", "temperature", "°c", "ºc", "˚c", "degc"],
       "exclude_aliases": ["mo.cm", "mohm", "resistivity"],
       "range": [0, 100],
       "required": false
     },
     "do": {
-      "aliases": ["do_mg", "do_mgl", "mg/l", "mgl", "ppm", "ffmdo", "mgdo", "d.o.", "do."],
+      "aliases": ["do_mg", "do_mgl", "ffmdo", "mgdo", "d.o.", "do."],
       "exclude_aliases": ["%do", "%00", "%d0", "sat", "sat.", "do_percent"],
       "range": [0, 20],
       "required": false

@@ -52,6 +52,18 @@ class OcrPipeline:
         )
         self.result_validator = result_validator or ResultValidator()
         self.confidence_service = confidence_service or ConfidenceService()
+        # Single persistent worker thread for every OCR call, reused for the
+        # pipeline's lifetime. PaddleOCR's native inference runtime is NOT
+        # safe to invoke from a fresh thread on every request — confirmed by
+        # reproduction: spawning a new ThreadPoolExecutor per call reliably
+        # broke the predictor after ~8-9 calls (RuntimeError: Unknown
+        # exception from paddle_static/runner.py, sometimes a hard segfault).
+        # Running every predict() on the same single worker thread instead
+        # eliminates the crash entirely (verified against all real test
+        # images). Still bounds a stuck call via future.result(timeout=...).
+        self._engine_executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="ocr-engine"
+        )
 
     def run(self, *, request_id: str, meter_type: str, image_path: str) -> PipelineContext:
         ctx = PipelineContext(
@@ -102,15 +114,14 @@ class OcrPipeline:
 
         t0 = time.perf_counter()
         # Bounded wait: a single stuck predict() must fail this request, not
-        # hang the caller or accumulate stuck native calls indefinitely.
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        future = executor.submit(
+        # hang the caller. Reuses the one persistent worker thread created in
+        # __init__ — never spawn a new thread per call (see comment there).
+        future = self._engine_executor.submit(
             self.engine.extract_text, ctx.active_image_path, meter_type=ctx.meter_type
         )
         try:
             extraction = future.result(timeout=self.settings.request_timeout_seconds)
         except concurrent.futures.TimeoutError as exc:
-            executor.shutdown(wait=False)
             logger.error(
                 "request_id=%s OCR prediction exceeded %.1fs timeout — aborting request",
                 request_id,
@@ -119,8 +130,6 @@ class OcrPipeline:
             raise OcrTimeoutError(
                 f"OCR prediction exceeded {self.settings.request_timeout_seconds}s timeout"
             ) from exc
-        else:
-            executor.shutdown(wait=False)
         ctx.timings["ocr_ms"] = _ms_since(t0)
         ctx.raw_extraction = dict(extraction or {})
         ctx.texts = list(extraction.get("texts") or [])
