@@ -266,6 +266,10 @@ function syncMeterThumbFromSession(tap) {
   const images = ensureMeterImages(tap);
   if (images.length) {
     tap.photos.meter = images[images.length - 1].photo;
+  } else {
+    // No images left (e.g. the last one was just deleted) — clear the stale
+    // pointer so ensureMeterImages() doesn't resurrect it as a "legacy" entry.
+    delete tap.photos.meter;
   }
 }
 
@@ -292,8 +296,10 @@ function mapOcrDataToMeterReadings(data = {}) {
     ec: data.ec,
     temp: data.temp ?? data.temperature,
     turbidity: data.turbidity,
-    // mVpH electrode mV fills ORP only when true ORP is absent (partial Hanna pages).
-    orp: data.orp ?? data.mv,
+    // ORP is its own reading — never fill it from `mv` (the pH electrode's raw
+    // millivolt/slope value). Same physical unit, different quantity; conflating
+    // them put the pH probe's mV reading into the ORP field on partial Hanna pages.
+    orp: data.orp,
     // DO mg/L and DO % are physically different quantities — never conflate them
     // into one field (a %-saturation reading like 89.4 is not 89.4 mg/L).
     do: data.do_mg_l ?? data.do,
