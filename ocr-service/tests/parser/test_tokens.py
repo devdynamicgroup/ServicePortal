@@ -18,6 +18,11 @@ class TestTokens(unittest.TestCase):
             tok = make_token(text, score=0.99, box=[0, 0, 10, 10])
             self.assertFalse(tok.is_numeric, text)
 
+    def test_degree_unit_not_numeric_zero(self) -> None:
+        for text in ("\u00b0C", "\u00baC", "\u02daC", "C", "O"):
+            tok = make_token(text, score=0.99, box=[0, 0, 10, 10])
+            self.assertFalse(tok.is_numeric, text)
+
     def test_do_label_not_glyph_corrupted(self) -> None:
         """'DO' (Dissolved Oxygen label) is spelled entirely from digit-confusable
         glyphs (D->0, O->0). It must stay 'DO', not become '00' and get

@@ -28,6 +28,7 @@ _CHAR_MAP = str.maketrans(
 )
 
 _NUMBER_RE = re.compile(r"[-+]?\d+(?:\.\d+)?")
+_ZEROISH_UNIT_RE = re.compile(r"^[°º˚oO]+$")
 
 
 # Real parameter labels that happen to be spelled entirely from digit-confusable
@@ -101,6 +102,25 @@ def extract_numbers(text: str) -> list[float]:
         except ValueError:
             continue
     return values
+
+
+def is_unit_only_token(text: str) -> bool:
+    """
+    True when a token is only a unit glyph that OCR may normalize to a number.
+
+    The degree symbol is especially risky: some OCR output turns "°C" or "°"
+    into "0", which used to become a meter reading.
+    """
+    raw = str(text or "").strip()
+    if not raw:
+        return False
+    compact = re.sub(r"[\s.]+", "", raw)
+    lower = compact.lower()
+    if lower in {"c", "oc", "0c", "°c", "ºc", "˚c", "degc", "degreec", "degreesc"}:
+        return True
+    if _ZEROISH_UNIT_RE.fullmatch(compact):
+        return True
+    return False
 
 
 # Stable fallbacks matching Phase 2/3.5 mock API contract (empty extraction only).

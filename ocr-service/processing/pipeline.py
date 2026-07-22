@@ -7,12 +7,14 @@ result validate → confidence. No HTTP/route logic here.
 
 from __future__ import annotations
 
+import concurrent.futures
 import time
 from typing import Any
 
 from confidence.confidence_service import ConfidenceService
 from config.settings import Settings, settings as default_settings
-from core.exceptions import EngineUnavailableError
+from core.exceptions import EngineUnavailableError, OcrTimeoutError
+from core.logger import get_logger
 from engines.base_engine import BaseOcrEngine
 from parser.normalize import merge_with_fallback
 from preprocess import run_preprocess_chain
@@ -20,6 +22,8 @@ from processing.context import PipelineContext
 from readers.meter_reader import read_measurements
 from validation.image_validator import ImageValidator
 from validation.result_validator import ResultValidator
+
+logger = get_logger("processing.pipeline")
 
 
 def _ms_since(started: float) -> float:
@@ -83,18 +87,60 @@ class OcrPipeline:
         ctx.processed_image_path = processed
         ctx.preprocessing_history = history
         ctx.timings["preprocess_ms"] = _ms_since(t0)
+        logger.debug(
+            "request_id=%s image_dims=%sx%s format=%s preprocessing=%s",
+            request_id,
+            ctx.meta["image_validation"].get("width"),
+            ctx.meta["image_validation"].get("height"),
+            ctx.meta["image_validation"].get("format"),
+            history,
+        )
 
         # 3) OCR engine
         if not self.engine.is_available():
             raise EngineUnavailableError("OCR engine is not available")
 
         t0 = time.perf_counter()
-        extraction = self.engine.extract_text(ctx.active_image_path, meter_type=ctx.meter_type)
+        # Bounded wait: a single stuck predict() must fail this request, not
+        # hang the caller or accumulate stuck native calls indefinitely.
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(
+            self.engine.extract_text, ctx.active_image_path, meter_type=ctx.meter_type
+        )
+        try:
+            extraction = future.result(timeout=self.settings.request_timeout_seconds)
+        except concurrent.futures.TimeoutError as exc:
+            executor.shutdown(wait=False)
+            logger.error(
+                "request_id=%s OCR prediction exceeded %.1fs timeout — aborting request",
+                request_id,
+                self.settings.request_timeout_seconds,
+            )
+            raise OcrTimeoutError(
+                f"OCR prediction exceeded {self.settings.request_timeout_seconds}s timeout"
+            ) from exc
+        else:
+            executor.shutdown(wait=False)
         ctx.timings["ocr_ms"] = _ms_since(t0)
         ctx.raw_extraction = dict(extraction or {})
         ctx.texts = list(extraction.get("texts") or [])
         conf = extraction.get("confidence")
         ctx.ocr_confidence = float(conf) if conf is not None else None
+
+        # Raw OCR evidence — before any parsing/field-binding touches it.
+        raw_detections = list(extraction.get("detections") or [])
+        logger.info(
+            "request_id=%s RAW OCR RESULT: %s",
+            request_id,
+            [
+                {
+                    "text": d.get("text"),
+                    "confidence": d.get("score"),
+                    "box": d.get("box"),
+                }
+                for d in raw_detections
+            ],
+        )
 
         # 4) Reader — spatial parser when detections present, else legacy
         t0 = time.perf_counter()
@@ -120,8 +166,10 @@ class OcrPipeline:
         reader_data = dict(reader_result.get("data") or {})
         ctx.texts = list(reader_result.get("texts") or ctx.texts)
         ctx.corrections = corrections
-        # Spatial path must never invent demo form values when parse is empty.
-        allow_demo = "spatial_ok" not in reader_result
+        # Demo fallbacks are for contract/mock empty extraction only. If a real
+        # OCR run returned text but parsing is unsure, return no fields instead
+        # of inventing readings from demo constants.
+        allow_demo = "spatial_ok" not in reader_result and not ctx.texts
         ctx.parsed_data = merge_with_fallback(
             ctx.meter_type,
             reader_data,

@@ -123,10 +123,12 @@ class OcrService:
                 "meter_type": ctx.meter_type,
                 "raw_text": list(ctx.texts or []),
                 "detections": detections,
+                "boxes": [d.get("box") for d in detections],
                 "parsed_values": dict(ctx.parsed_data or {}),
                 "confidence": dict(ctx.confidence_detail or {}),
                 "validation_issues": list(ctx.validation_issues or []),
                 "preprocessing": list(ctx.preprocessing_history or []),
+                "image_validation": dict(ctx.meta.get("image_validation") or {}),
                 "processed_image_path": ctx.processed_image_path,
                 "timings_ms": dict(ctx.timings or {}),
             }

@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
-from parser.normalize import correct_ocr_token
+from parser.normalize import correct_ocr_token, is_unit_only_token
 
 _NUMBER_RE = re.compile(r"^[-+]?\d+(?:\.\d+)?$")
 
@@ -99,6 +99,8 @@ def make_token(
 ) -> OcrToken:
     raw = str(text or "").strip()
     corrected, _ = correct_ocr_token(raw)
+    if is_unit_only_token(raw):
+        corrected = raw
     # Prefer corrected form for numeric classification when token is mostly digits.
     numeric_candidate = corrected if _is_numeric(corrected) else raw
     if not _is_numeric(numeric_candidate) and _is_numeric(corrected):
@@ -127,7 +129,7 @@ def make_token(
         box=(x1, y1, x2, y2),
         cx=cx,
         cy=cy,
-        is_numeric=_is_numeric(text_corrected),
+        is_numeric=(not is_unit_only_token(raw) and _is_numeric(text_corrected)),
         ignored=ignored,
         debug_only=debug_only,
     )

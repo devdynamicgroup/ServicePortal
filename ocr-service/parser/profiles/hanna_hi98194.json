@@ -43,7 +43,7 @@
       "required": false
     },
     "temperature": {
-      "aliases": ["temp", "temperature", "°c"],
+      "aliases": ["temp", "temperature", "c", "°c", "ºc", "˚c", "degc"],
       "exclude_aliases": ["mo.cm", "mohm", "resistivity"],
       "range": [0, 100],
       "required": false

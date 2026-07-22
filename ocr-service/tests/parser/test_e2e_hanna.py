@@ -54,15 +54,20 @@ class TestE2EHanna(unittest.TestCase):
         self.assertIn("spatial", result)
 
     def test_legacy_flat_text_still_wrong_without_boxes(self) -> None:
-        """Document the bug that spatial parsing fixes."""
+        """Keep legacy available while spatial parsing owns boxed OCR."""
         legacy = PhReader().read(self.texts)
-        # Flat-text order heuristics can mis-bind; spatial must not.
-        # We only assert spatial path is correct above; legacy may differ.
         spatial = read_measurements("ph", self.texts, detections=self.detections)
         self.assertEqual(spatial["data"]["ph"], 7.29)
         self.assertNotEqual(spatial["data"]["ph"], -15.0)
-        # Keep legacy available
         self.assertIn("data", legacy)
+
+    def test_flat_text_rejects_dates_as_mv(self) -> None:
+        legacy = PhReader().read(["HI98194", "2026-07-15"])
+        self.assertEqual(legacy["data"], {})
+
+    def test_flat_text_temperature_from_degree_unit(self) -> None:
+        result = read_measurements("tds", ["28.4", "\u00b0C"])
+        self.assertEqual(result["data"], {"temperature": 28.4})
 
     def test_four_lcd_rows_in_payload(self) -> None:
         payload = SpatialMeasurementParser().parse_detections(self.detections)
