@@ -226,10 +226,12 @@ GOOGLE_DRIVE_MAIN_FOLDER_ID=1-mS_IbW95JGqbD9JZFvpIRkSxTjCjLXH
 GOOGLE_DRIVE_DATA_FOLDER_ID=14Fug6zCjbtBt6I9ab4R-bWOo1FXRkHQx
 # Set automatically by render.yaml Blueprint fromService; override only if needed:
 # OCR_SERVICE_URL=https://water-motion-ocr-service.onrender.com
-OCR_TIMEOUT=30000
+OCR_TIMEOUT=120000
 ```
 
 Do not expose `private_key` or other secret fields in logs. The app intentionally only reports the service account email and boolean flags for configured state.
+
+**If meter OCR returns `OCR_OFFLINE` / `OCR_MISCONFIGURED` on Render:** the OCR web service is missing or `OCR_SERVICE_URL` still points at localhost. Create/sync `water-motion-ocr-service` from `render.yaml`, wait until `GET {OCR_URL}/health` returns `ready: true`, then set portal `OCR_SERVICE_URL` to that public URL and restart the portal.
 
 ---
 

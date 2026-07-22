@@ -306,7 +306,9 @@ function mapOcrDataToMeterReadings(data = {}) {
 const OCR_USER_ERROR_CODES = new Set([
   'ENGINE_UNAVAILABLE',
   'OCR_OFFLINE',
-  'OCR_TIMEOUT'
+  'OCR_TIMEOUT',
+  'OCR_INTERNAL_ERROR',
+  'OCR_MISCONFIGURED'
 ]);
 
 /**
@@ -371,10 +373,16 @@ async function detectMeterReadingsFromImage(photoSrc) {
     return mapped;
   } catch (error) {
     if (OCR_USER_ERROR_CODES.has(error?.code)) throw error;
+    const message = String(error?.message || '');
+    if (error?.name === 'TypeError' || /failed to fetch|networkerror|load failed/i.test(message)) {
+      const offline = new Error('OCR service is not available');
+      offline.code = 'OCR_OFFLINE';
+      throw offline;
+    }
     console.warn('Meter OCR request failed', error);
     console.warn('[OCR] response received', {
       failed: true,
-      message: error?.message || String(error),
+      message,
       code: error?.code || null
     });
     return {};

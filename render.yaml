@@ -33,7 +33,7 @@ services:
           type: web
           envVarKey: RENDER_EXTERNAL_URL
       - key: OCR_TIMEOUT
-        value: "30000"
+        value: "120000"
 
   # ---------------------------------------------------------------------------
   # OCR (Python) — isolated process; portal calls POST {OCR_SERVICE_URL}/ocr/read-meter

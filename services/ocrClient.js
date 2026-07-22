@@ -9,10 +9,50 @@ function getOcrServiceUrl() {
   return String(process.env.OCR_SERVICE_URL || 'http://127.0.0.1:5055').replace(/\/$/, '');
 }
 
+function isLocalOcrUrl(url) {
+  return /^(https?:\/\/)?(127\.0\.0\.1|localhost)(:|\/|$)/i.test(String(url || ''));
+}
+
+/**
+ * In production, localhost OCR is always wrong (portal dyno ≠ OCR process).
+ * Fail fast with a clear code so Render misconfig is obvious in the UI/logs.
+ */
+function getProductionMisconfigError() {
+  if (String(process.env.NODE_ENV || '').toLowerCase() !== 'production') return null;
+  const url = getOcrServiceUrl();
+  if (!process.env.OCR_SERVICE_URL || isLocalOcrUrl(url)) {
+    return {
+      success: false,
+      error: 'OCR_MISCONFIGURED',
+      message:
+        'OCR_SERVICE_URL is missing or points to localhost. Deploy water-motion-ocr-service and set OCR_SERVICE_URL to its public URL.',
+      retry: false,
+      statusCode: 503
+    };
+  }
+  return null;
+}
+
 function getOcrTimeoutMs() {
   const raw = Number(process.env.OCR_TIMEOUT);
   if (Number.isFinite(raw) && raw > 0) return Math.floor(raw);
-  return 30000;
+  // Paddle cold start + first predict often exceeds 30s on free-tier hosts.
+  return 120000;
+}
+
+const RETRYABLE_ERRORS = new Set([
+  'ENGINE_UNAVAILABLE',
+  'OCR_OFFLINE',
+  'OCR_TIMEOUT',
+  'OCR_INTERNAL_ERROR'
+]);
+
+const MAX_READ_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 5000;
+const ENGINE_WARMUP_DELAY_MS = 8000;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function isDebug() {
@@ -33,9 +73,8 @@ function isDebug() {
  *   statusCode?: number
  * }>}
  */
-async function readMeter(payload) {
+async function readMeterOnce(payload, timeoutMs) {
   const baseUrl = getOcrServiceUrl();
-  const timeoutMs = getOcrTimeoutMs();
   const url = `${baseUrl}/ocr/read-meter`;
 
   console.warn('[ocr-client] request started', {
@@ -128,6 +167,36 @@ async function readMeter(payload) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function readMeter(payload) {
+  const misconfig = getProductionMisconfigError();
+  if (misconfig) {
+    console.warn('[ocr-client] production misconfigured', {
+      ocrServiceUrl: process.env.OCR_SERVICE_URL || '(unset → localhost default)'
+    });
+    return misconfig;
+  }
+
+  const timeoutMs = getOcrTimeoutMs();
+  let lastResult;
+
+  for (let attempt = 1; attempt <= MAX_READ_ATTEMPTS; attempt += 1) {
+    lastResult = await readMeterOnce(payload, timeoutMs);
+    const errorCode = lastResult?.error;
+    const shouldRetry = attempt < MAX_READ_ATTEMPTS
+      && (lastResult?.retry === true || RETRYABLE_ERRORS.has(errorCode));
+
+    if (!shouldRetry) break;
+
+    const delayMs = errorCode === 'ENGINE_UNAVAILABLE'
+      ? ENGINE_WARMUP_DELAY_MS
+      : RETRY_DELAY_MS;
+    console.warn('[ocr-client] retrying', { attempt, error: errorCode, delayMs });
+    await sleep(delayMs);
+  }
+
+  return lastResult;
 }
 
 module.exports = {
