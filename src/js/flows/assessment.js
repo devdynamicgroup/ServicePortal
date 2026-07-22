@@ -274,11 +274,18 @@ function syncMeterThumbFromSession(tap) {
 }
 
 function mergeMeterReadings(existing = {}, detected = {}) {
+  // TEMP TRACE (stage 3) — remove after temp-field investigation
+  console.warn('[TEMP TRACE] stage3 mergeMeterReadings input', {
+    existingTemp: existing?.temp,
+    detectedTemp: detected?.temp
+  });
   const out = { ...(existing || {}) };
   Object.entries(detected || {}).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '') return;
     out[key] = value;
   });
+  // TEMP TRACE (stage 4) — remove after temp-field investigation
+  console.warn('[TEMP TRACE] stage4 mergeMeterReadings output', { outTemp: out.temp });
   return out;
 }
 
@@ -378,7 +385,14 @@ async function detectMeterReadingsFromImage(photoSrc) {
       console.warn('[OCR] mapped readings:', {});
       return {};
     }
+    // TEMP TRACE (stage 1) — remove after temp-field investigation
+    console.warn('[TEMP TRACE] stage1 raw OCR data.temp/temperature', {
+      temp: body.data?.temp,
+      temperature: body.data?.temperature
+    });
     const mapped = mapOcrDataToMeterReadings(body.data);
+    // TEMP TRACE (stage 2) — remove after temp-field investigation
+    console.warn('[TEMP TRACE] stage2 detectMeterReadingsFromImage returned', { temp: mapped.temp });
     console.warn('[OCR] mapped readings:', mapped);
     return mapped;
   } catch (error) {
@@ -917,9 +931,15 @@ function readMeterReadingFields() {
 }
 
 function writeMeterReadingFields(readings = {}) {
+  // TEMP TRACE (stage 5) — remove after temp-field investigation
+  console.warn('[TEMP TRACE] stage5 writeMeterReadingFields input', { temp: readings?.temp });
   Object.entries(METER_READING_FIELDS).forEach(([key, id]) => {
     const el = document.getElementById(id);
     if (el) el.value = readings[key] ?? '';
+    if (key === 'temp') {
+      // TEMP TRACE (stage 6) — remove after temp-field investigation
+      console.warn('[TEMP TRACE] stage6 final form value written', { id, value: el?.value ?? null });
+    }
   });
 }
 

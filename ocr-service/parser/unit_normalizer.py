@@ -129,7 +129,10 @@ def unit_match_score(label: str, aliases: list[str]) -> float:
 
     Priority:
       1.0 exact synonym / alias
-      0.9 alias is substring of label (or reverse for short aliases)
+      0.9 alias is substring of label, or label is a substring of a longer
+          alias (only when the label itself is >=3 chars — a short garbled
+          OCR fragment like "tu" is not meaningful evidence just because it
+          happens to appear inside a long word like "temperature")
       0.8 Levenshtein ≤ 1 for short tokens
       0.0 no match
     """
@@ -154,7 +157,9 @@ def unit_match_score(label: str, aliases: list[str]) -> float:
             continue
         if normalized == a:
             return 1.0
-        if a in normalized or normalized in a:
+        if a in normalized:
+            return 0.9
+        if normalized in a and len(normalized) >= 3:
             return 0.9
         if len(normalized) <= 6 and len(a) <= 6 and _levenshtein(normalized, a) <= 1:
             return 0.8

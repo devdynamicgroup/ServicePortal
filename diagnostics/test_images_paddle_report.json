@@ -2,9 +2,9 @@
   "engine": "paddle",
   "images_dir": "D:\\Service Portal\\ocr\\test_images",
   "total": 88,
-  "ok": 39,
+  "ok": 37,
   "partial": 0,
-  "fail": 49,
+  "fail": 51,
   "results": [
     {
       "filename": "line_oa_chat_260720_084708.jpg",
@@ -216,7 +216,7 @@
           "do": 6.67,
           "ec": 319.0
         },
-        "confidence": 0.895,
+        "confidence": 0.9637,
         "auto_fill": {
           "do": true,
           "ec": true
@@ -224,12 +224,12 @@
         "fields": {
           "do": {
             "value": 6.67,
-            "confidence": 0.9,
+            "confidence": 0.9963,
             "rejected": false,
             "reject_reason": null,
             "auto_fill": true,
             "value_score": 0.9963147044181824,
-            "unit_match_score": 0.9,
+            "unit_match_score": 1.0,
             "row_index": 0,
             "value_token": "6.67",
             "unit_token": "FFmDO",
@@ -237,12 +237,12 @@
           },
           "ec": {
             "value": 319.0,
-            "confidence": 0.8,
+            "confidence": 0.9,
             "rejected": false,
             "reject_reason": null,
             "auto_fill": true,
             "value_score": 0.9999291300773621,
-            "unit_match_score": 0.8,
+            "unit_match_score": 0.9,
             "row_index": 1,
             "value_token": "319",
             "unit_token": "μsem",
@@ -319,7 +319,7 @@
           "do": 6.67,
           "ec": 319.0
         },
-        "confidence": 0.895,
+        "confidence": 0.9637,
         "auto_fill": {
           "do": true,
           "ec": true
@@ -330,22 +330,22 @@
         "do": 6.67,
         "ec": 319
       },
-      "confidence": 0.9098,
+      "confidence": 0.9475,
       "validation_issues": [
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.537,
-        "preprocess_ms": 0.016,
-        "ocr_ms": 5172.597,
-        "reader_ms": 10.39,
-        "parser_ms": 0.012,
+        "image_validate_ms": 0.305,
+        "preprocess_ms": 0.015,
+        "ocr_ms": 4401.011,
+        "reader_ms": 9.753,
+        "parser_ms": 0.014,
         "validator_ms": 0.027,
-        "confidence_ms": 0.017
+        "confidence_ms": 0.025
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 5.192
+      "elapsed_s": 4.42
     },
     {
       "filename": "line_oa_chat_260720_084708_180.jpg",
@@ -665,19 +665,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.396,
-        "preprocess_ms": 0.016,
-        "ocr_ms": 4263.191,
-        "reader_ms": 7.493,
+        "image_validate_ms": 0.372,
+        "preprocess_ms": 0.013,
+        "ocr_ms": 3757.628,
+        "reader_ms": 9.529,
         "parser_ms": 0.008,
         "validator_ms": 0.01,
-        "confidence_ms": 0.02
+        "confidence_ms": 0.018
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.28
+      "elapsed_s": 3.777
     },
     {
       "filename": "line_oa_chat_260720_084708_270.jpg",
@@ -880,19 +880,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.45,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 4023.913,
-        "reader_ms": 6.926,
-        "parser_ms": 0.005,
-        "validator_ms": 0.008,
-        "confidence_ms": 0.014
+        "image_validate_ms": 0.324,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 3649.814,
+        "reader_ms": 7.066,
+        "parser_ms": 0.004,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.013
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.044
+      "elapsed_s": 3.664
     },
     {
       "filename": "line_oa_chat_260720_084708_90.jpg",
@@ -1095,17 +1095,17 @@
         "data": {},
         "confidence": 0.0,
         "auto_fill": {
-          "ec": false
+          "temperature": false
         },
         "fields": {
-          "ec": {
+          "temperature": {
             "value": null,
             "confidence": 0.6503,
             "rejected": true,
             "reject_reason": "low_confidence",
             "auto_fill": false,
             "value_score": 0.6503043174743652,
-            "unit_match_score": 0.9,
+            "unit_match_score": 1.0,
             "row_index": 0,
             "value_token": "7",
             "unit_token": "C",
@@ -1113,7 +1113,7 @@
           }
         },
         "issues": [
-          "low_confidence:ec"
+          "low_confidence:temperature"
         ],
         "rows": [
           {
@@ -1152,10 +1152,10 @@
         "data": {},
         "confidence": 0.0,
         "auto_fill": {
-          "ec": false
+          "temperature": false
         },
         "issues": [
-          "low_confidence:ec"
+          "low_confidence:temperature"
         ]
       },
       "api_style_data": {},
@@ -1164,19 +1164,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.46,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 3979.801,
-        "reader_ms": 4.471,
-        "parser_ms": 0.004,
+        "image_validate_ms": 0.303,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 3683.417,
+        "reader_ms": 4.995,
+        "parser_ms": 0.006,
         "validator_ms": 0.006,
-        "confidence_ms": 0.013
+        "confidence_ms": 0.016
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.996
+      "elapsed_s": 3.694
     },
     {
       "filename": "line_oa_chat_260720_084708_flip_h.jpg",
@@ -1416,19 +1416,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 7.362,
-        "preprocess_ms": 0.016,
-        "ocr_ms": 4117.258,
-        "reader_ms": 8.721,
-        "parser_ms": 0.021,
-        "validator_ms": 0.023,
-        "confidence_ms": 0.041
+        "image_validate_ms": 0.315,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 3726.998,
+        "reader_ms": 10.631,
+        "parser_ms": 0.005,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.013
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.155
+      "elapsed_s": 3.749
     },
     {
       "filename": "line_oa_chat_260720_084708_flip_v.jpg",
@@ -1682,19 +1682,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.485,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 3937.024,
-        "reader_ms": 8.232,
-        "parser_ms": 0.005,
+        "image_validate_ms": 0.344,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 3768.279,
+        "reader_ms": 10.938,
+        "parser_ms": 0.006,
         "validator_ms": 0.006,
-        "confidence_ms": 0.016
+        "confidence_ms": 0.015
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.96
+      "elapsed_s": 3.79
     },
     {
       "filename": "line_oa_chat_260720_084708_original.jpg",
@@ -1906,7 +1906,7 @@
           "do": 6.67,
           "ec": 319.0
         },
-        "confidence": 0.895,
+        "confidence": 0.9594,
         "auto_fill": {
           "do": true,
           "ec": true
@@ -1914,12 +1914,12 @@
         "fields": {
           "do": {
             "value": 6.67,
-            "confidence": 0.9,
+            "confidence": 0.984,
             "rejected": false,
             "reject_reason": null,
             "auto_fill": true,
             "value_score": 0.9839615821838379,
-            "unit_match_score": 0.9,
+            "unit_match_score": 1.0,
             "row_index": 0,
             "value_token": "6.67",
             "unit_token": "FFmDO",
@@ -1927,12 +1927,12 @@
           },
           "ec": {
             "value": 319.0,
-            "confidence": 0.8,
+            "confidence": 0.9,
             "rejected": false,
             "reject_reason": null,
             "auto_fill": true,
             "value_score": 0.9999306201934814,
-            "unit_match_score": 0.8,
+            "unit_match_score": 0.9,
             "row_index": 1,
             "value_token": "319",
             "unit_token": "μsem",
@@ -2009,7 +2009,7 @@
           "do": 6.67,
           "ec": 319.0
         },
-        "confidence": 0.895,
+        "confidence": 0.9594,
         "auto_fill": {
           "do": true,
           "ec": true
@@ -2020,22 +2020,22 @@
         "do": 6.67,
         "ec": 319
       },
-      "confidence": 0.9098,
+      "confidence": 0.9452,
       "validation_issues": [
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 0.346,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 3917.783,
-        "reader_ms": 7.814,
-        "parser_ms": 0.011,
-        "validator_ms": 0.025,
-        "confidence_ms": 0.017
+        "image_validate_ms": 0.349,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 3902.788,
+        "reader_ms": 10.107,
+        "parser_ms": 0.013,
+        "validator_ms": 0.029,
+        "confidence_ms": 0.016
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 3.934
+      "elapsed_s": 3.923
     },
     {
       "filename": "line_oa_chat_260720_084708_rot_-10.jpg",
@@ -2239,7 +2239,7 @@
           "do": 6.67,
           "ec": 319.0
         },
-        "confidence": 0.895,
+        "confidence": 0.929,
         "auto_fill": {
           "do": true,
           "ec": true
@@ -2247,12 +2247,12 @@
         "fields": {
           "do": {
             "value": 6.67,
-            "confidence": 0.9,
+            "confidence": 0.9972,
             "rejected": false,
             "reject_reason": null,
             "auto_fill": true,
             "value_score": 0.9971598386764526,
-            "unit_match_score": 0.9,
+            "unit_match_score": 1.0,
             "row_index": 0,
             "value_token": "6.67",
             "unit_token": "FFmDO",
@@ -2332,7 +2332,7 @@
           "do": 6.67,
           "ec": 319.0
         },
-        "confidence": 0.895,
+        "confidence": 0.929,
         "auto_fill": {
           "do": true,
           "ec": true
@@ -2343,22 +2343,22 @@
         "do": 6.67,
         "ec": 319
       },
-      "confidence": 0.9098,
+      "confidence": 0.9284,
       "validation_issues": [
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.444,
-        "preprocess_ms": 0.02,
-        "ocr_ms": 5191.402,
-        "reader_ms": 12.263,
-        "parser_ms": 0.011,
-        "validator_ms": 0.025,
-        "confidence_ms": 0.017
+        "image_validate_ms": 0.343,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 5142.224,
+        "reader_ms": 9.732,
+        "parser_ms": 0.012,
+        "validator_ms": 0.029,
+        "confidence_ms": 0.021
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 5.22
+      "elapsed_s": 5.162
     },
     {
       "filename": "line_oa_chat_260720_084708_rot_-20.jpg",
@@ -2598,12 +2598,12 @@
           },
           "do": {
             "value": null,
-            "confidence": 0.9,
+            "confidence": 0.9999,
             "rejected": true,
             "reject_reason": "out_of_range",
             "auto_fill": false,
             "value_score": 0.9999240040779114,
-            "unit_match_score": 0.9,
+            "unit_match_score": 1.0,
             "row_index": 0,
             "value_token": "319",
             "unit_token": "FFmDO",
@@ -2693,17 +2693,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.71,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 5841.56,
-        "reader_ms": 7.571,
-        "parser_ms": 0.012,
-        "validator_ms": 0.027,
-        "confidence_ms": 0.023
+        "image_validate_ms": 0.377,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 5418.526,
+        "reader_ms": 8.355,
+        "parser_ms": 0.007,
+        "validator_ms": 0.017,
+        "confidence_ms": 0.015
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 5.858
+      "elapsed_s": 5.436
     },
     {
       "filename": "line_oa_chat_260720_084708_rot_-30.jpg",
@@ -2923,7 +2923,7 @@
           "do": 0.0,
           "ec": 31.0
         },
-        "confidence": 0.895,
+        "confidence": 0.9285,
         "auto_fill": {
           "do": true,
           "ec": true
@@ -2931,12 +2931,12 @@
         "fields": {
           "do": {
             "value": 0.0,
-            "confidence": 0.9,
+            "confidence": 0.9958,
             "rejected": false,
             "reject_reason": null,
             "auto_fill": true,
             "value_score": 0.9957925081253052,
-            "unit_match_score": 0.9,
+            "unit_match_score": 1.0,
             "row_index": 0,
             "value_token": "0",
             "unit_token": "FFmDO",
@@ -3021,7 +3021,7 @@
           "do": 0.0,
           "ec": 31.0
         },
-        "confidence": 0.895,
+        "confidence": 0.9285,
         "auto_fill": {
           "do": true,
           "ec": true
@@ -3032,22 +3032,22 @@
         "do": 0.0,
         "ec": 31
       },
-      "confidence": 0.9098,
+      "confidence": 0.9282,
       "validation_issues": [
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 3.022,
-        "preprocess_ms": 0.017,
-        "ocr_ms": 6356.013,
-        "reader_ms": 6.872,
-        "parser_ms": 0.008,
-        "validator_ms": 0.019,
-        "confidence_ms": 0.014
+        "image_validate_ms": 0.337,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 6784.942,
+        "reader_ms": 15.284,
+        "parser_ms": 0.014,
+        "validator_ms": 0.032,
+        "confidence_ms": 0.018
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 6.373
+      "elapsed_s": 6.822
     },
     {
       "filename": "line_oa_chat_260720_084708_rot_10.jpg",
@@ -3259,7 +3259,7 @@
           "do": 6.67,
           "ec": 319.0
         },
-        "confidence": 0.895,
+        "confidence": 0.9293,
         "auto_fill": {
           "do": true,
           "ec": true
@@ -3267,12 +3267,12 @@
         "fields": {
           "do": {
             "value": 6.67,
-            "confidence": 0.9,
+            "confidence": 0.9981,
             "rejected": false,
             "reject_reason": null,
             "auto_fill": true,
             "value_score": 0.9981035590171814,
-            "unit_match_score": 0.9,
+            "unit_match_score": 1.0,
             "row_index": 0,
             "value_token": "6.67",
             "unit_token": "FFmDO",
@@ -3360,7 +3360,7 @@
           "do": 6.67,
           "ec": 319.0
         },
-        "confidence": 0.895,
+        "confidence": 0.9293,
         "auto_fill": {
           "do": true,
           "ec": true
@@ -3371,22 +3371,22 @@
         "do": 6.67,
         "ec": 319
       },
-      "confidence": 0.9098,
+      "confidence": 0.9286,
       "validation_issues": [
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.702,
+        "image_validate_ms": 0.342,
         "preprocess_ms": 0.011,
-        "ocr_ms": 4372.998,
-        "reader_ms": 7.349,
-        "parser_ms": 0.008,
-        "validator_ms": 0.019,
-        "confidence_ms": 0.015
+        "ocr_ms": 4159.051,
+        "reader_ms": 9.485,
+        "parser_ms": 0.009,
+        "validator_ms": 0.021,
+        "confidence_ms": 0.016
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 4.39
+      "elapsed_s": 4.179
     },
     {
       "filename": "line_oa_chat_260720_084708_rot_20.jpg",
@@ -3663,17 +3663,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.743,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 4949.611,
-        "reader_ms": 8.151,
-        "parser_ms": 0.007,
-        "validator_ms": 0.019,
-        "confidence_ms": 0.015
+        "image_validate_ms": 0.339,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 4762.703,
+        "reader_ms": 6.537,
+        "parser_ms": 0.006,
+        "validator_ms": 0.017,
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 4.971
+      "elapsed_s": 4.777
     },
     {
       "filename": "line_oa_chat_260720_084708_rot_30.jpg",
@@ -3884,19 +3884,19 @@
         "data": {
           "ec": 6.67
         },
-        "confidence": 0.93,
+        "confidence": 0.99,
         "auto_fill": {
           "ec": true
         },
         "fields": {
           "ec": {
             "value": 6.67,
-            "confidence": 0.9,
+            "confidence": 0.9979,
             "rejected": false,
             "reject_reason": null,
             "auto_fill": true,
             "value_score": 0.9979100227355957,
-            "unit_match_score": 0.9,
+            "unit_match_score": 1.0,
             "row_index": 0,
             "value_token": "6.67",
             "unit_token": "uSema",
@@ -3976,7 +3976,7 @@
         "data": {
           "ec": 6.67
         },
-        "confidence": 0.93,
+        "confidence": 0.99,
         "auto_fill": {
           "ec": true
         },
@@ -3985,22 +3985,22 @@
       "api_style_data": {
         "ec": 6.67
       },
-      "confidence": 0.909,
+      "confidence": 0.942,
       "validation_issues": [
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 7.112,
-        "preprocess_ms": 0.015,
-        "ocr_ms": 6061.642,
-        "reader_ms": 6.329,
+        "image_validate_ms": 0.353,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 5415.184,
+        "reader_ms": 8.534,
         "parser_ms": 0.008,
-        "validator_ms": 0.026,
-        "confidence_ms": 0.016
+        "validator_ms": 0.023,
+        "confidence_ms": 0.015
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 6.082
+      "elapsed_s": 5.432
     },
     {
       "filename": "line_oa_chat_260720_084716.jpg",
@@ -4280,17 +4280,17 @@
       "confidence": 0.99,
       "validation_issues": [],
       "timings_ms": {
-        "image_validate_ms": 2.54,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 3676.589,
-        "reader_ms": 3.266,
-        "parser_ms": 0.009,
-        "validator_ms": 0.02,
-        "confidence_ms": 0.013
+        "image_validate_ms": 0.431,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 3689.867,
+        "reader_ms": 4.467,
+        "parser_ms": 0.01,
+        "validator_ms": 0.025,
+        "confidence_ms": 0.016
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 3.686
+      "elapsed_s": 3.699
     },
     {
       "filename": "line_oa_chat_260720_084716_180.jpg",
@@ -4512,17 +4512,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.484,
+        "image_validate_ms": 0.414,
         "preprocess_ms": 0.011,
-        "ocr_ms": 3230.283,
-        "reader_ms": 4.026,
-        "parser_ms": 0.006,
-        "validator_ms": 0.016,
-        "confidence_ms": 0.013
+        "ocr_ms": 3147.147,
+        "reader_ms": 5.247,
+        "parser_ms": 0.007,
+        "validator_ms": 0.02,
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 3.245
+      "elapsed_s": 3.158
     },
     {
       "filename": "line_oa_chat_260720_084716_270.jpg",
@@ -4702,19 +4702,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.991,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 3835.716,
-        "reader_ms": 2.992,
-        "parser_ms": 0.006,
-        "validator_ms": 0.008,
-        "confidence_ms": 0.017
+        "image_validate_ms": 0.352,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 3793.449,
+        "reader_ms": 3.565,
+        "parser_ms": 0.005,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.015
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.849
+      "elapsed_s": 3.801
     },
     {
       "filename": "line_oa_chat_260720_084716_90.jpg",
@@ -4893,19 +4893,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.626,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 3388.845,
-        "reader_ms": 1.371,
-        "parser_ms": 0.004,
-        "validator_ms": 0.006,
+        "image_validate_ms": 0.578,
+        "preprocess_ms": 0.013,
+        "ocr_ms": 3181.579,
+        "reader_ms": 1.731,
+        "parser_ms": 0.005,
+        "validator_ms": 0.007,
         "confidence_ms": 0.015
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.393
+      "elapsed_s": 3.186
     },
     {
       "filename": "line_oa_chat_260720_084716_flip_h.jpg",
@@ -5034,21 +5034,21 @@
         "ok": true,
         "profile": "hanna_hi98194",
         "data": {
-          "ec": 0.0
+          "mv": 0.0
         },
-        "confidence": 0.93,
+        "confidence": 0.86,
         "auto_fill": {
-          "ec": true
+          "mv": true
         },
         "fields": {
-          "ec": {
+          "mv": {
             "value": 0.0,
-            "confidence": 0.9,
+            "confidence": 0.8,
             "rejected": false,
             "reject_reason": null,
             "auto_fill": true,
             "value_score": 0.9938251972198486,
-            "unit_match_score": 0.9,
+            "unit_match_score": 0.8,
             "row_index": 0,
             "value_token": "00",
             "unit_token": "MA",
@@ -5074,33 +5074,33 @@
       "measurement_payload": {
         "ok": true,
         "data": {
-          "ec": 0.0
+          "mv": 0.0
         },
-        "confidence": 0.93,
+        "confidence": 0.86,
         "auto_fill": {
-          "ec": true
+          "mv": true
         },
         "issues": []
       },
       "api_style_data": {
-        "ec": 0
+        "mv": 0.0
       },
-      "confidence": 0.909,
+      "confidence": 0.8705,
       "validation_issues": [
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 7.896,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 3132.333,
-        "reader_ms": 5.3,
-        "parser_ms": 0.008,
-        "validator_ms": 0.021,
+        "image_validate_ms": 0.496,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 3144.685,
+        "reader_ms": 6.797,
+        "parser_ms": 0.007,
+        "validator_ms": 0.02,
         "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 3.151
+      "elapsed_s": 3.159
     },
     {
       "filename": "line_oa_chat_260720_084716_flip_v.jpg",
@@ -5290,19 +5290,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.334,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 3205.716,
-        "reader_ms": 4.765,
+        "image_validate_ms": 0.413,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 3171.231,
+        "reader_ms": 5.609,
         "parser_ms": 0.005,
-        "validator_ms": 0.007,
-        "confidence_ms": 0.016
+        "validator_ms": 0.006,
+        "confidence_ms": 0.014
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.222
+      "elapsed_s": 3.183
     },
     {
       "filename": "line_oa_chat_260720_084716_original.jpg",
@@ -5582,17 +5582,17 @@
       "confidence": 0.99,
       "validation_issues": [],
       "timings_ms": {
-        "image_validate_ms": 7.345,
+        "image_validate_ms": 0.379,
         "preprocess_ms": 0.012,
-        "ocr_ms": 3094.26,
-        "reader_ms": 3.094,
-        "parser_ms": 0.008,
-        "validator_ms": 0.019,
-        "confidence_ms": 0.012
+        "ocr_ms": 3019.391,
+        "reader_ms": 4.2,
+        "parser_ms": 0.009,
+        "validator_ms": 0.021,
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 3.108
+      "elapsed_s": 3.028
     },
     {
       "filename": "line_oa_chat_260720_084716_rot_-10.jpg",
@@ -5839,17 +5839,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 2.971,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 4309.689,
-        "reader_ms": 2.561,
-        "parser_ms": 0.009,
-        "validator_ms": 0.025,
-        "confidence_ms": 0.015
+        "image_validate_ms": 0.366,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 4079.655,
+        "reader_ms": 3.019,
+        "parser_ms": 0.008,
+        "validator_ms": 0.021,
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 4.318
+      "elapsed_s": 4.086
     },
     {
       "filename": "line_oa_chat_260720_084716_rot_-20.jpg",
@@ -6073,17 +6073,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 7.744,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 4947.078,
-        "reader_ms": 2.224,
-        "parser_ms": 0.009,
-        "validator_ms": 0.024,
+        "image_validate_ms": 0.465,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 4588.812,
+        "reader_ms": 2.146,
+        "parser_ms": 0.008,
+        "validator_ms": 0.021,
         "confidence_ms": 0.015
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 4.959
+      "elapsed_s": 4.594
     },
     {
       "filename": "line_oa_chat_260720_084716_rot_-30.jpg",
@@ -6307,17 +6307,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 7.212,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 5493.877,
-        "reader_ms": 2.037,
-        "parser_ms": 0.007,
-        "validator_ms": 0.022,
+        "image_validate_ms": 0.383,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 5465.255,
+        "reader_ms": 2.477,
+        "parser_ms": 0.008,
+        "validator_ms": 0.021,
         "confidence_ms": 0.015
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 5.506
+      "elapsed_s": 5.471
     },
     {
       "filename": "line_oa_chat_260720_084716_rot_10.jpg",
@@ -6573,17 +6573,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.833,
-        "preprocess_ms": 0.014,
-        "ocr_ms": 3942.07,
-        "reader_ms": 2.74,
+        "image_validate_ms": 0.5,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 3758.009,
+        "reader_ms": 3.065,
         "parser_ms": 0.009,
-        "validator_ms": 0.023,
+        "validator_ms": 0.022,
         "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 3.956
+      "elapsed_s": 3.765
     },
     {
       "filename": "line_oa_chat_260720_084716_rot_20.jpg",
@@ -6705,9 +6705,27 @@
         "profile": "hanna_hi98194",
         "data": {},
         "confidence": 0.0,
-        "auto_fill": {},
-        "fields": {},
-        "issues": [],
+        "auto_fill": {
+          "do_percent": false
+        },
+        "fields": {
+          "do_percent": {
+            "value": null,
+            "confidence": 0.9993,
+            "rejected": true,
+            "reject_reason": "out_of_range",
+            "auto_fill": false,
+            "value_score": 0.9993470907211304,
+            "unit_match_score": 1.0,
+            "row_index": 0,
+            "value_token": "208.3",
+            "unit_token": "%D0",
+            "unit_normalized": "%d0"
+          }
+        },
+        "issues": [
+          "out_of_range:do_percent"
+        ],
         "rows": [
           {
             "index": 0,
@@ -6727,8 +6745,12 @@
         "ok": false,
         "data": {},
         "confidence": 0.0,
-        "auto_fill": {},
-        "issues": []
+        "auto_fill": {
+          "do_percent": false
+        },
+        "issues": [
+          "out_of_range:do_percent"
+        ]
       },
       "api_style_data": {},
       "confidence": 0.1,
@@ -6736,19 +6758,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 8.339,
-        "preprocess_ms": 0.016,
-        "ocr_ms": 4095.74,
-        "reader_ms": 1.603,
+        "image_validate_ms": 0.373,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 4031.034,
+        "reader_ms": 1.6,
         "parser_ms": 0.006,
         "validator_ms": 0.007,
-        "confidence_ms": 0.017
+        "confidence_ms": 0.015
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.108
+      "elapsed_s": 4.035
     },
     {
       "filename": "line_oa_chat_260720_084716_rot_30.jpg",
@@ -6919,17 +6941,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.56,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 4536.554,
-        "reader_ms": 1.096,
+        "image_validate_ms": 0.393,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 4845.501,
+        "reader_ms": 1.064,
         "parser_ms": 0.006,
         "validator_ms": 0.017,
-        "confidence_ms": 0.014
+        "confidence_ms": 0.013
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 4.545
+      "elapsed_s": 4.849
     },
     {
       "filename": "line_oa_chat_260720_084720.jpg",
@@ -7143,7 +7165,7 @@
           "orp": 181.1,
           "do_percent": 104.5
         },
-        "confidence": 0.965,
+        "confidence": 0.99,
         "auto_fill": {
           "mv": true,
           "ph": true,
@@ -7192,12 +7214,12 @@
           },
           "do_percent": {
             "value": 104.5,
-            "confidence": 0.8,
+            "confidence": 1.0,
             "rejected": false,
             "reject_reason": null,
             "auto_fill": true,
             "value_score": 0.9999968409538269,
-            "unit_match_score": 0.8,
+            "unit_match_score": 1.0,
             "row_index": 3,
             "value_token": "104.5",
             "unit_token": "%D0",
@@ -7268,7 +7290,7 @@
           "orp": 181.1,
           "do_percent": 104.5
         },
-        "confidence": 0.965,
+        "confidence": 0.99,
         "auto_fill": {
           "mv": true,
           "ph": true,
@@ -7286,17 +7308,17 @@
       "confidence": 0.99,
       "validation_issues": [],
       "timings_ms": {
-        "image_validate_ms": 2.785,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 4450.022,
-        "reader_ms": 6.308,
+        "image_validate_ms": 0.472,
+        "preprocess_ms": 0.015,
+        "ocr_ms": 4497.575,
+        "reader_ms": 7.754,
         "parser_ms": 0.007,
         "validator_ms": 0.018,
-        "confidence_ms": 0.013
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 4.465
+      "elapsed_s": 4.515
     },
     {
       "filename": "line_oa_chat_260720_084720_180.jpg",
@@ -7582,17 +7604,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.451,
+        "image_validate_ms": 0.441,
         "preprocess_ms": 0.012,
-        "ocr_ms": 3992.615,
-        "reader_ms": 7.827,
+        "ocr_ms": 3940.056,
+        "reader_ms": 10.499,
         "parser_ms": 0.007,
-        "validator_ms": 0.018,
-        "confidence_ms": 0.013
+        "validator_ms": 0.022,
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 4.015
+      "elapsed_s": 3.961
     },
     {
       "filename": "line_oa_chat_260720_084720_270.jpg",
@@ -7829,19 +7851,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 7.23,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 4788.108,
-        "reader_ms": 11.836,
-        "parser_ms": 0.011,
-        "validator_ms": 0.012,
-        "confidence_ms": 0.028
+        "image_validate_ms": 0.372,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 4362.004,
+        "reader_ms": 7.169,
+        "parser_ms": 0.005,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.014
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.815
+      "elapsed_s": 4.377
     },
     {
       "filename": "line_oa_chat_260720_084720_90.jpg",
@@ -8067,19 +8089,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 10.62,
-        "preprocess_ms": 0.029,
-        "ocr_ms": 4034.461,
-        "reader_ms": 4.903,
+        "image_validate_ms": 0.422,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 3898.659,
+        "reader_ms": 5.741,
         "parser_ms": 0.005,
         "validator_ms": 0.006,
-        "confidence_ms": 0.015
+        "confidence_ms": 0.014
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.055
+      "elapsed_s": 3.911
     },
     {
       "filename": "line_oa_chat_260720_084720_flip_h.jpg",
@@ -8340,19 +8362,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 2.196,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 3986.454,
-        "reader_ms": 9.351,
+        "image_validate_ms": 0.495,
+        "preprocess_ms": 0.014,
+        "ocr_ms": 3898.054,
+        "reader_ms": 12.979,
         "parser_ms": 0.005,
-        "validator_ms": 0.007,
+        "validator_ms": 0.006,
         "confidence_ms": 0.015
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.007
+      "elapsed_s": 3.923
     },
     {
       "filename": "line_oa_chat_260720_084720_flip_v.jpg",
@@ -8614,19 +8636,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.975,
-        "preprocess_ms": 0.01,
-        "ocr_ms": 4125.56,
-        "reader_ms": 9.342,
-        "parser_ms": 0.005,
-        "validator_ms": 0.006,
-        "confidence_ms": 0.014
+        "image_validate_ms": 0.455,
+        "preprocess_ms": 0.014,
+        "ocr_ms": 3887.302,
+        "reader_ms": 12.239,
+        "parser_ms": 0.006,
+        "validator_ms": 0.007,
+        "confidence_ms": 0.013
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.147
+      "elapsed_s": 3.912
     },
     {
       "filename": "line_oa_chat_260720_084720_original.jpg",
@@ -8840,7 +8862,7 @@
           "orp": 181.1,
           "do_percent": 104.5
         },
-        "confidence": 0.9649,
+        "confidence": 0.99,
         "auto_fill": {
           "mv": true,
           "ph": true,
@@ -8889,12 +8911,12 @@
           },
           "do_percent": {
             "value": 104.5,
-            "confidence": 0.8,
+            "confidence": 1.0,
             "rejected": false,
             "reject_reason": null,
             "auto_fill": true,
             "value_score": 0.9999961853027344,
-            "unit_match_score": 0.8,
+            "unit_match_score": 1.0,
             "row_index": 3,
             "value_token": "104.5",
             "unit_token": "%D0",
@@ -8965,7 +8987,7 @@
           "orp": 181.1,
           "do_percent": 104.5
         },
-        "confidence": 0.9649,
+        "confidence": 0.99,
         "auto_fill": {
           "mv": true,
           "ph": true,
@@ -8983,17 +9005,17 @@
       "confidence": 0.99,
       "validation_issues": [],
       "timings_ms": {
-        "image_validate_ms": 1.593,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 4457.835,
-        "reader_ms": 6.938,
-        "parser_ms": 0.01,
-        "validator_ms": 0.023,
-        "confidence_ms": 0.016
+        "image_validate_ms": 0.395,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 3940.547,
+        "reader_ms": 8.275,
+        "parser_ms": 0.008,
+        "validator_ms": 0.02,
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 4.478
+      "elapsed_s": 3.958
     },
     {
       "filename": "line_oa_chat_260720_084720_rot_-10.jpg",
@@ -9354,17 +9376,17 @@
       "confidence": 0.99,
       "validation_issues": [],
       "timings_ms": {
-        "image_validate_ms": 1.312,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 6629.99,
-        "reader_ms": 9.944,
+        "image_validate_ms": 0.426,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 5622.392,
+        "reader_ms": 8.92,
         "parser_ms": 0.009,
-        "validator_ms": 0.021,
-        "confidence_ms": 0.015
+        "validator_ms": 0.019,
+        "confidence_ms": 0.013
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 6.65
+      "elapsed_s": 5.641
     },
     {
       "filename": "line_oa_chat_260720_084720_rot_-20.jpg",
@@ -9696,17 +9718,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 2.974,
-        "preprocess_ms": 0.021,
-        "ocr_ms": 7200.006,
-        "reader_ms": 7.278,
-        "parser_ms": 0.009,
+        "image_validate_ms": 0.41,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 5681.693,
+        "reader_ms": 8.517,
+        "parser_ms": 0.008,
         "validator_ms": 0.02,
-        "confidence_ms": 0.018
+        "confidence_ms": 0.015
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 7.218
+      "elapsed_s": 5.698
     },
     {
       "filename": "line_oa_chat_260720_084720_rot_-30.jpg",
@@ -10029,17 +10051,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.557,
-        "preprocess_ms": 0.014,
-        "ocr_ms": 8898.081,
-        "reader_ms": 15.752,
-        "parser_ms": 0.011,
-        "validator_ms": 0.03,
-        "confidence_ms": 0.018
+        "image_validate_ms": 0.431,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 7271.338,
+        "reader_ms": 8.854,
+        "parser_ms": 0.009,
+        "validator_ms": 0.022,
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 8.927
+      "elapsed_s": 7.291
     },
     {
       "filename": "line_oa_chat_260720_084720_rot_10.jpg",
@@ -10305,17 +10327,17 @@
       "confidence": 0.99,
       "validation_issues": [],
       "timings_ms": {
-        "image_validate_ms": 1.873,
+        "image_validate_ms": 0.569,
         "preprocess_ms": 0.014,
-        "ocr_ms": 5220.374,
-        "reader_ms": 7.753,
-        "parser_ms": 0.01,
-        "validator_ms": 0.02,
+        "ocr_ms": 4757.729,
+        "reader_ms": 9.59,
+        "parser_ms": 0.011,
+        "validator_ms": 0.022,
         "confidence_ms": 0.017
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 5.237
+      "elapsed_s": 4.777
     },
     {
       "filename": "line_oa_chat_260720_084720_rot_20.jpg",
@@ -10545,19 +10567,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.926,
-        "preprocess_ms": 0.016,
-        "ocr_ms": 5840.924,
-        "reader_ms": 8.335,
-        "parser_ms": 0.007,
-        "validator_ms": 0.007,
+        "image_validate_ms": 0.544,
+        "preprocess_ms": 0.014,
+        "ocr_ms": 5100.14,
+        "reader_ms": 8.748,
+        "parser_ms": 0.006,
+        "validator_ms": 0.006,
         "confidence_ms": 0.016
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 5.858
+      "elapsed_s": 5.118
     },
     {
       "filename": "line_oa_chat_260720_084720_rot_30.jpg",
@@ -10755,31 +10777,31 @@
       ],
       "detections_count": 23,
       "spatial": {
-        "ok": true,
+        "ok": false,
         "profile": "hanna_hi98194",
-        "data": {
-          "mv": -4.3
-        },
-        "confidence": 0.93,
+        "data": {},
+        "confidence": 0.0,
         "auto_fill": {
-          "mv": true
+          "ph": false
         },
         "fields": {
-          "mv": {
-            "value": -4.3,
-            "confidence": 0.9,
-            "rejected": false,
-            "reject_reason": null,
-            "auto_fill": true,
+          "ph": {
+            "value": null,
+            "confidence": 0.9998,
+            "rejected": true,
+            "reject_reason": "out_of_range",
+            "auto_fill": false,
             "value_score": 0.9998245239257812,
-            "unit_match_score": 0.9,
+            "unit_match_score": 1.0,
             "row_index": 0,
             "value_token": "-4.3",
             "unit_token": "PH",
             "unit_normalized": "ph"
           }
         },
-        "issues": [],
+        "issues": [
+          "out_of_range:ph"
+        ],
         "rows": [
           {
             "index": 0,
@@ -10818,35 +10840,35 @@
         "corrections": []
       },
       "measurement_payload": {
-        "ok": true,
-        "data": {
-          "mv": -4.3
-        },
-        "confidence": 0.93,
+        "ok": false,
+        "data": {},
+        "confidence": 0.0,
         "auto_fill": {
-          "mv": true
+          "ph": false
         },
-        "issues": []
+        "issues": [
+          "out_of_range:ph"
+        ]
       },
-      "api_style_data": {
-        "mv": -4.3
-      },
-      "confidence": 0.909,
+      "api_style_data": {},
+      "confidence": 0.1,
       "validation_issues": [
-        "missing:ph"
+        "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.714,
-        "preprocess_ms": 0.019,
-        "ocr_ms": 6283.155,
-        "reader_ms": 5.991,
+        "image_validate_ms": 0.353,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 5705.894,
+        "reader_ms": 9.647,
         "parser_ms": 0.008,
-        "validator_ms": 0.021,
-        "confidence_ms": 0.016
+        "validator_ms": 0.007,
+        "confidence_ms": 0.021
       },
-      "errors": [],
-      "status": "ok",
-      "elapsed_s": 6.298
+      "errors": [
+        "empty_measurement_data"
+      ],
+      "status": "fail",
+      "elapsed_s": 5.726
     },
     {
       "filename": "line_oa_chat_260720_084725.jpg",
@@ -11003,10 +11025,10 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.491,
+        "image_validate_ms": 0.728,
         "preprocess_ms": 0.013,
-        "ocr_ms": 4917.63,
-        "reader_ms": 0.543,
+        "ocr_ms": 4873.032,
+        "reader_ms": 0.59,
         "parser_ms": 0.006,
         "validator_ms": 0.007,
         "confidence_ms": 0.017
@@ -11015,7 +11037,7 @@
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.921
+      "elapsed_s": 4.875
     },
     {
       "filename": "line_oa_chat_260720_084725_180.jpg",
@@ -11184,19 +11206,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 2.162,
-        "preprocess_ms": 0.015,
-        "ocr_ms": 4357.898,
-        "reader_ms": 7.18,
+        "image_validate_ms": 0.443,
+        "preprocess_ms": 0.013,
+        "ocr_ms": 3978.178,
+        "reader_ms": 8.544,
         "parser_ms": 0.007,
         "validator_ms": 0.007,
-        "confidence_ms": 0.016
+        "confidence_ms": 0.017
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.374
+      "elapsed_s": 3.995
     },
     {
       "filename": "line_oa_chat_260720_084725_270.jpg",
@@ -11381,19 +11403,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.94,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 5311.33,
-        "reader_ms": 3.133,
-        "parser_ms": 0.005,
-        "validator_ms": 0.006,
-        "confidence_ms": 0.052
+        "image_validate_ms": 0.52,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 4563.113,
+        "reader_ms": 4.274,
+        "parser_ms": 0.006,
+        "validator_ms": 0.007,
+        "confidence_ms": 0.017
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 5.319
+      "elapsed_s": 4.572
     },
     {
       "filename": "line_oa_chat_260720_084725_90.jpg",
@@ -11542,19 +11564,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.758,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 4138.631,
-        "reader_ms": 0.525,
+        "image_validate_ms": 0.468,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 3702.807,
+        "reader_ms": 0.596,
         "parser_ms": 0.005,
-        "validator_ms": 0.006,
-        "confidence_ms": 2.276
+        "validator_ms": 0.007,
+        "confidence_ms": 0.019
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.144
+      "elapsed_s": 3.705
     },
     {
       "filename": "line_oa_chat_260720_084725_flip_h.jpg",
@@ -11703,19 +11725,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.266,
+        "image_validate_ms": 0.492,
         "preprocess_ms": 0.013,
-        "ocr_ms": 4416.935,
-        "reader_ms": 0.474,
-        "parser_ms": 0.005,
-        "validator_ms": 0.006,
-        "confidence_ms": 0.017
+        "ocr_ms": 3792.129,
+        "reader_ms": 1.033,
+        "parser_ms": 0.007,
+        "validator_ms": 0.007,
+        "confidence_ms": 0.019
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.419
+      "elapsed_s": 3.794
     },
     {
       "filename": "line_oa_chat_260720_084725_flip_v.jpg",
@@ -11890,19 +11912,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.398,
+        "image_validate_ms": 0.504,
         "preprocess_ms": 0.012,
-        "ocr_ms": 4119.33,
-        "reader_ms": 3.645,
-        "parser_ms": 0.004,
+        "ocr_ms": 3616.772,
+        "reader_ms": 5.065,
+        "parser_ms": 0.005,
         "validator_ms": 0.006,
-        "confidence_ms": 0.014
+        "confidence_ms": 0.016
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.128
+      "elapsed_s": 3.628
     },
     {
       "filename": "line_oa_chat_260720_084725_original.jpg",
@@ -12059,19 +12081,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.22,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 4285.243,
-        "reader_ms": 0.465,
-        "parser_ms": 0.004,
-        "validator_ms": 0.006,
-        "confidence_ms": 0.014
+        "image_validate_ms": 0.557,
+        "preprocess_ms": 0.014,
+        "ocr_ms": 4101.114,
+        "reader_ms": 0.603,
+        "parser_ms": 0.006,
+        "validator_ms": 0.007,
+        "confidence_ms": 0.018
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.288
+      "elapsed_s": 4.103
     },
     {
       "filename": "line_oa_chat_260720_084725_rot_-10.jpg",
@@ -12220,19 +12242,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.281,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 5055.174,
-        "reader_ms": 0.429,
-        "parser_ms": 0.004,
-        "validator_ms": 0.006,
-        "confidence_ms": 0.014
+        "image_validate_ms": 0.678,
+        "preprocess_ms": 0.013,
+        "ocr_ms": 4750.223,
+        "reader_ms": 0.499,
+        "parser_ms": 0.005,
+        "validator_ms": 0.007,
+        "confidence_ms": 0.016
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 5.058
+      "elapsed_s": 4.752
     },
     {
       "filename": "line_oa_chat_260720_084725_rot_-20.jpg",
@@ -12381,19 +12403,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.55,
-        "preprocess_ms": 0.014,
-        "ocr_ms": 5741.191,
-        "reader_ms": 0.46,
-        "parser_ms": 0.005,
-        "validator_ms": 0.005,
-        "confidence_ms": 0.014
+        "image_validate_ms": 0.421,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 5155.141,
+        "reader_ms": 0.572,
+        "parser_ms": 0.006,
+        "validator_ms": 0.007,
+        "confidence_ms": 0.035
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 5.749
+      "elapsed_s": 5.157
     },
     {
       "filename": "line_oa_chat_260720_084725_rot_-30.jpg",
@@ -12542,19 +12564,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 3.016,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 6773.217,
-        "reader_ms": 0.584,
+        "image_validate_ms": 0.357,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 6274.41,
+        "reader_ms": 0.649,
         "parser_ms": 0.006,
         "validator_ms": 0.007,
-        "confidence_ms": 0.018
+        "confidence_ms": 0.02
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 6.778
+      "elapsed_s": 6.276
     },
     {
       "filename": "line_oa_chat_260720_084725_rot_10.jpg",
@@ -12719,19 +12741,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 2.021,
-        "preprocess_ms": 0.016,
-        "ocr_ms": 5154.514,
-        "reader_ms": 3.881,
-        "parser_ms": 0.01,
-        "validator_ms": 0.01,
-        "confidence_ms": 0.019
+        "image_validate_ms": 0.511,
+        "preprocess_ms": 0.013,
+        "ocr_ms": 4659.401,
+        "reader_ms": 0.459,
+        "parser_ms": 0.004,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.014
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 5.161
+      "elapsed_s": 4.661
     },
     {
       "filename": "line_oa_chat_260720_084725_rot_20.jpg",
@@ -12880,19 +12902,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 3.832,
-        "preprocess_ms": 0.022,
-        "ocr_ms": 5353.167,
-        "reader_ms": 0.761,
-        "parser_ms": 0.008,
-        "validator_ms": 0.026,
-        "confidence_ms": 0.071
+        "image_validate_ms": 0.364,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 5126.012,
+        "reader_ms": 0.496,
+        "parser_ms": 0.005,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.015
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 5.359
+      "elapsed_s": 5.128
     },
     {
       "filename": "line_oa_chat_260720_084725_rot_30.jpg",
@@ -13049,19 +13071,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.761,
-        "preprocess_ms": 0.016,
-        "ocr_ms": 5968.854,
-        "reader_ms": 0.543,
-        "parser_ms": 0.006,
-        "validator_ms": 0.008,
-        "confidence_ms": 0.017
+        "image_validate_ms": 0.389,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 5641.219,
+        "reader_ms": 0.443,
+        "parser_ms": 0.004,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.014
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 5.972
+      "elapsed_s": 5.643
     },
     {
       "filename": "line_oa_chat_260720_084730.jpg",
@@ -13261,17 +13283,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 7.967,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 5035.184,
-        "reader_ms": 4.161,
-        "parser_ms": 0.009,
-        "validator_ms": 0.049,
-        "confidence_ms": 0.015
+        "image_validate_ms": 0.789,
+        "preprocess_ms": 0.018,
+        "ocr_ms": 4581.18,
+        "reader_ms": 3.798,
+        "parser_ms": 0.007,
+        "validator_ms": 0.015,
+        "confidence_ms": 0.012
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 5.051
+      "elapsed_s": 4.59
     },
     {
       "filename": "line_oa_chat_260720_084730_180.jpg",
@@ -13480,17 +13502,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.624,
-        "preprocess_ms": 0.014,
-        "ocr_ms": 4666.579,
-        "reader_ms": 6.752,
-        "parser_ms": 0.01,
-        "validator_ms": 0.023,
-        "confidence_ms": 0.017
+        "image_validate_ms": 0.338,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 4569.727,
+        "reader_ms": 8.372,
+        "parser_ms": 0.008,
+        "validator_ms": 0.022,
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 4.682
+      "elapsed_s": 4.587
     },
     {
       "filename": "line_oa_chat_260720_084730_270.jpg",
@@ -13629,17 +13651,17 @@
         "data": {},
         "confidence": 0.0,
         "auto_fill": {
-          "ec": false
+          "temperature": false
         },
         "fields": {
-          "ec": {
+          "temperature": {
             "value": null,
             "confidence": 0.7321,
             "rejected": true,
             "reject_reason": "low_confidence",
             "auto_fill": false,
             "value_score": 0.7321028113365173,
-            "unit_match_score": 0.9,
+            "unit_match_score": 1.0,
             "row_index": 0,
             "value_token": "020",
             "unit_token": "C",
@@ -13647,7 +13669,7 @@
           }
         },
         "issues": [
-          "low_confidence:ec"
+          "low_confidence:temperature"
         ],
         "rows": [
           {
@@ -13676,10 +13698,10 @@
         "data": {},
         "confidence": 0.0,
         "auto_fill": {
-          "ec": false
+          "temperature": false
         },
         "issues": [
-          "low_confidence:ec"
+          "low_confidence:temperature"
         ]
       },
       "api_style_data": {},
@@ -13688,19 +13710,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.411,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 4975.722,
-        "reader_ms": 2.831,
+        "image_validate_ms": 0.4,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 4539.104,
+        "reader_ms": 3.317,
         "parser_ms": 0.005,
-        "validator_ms": 0.006,
-        "confidence_ms": 0.015
+        "validator_ms": 0.005,
+        "confidence_ms": 0.013
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.983
+      "elapsed_s": 4.547
     },
     {
       "filename": "line_oa_chat_260720_084730_90.jpg",
@@ -13857,11 +13879,11 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.662,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 4014.267,
-        "reader_ms": 0.516,
-        "parser_ms": 0.005,
+        "image_validate_ms": 0.421,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 3793.855,
+        "reader_ms": 0.455,
+        "parser_ms": 0.004,
         "validator_ms": 0.006,
         "confidence_ms": 0.015
       },
@@ -13869,7 +13891,7 @@
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.022
+      "elapsed_s": 3.795
     },
     {
       "filename": "line_oa_chat_260720_084730_flip_h.jpg",
@@ -14011,75 +14033,52 @@
       ],
       "detections_count": 16,
       "spatial": {
-        "ok": true,
+        "ok": false,
         "profile": "hanna_hi98194",
-        "data": {
-          "do_percent": 0.0
-        },
-        "confidence": 0.93,
-        "auto_fill": {
-          "do_percent": true
-        },
-        "fields": {
-          "do_percent": {
-            "value": 0.0,
-            "confidence": 0.9,
-            "rejected": false,
-            "reject_reason": null,
-            "auto_fill": true,
-            "value_score": 0.9986727833747864,
-            "unit_match_score": 0.9,
-            "row_index": 0,
-            "value_token": "0.0",
-            "unit_token": "R",
-            "unit_normalized": "r"
-          }
-        },
+        "data": {},
+        "confidence": 0.0,
+        "auto_fill": {},
+        "fields": {},
         "issues": [],
         "rows": [
           {
             "index": 0,
             "cy": 890.5,
             "tokens": [
-              "0.0",
-              "R"
+              "0.0"
             ],
             "value": "0.0",
-            "label": "R"
+            "label": null
           }
         ],
         "corrections": []
       },
       "measurement_payload": {
-        "ok": true,
-        "data": {
-          "do_percent": 0.0
-        },
-        "confidence": 0.93,
-        "auto_fill": {
-          "do_percent": true
-        },
+        "ok": false,
+        "data": {},
+        "confidence": 0.0,
+        "auto_fill": {},
         "issues": []
       },
-      "api_style_data": {
-        "do_percent": 0.0
-      },
-      "confidence": 0.909,
+      "api_style_data": {},
+      "confidence": 0.1,
       "validation_issues": [
-        "missing:ph"
+        "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.355,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 4685.72,
-        "reader_ms": 5.261,
-        "parser_ms": 0.007,
-        "validator_ms": 0.018,
-        "confidence_ms": 0.014
+        "image_validate_ms": 0.365,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 4319.632,
+        "reader_ms": 7.692,
+        "parser_ms": 0.006,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.015
       },
-      "errors": [],
-      "status": "ok",
-      "elapsed_s": 4.698
+      "errors": [
+        "empty_measurement_data"
+      ],
+      "status": "fail",
+      "elapsed_s": 4.335
     },
     {
       "filename": "line_oa_chat_260720_084730_flip_v.jpg",
@@ -14254,19 +14253,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 3.548,
-        "preprocess_ms": 0.014,
-        "ocr_ms": 4355.879,
-        "reader_ms": 5.433,
-        "parser_ms": 0.007,
-        "validator_ms": 0.008,
-        "confidence_ms": 0.018
+        "image_validate_ms": 0.387,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 3795.822,
+        "reader_ms": 5.052,
+        "parser_ms": 0.005,
+        "validator_ms": 0.005,
+        "confidence_ms": 0.015
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.37
+      "elapsed_s": 3.807
     },
     {
       "filename": "line_oa_chat_260720_084730_original.jpg",
@@ -14466,17 +14465,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.932,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 4168.613,
-        "reader_ms": 3.88,
-        "parser_ms": 0.009,
-        "validator_ms": 0.022,
-        "confidence_ms": 0.015
+        "image_validate_ms": 0.444,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 3836.728,
+        "reader_ms": 4.723,
+        "parser_ms": 0.011,
+        "validator_ms": 0.031,
+        "confidence_ms": 0.02
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 4.183
+      "elapsed_s": 3.847
     },
     {
       "filename": "line_oa_chat_260720_084730_rot_-10.jpg",
@@ -14676,17 +14675,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.796,
-        "preprocess_ms": 0.015,
-        "ocr_ms": 5171.537,
-        "reader_ms": 4.156,
+        "image_validate_ms": 0.576,
+        "preprocess_ms": 0.017,
+        "ocr_ms": 4975.732,
+        "reader_ms": 4.828,
         "parser_ms": 0.008,
-        "validator_ms": 0.02,
+        "validator_ms": 0.022,
         "confidence_ms": 0.016
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 5.187
+      "elapsed_s": 4.986
     },
     {
       "filename": "line_oa_chat_260720_084730_rot_-20.jpg",
@@ -14878,17 +14877,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.107,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 6018.218,
-        "reader_ms": 3.305,
-        "parser_ms": 0.007,
-        "validator_ms": 0.018,
-        "confidence_ms": 0.014
+        "image_validate_ms": 0.387,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 5342.466,
+        "reader_ms": 3.77,
+        "parser_ms": 0.006,
+        "validator_ms": 0.016,
+        "confidence_ms": 0.013
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 6.027
+      "elapsed_s": 5.351
     },
     {
       "filename": "line_oa_chat_260720_084730_rot_-30.jpg",
@@ -15080,17 +15079,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.824,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 6802.819,
-        "reader_ms": 3.628,
-        "parser_ms": 0.009,
-        "validator_ms": 0.022,
-        "confidence_ms": 0.016
+        "image_validate_ms": 0.367,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 5786.219,
+        "reader_ms": 4.068,
+        "parser_ms": 0.007,
+        "validator_ms": 0.018,
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 6.812
+      "elapsed_s": 5.795
     },
     {
       "filename": "line_oa_chat_260720_084730_rot_10.jpg",
@@ -15290,17 +15289,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.314,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 4885.159,
-        "reader_ms": 4.195,
-        "parser_ms": 0.008,
-        "validator_ms": 0.021,
-        "confidence_ms": 0.015
+        "image_validate_ms": 0.478,
+        "preprocess_ms": 0.013,
+        "ocr_ms": 4372.665,
+        "reader_ms": 4.623,
+        "parser_ms": 0.007,
+        "validator_ms": 0.019,
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 4.895
+      "elapsed_s": 4.382
     },
     {
       "filename": "line_oa_chat_260720_084730_rot_20.jpg",
@@ -15492,17 +15491,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 3.081,
-        "preprocess_ms": 0.015,
-        "ocr_ms": 5352.967,
-        "reader_ms": 3.224,
-        "parser_ms": 0.007,
-        "validator_ms": 0.018,
+        "image_validate_ms": 0.368,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 5047.896,
+        "reader_ms": 4.251,
+        "parser_ms": 0.008,
+        "validator_ms": 0.02,
         "confidence_ms": 0.015
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 5.363
+      "elapsed_s": 5.056
     },
     {
       "filename": "line_oa_chat_260720_084730_rot_30.jpg",
@@ -15670,19 +15669,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.617,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 5839.341,
-        "reader_ms": 3.748,
-        "parser_ms": 0.005,
+        "image_validate_ms": 0.404,
+        "preprocess_ms": 0.016,
+        "ocr_ms": 5465.304,
+        "reader_ms": 4.699,
+        "parser_ms": 0.006,
         "validator_ms": 0.006,
-        "confidence_ms": 0.015
+        "confidence_ms": 0.016
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 5.853
+      "elapsed_s": 5.475
     },
     {
       "filename": "line_oa_chat_260720_084735.jpg",
@@ -15825,11 +15824,11 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 8.366,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 3518.285,
-        "reader_ms": 3.156,
-        "parser_ms": 0.004,
+        "image_validate_ms": 0.502,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 3327.242,
+        "reader_ms": 3.978,
+        "parser_ms": 0.005,
         "validator_ms": 0.006,
         "confidence_ms": 0.015
       },
@@ -15837,7 +15836,7 @@
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.533
+      "elapsed_s": 3.336
     },
     {
       "filename": "line_oa_chat_260720_084735_180.jpg",
@@ -15981,19 +15980,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.959,
+        "image_validate_ms": 0.484,
         "preprocess_ms": 0.013,
-        "ocr_ms": 3297.146,
-        "reader_ms": 4.18,
-        "parser_ms": 0.008,
-        "validator_ms": 0.01,
-        "confidence_ms": 0.021
+        "ocr_ms": 3036.634,
+        "reader_ms": 2.866,
+        "parser_ms": 0.005,
+        "validator_ms": 0.005,
+        "confidence_ms": 0.015
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.308
+      "elapsed_s": 3.043
     },
     {
       "filename": "line_oa_chat_260720_084735_270.jpg",
@@ -16146,19 +16145,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.434,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 3915.635,
-        "reader_ms": 1.809,
-        "parser_ms": 0.006,
-        "validator_ms": 0.007,
-        "confidence_ms": 0.018
+        "image_validate_ms": 0.428,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 3224.085,
+        "reader_ms": 1.738,
+        "parser_ms": 0.005,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.014
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.921
+      "elapsed_s": 3.228
     },
     {
       "filename": "line_oa_chat_260720_084735_90.jpg",
@@ -16314,19 +16313,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.806,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 3487.589,
-        "reader_ms": 3.304,
-        "parser_ms": 0.007,
-        "validator_ms": 0.008,
-        "confidence_ms": 0.019
+        "image_validate_ms": 0.367,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 2853.234,
+        "reader_ms": 5.242,
+        "parser_ms": 0.006,
+        "validator_ms": 0.007,
+        "confidence_ms": 0.016
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.497
+      "elapsed_s": 2.863
     },
     {
       "filename": "line_oa_chat_260720_084735_flip_h.jpg",
@@ -16479,19 +16478,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.518,
+        "image_validate_ms": 0.445,
         "preprocess_ms": 0.011,
-        "ocr_ms": 3206.277,
-        "reader_ms": 4.761,
-        "parser_ms": 0.007,
-        "validator_ms": 0.008,
-        "confidence_ms": 0.031
+        "ocr_ms": 2988.039,
+        "reader_ms": 4.399,
+        "parser_ms": 0.005,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.016
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.217
+      "elapsed_s": 2.997
     },
     {
       "filename": "line_oa_chat_260720_084735_flip_v.jpg",
@@ -16637,19 +16636,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.516,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 2982.131,
-        "reader_ms": 3.48,
+        "image_validate_ms": 0.538,
+        "preprocess_ms": 0.015,
+        "ocr_ms": 2696.929,
+        "reader_ms": 3.779,
         "parser_ms": 0.005,
         "validator_ms": 0.006,
-        "confidence_ms": 0.016
+        "confidence_ms": 0.014
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 2.991
+      "elapsed_s": 2.705
     },
     {
       "filename": "line_oa_chat_260720_084735_original.jpg",
@@ -16792,19 +16791,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 7.552,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 3037.585,
-        "reader_ms": 4.2,
-        "parser_ms": 0.007,
-        "validator_ms": 0.008,
-        "confidence_ms": 0.019
+        "image_validate_ms": 0.502,
+        "preprocess_ms": 0.016,
+        "ocr_ms": 2672.236,
+        "reader_ms": 3.463,
+        "parser_ms": 0.005,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.014
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.053
+      "elapsed_s": 2.68
     },
     {
       "filename": "line_oa_chat_260720_084735_rot_-10.jpg",
@@ -16959,19 +16958,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 3.326,
-        "preprocess_ms": 0.014,
-        "ocr_ms": 6172.686,
-        "reader_ms": 4.998,
+        "image_validate_ms": 0.406,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 3979.979,
+        "reader_ms": 4.941,
         "parser_ms": 0.006,
         "validator_ms": 0.007,
-        "confidence_ms": 0.02
+        "confidence_ms": 0.017
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 6.186
+      "elapsed_s": 3.99
     },
     {
       "filename": "line_oa_chat_260720_084735_rot_-20.jpg",
@@ -17107,19 +17106,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 2.171,
-        "preprocess_ms": 0.017,
-        "ocr_ms": 5919.432,
-        "reader_ms": 5.558,
-        "parser_ms": 0.012,
-        "validator_ms": 0.016,
-        "confidence_ms": 0.036
+        "image_validate_ms": 0.441,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 4446.169,
+        "reader_ms": 4.225,
+        "parser_ms": 0.006,
+        "validator_ms": 0.007,
+        "confidence_ms": 0.016
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 5.933
+      "elapsed_s": 4.455
     },
     {
       "filename": "line_oa_chat_260720_084735_rot_-30.jpg",
@@ -17246,19 +17245,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 3.599,
-        "preprocess_ms": 0.018,
-        "ocr_ms": 6634.472,
-        "reader_ms": 3.473,
-        "parser_ms": 0.007,
-        "validator_ms": 0.008,
-        "confidence_ms": 0.017
+        "image_validate_ms": 0.412,
+        "preprocess_ms": 0.013,
+        "ocr_ms": 5018.883,
+        "reader_ms": 2.908,
+        "parser_ms": 0.004,
+        "validator_ms": 0.005,
+        "confidence_ms": 0.014
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 6.645
+      "elapsed_s": 5.025
     },
     {
       "filename": "line_oa_chat_260720_084735_rot_10.jpg",
@@ -17419,19 +17418,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 1.805,
-        "preprocess_ms": 0.015,
-        "ocr_ms": 4911.048,
-        "reader_ms": 4.245,
-        "parser_ms": 0.006,
+        "image_validate_ms": 0.34,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 3614.548,
+        "reader_ms": 3.93,
+        "parser_ms": 0.005,
         "validator_ms": 0.006,
-        "confidence_ms": 0.015
+        "confidence_ms": 0.016
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 4.921
+      "elapsed_s": 3.623
     },
     {
       "filename": "line_oa_chat_260720_084735_rot_20.jpg",
@@ -17583,19 +17582,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 2.59,
-        "preprocess_ms": 0.024,
-        "ocr_ms": 4996.3,
-        "reader_ms": 4.847,
-        "parser_ms": 0.007,
-        "validator_ms": 0.008,
-        "confidence_ms": 0.02
+        "image_validate_ms": 0.355,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 4068.226,
+        "reader_ms": 5.052,
+        "parser_ms": 0.006,
+        "validator_ms": 0.007,
+        "confidence_ms": 0.016
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 5.009
+      "elapsed_s": 4.078
     },
     {
       "filename": "line_oa_chat_260720_084735_rot_30.jpg",
@@ -17731,19 +17730,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 2.432,
-        "preprocess_ms": 0.048,
-        "ocr_ms": 5076.87,
-        "reader_ms": 3.532,
-        "parser_ms": 0.006,
-        "validator_ms": 0.007,
-        "confidence_ms": 0.016
+        "image_validate_ms": 0.378,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 4137.087,
+        "reader_ms": 3.644,
+        "parser_ms": 0.004,
+        "validator_ms": 0.006,
+        "confidence_ms": 0.015
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 5.087
+      "elapsed_s": 4.145
     },
     {
       "filename": "line_oa_chat_260720_144255.jpg",
@@ -17919,17 +17918,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 2.755,
-        "preprocess_ms": 0.016,
-        "ocr_ms": 3260.548,
-        "reader_ms": 3.152,
-        "parser_ms": 0.006,
-        "validator_ms": 0.02,
-        "confidence_ms": 0.013
+        "image_validate_ms": 0.399,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 2987.7,
+        "reader_ms": 4.035,
+        "parser_ms": 0.007,
+        "validator_ms": 0.022,
+        "confidence_ms": 0.017
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 3.27
+      "elapsed_s": 2.997
     },
     {
       "filename": "line_oa_chat_260720_144259.jpg",
@@ -18121,17 +18120,17 @@
       "confidence": 0.99,
       "validation_issues": [],
       "timings_ms": {
-        "image_validate_ms": 8.082,
-        "preprocess_ms": 0.014,
-        "ocr_ms": 3189.961,
-        "reader_ms": 3.803,
-        "parser_ms": 0.006,
-        "validator_ms": 0.015,
-        "confidence_ms": 0.013
+        "image_validate_ms": 0.407,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 3153.573,
+        "reader_ms": 5.235,
+        "parser_ms": 0.009,
+        "validator_ms": 0.02,
+        "confidence_ms": 0.016
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 3.207
+      "elapsed_s": 3.165
     },
     {
       "filename": "line_oa_chat_260720_144304.jpg",
@@ -18326,17 +18325,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 6.71,
+        "image_validate_ms": 0.494,
         "preprocess_ms": 0.013,
-        "ocr_ms": 3914.824,
-        "reader_ms": 3.638,
-        "parser_ms": 0.007,
-        "validator_ms": 0.019,
-        "confidence_ms": 0.014
+        "ocr_ms": 3594.771,
+        "reader_ms": 3.678,
+        "parser_ms": 0.006,
+        "validator_ms": 0.017,
+        "confidence_ms": 0.013
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 3.929
+      "elapsed_s": 3.604
     },
     {
       "filename": "line_oa_chat_260720_144307.jpg",
@@ -18498,19 +18497,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 3.839,
-        "preprocess_ms": 0.011,
-        "ocr_ms": 3264.566,
-        "reader_ms": 2.914,
-        "parser_ms": 0.006,
-        "validator_ms": 0.007,
-        "confidence_ms": 0.017
+        "image_validate_ms": 0.427,
+        "preprocess_ms": 0.013,
+        "ocr_ms": 3062.837,
+        "reader_ms": 2.962,
+        "parser_ms": 0.004,
+        "validator_ms": 0.005,
+        "confidence_ms": 0.014
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.274
+      "elapsed_s": 3.07
     },
     {
       "filename": "line_oa_chat_260720_144311.jpg",
@@ -18722,17 +18721,17 @@
         "missing:ph"
       ],
       "timings_ms": {
-        "image_validate_ms": 8.999,
-        "preprocess_ms": 0.014,
-        "ocr_ms": 3564.144,
-        "reader_ms": 4.317,
+        "image_validate_ms": 0.401,
+        "preprocess_ms": 0.012,
+        "ocr_ms": 3230.215,
+        "reader_ms": 4.982,
         "parser_ms": 0.007,
-        "validator_ms": 0.021,
-        "confidence_ms": 0.016
+        "validator_ms": 0.019,
+        "confidence_ms": 0.014
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 3.583
+      "elapsed_s": 3.241
     },
     {
       "filename": "line_oa_chat_260720_144315.jpg",
@@ -18902,19 +18901,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 2.204,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 3420.29,
-        "reader_ms": 3.886,
+        "image_validate_ms": 0.446,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 3310.55,
+        "reader_ms": 4.973,
         "parser_ms": 0.006,
-        "validator_ms": 0.006,
+        "validator_ms": 0.007,
         "confidence_ms": 0.016
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.43
+      "elapsed_s": 3.321
     },
     {
       "filename": "line_oa_chat_260720_144319.jpg",
@@ -19092,19 +19091,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 3.666,
-        "preprocess_ms": 0.013,
-        "ocr_ms": 3636.231,
-        "reader_ms": 3.516,
-        "parser_ms": 0.005,
+        "image_validate_ms": 0.458,
+        "preprocess_ms": 0.011,
+        "ocr_ms": 3345.028,
+        "reader_ms": 4.534,
+        "parser_ms": 0.006,
         "validator_ms": 0.006,
-        "confidence_ms": 0.017
+        "confidence_ms": 0.015
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.647
+      "elapsed_s": 3.355
     },
     {
       "filename": "line_oa_chat_260720_144322.jpg",
@@ -19242,10 +19241,10 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 7.93,
-        "preprocess_ms": 0.012,
-        "ocr_ms": 3210.506,
-        "reader_ms": 1.764,
+        "image_validate_ms": 0.433,
+        "preprocess_ms": 0.013,
+        "ocr_ms": 2909.151,
+        "reader_ms": 1.586,
         "parser_ms": 0.005,
         "validator_ms": 0.006,
         "confidence_ms": 0.015
@@ -19254,7 +19253,7 @@
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.222
+      "elapsed_s": 2.913
     },
     {
       "filename": "line_oa_chat_260720_144328.jpg",
@@ -19397,19 +19396,19 @@
         "missing_values"
       ],
       "timings_ms": {
-        "image_validate_ms": 3.141,
+        "image_validate_ms": 0.382,
         "preprocess_ms": 0.011,
-        "ocr_ms": 3303.941,
-        "reader_ms": 3.221,
-        "parser_ms": 0.004,
+        "ocr_ms": 3096.508,
+        "reader_ms": 3.448,
+        "parser_ms": 0.005,
         "validator_ms": 0.006,
-        "confidence_ms": 0.015
+        "confidence_ms": 0.014
       },
       "errors": [
         "empty_measurement_data"
       ],
       "status": "fail",
-      "elapsed_s": 3.314
+      "elapsed_s": 3.104
     },
     {
       "filename": "test-images.jpg",
@@ -19689,17 +19688,17 @@
       "confidence": 0.99,
       "validation_issues": [],
       "timings_ms": {
-        "image_validate_ms": 3.287,
-        "preprocess_ms": 0.015,
-        "ocr_ms": 3402.165,
-        "reader_ms": 3.542,
+        "image_validate_ms": 0.407,
+        "preprocess_ms": 0.01,
+        "ocr_ms": 3334.943,
+        "reader_ms": 6.379,
         "parser_ms": 0.008,
-        "validator_ms": 0.02,
-        "confidence_ms": 0.013
+        "validator_ms": 0.051,
+        "confidence_ms": 0.015
       },
       "errors": [],
       "status": "ok",
-      "elapsed_s": 3.413
+      "elapsed_s": 3.348
     }
   ]
 }
