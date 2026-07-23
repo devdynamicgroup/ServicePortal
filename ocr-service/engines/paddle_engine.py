@@ -17,6 +17,8 @@ Memory stability (Render free-tier):
 
 from __future__ import annotations
 
+print("[ENGINE BUILD] small-model-fix-v1 LOADED", flush=True)
+
 import gc
 import os
 import sys
@@ -24,6 +26,19 @@ import threading
 import time
 import traceback
 from typing import Any
+
+# Unmistakable import fingerprint — must appear in Render logs when THIS file loads.
+# If boot shows [1]/[2]/[3] Load model but NOT this line, runtime is not this module.
+print(
+    "========== SMALL MODEL PATCH LOADED v1 ==========",
+    file=sys.stderr,
+    flush=True,
+)
+print(
+    f"========== paddle_engine.py file={__file__} ==========",
+    file=sys.stderr,
+    flush=True,
+)
 
 from engines.base_engine import BaseOcrEngine
 from core.logger import get_logger
