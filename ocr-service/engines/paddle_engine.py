@@ -21,16 +21,27 @@ import gc
 import os
 import sys
 import threading
+import time
 import traceback
 from typing import Any
 
 from engines.base_engine import BaseOcrEngine
+from core.logger import get_logger
 from parser.tokens import extract_detections_from_paddle_result
+
+# Deploy fingerprint — must appear in Render boot logs (Definition of Done Phase 1).
+_BUILD_ID = "small-model-fix-v1"
+
+logger = get_logger("engines.paddle")
 
 
 def _diag(msg: str) -> None:
-    """Debug-only log to stderr (never suppresses traceback)."""
+    """Always-visible engine diagnostics (stderr + service logger)."""
     print(msg, file=sys.stderr, flush=True)
+    try:
+        logger.info("%s", msg)
+    except Exception:  # noqa: BLE001 — never fail init/predict on logging
+        pass
 
 
 def _rss_mb() -> float | None:
@@ -120,22 +131,64 @@ class PaddleEngine(BaseOcrEngine):
                 _diag("[1] Import paddleocr")
                 from paddleocr import PaddleOCR
 
+                try:
+                    import paddleocr as _paddleocr_mod  # noqa: PLC0415
+
+                    paddleocr_ver = getattr(_paddleocr_mod, "__version__", "unknown")
+                    paddleocr_file = getattr(_paddleocr_mod, "__file__", "unknown")
+                except Exception:  # noqa: BLE001
+                    paddleocr_ver = "unknown"
+                    paddleocr_file = "unknown"
+
+                # Phase 1 — prove runtime build + resolved models (DoD fingerprint).
+                logger.info(
+                    "[ENGINE BUILD] %s det=%s rec=%s engine_file=%s paddleocr=%s",
+                    _BUILD_ID,
+                    self._det_model,
+                    self._rec_model,
+                    __file__,
+                    paddleocr_ver,
+                )
+                _diag(
+                    f"[ENGINE BUILD] {_BUILD_ID} det={self._det_model} "
+                    f"rec={self._rec_model} paddleocr={paddleocr_ver} "
+                    f"paddleocr_file={paddleocr_file}"
+                )
+
+                kwargs = {
+                    "lang": "en",
+                    "text_detection_model_name": self._det_model,
+                    "text_recognition_model_name": self._rec_model,
+                    "use_doc_orientation_classify": False,
+                    "use_doc_unwarping": False,
+                    "use_textline_orientation": False,
+                }
+                logger.info("[ENGINE KWARGS] %s", kwargs)
+                _diag(f"[ENGINE KWARGS] {kwargs!r} rss_mb={_rss_mb()}")
+
                 _diag("[2] Create PaddleOCR")
-                # Official PaddleOCR 3.7 API (no show_log / use_angle_cls)
-                # [3] Load model — happens inside PaddleOCR() constructor
+                # Official PaddleOCR 3.7 API — if both model names are None,
+                # PaddleOCR falls back to PP-OCRv6_medium_* (see _get_ocr_model_names).
                 _diag(
                     "[3] Load model "
                     f"det={self._det_model} rec={self._rec_model} "
                     f"rss_mb={_rss_mb()}"
                 )
-                self._ocr = PaddleOCR(
-                    lang="en",
-                    text_detection_model_name=self._det_model,
-                    text_recognition_model_name=self._rec_model,
-                    use_doc_orientation_classify=False,
-                    use_doc_unwarping=False,
-                    use_textline_orientation=False,
-                )
+                self._ocr = PaddleOCR(**kwargs)
+                try:
+                    kept = getattr(self._ocr, "_params", None) or {}
+                    logger.info(
+                        "[ENGINE CREATED] text_detection_model_name=%s text_recognition_model_name=%s",
+                        kept.get("text_detection_model_name"),
+                        kept.get("text_recognition_model_name"),
+                    )
+                    _diag(
+                        "[ENGINE CREATED] "
+                        f"text_detection_model_name={kept.get('text_detection_model_name')!r} "
+                        f"text_recognition_model_name={kept.get('text_recognition_model_name')!r}"
+                    )
+                except Exception as probe_exc:  # noqa: BLE001 — diagnostic only
+                    _diag(f"[ENGINE CREATED] _params probe failed: {probe_exc!r}")
                 self._available = True
                 self._init_error = None
                 self._init_error_trace = None
@@ -161,6 +214,7 @@ class PaddleEngine(BaseOcrEngine):
             raise ValueError("image_path is required")
 
         rss_before = _rss_mb()
+        t_predict = time.perf_counter()
         _diag(
             f"[5] Run predict() image={path} "
             f"det_limit={self._det_limit_type}:{self._det_limit_side_len} "
@@ -175,8 +229,12 @@ class PaddleEngine(BaseOcrEngine):
                 text_det_limit_type=self._det_limit_type,
                 text_det_limit_side_len=self._det_limit_side_len,
             )
+            duration_ms = (time.perf_counter() - t_predict) * 1000.0
             rss_after = _rss_mb()
-            _diag(f"[5b] predict() done rss_mb_after={rss_after}")
+            _diag(
+                f"[5b] predict done duration_ms={duration_ms:.1f} "
+                f"rss_mb={rss_after}"
+            )
 
             detections = extract_detections_from_paddle_result(result)
             texts = [str(d["text"]) for d in detections if d.get("text")]
