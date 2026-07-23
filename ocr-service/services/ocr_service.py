@@ -30,6 +30,14 @@ class OcrService:
     def engine_name(self) -> str:
         return self._engine.name
 
+    def warmup(self) -> bool:
+        """Eagerly initialize the engine. Call only from a background thread
+        after the HTTP server is already listening — never from health()."""
+        ready = self._engine.warmup()
+        if ready:
+            logger.info("[WARMUP] OCR engine initialized engine=%s", self.engine_name)
+        return ready
+
     def health(self) -> dict[str, Any]:
         ready = self._engine.is_available()
         return {

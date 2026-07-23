@@ -168,6 +168,9 @@ def seed_demo_dataset() -> list[Path]:
 def run_dataset_benchmark(*, engine_name: str | None = None) -> dict[str, Any]:
     settings = load_settings()
     engine = get_engine(engine_name or settings.ocr_engine)
+    # is_available() no longer triggers init (server-startup change) — this
+    # standalone script has no background warmup thread, so trigger it here.
+    engine.warmup()
     pipeline = OcrPipeline(
         engine,
         settings=settings,

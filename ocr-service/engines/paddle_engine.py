@@ -132,6 +132,17 @@ class PaddleEngine(BaseOcrEngine):
         return "paddle"
 
     def is_available(self) -> bool:
+        """Cheap, non-blocking read of cached readiness — never triggers
+        model init. Init happens via warmup() (background thread on startup)
+        or lazily inside extract_text() on the first real OCR call.
+        """
+        return self._available
+
+    def warmup(self) -> bool:
+        """Eagerly load PaddleOCR — call from a background thread after the
+        HTTP server is already listening. Blocks the calling thread only
+        (never the request path) until model load/download completes.
+        """
         self._ensure_init()
         return self._available
 

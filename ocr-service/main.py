@@ -9,6 +9,7 @@ from __future__ import annotations
 print("[MAIN BUILD] small-model-fix-v1", flush=True)
 
 import json
+import threading
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -16,33 +17,37 @@ from api.routes import handle_request
 from config.settings import settings
 from core import response as api_response
 from core.logger import get_logger
-from core.runtime_env import enforce_supported_runtime, log_runtime_diagnostics
 
 logger = get_logger("main")
 
 
-def _fail_if_paddle_expected_but_unavailable() -> None:
-    """Refuse to start serving traffic if OCR_ENGINE=paddle was configured but
-    the PaddleOCR engine cannot actually initialize (missing paddle/paddleocr/
-    paddlex, model load failure, etc). Never silently serve a degraded engine
-    labeled "paddle" — that behaves like a black-box mock to callers, only
-    worse (results depend on undiagnosed partial state).
+def _warmup() -> None:
+    """Runs in a background thread AFTER the HTTP server is already bound and
+    listening. paddle/paddleocr are only ever imported here — Render's port
+    scan must never wait on this, even if model download takes minutes.
+
+    Engine failures land as a degraded (not fatal) state: is_available()
+    stays False, requests get ENGINE_UNAVAILABLE (retryable) instead of the
+    whole process refusing to start.
     """
-    if settings.ocr_engine.strip().lower() not in ("paddle", "paddleocr"):
-        return
+    logger.info("[WARMUP] started engine=%s", settings.ocr_engine)
+    try:
+        from core.runtime_env import enforce_supported_runtime, log_runtime_diagnostics
+
+        enforce_supported_runtime()
+        log_runtime_diagnostics()
+    except Exception as exc:  # noqa: BLE001 — diagnostics/version guard must never kill warmup
+        logger.error("[WARMUP] runtime diagnostics failed: %r", exc)
 
     from services.ocr_service import ocr_service
 
-    if not ocr_service.health()["ready"]:
-        msg = (
-            "[FATAL] OCR_ENGINE=paddle is configured but the PaddleOCR engine "
-            "failed to initialize (paddle/paddleocr/paddlex not importable, or "
-            "model load failed — see [runtime] *_version log lines above and "
-            "[paddle-engine] INIT FAILED trace). Refusing to start rather than "
-            "silently serving a non-functional engine."
-        )
-        logger.error(msg)
-        raise RuntimeError(msg)
+    try:
+        ready = ocr_service.warmup()
+    except Exception as exc:  # noqa: BLE001 — warmup failure must never kill the process
+        logger.error("[WARMUP] engine init raised: %r", exc)
+        ready = False
+
+    logger.info("[WARMUP] completed engine=%s ready=%s", ocr_service.engine_name, ready)
 
 
 class OcrServiceHandler(BaseHTTPRequestHandler):
@@ -100,10 +105,12 @@ class OcrServiceHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    enforce_supported_runtime()
-    log_runtime_diagnostics()
-    _fail_if_paddle_expected_but_unavailable()
+    # Bind immediately — lightweight config only above this line. Render's
+    # port scan must see an open port right away; paddle/paddleocr imports
+    # and model init are never allowed to happen before this constructor
+    # returns (ThreadingHTTPServer binds + listens in __init__).
     server = ThreadingHTTPServer((settings.host, settings.port), OcrServiceHandler)
+    logger.info("[STARTUP] server bound host=%s port=%s", settings.host, settings.port)
     logger.info(
         "starting %s v%s phase=%s on http://%s:%s engine=%s",
         settings.service_name,
@@ -114,6 +121,12 @@ def main() -> None:
         settings.ocr_engine,
     )
     logger.info("endpoints: GET /health /version /metrics | POST /ocr/read-meter")
+
+    # Heavy engine init (paddle import + model load/download) runs here, off
+    # the accept loop, so a slow/hung download degrades readiness instead of
+    # the whole deploy timing out on Render's port scan.
+    threading.Thread(target=_warmup, name="ocr-warmup", daemon=True).start()
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:
