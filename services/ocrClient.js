@@ -95,29 +95,9 @@ function previewText(rawText, maxLen = 500) {
   return `${text.slice(0, maxLen)}…(len=${text.length})`;
 }
 
-function describeParsedValue(value) {
-  if (value === undefined) {
-    return { parsedType: 'unparsed', parsedKeys: null };
-  }
-  if (value === null) {
-    return { parsedType: 'null', parsedKeys: null };
-  }
-  if (Array.isArray(value)) {
-    return { parsedType: 'array', parsedKeys: null };
-  }
-  if (typeof value === 'object') {
-    try {
-      return { parsedType: 'object', parsedKeys: Object.keys(value) };
-    } catch {
-      return { parsedType: 'object', parsedKeys: null };
-    }
-  }
-  return { parsedType: typeof value, parsedKeys: null };
-}
-
 /**
  * Temporary diagnostic — log only when OCR envelope validation fails.
- * Do not log successful responses here.
+ * Do not log successful responses here. No behavior change.
  */
 function logOcrValidationFailure({
   reason,
@@ -125,18 +105,17 @@ function logOcrValidationFailure({
   contentType,
   rawText,
   parseError = null,
-  parsedValue = undefined
+  sanitizedText = null
 }) {
-  const { parsedType, parsedKeys } = describeParsedValue(parsedValue);
   console.warn('[ocr-client] OCR_INVALID_RESPONSE diagnostic', {
-    reason,
     status,
     contentType: contentType || null,
-    bodyLen: String(rawText || '').length,
-    preview: previewText(rawText, 500),
-    parseError: parseError == null ? null : String(parseError),
-    parsedType,
-    parsedKeys
+    rawBodyPreview1000: previewText(rawText, 1000),
+    jsonParseError: parseError == null ? null : String(parseError),
+    sanitizedBodyPreview1000: sanitizedText == null
+      ? null
+      : previewText(sanitizedText, 1000),
+    reason
   });
 }
 
@@ -158,7 +137,7 @@ function parseOcrServiceBody(rawText, status, contentType) {
       contentType,
       rawText: original,
       parseError: null,
-      parsedValue: undefined
+      sanitizedText: null
     });
     return {
       ok: false,
@@ -187,7 +166,7 @@ function parseOcrServiceBody(rawText, status, contentType) {
         contentType,
         rawText: original,
         parseError: firstError?.message || String(firstError),
-        parsedValue: undefined
+        sanitizedText: null
       });
       return {
         ok: false,
@@ -217,7 +196,7 @@ function parseOcrServiceBody(rawText, status, contentType) {
         contentType,
         rawText: original,
         parseError: secondError?.message || String(secondError),
-        parsedValue: undefined
+        sanitizedText: sanitized
       });
       return {
         ok: false,
@@ -240,7 +219,7 @@ function parseOcrServiceBody(rawText, status, contentType) {
       contentType,
       rawText: original,
       parseError: null,
-      parsedValue: body
+      sanitizedText: null
     });
     return {
       ok: false,
