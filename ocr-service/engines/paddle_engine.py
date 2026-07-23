@@ -2,9 +2,13 @@
 PaddleOCR 3.7 engine adapter.
 
 Implements BaseOcrEngine only. Routes/services/parsers stay unchanged.
-Lazy init: if PaddleOCR fails to load (common on some Windows/Python builds),
-is_available() is False and extract_text raises — service maps that to
-EngineUnavailableError / OCR_INTERNAL_ERROR without crashing the process.
+
+Lifecycle: INITIALIZING -> READY | FAILED, settled exactly once per process.
+is_available() is a non-blocking read for health checks only. The request
+path uses ensure_ready() instead, which blocks until init settles (or runs
+it synchronously if nothing has yet) — a request never gets rejected just
+because init is still running; only a settled FAILED state raises
+EngineUnavailableError / OCR_INTERNAL_ERROR (never crashes the process).
 
 Phase 6D: diagnostics only — step logs + full traceback on init/predict failure.
 
@@ -101,6 +105,15 @@ def _extract_texts(ocr_result: Any) -> list[str]:
     return [str(d["text"]) for d in detections if d.get("text")]
 
 
+class EngineState:
+    """Explicit lifecycle states — engine starts INITIALIZING and settles
+    into READY or FAILED exactly once (single init attempt per process)."""
+
+    INITIALIZING = "initializing"
+    READY = "ready"
+    FAILED = "failed"
+
+
 def _average_confidence_from_detections(detections: list[dict[str, Any]]) -> float | None:
     scores: list[float] = []
     for det in detections:
@@ -117,8 +130,7 @@ class PaddleEngine(BaseOcrEngine):
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._ocr: Any = None
-        self._init_attempted = False
-        self._available = False
+        self._state = EngineState.INITIALIZING
         self._init_error: str | None = None
         self._init_error_trace: str | None = None
         # Prefer small models on constrained hosts (override via env).
@@ -132,27 +144,46 @@ class PaddleEngine(BaseOcrEngine):
         return "paddle"
 
     def is_available(self) -> bool:
-        """Cheap, non-blocking read of cached readiness — never triggers
-        model init. Init happens via warmup() (background thread on startup)
-        or lazily inside extract_text() on the first real OCR call.
+        """Cheap, non-blocking read of cached readiness — never triggers or
+        waits on model init. For health checks only; the request path must
+        use ensure_ready() so it waits instead of failing fast mid-init.
         """
-        return self._available
+        return self._state == EngineState.READY
 
     def warmup(self) -> bool:
         """Eagerly load PaddleOCR — call from a background thread after the
         HTTP server is already listening. Blocks the calling thread only
         (never the request path) until model load/download completes.
         """
+        return self.ensure_ready()
+
+    def ensure_ready(self) -> bool:
+        """Block the calling thread until initialization finishes, running
+        it synchronously here if nothing else has started it yet. Concurrent
+        callers (background warmup + one or more requests) all funnel
+        through the same lock in _ensure_init() — only one thread ever runs
+        the real init; everyone else just waits on it.
+        """
         self._ensure_init()
-        return self._available
+        return self._state == EngineState.READY
 
     def _ensure_init(self) -> None:
-        if self._init_attempted:
+        # Fast path: already settled (READY/FAILED) — no lock needed.
+        if self._state != EngineState.INITIALIZING:
             return
         with self._lock:
-            if self._init_attempted:
+            # Re-check inside the lock: if another thread finished (or is
+            # still running) while we were waiting to acquire it, the state
+            # has either settled (nothing left to do) by the time we get
+            # here, or we are that other thread's very first caller and must
+            # do the real work ourselves. Either way, state — not a separate
+            # "attempted" flag — is the single source of truth, so a caller
+            # that arrives mid-init blocks on the lock for the *entire*
+            # duration instead of seeing a stale "not ready yet" and bailing.
+            if self._state != EngineState.INITIALIZING:
                 return
-            self._init_attempted = True
+            _diag("[ENGINE STATE] ENGINE_INITIALIZING")
+            logger.info("[ENGINE STATE] ENGINE_INITIALIZING")
             try:
                 _diag("[1] Import paddleocr")
                 from paddleocr import PaddleOCR
@@ -215,21 +246,25 @@ class PaddleEngine(BaseOcrEngine):
                     )
                 except Exception as probe_exc:  # noqa: BLE001 — diagnostic only
                     _diag(f"[ENGINE CREATED] _params probe failed: {probe_exc!r}")
-                self._available = True
                 self._init_error = None
                 self._init_error_trace = None
+                self._state = EngineState.READY
                 _diag(f"[4] Ready rss_mb={_rss_mb()}")
+                _diag("[ENGINE STATE] ENGINE_READY")
+                logger.info("[ENGINE STATE] ENGINE_READY")
             except Exception as exc:  # noqa: BLE001 — engine must never crash the service
                 self._ocr = None
-                self._available = False
                 self._init_error = str(exc)
                 self._init_error_trace = traceback.format_exc()
+                self._state = EngineState.FAILED
                 _diag(f"[paddle-engine] INIT FAILED: {exc!r}")
                 _diag(self._init_error_trace)
+                _diag("[ENGINE STATE] ENGINE_FAILED")
+                logger.error("[ENGINE STATE] ENGINE_FAILED error=%r", exc)
 
     def extract_text(self, image_path: str, *, meter_type: str | None = None) -> dict[str, Any]:
         self._ensure_init()
-        if not self._available or self._ocr is None:
+        if self._state != EngineState.READY or self._ocr is None:
             _diag(f"[paddle-engine] engine unavailable: {self._init_error or 'PaddleOCR engine is not available'}")
             if self._init_error_trace:
                 _diag(self._init_error_trace)

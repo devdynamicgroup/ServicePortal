@@ -23,15 +23,25 @@ class BaseOcrEngine(ABC):
     def is_available(self) -> bool:
         """Return current readiness without triggering initialization.
 
-        Must be a cheap, non-blocking read of cached state — callers on the
-        request path (and OcrService.health()) rely on this never kicking off
-        a slow/blocking model load.
+        Must be a cheap, non-blocking read of cached state — health checks
+        rely on this never kicking off a slow/blocking model load. Not for
+        the request path: a request must never be rejected just because
+        initialization is still running — use ensure_ready() there instead.
         """
 
     def warmup(self) -> bool:
         """Eagerly initialize the engine (e.g. load models) outside the
         request path — safe to call from a background thread. Default no-op
         for engines with no expensive init; override when init is costly.
+        """
+        return self.is_available()
+
+    def ensure_ready(self) -> bool:
+        """Block the calling thread until initialization finishes (or run it
+        synchronously if not yet started), then report readiness. The
+        request path must call this — never is_available() — so a request
+        that arrives mid-initialization waits instead of failing fast.
+        Default: no expensive init, so this is just is_available().
         """
         return self.is_available()
 
