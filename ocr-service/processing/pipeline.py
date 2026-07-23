@@ -110,8 +110,9 @@ class OcrPipeline:
         )
 
         # 3) OCR engine — wait out an in-progress init rather than rejecting;
-        # only a settled FAILED state raises here.
-        if not self.engine.ensure_ready():
+        # bounded so a cold-start wait can't outlive an edge/proxy timeout.
+        # Only a settled FAILED state (or the bound expiring) raises here.
+        if not self.engine.ensure_ready(timeout=self.settings.engine_wait_timeout_seconds):
             raise EngineUnavailableError("OCR engine is not available")
 
         t0 = time.perf_counter()

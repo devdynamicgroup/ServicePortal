@@ -71,7 +71,7 @@ class OcrService:
 
         # Wait out an in-progress init instead of rejecting — only a settled
         # FAILED state (or a real pipeline error below) should ever raise.
-        if not self._engine.ensure_ready():
+        if not self._engine.ensure_ready(timeout=settings.engine_wait_timeout_seconds):
             raise EngineUnavailableError("OCR engine is not available")
 
         # data: URLs → temp file; filesystem / virtual paths pass through unchanged.
@@ -119,7 +119,7 @@ class OcrService:
             meter_type,
             self._engine.name,
         )
-        if not self._engine.ensure_ready():
+        if not self._engine.ensure_ready(timeout=settings.engine_wait_timeout_seconds):
             raise EngineUnavailableError("OCR engine is not available")
 
         normalized = materialize_image_url(image_url)

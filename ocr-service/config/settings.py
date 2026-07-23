@@ -78,6 +78,15 @@ class Settings:
     # thread (see OcrPipeline._engine_executor). 60s + the resize above gives
     # real predict() calls room to finish instead of hitting this ceiling.
     request_timeout_seconds: float = 60.0
+    # Bounds how long a REQUEST waits for a still-in-progress engine init
+    # (cold start / first request after boot) before falling back to a
+    # clean ENGINE_UNAVAILABLE. Unbounded waiting here risks the request
+    # outliving Render/Cloudflare's own edge timeout, which then returns a
+    # non-JSON error page to the client (OCR_INVALID_RESPONSE) instead of
+    # our own valid, retryable error. The background warmup thread (startup)
+    # is NOT bounded by this — only requests are, since only requests are
+    # tied to an HTTP response that can be killed out from under us.
+    engine_wait_timeout_seconds: float = 45.0
     # Enough for browser data URLs (base64 ≈ 4/3 of decoded image) + JSON wrapper.
     # Decoded image cap remains image_max_bytes (20 MiB).
     max_body_bytes: int = 28_000_000
@@ -130,6 +139,7 @@ def load_settings() -> Settings:
         host=_env("OCR_HOST", "0.0.0.0"),
         port=_env_int("OCR_PORT", 5055),
         request_timeout_seconds=_env_float("OCR_REQUEST_TIMEOUT", 60.0),
+        engine_wait_timeout_seconds=_env_float("OCR_ENGINE_WAIT_TIMEOUT", 45.0),
         max_body_bytes=_env_int("OCR_MAX_BODY_BYTES", 28_000_000),
         ocr_engine=engine,
         log_dir=_env("OCR_LOG_DIR", "logs"),

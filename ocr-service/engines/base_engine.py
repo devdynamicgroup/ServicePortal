@@ -36,12 +36,20 @@ class BaseOcrEngine(ABC):
         """
         return self.is_available()
 
-    def ensure_ready(self) -> bool:
+    def ensure_ready(self, timeout: float | None = None) -> bool:
         """Block the calling thread until initialization finishes (or run it
         synchronously if not yet started), then report readiness. The
         request path must call this — never is_available() — so a request
         that arrives mid-initialization waits instead of failing fast.
-        Default: no expensive init, so this is just is_available().
+
+        timeout (seconds): request-path callers should pass a bound so a
+        cold-start wait can't outlive an upstream edge/proxy timeout and
+        come back as a corrupted response instead of a clean error. None
+        (or omitted) waits indefinitely — only appropriate for a background
+        warmup call with no HTTP response riding on it.
+
+        Default: no expensive init, so this is just is_available(); timeout
+        is accepted for interface symmetry but unused.
         """
         return self.is_available()
 

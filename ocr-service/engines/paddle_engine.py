@@ -154,32 +154,51 @@ class PaddleEngine(BaseOcrEngine):
         """Eagerly load PaddleOCR — call from a background thread after the
         HTTP server is already listening. Blocks the calling thread only
         (never the request path) until model load/download completes.
+        Unbounded: no HTTP response is riding on this call.
         """
         return self.ensure_ready()
 
-    def ensure_ready(self) -> bool:
+    def ensure_ready(self, timeout: float | None = None) -> bool:
         """Block the calling thread until initialization finishes, running
         it synchronously here if nothing else has started it yet. Concurrent
         callers (background warmup + one or more requests) all funnel
         through the same lock in _ensure_init() — only one thread ever runs
         the real init; everyone else just waits on it.
+
+        timeout (seconds): request-path callers must pass a bound (see
+        Settings.engine_wait_timeout_seconds) so a slow cold-start model
+        download can't hold the HTTP response open longer than an upstream
+        edge/proxy timeout allows — past that point the edge kills the
+        connection and returns its own non-JSON error page instead of ours.
+        Timing out here just means "still initializing", not failure: state
+        stays INITIALIZING and a later request will pick up where this one
+        left off (or find it already READY/FAILED by then).
         """
-        self._ensure_init()
+        self._ensure_init(timeout=timeout)
         return self._state == EngineState.READY
 
-    def _ensure_init(self) -> None:
+    def _ensure_init(self, timeout: float | None = None) -> None:
         # Fast path: already settled (READY/FAILED) — no lock needed.
         if self._state != EngineState.INITIALIZING:
             return
-        with self._lock:
-            # Re-check inside the lock: if another thread finished (or is
-            # still running) while we were waiting to acquire it, the state
-            # has either settled (nothing left to do) by the time we get
-            # here, or we are that other thread's very first caller and must
-            # do the real work ourselves. Either way, state — not a separate
-            # "attempted" flag — is the single source of truth, so a caller
-            # that arrives mid-init blocks on the lock for the *entire*
-            # duration instead of seeing a stale "not ready yet" and bailing.
+        # Lock.acquire's own sentinel for "wait forever" is -1, not None.
+        acquired = self._lock.acquire(timeout=-1 if timeout is None else timeout)
+        if not acquired:
+            _diag(
+                f"[ENGINE STATE] ensure_ready timed out after {timeout}s waiting "
+                "for init — still INITIALIZING, not failed"
+            )
+            return
+        try:
+            # Re-check now that we hold the lock: if another thread finished
+            # (or is still running) while we were waiting to acquire it, the
+            # state has either settled (nothing left to do) by the time we
+            # get here, or we are that other thread's very first caller and
+            # must do the real work ourselves. Either way, state — not a
+            # separate "attempted" flag — is the single source of truth, so
+            # a caller that arrives mid-init blocks on the lock for the
+            # *entire* duration instead of seeing a stale "not ready yet"
+            # and bailing.
             if self._state != EngineState.INITIALIZING:
                 return
             _diag("[ENGINE STATE] ENGINE_INITIALIZING")
@@ -261,6 +280,8 @@ class PaddleEngine(BaseOcrEngine):
                 _diag(self._init_error_trace)
                 _diag("[ENGINE STATE] ENGINE_FAILED")
                 logger.error("[ENGINE STATE] ENGINE_FAILED error=%r", exc)
+        finally:
+            self._lock.release()
 
     def extract_text(self, image_path: str, *, meter_type: str | None = None) -> dict[str, Any]:
         self._ensure_init()

@@ -77,3 +77,11 @@ services:
         value: "1280"
       - key: OCR_REQUEST_TIMEOUT
         value: "60"
+      # Bounds a request's wait for a still-in-progress cold-start engine
+      # init. Keeps it under Render/Cloudflare's own edge timeout so a slow
+      # first-boot model download can't turn into a non-JSON edge error
+      # (OCR_INVALID_RESPONSE) — falls back to a clean ENGINE_UNAVAILABLE
+      # instead. Background warmup itself is unbounded (no HTTP response
+      # riding on it).
+      - key: OCR_ENGINE_WAIT_TIMEOUT
+        value: "45"
