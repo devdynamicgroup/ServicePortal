@@ -549,14 +549,18 @@ function readingsFromDomFields() {
 }
 
 /**
- * Prefer randomized OCR readings stored on tapData (source of truth).
- * Maps freeChlorine → chlorine for the scorer.
+ * Prefer Layer 2 standardMeasurement stored on tapData; fall back to legacy
+ * meterReadings/chlorineReadings per-key when standardMeasurement is absent.
+ * Maps freeChlorine → chlorine for the scorer (legacy path only).
  */
 function readingsFromTapData(tapData) {
   const taps = Array.isArray(tapData) ? tapData : [];
+  const standardRows = taps
+    .map(tap => tap?.standardMeasurement)
+    .filter(row => row && typeof row === 'object' && Object.keys(row).length);
   const meterRows = taps.map(tap => tap?.meterReadings).filter(Boolean);
   const chlorineRows = taps.map(tap => tap?.chlorineReadings).filter(Boolean);
-  if (!meterRows.length && !chlorineRows.length) return {};
+  if (!standardRows.length && !meterRows.length && !chlorineRows.length) return {};
 
   const avgKey = (rows, key) => {
     const vals = rows.map(row => numOrUndefined(row[key])).filter(v => v !== undefined);
@@ -565,13 +569,13 @@ function readingsFromTapData(tapData) {
   };
 
   return {
-    ph: avgKey(meterRows, 'ph'),
-    tds: avgKey(meterRows, 'tds'),
-    turbidity: avgKey(meterRows, 'turbidity'),
-    orp: avgKey(meterRows, 'orp'),
-    do: avgKey(meterRows, 'do'),
-    temp: avgKey(meterRows, 'temp'),
-    chlorine: avgKey(chlorineRows, 'freeChlorine') ?? avgKey(chlorineRows, 'chlorine')
+    ph: avgKey(standardRows, 'ph') ?? avgKey(meterRows, 'ph'),
+    tds: avgKey(standardRows, 'tds') ?? avgKey(meterRows, 'tds'),
+    turbidity: avgKey(standardRows, 'turbidity') ?? avgKey(meterRows, 'turbidity'),
+    orp: avgKey(standardRows, 'orp') ?? avgKey(meterRows, 'orp'),
+    do: avgKey(standardRows, 'do') ?? avgKey(meterRows, 'do'),
+    temp: avgKey(standardRows, 'temp') ?? avgKey(meterRows, 'temp'),
+    chlorine: avgKey(standardRows, 'chlorine') ?? avgKey(chlorineRows, 'freeChlorine') ?? avgKey(chlorineRows, 'chlorine')
   };
 }
 
@@ -744,18 +748,30 @@ function averageRoomReadings(base, tapCount) {
 }
 
 function readingsFromSingleTap(tap, fallback) {
+  const standard = tap?.standardMeasurement && typeof tap.standardMeasurement === 'object'
+    ? tap.standardMeasurement
+    : null;
   const meter = tap?.meterReadings || {};
   const chlorine = tap?.chlorineReadings || {};
   const mapped = {
-    ph: numOrUndefined(meter.ph),
-    tds: numOrUndefined(meter.tds),
-    turbidity: numOrUndefined(meter.turbidity),
-    orp: numOrUndefined(meter.orp),
-    do: numOrUndefined(meter.do),
-    temp: numOrUndefined(meter.temp),
-    chlorine: numOrUndefined(chlorine.freeChlorine ?? chlorine.chlorine)
+    ph: numOrUndefined(standard?.ph ?? meter.ph),
+    tds: numOrUndefined(standard?.tds ?? meter.tds),
+    turbidity: numOrUndefined(standard?.turbidity ?? meter.turbidity),
+    orp: numOrUndefined(standard?.orp ?? meter.orp),
+    do: numOrUndefined(standard?.do ?? meter.do),
+    temp: numOrUndefined(standard?.temp ?? meter.temp),
+    chlorine: numOrUndefined(standard?.chlorine ?? (chlorine.freeChlorine ?? chlorine.chlorine))
   };
   return { ...fallback, ...Object.fromEntries(Object.entries(mapped).filter(([, v]) => v !== undefined)) };
+}
+
+/** True when a tap has any Standard (Layer 2) or legacy reading source. */
+function hasTapReadingSource(tap) {
+  return Boolean(
+    (tap?.standardMeasurement && Object.keys(tap.standardMeasurement).length)
+    || tap?.meterReadings
+    || tap?.chlorineReadings
+  );
 }
 
 /** Resolve display readings for one room (or overall average). Does not mutate raw base readings. */
@@ -769,7 +785,7 @@ function getRoomReadings(tapKey, context = getScoreEvalContext()) {
   if (tapKey === 'all') {
     const rows = taps.map((_, i) => {
       const tap = tapData[i];
-      if (tap?.meterReadings || tap?.chlorineReadings) return readingsFromSingleTap(tap, base);
+      if (hasTapReadingSource(tap)) return readingsFromSingleTap(tap, base);
       return readingsFromBase(base, i, taps.length);
     });
     const keys = ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp'];
@@ -783,7 +799,7 @@ function getRoomReadings(tapKey, context = getScoreEvalContext()) {
   const index = taps.indexOf(tapKey);
   const safeIndex = index >= 0 ? index : 0;
   const tap = tapData[safeIndex];
-  if (tap?.meterReadings || tap?.chlorineReadings) {
+  if (hasTapReadingSource(tap)) {
     return readingsFromSingleTap(tap, base);
   }
   return readingsFromBase(base, safeIndex, taps.length);

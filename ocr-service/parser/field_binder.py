@@ -6,6 +6,7 @@ Associates MeasurementRow value/label pairs with profile field keys.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
@@ -38,6 +39,14 @@ def _parse_value(token: OcrToken) -> float | None:
         return nums[0]
     nums = extract_numbers(token.text)
     return nums[0] if nums else None
+
+
+def _is_keypad_digit_token(token: OcrToken | None) -> bool:
+    """True for bare keypad digits (0-9) — never a real LCD measurement alone."""
+    if token is None:
+        return False
+    text = str(token.text or "").strip()
+    return bool(re.fullmatch(r"[0-9]", text))
 
 
 def _label_excluded(label: str, field_cfg: FieldConfig) -> bool:
@@ -212,9 +221,19 @@ def bind_fields(
 
             if score < 0.50:
                 continue
-            # Prefer in-range values
+            # Bare keypad digits (0-9) need a strong unit label — otherwise they
+            # become false meter readings (especially "0" at the bottom of Hanna LCDs).
+            if _is_keypad_digit_token(row.value_token) and score < 0.90:
+                continue
+            # Prefer in-range values; break ties toward upper LCD rows + clearer unit OCR.
             range_ok = _value_in_range(value, field_cfg)
-            effective = score + (0.05 if range_ok else -0.2)
+            label_ocr = float(row.label_token.score) if row.label_token is not None else 0.0
+            effective = (
+                score
+                + (0.05 if range_ok else -0.2)
+                + (0.01 * label_ocr)
+                - (0.02 * float(row.index))
+            )
             logger.debug(
                 "candidate field=%s value=%s label=%r unit_score=%.3f value_conf=%.3f "
                 "effective_score=%.3f row=%s",

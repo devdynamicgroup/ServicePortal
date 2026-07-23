@@ -36,6 +36,7 @@
       "aliases": [
         "ec", "us", "us/cm", "uscm", "usem", "usema",
         "μs", "μs/cm", "μsem", "μsema", "µs", "µs/cm", "µsem", "µsema",
+        "?sem", "?sema", "?s/cm", "sem", "sema",
         "cond", "cond.", "conductivity"
       ],
       "exclude_aliases": ["orp", "mvorp", "orpmv", "mvph"],

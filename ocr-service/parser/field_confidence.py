@@ -4,6 +4,7 @@ Stages E + F — field validation and confidence aggregation for spatial parsing
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -106,6 +107,18 @@ def validate_candidates(
             rejected = True
             reason = "low_confidence"
             value = None
+
+        # Reject false zeros from keypad / unit-glyph OCR (never auto-fill).
+        if not rejected and value is not None:
+            raw_value_text = str(cand.value_token.text or "").strip()
+            if value == 0.0 and (
+                cand.key == "ph"
+                or re.fullmatch(r"0(?:\.0+)?", raw_value_text) is not None
+                and float(cand.unit_match_score) < 0.90
+            ):
+                rejected = True
+                reason = "false_zero"
+                value = None
 
         # Duplicate values across fields
         if not rejected and value is not None:

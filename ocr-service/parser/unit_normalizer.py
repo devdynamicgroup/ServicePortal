@@ -42,6 +42,14 @@ UNIT_SYNONYMS: dict[str, str] = {
     "us": "ec",
     "uscm": "ec",
     "us/cm": "ec",
+    "usem": "ec",
+    "usema": "ec",
+    # Paddle often drops the µ glyph → "?sem" / "?Sema"
+    "?sem": "ec",
+    "?sema": "ec",
+    "?s/cm": "ec",
+    "sem": "ec",
+    "sema": "ec",
     "µs": "ec",
     "µscm": "ec",
     "temp": "temperature",
@@ -54,7 +62,8 @@ UNIT_SYNONYMS: dict[str, str] = {
 def _strip_label(label: str) -> str:
     text = str(label or "").strip().lower()
     # Keep % and / for unit meaning; drop other punctuation.
-    text = text.replace("µ", "u")
+    # Normalize both micro-sign variants (µ U+00B5 and μ U+03BC) to ASCII "u".
+    text = text.replace("µ", "u").replace("μ", "u").replace("?", "u")
     text = re.sub(r"\s+", "", text)
     return text
 
@@ -70,6 +79,12 @@ def _character_correct_unit(label: str) -> tuple[str, list[dict[str, Any]]]:
     # Explicit known OCR corruptions for DO units
     if raw in {"%00", "%o0", "%0o", "%0", "00", "%dd"}:
         corrected = "%do"
+        corrections.append({"from": label, "to": corrected, "stage": "unit_normalize"})
+        return corrected, corrections
+
+    # µ / μ often becomes "?" on Windows/Paddle pipelines → "?sem"
+    if raw.startswith("?") and re.match(r"^\?s", raw):
+        corrected = "u" + raw[1:]
         corrections.append({"from": label, "to": corrected, "stage": "unit_normalize"})
         return corrected, corrections
 

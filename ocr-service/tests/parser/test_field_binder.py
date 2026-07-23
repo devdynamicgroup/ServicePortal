@@ -113,6 +113,35 @@ class TestFieldBinder(unittest.TestCase):
         self.assertNotIn("do_percent", payload.data)
         self.assertNotIn("missing:ph", payload.issues)
 
+    def test_garbled_microsiemens_alias_binds_ec(self) -> None:
+        """Paddle often drops µ → '?sem'; that must still bind as EC."""
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "6.67", "score": 0.99, "box": [300, 200, 420, 260]},
+            {"text": "FFmDO", "score": 0.88, "box": [430, 205, 520, 250]},
+            {"text": "319", "score": 0.99, "box": [300, 270, 420, 330]},
+            {"text": "?sem", "score": 0.70, "box": [430, 275, 520, 320]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id="hanna_hi98194"
+        )
+        self.assertEqual(payload.data.get("do"), 6.67)
+        self.assertEqual(payload.data.get("ec"), 319.0)
+
+    def test_keypad_zero_never_auto_fills_ph(self) -> None:
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "0", "score": 0.99, "box": [370, 1270, 410, 1320]},
+            {"text": "HANNA", "score": 0.99, "box": [300, 60, 500, 120]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id="hanna_hi98194"
+        )
+        self.assertNotEqual(payload.data.get("ph"), 0)
+        self.assertNotIn("ph", payload.data)
+
     def test_clean_do_label_binds_to_do_not_excluded_by_itself(self) -> None:
         """Regression: bare 'DO' normalizes to the same UNIT_SYNONYMS canonical
         field as '%do' (both -> do_percent), which previously made the do
