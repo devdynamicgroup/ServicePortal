@@ -8,7 +8,7 @@ function getScoreStyle(wq) {
 
 /** Customer-facing verdict shown on the summary card (not the DWQI band legend). */
 function customerVerdict(wq) {
-  if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#3b82f6', tier: 'high' };
+  if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#284dcd', tier: 'high' };
   if (wq >= 65) return { label: t('score.verdict.good'), color: '#22c55e', tier: 'mid' };
   return { label: t('score.verdict.attention'), color: '#f07b7b', tier: 'low' };
 }
