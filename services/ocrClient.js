@@ -89,27 +89,76 @@ function sanitizePythonJsonText(rawText) {
   };
 }
 
-function previewText(rawText, maxLen = 400) {
+function previewText(rawText, maxLen = 500) {
   const text = String(rawText || '');
   if (text.length <= maxLen) return text;
   return `${text.slice(0, maxLen)}…(len=${text.length})`;
 }
 
-function parseOcrServiceBody(rawText, status) {
+function describeParsedValue(value) {
+  if (value === undefined) {
+    return { parsedType: 'unparsed', parsedKeys: null };
+  }
+  if (value === null) {
+    return { parsedType: 'null', parsedKeys: null };
+  }
+  if (Array.isArray(value)) {
+    return { parsedType: 'array', parsedKeys: null };
+  }
+  if (typeof value === 'object') {
+    try {
+      return { parsedType: 'object', parsedKeys: Object.keys(value) };
+    } catch {
+      return { parsedType: 'object', parsedKeys: null };
+    }
+  }
+  return { parsedType: typeof value, parsedKeys: null };
+}
+
+/**
+ * Temporary diagnostic — log only when OCR envelope validation fails.
+ * Do not log successful responses here.
+ */
+function logOcrValidationFailure({
+  reason,
+  status,
+  contentType,
+  rawText,
+  parseError = null,
+  parsedValue = undefined
+}) {
+  const { parsedType, parsedKeys } = describeParsedValue(parsedValue);
+  console.warn('[ocr-client] OCR_INVALID_RESPONSE diagnostic', {
+    reason,
+    status,
+    contentType: contentType || null,
+    bodyLen: String(rawText || '').length,
+    preview: previewText(rawText, 500),
+    parseError: parseError == null ? null : String(parseError),
+    parsedType,
+    parsedKeys
+  });
+}
+
+function parseOcrServiceBody(rawText, status, contentType) {
   const original = String(rawText || '');
   if (isDebug()) {
     console.warn('[ocr-client] raw OCR response before validation', {
       status,
+      contentType: contentType || null,
       bodyLen: original.length,
-      preview: previewText(original)
+      preview: previewText(original, 500)
     });
   }
 
   if (!original.trim()) {
-    console.warn('[ocr-client] request failed', {
+    logOcrValidationFailure({
       reason: 'empty_body',
       status,
-      bodyLen: 0
+      contentType,
+      rawText: original,
+      parseError: null,
+      parsedValue: undefined
     });
     return {
       ok: false,
@@ -132,11 +181,13 @@ function parseOcrServiceBody(rawText, status) {
     const { text: sanitized, changed } = sanitizePythonJsonText(original);
     usedSanitize = changed;
     if (!changed) {
-      console.warn('[ocr-client] request failed', {
+      logOcrValidationFailure({
         reason: 'invalid_json',
         status,
+        contentType,
+        rawText: original,
         parseError: firstError?.message || String(firstError),
-        preview: previewText(original)
+        parsedValue: undefined
       });
       return {
         ok: false,
@@ -155,15 +206,18 @@ function parseOcrServiceBody(rawText, status) {
       if (isDebug()) {
         console.warn('[ocr-client] normalized OCR response after NaN/Infinity sanitize', {
           status,
-          preview: previewText(sanitized)
+          contentType: contentType || null,
+          preview: previewText(sanitized, 500)
         });
       }
     } catch (secondError) {
-      console.warn('[ocr-client] request failed', {
+      logOcrValidationFailure({
         reason: 'invalid_json_after_sanitize',
         status,
+        contentType,
+        rawText: original,
         parseError: secondError?.message || String(secondError),
-        preview: previewText(original)
+        parsedValue: undefined
       });
       return {
         ok: false,
@@ -180,11 +234,13 @@ function parseOcrServiceBody(rawText, status) {
   }
 
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    console.warn('[ocr-client] request failed', {
+    logOcrValidationFailure({
       reason: 'non_object_body',
       status,
-      bodyType: body === null ? 'null' : Array.isArray(body) ? 'array' : typeof body,
-      preview: previewText(original)
+      contentType,
+      rawText: original,
+      parseError: null,
+      parsedValue: body
     });
     return {
       ok: false,
@@ -202,6 +258,7 @@ function parseOcrServiceBody(rawText, status) {
   if (isDebug()) {
     console.warn('[ocr-client] normalized OCR response', {
       status,
+      contentType: contentType || null,
       success: Boolean(body.success),
       hasData: body.data != null && typeof body.data === 'object',
       dataKeys: body.data && typeof body.data === 'object' ? Object.keys(body.data) : [],
@@ -241,7 +298,8 @@ async function readMeterOnce(payload, timeoutMs) {
     });
 
     const rawText = await response.text();
-    const parsed = parseOcrServiceBody(rawText, response.status);
+    const contentType = response.headers.get('content-type');
+    const parsed = parseOcrServiceBody(rawText, response.status, contentType);
     if (!parsed.ok) {
       return parsed.error;
     }
