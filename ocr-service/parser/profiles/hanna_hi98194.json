@@ -45,8 +45,14 @@
     },
     "temperature": {
       "aliases": ["temp", "temperature", "°c", "ºc", "˚c", "degc"],
-      "exclude_aliases": ["mo.cm", "mohm", "resistivity"],
+      "exclude_aliases": ["mo.cm", "mohm", "resistivity", "°f", "ºf", "˚f", "degf"],
       "range": [0, 100],
+      "required": false
+    },
+    "temperature_f": {
+      "aliases": ["°f", "ºf", "˚f", "degf"],
+      "exclude_aliases": ["mo.cm", "mohm", "resistivity", "°c", "ºc", "˚c", "degc"],
+      "range": [-40, 300],
       "required": false
     },
     "do": {

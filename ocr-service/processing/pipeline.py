@@ -233,7 +233,7 @@ class OcrPipeline:
 def _canonicalize_numbers(data: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for key, value in data.items():
-        if isinstance(value, float) and value.is_integer() and key in {"tds", "ec", "temperature"}:
+        if isinstance(value, float) and value.is_integer() and key in {"tds", "ec", "temperature", "temperature_f"}:
             out[key] = int(value)
         else:
             out[key] = value

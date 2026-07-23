@@ -18,6 +18,7 @@ OVERALL_AUTO_FILL_THRESHOLD = 0.80
 DEFAULT_RANGES: dict[str, tuple[float, float]] = {
     "ph": (0.0, 14.0),
     "temperature": (0.0, 100.0),
+    "temperature_f": (-40.0, 300.0),
     "tds": (0.0, 5000.0),
     "ec": (0.0, 10000.0),
     "mv": (-2000.0, 2000.0),

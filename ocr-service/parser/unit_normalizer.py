@@ -56,6 +56,16 @@ UNIT_SYNONYMS: dict[str, str] = {
     "temperature": "temperature",
     "c": "temperature",
     "°c": "temperature",
+    # Fahrenheit is a distinct field (temperature_f) — never silently
+    # treated as Celsius. Layer 2 (Conversion Engine) converts F -> C;
+    # this layer only records what's actually printed on screen.
+    # Deliberately no bare "f" — a single letter is too collision-prone
+    # against unrelated garbled OCR text (e.g. "FFmDO" for DO already
+    # contains "f"); require the degree mark or an explicit "deg" prefix.
+    "°f": "temperature_f",
+    "ºf": "temperature_f",
+    "˚f": "temperature_f",
+    "degf": "temperature_f",
 }
 
 

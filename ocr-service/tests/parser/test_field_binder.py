@@ -268,6 +268,44 @@ class TestFieldBinder(unittest.TestCase):
         self.assertNotIn("missing:ph", payload.issues)
         self.assertTrue(payload.ok)
 
+    def test_fahrenheit_label_binds_to_temperature_f_not_celsius(self) -> None:
+        """Meter set to °F must never be silently read as Celsius — Layer 1
+        records what's on screen (temperature_f); Layer 2 (JS ConversionEngine)
+        does the F->C math, not the parser."""
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "7.29", "score": 0.99, "box": [300, 200, 420, 260]},
+            {"text": "PH", "score": 0.99, "box": [430, 205, 480, 250]},
+            {"text": "72.3", "score": 0.99, "box": [300, 270, 420, 330]},
+            {"text": "degF", "score": 0.90, "box": [430, 275, 500, 320]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id="hanna_hi98194"
+        )
+        self.assertEqual(payload.data.get("ph"), 7.29)
+        self.assertEqual(payload.data.get("temperature_f"), 72.3)
+        self.assertNotIn("temperature", payload.data)
+
+    def test_fahrenheit_alias_does_not_steal_ffmdo_binding(self) -> None:
+        """Regression guard: adding a bare-ish 'f' unit family for Fahrenheit
+        must not make 'FFmDO' (contains the letter f) bind to temperature_f
+        instead of do."""
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "HANNA", "score": 0.99, "box": [300, 60, 500, 120]},
+            {"text": "6.67", "score": 0.99, "box": [300, 200, 420, 260]},
+            {"text": "FFmDO", "score": 0.88, "box": [430, 205, 520, 250]},
+            {"text": "319", "score": 0.99, "box": [300, 270, 420, 330]},
+            {"text": "μsem", "score": 0.70, "box": [430, 275, 520, 320]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id="hanna_hi98194"
+        )
+        self.assertEqual(payload.data.get("do"), 6.67)
+        self.assertNotIn("temperature_f", payload.data)
+
 
 if __name__ == "__main__":
     unittest.main()

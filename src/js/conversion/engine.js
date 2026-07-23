@@ -105,6 +105,27 @@
     };
   }
 
+  /**
+   * Fahrenheit → Celsius. Pure; does not invent when Fahrenheit missing.
+   * Standard formula, not an "expert" tunable like EC→TDS/DO% — no factor.
+   */
+  function convertFahrenheitToCelsius(fahrenheit) {
+    const fN = toFiniteNumber(fahrenheit);
+    if (fN === null) {
+      return { value: null, reason: 'temperature_f_missing' };
+    }
+    return {
+      value: +(((fN - 32) * 5) / 9).toFixed(2),
+      reason: 'fahrenheit_to_celsius'
+    };
+  }
+
+  function pickRawTempF(raw) {
+    if (isPresent(raw.temperature_f)) return toFiniteNumber(raw.temperature_f);
+    if (isPresent(raw.temp_f)) return toFiniteNumber(raw.temp_f);
+    return null;
+  }
+
   function pickRawDoMgL(raw) {
     // Prefer explicit mg/L keys; never treat do_percent / doPercent as mg/L.
     if (isPresent(raw.do_mg_l)) return toFiniteNumber(raw.do_mg_l);
@@ -174,12 +195,24 @@
       missing.push('orp');
     }
 
+    // Temp: prefer measured Celsius; else derive from Fahrenheit when possible.
     const temp = toFiniteNumber(raw.temp ?? raw.temperature);
     if (temp !== null) {
       standard.temp = temp;
       applied.push({ field: 'temp', reason: 'passthrough_raw' });
     } else {
-      missing.push('temp');
+      const derivedTemp = convertFahrenheitToCelsius(pickRawTempF(raw));
+      if (derivedTemp.value !== null) {
+        standard.temp = derivedTemp.value;
+        applied.push({
+          field: 'temp',
+          reason: derivedTemp.reason,
+          from: 'temperature_f',
+          temperature_f: pickRawTempF(raw)
+        });
+      } else {
+        missing.push('temp');
+      }
     }
 
     const chlorine = pickChlorine(raw);
@@ -255,6 +288,7 @@
     toStandardMeasurement,
     convertEcToTds,
     convertDoPercentToMgL,
+    convertFahrenheitToCelsius,
     unwrapRaw,
     toFiniteNumber
   });

@@ -70,5 +70,33 @@ console.log('ConversionEngine PR1');
   assertEq(derived.value, 64, 'custom ec→tds factor');
 }
 
+{
+  // 72.3°F -> 22.39°C (matches the real Hanna standby-screen case that
+  // prompted this: meter set to Fahrenheit, no Celsius value on Raw).
+  const raw = { ph: 7.29, temperature_f: 72.3 };
+  const out = ConversionEngine.toStandardMeasurement(raw);
+  assertEq(out.standardMeasurement.temp, 22.39, 'temperature_f derives Celsius temp');
+  assert(out.applied.some(a => a.field === 'temp' && a.reason === 'fahrenheit_to_celsius'), 'applied records fahrenheit_to_celsius');
+}
+
+{
+  // Measured Celsius on Raw must win — never re-derive/override from F.
+  const raw = { temp: 25, temperature_f: 200 };
+  const out = ConversionEngine.toStandardMeasurement(raw);
+  assertEq(out.standardMeasurement.temp, 25, 'measured Celsius temp preferred over temperature_f');
+}
+
+{
+  const derived = ConversionEngine.convertFahrenheitToCelsius(32);
+  assertEq(derived.value, 0, 'freezing point: 32°F -> 0°C');
+}
+
+{
+  const raw = { ph: 7.29 };
+  const out = ConversionEngine.toStandardMeasurement(raw);
+  assert(out.standardMeasurement.temp === undefined, 'no temp and no temperature_f -> temp stays missing, never invented');
+  assert(out.missing.includes('temp'), 'temp listed in missing when neither C nor F present');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
