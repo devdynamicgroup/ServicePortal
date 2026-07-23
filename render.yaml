@@ -81,12 +81,23 @@ services:
         value: "1"
       - key: OCR_PADDLE_MKLDNN_CACHE_CAPACITY
         value: "1"
+      # mkldnn_cache_capacity=1 alone was not enough — a real request still
+      # OOM-killed the instance (confirmed in Render Events). MKL-DNN's
+      # optimized-kernel workspace costs memory beyond just its result
+      # cache; disabling it entirely trades predict() speed for that memory
+      # back. Right tradeoff here: a crash returns nothing, slow-but-alive
+      # still returns a real result.
+      - key: OCR_PADDLE_ENABLE_MKLDNN
+        value: "False"
       # Downscale real phone photos before predict() — full-resolution images
       # were pushing predict() past OCR_REQUEST_TIMEOUT on free-tier CPU.
       - key: OCR_PREPROCESS_RESIZE
         value: "True"
+      # 1024 not 1280 — text_det_limit_side_len (960, above) already caps
+      # detection's own working resolution, so anything above that only
+      # costs decode/preprocess memory without helping detection.
       - key: OCR_PREPROCESS_RESIZE_MAX_SIDE
-        value: "1280"
+        value: "1024"
       - key: OCR_REQUEST_TIMEOUT
         value: "60"
       # Bounds a request's wait for a still-in-progress cold-start engine

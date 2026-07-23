@@ -170,7 +170,14 @@ class PaddleEngine(BaseOcrEngine):
         # here since OOM is a hard crash and slow-but-alive is not.
         self._cpu_threads = _env_int("OCR_PADDLE_CPU_THREADS", 1)
         self._mkldnn_cache_capacity = _env_int("OCR_PADDLE_MKLDNN_CACHE_CAPACITY", 1)
-        self._enable_mkldnn = _env_bool("OCR_PADDLE_ENABLE_MKLDNN", True)
+        # mkldnn_cache_capacity=1 alone was not enough headroom — a real
+        # request still OOM-killed the instance (Render Events: "Ran out of
+        # memory (used over 512MB)" during predict()). MKL-DNN's optimized
+        # kernel workspace itself costs memory beyond just its result cache;
+        # disabling it entirely trades some predict() speed for that memory
+        # back — worth it here since a crash returns nothing at all while
+        # slow-but-alive still returns a real result.
+        self._enable_mkldnn = _env_bool("OCR_PADDLE_ENABLE_MKLDNN", False)
 
     @property
     def name(self) -> str:
@@ -335,6 +342,12 @@ class PaddleEngine(BaseOcrEngine):
         if not path:
             raise ValueError("image_path is required")
 
+        # Squeeze the baseline as low as possible right before the single
+        # most memory-critical moment — predict() itself. Cheap insurance on
+        # a 512MB instance where idle RSS can already sit within ~5MB of the
+        # request that's about to run.
+        gc.collect()
+        _malloc_trim()
         rss_before = _rss_mb()
         t_predict = time.perf_counter()
         _diag(

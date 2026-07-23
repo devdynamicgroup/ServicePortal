@@ -112,8 +112,12 @@ class Settings:
     # single biggest lever on wall-clock time; det_limit_side_len (paddle_engine.py)
     # still caps detection internally, but recognition crops + image decode/preprocess
     # all benefit from a smaller source image too.
+    # 1024 (not 1280): text_det_limit_side_len already caps detection's own
+    # working resolution at 960, so anything above that only cost decode/
+    # preprocess memory without helping detection — real lever for the
+    # 512MB OOM ceiling, effectively free on accuracy.
     preprocess_resize: bool = True
-    preprocess_resize_max_side: int = 1280
+    preprocess_resize_max_side: int = 1024
     preprocess_rotate: bool = False
     preprocess_crop: bool = False
     preprocess_contrast: bool = False
@@ -151,7 +155,7 @@ def load_settings() -> Settings:
         image_max_bytes=_env_int("OCR_IMAGE_MAX_BYTES", 20_000_000),
         allow_virtual_images=_env_bool("OCR_ALLOW_VIRTUAL_IMAGES", True),
         preprocess_resize=_env_bool("OCR_PREPROCESS_RESIZE", True),
-        preprocess_resize_max_side=_env_int("OCR_PREPROCESS_RESIZE_MAX_SIDE", 1280),
+        preprocess_resize_max_side=_env_int("OCR_PREPROCESS_RESIZE_MAX_SIDE", 1024),
         preprocess_rotate=_env_bool("OCR_PREPROCESS_ROTATE", False),
         preprocess_crop=_env_bool("OCR_PREPROCESS_CROP", False),
         preprocess_contrast=_env_bool("OCR_PREPROCESS_CONTRAST", False),
