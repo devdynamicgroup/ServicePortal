@@ -69,6 +69,18 @@ services:
         value: max
       - key: OCR_PADDLE_DET_LIMIT_SIDE_LEN
         value: "960"
+      # Memory, not CPU, is the hard constraint on this instance (0.1 CPU /
+      # 512MB) — confirmed via repeated "Ran out of memory (used over
+      # 512MB)" instance crashes in Render's Events log. PaddleOCR's own
+      # defaults (cpu_threads=10, mkldnn_cache_capacity=10) assume real
+      # parallelism this instance doesn't have; 10 worker threads here is
+      # pure per-thread buffer overhead with zero throughput benefit.
+      # Verified locally: cpu_threads=1 + mkldnn_cache_capacity=1 cuts
+      # predict()'s memory growth by ~24% with no accuracy change.
+      - key: OCR_PADDLE_CPU_THREADS
+        value: "1"
+      - key: OCR_PADDLE_MKLDNN_CACHE_CAPACITY
+        value: "1"
       # Downscale real phone photos before predict() — full-resolution images
       # were pushing predict() past OCR_REQUEST_TIMEOUT on free-tier CPU.
       - key: OCR_PREPROCESS_RESIZE
