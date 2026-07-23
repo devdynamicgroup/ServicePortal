@@ -1021,24 +1021,6 @@ const CHLORINE_READING_FIELDS = {
 };
 
 const PHOTO_SCAN_PROFILES = {
-  'meter-photo-preview': {
-    fields: METER_READING_FIELDS,
-    pick(readings) {
-      return {
-        ph: readings.ph,
-        tds: readings.tds,
-        ec: readings.ec,
-        temp: readings.temp,
-        turbidity: readings.turbidity,
-        orp: readings.orp,
-        do: readings.do
-      };
-    },
-    persist(tap, readings) {
-      tap.meterReadings = mergeMeterReadings(tap.meterReadings, readings);
-      tap.meterSource = 'mock-ocr';
-    }
-  },
   'cl-photo-preview': {
     fields: CHLORINE_READING_FIELDS,
     pick(readings) {
@@ -1051,37 +1033,6 @@ const PHOTO_SCAN_PROFILES = {
       tap.chlorineReadings = readings;
       tap.chlorineSource = 'mock-ocr';
     }
-  }
-};
-
-const MOCK_METER_PHOTO = 'data:image/svg+xml,' + encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
-  <rect width="640" height="360" rx="24" fill="#111827"/>
-  <rect x="48" y="52" width="544" height="256" rx="18" fill="#0f172a" stroke="#334155" stroke-width="3"/>
-  <text x="80" y="120" fill="#93c5fd" font-family="Arial, sans-serif" font-size="28" font-weight="700">Mock meter photo</text>
-  <text x="80" y="178" fill="#f8fafc" font-family="Arial, sans-serif" font-size="44" font-weight="700">pH 7.2  TDS 450</text>
-  <text x="80" y="232" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="30">EC 690  Temp 28C</text>
-  <text x="80" y="272" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="30">Turb 1.2  ORP 320  DO 6.8</text>
-</svg>`);
-
-const MeterReadingOcrProvider = {
-  async analyzePhoto(photoSrc) {
-    await new Promise(resolve => setTimeout(resolve, 650));
-    const random = generateRandomScoreReadings();
-    return {
-      source: 'mock-ocr',
-      confidence: 0.85 + Math.random() * 0.1,
-      photo: photoSrc || MOCK_METER_PHOTO,
-      readings: {
-        ph: random.ph,
-        tds: random.tds,
-        ec: random.ec,
-        temp: random.temp,
-        turbidity: random.turbidity,
-        orp: random.orp,
-        do: random.do
-      }
-    };
   }
 };
 
@@ -1162,7 +1113,6 @@ function persistMeterReadings() {
 }
 
 window.MeterReadingCapture = {
-  provider: MeterReadingOcrProvider,
   _processing: false,
   /** Serial queue so image 2/3 still get OCR while image 1 is in flight. */
   _queue: [],
