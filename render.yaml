@@ -57,3 +57,15 @@ services:
         value: paddle
       - key: OCR_LOG_LEVEL
         value: INFO
+      # Skip slow model-hoster connectivity probe on boot (Render free tier).
+      - key: PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK
+        value: "True"
+      # Lower RAM than default PP-OCRv6_medium (OOM during predict on free instances).
+      - key: OCR_PADDLE_DET_MODEL
+        value: PP-OCRv6_small_det
+      - key: OCR_PADDLE_REC_MODEL
+        value: PP-OCRv6_small_rec
+      - key: OCR_PADDLE_DET_LIMIT_TYPE
+        value: max
+      - key: OCR_PADDLE_DET_LIMIT_SIDE_LEN
+        value: "960"
