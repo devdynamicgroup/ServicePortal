@@ -73,6 +73,146 @@ function isDebug() {
  *   statusCode?: number
  * }>}
  */
+/**
+ * Python json.dumps allows NaN / Infinity by default; Node JSON.parse rejects them.
+ * Normalize those tokens so a HTTP 200 OCR envelope remains usable at the boundary.
+ */
+function sanitizePythonJsonText(rawText) {
+  const text = String(rawText || '');
+  const sanitized = text
+    .replace(/\b-Infinity\b/g, 'null')
+    .replace(/\bInfinity\b/g, 'null')
+    .replace(/\bNaN\b/g, 'null');
+  return {
+    text: sanitized,
+    changed: sanitized !== text
+  };
+}
+
+function previewText(rawText, maxLen = 400) {
+  const text = String(rawText || '');
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, maxLen)}…(len=${text.length})`;
+}
+
+function parseOcrServiceBody(rawText, status) {
+  const original = String(rawText || '');
+  if (isDebug()) {
+    console.warn('[ocr-client] raw OCR response before validation', {
+      status,
+      bodyLen: original.length,
+      preview: previewText(original)
+    });
+  }
+
+  if (!original.trim()) {
+    console.warn('[ocr-client] request failed', {
+      reason: 'empty_body',
+      status,
+      bodyLen: 0
+    });
+    return {
+      ok: false,
+      reason: 'empty_body',
+      error: {
+        success: false,
+        error: 'OCR_INVALID_RESPONSE',
+        message: 'OCR service returned an empty response',
+        retry: true,
+        statusCode: status
+      }
+    };
+  }
+
+  let body;
+  let usedSanitize = false;
+  try {
+    body = JSON.parse(original);
+  } catch (firstError) {
+    const { text: sanitized, changed } = sanitizePythonJsonText(original);
+    usedSanitize = changed;
+    if (!changed) {
+      console.warn('[ocr-client] request failed', {
+        reason: 'invalid_json',
+        status,
+        parseError: firstError?.message || String(firstError),
+        preview: previewText(original)
+      });
+      return {
+        ok: false,
+        reason: 'invalid_json',
+        error: {
+          success: false,
+          error: 'OCR_INVALID_RESPONSE',
+          message: 'OCR service returned an invalid response',
+          retry: true,
+          statusCode: status
+        }
+      };
+    }
+    try {
+      body = JSON.parse(sanitized);
+      if (isDebug()) {
+        console.warn('[ocr-client] normalized OCR response after NaN/Infinity sanitize', {
+          status,
+          preview: previewText(sanitized)
+        });
+      }
+    } catch (secondError) {
+      console.warn('[ocr-client] request failed', {
+        reason: 'invalid_json_after_sanitize',
+        status,
+        parseError: secondError?.message || String(secondError),
+        preview: previewText(original)
+      });
+      return {
+        ok: false,
+        reason: 'invalid_json_after_sanitize',
+        error: {
+          success: false,
+          error: 'OCR_INVALID_RESPONSE',
+          message: 'OCR service returned an invalid response',
+          retry: true,
+          statusCode: status
+        }
+      };
+    }
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    console.warn('[ocr-client] request failed', {
+      reason: 'non_object_body',
+      status,
+      bodyType: body === null ? 'null' : Array.isArray(body) ? 'array' : typeof body,
+      preview: previewText(original)
+    });
+    return {
+      ok: false,
+      reason: 'non_object_body',
+      error: {
+        success: false,
+        error: 'OCR_INVALID_RESPONSE',
+        message: 'OCR service returned an empty response',
+        retry: true,
+        statusCode: status
+      }
+    };
+  }
+
+  if (isDebug()) {
+    console.warn('[ocr-client] normalized OCR response', {
+      status,
+      success: Boolean(body.success),
+      hasData: body.data != null && typeof body.data === 'object',
+      dataKeys: body.data && typeof body.data === 'object' ? Object.keys(body.data) : [],
+      error: body.error || null,
+      usedSanitize
+    });
+  }
+
+  return { ok: true, body, usedSanitize };
+}
+
 async function readMeterOnce(payload, timeoutMs) {
   const baseUrl = getOcrServiceUrl();
   const url = `${baseUrl}/ocr/read-meter`;
@@ -100,35 +240,18 @@ async function readMeterOnce(payload, timeoutMs) {
       signal: controller.signal
     });
 
-    let body;
-    try {
-      body = await response.json();
-    } catch {
-      console.warn('[ocr-client] request failed', { reason: 'invalid_json', status: response.status });
-      return {
-        success: false,
-        error: 'OCR_INVALID_RESPONSE',
-        message: 'OCR service returned an invalid response',
-        retry: true,
-        statusCode: response.status
-      };
+    const rawText = await response.text();
+    const parsed = parseOcrServiceBody(rawText, response.status);
+    if (!parsed.ok) {
+      return parsed.error;
     }
 
-    if (!body || typeof body !== 'object') {
-      console.warn('[ocr-client] request failed', { reason: 'empty_body', status: response.status });
-      return {
-        success: false,
-        error: 'OCR_INVALID_RESPONSE',
-        message: 'OCR service returned an empty response',
-        retry: true,
-        statusCode: response.status
-      };
-    }
-
+    const body = parsed.body;
     console.warn('[ocr-client] request completed', {
       status: response.status,
       success: Boolean(body.success),
-      meter_type: body.meter_type || payload?.meter_type || null
+      meter_type: body.meter_type || payload?.meter_type || null,
+      usedSanitize: Boolean(parsed.usedSanitize)
     });
 
     // Pass through OCR Service envelope; never invent OCR values here.
@@ -202,5 +325,8 @@ async function readMeter(payload) {
 module.exports = {
   readMeter,
   getOcrServiceUrl,
-  getOcrTimeoutMs
+  getOcrTimeoutMs,
+  // Exported for boundary smoke tests only.
+  sanitizePythonJsonText,
+  parseOcrServiceBody
 };
