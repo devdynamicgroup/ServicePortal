@@ -9,13 +9,10 @@
     <section class="score-report" id="score-hero">
       <div class="score-report-inner score-reveal">
         <div class="score-summary-card">
-          <div class="score-summary-icon-wrap" aria-hidden="true">
-            <svg class="score-summary-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="var(--score-accent)" opacity="0.15"/>
-              <path d="M12 5.5l4.24 4.24a6 6 0 1 1-8.49 0z" fill="var(--score-accent)" opacity="0.6"/>
-            </svg>
+          <div class="score-summary-topline">
+            <span class="score-summary-count" id="score-indicator-count">8 <span data-i18n="score.indicators">indicators</span></span>
+            <span class="score-summary-badge" id="score-summary-band">—</span>
           </div>
-          <div class="score-summary-meta" data-i18n="score.title">Water Score</div>
           <div class="score-summary-score">
             <span class="score-summary-num" id="gauge-val">—</span>
             <span class="score-summary-den">/100</span>
@@ -23,19 +20,36 @@
           <div class="score-progress" id="score-status-bar" role="img" aria-label="Water Score level">
             <div class="score-progress-fill" id="score-progress-fill"></div>
           </div>
-          <div class="score-standard-switch" id="score-standard-switch" role="tablist" aria-label="Reference standard"></div>
-          <h2 class="score-standard-label" id="score-standard-label" data-i18n="score.refStandard.thailand">Thailand Drinking Water Standard</h2>
-          <div class="score-summary-verdict" id="score-summary-band">—</div>
+          <div class="score-progress-ticks" aria-hidden="true">
+            <span>0</span>
+            <span id="score-tick-thai">50 &middot; Thai</span>
+            <span id="score-tick-intl">80 &middot; Int'l</span>
+            <span>100</span>
+          </div>
           <p class="score-summary-note" id="score-summary-note"></p>
         </div>
 
-        <section class="score-rooms" id="score-rooms-section">
-          <div class="score-section-head">
-            <h2 class="score-section-title" data-i18n="score.roomsTitle">Room Analysis</h2>
-            <p class="score-section-sub" data-i18n="score.roomsSub">Select a room to view its readings below</p>
-          </div>
-          <div id="score-room-list" class="score-room-list" role="tablist" aria-label="Room filter"></div>
+        <section class="score-improve" id="score-improve-section" hidden>
+          <h2 class="score-improve-title">
+            <span data-i18n="score.improveTitle">Room to improve</span>
+            <span id="score-improve-count"></span>
+          </h2>
+          <div id="score-improve-list" class="score-improve-list"></div>
         </section>
+
+        <div class="score-filter-row">
+          <div class="score-select-wrap" id="score-room-select-wrap">
+            <select class="score-select" id="score-room-select" aria-label="Location"></select>
+          </div>
+          <div class="score-select-wrap">
+            <select class="score-select" id="score-standard-select" aria-label="Reference standard"></select>
+          </div>
+        </div>
+
+        <div class="score-photo-carousel" id="score-photo-carousel" hidden>
+          <div class="score-photo-track" id="score-photo-track"></div>
+          <div class="score-photo-dots" id="score-photo-dots"></div>
+        </div>
 
         <p class="score-params-scope" id="score-params-scope" data-i18n="score.paramsOverall">Overall average across taps</p>
         <div class="score-metric-list" id="score-readings-rows"></div>

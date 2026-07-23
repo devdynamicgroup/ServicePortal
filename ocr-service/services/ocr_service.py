@@ -6,6 +6,8 @@ Routes call this layer only. Processing goes through the pipeline.
 
 from __future__ import annotations
 
+print("[OCR SERVICE BUILD] small-model-fix-v1", flush=True)
+
 from typing import Any
 
 from config.settings import settings

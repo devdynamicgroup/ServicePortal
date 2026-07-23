@@ -276,8 +276,11 @@ function syncMeterThumbFromSession(tap) {
 function mergeMeterReadings(existing = {}, detected = {}) {
   // TEMP TRACE (stage 3) — remove after temp-field investigation
   console.warn('[TEMP TRACE] stage3 mergeMeterReadings input', {
+    existingKeys: Object.keys(existing || {}),
+    detectedKeys: Object.keys(detected || {}),
     existingTemp: existing?.temp,
-    detectedTemp: detected?.temp
+    detectedTemp: detected?.temp,
+    detectedTemperatureAlias: detected?.temperature
   });
   const out = { ...(existing || {}) };
   Object.entries(detected || {}).forEach(([key, value]) => {
@@ -285,7 +288,10 @@ function mergeMeterReadings(existing = {}, detected = {}) {
     out[key] = value;
   });
   // TEMP TRACE (stage 4) — remove after temp-field investigation
-  console.warn('[TEMP TRACE] stage4 mergeMeterReadings output', { outTemp: out.temp });
+  console.warn('[TEMP TRACE] stage4 mergeMeterReadings output', {
+    outKeys: Object.keys(out),
+    outTemp: out.temp
+  });
   return out;
 }
 
@@ -297,6 +303,18 @@ function pickMeterReadingFields(readings = {}) {
 
 /** Map OCR service payload → meter form keys. Only keep non-empty detected values. */
 function mapOcrDataToMeterReadings(data = {}) {
+  // TEMP TRACE — temp mapping debug (remove after investigation)
+  const inputKeys = data && typeof data === 'object' ? Object.keys(data) : [];
+  console.warn('[TEMP TRACE] mapOcr input', {
+    keys: inputKeys,
+    temp: data?.temp,
+    temperature: data?.temperature,
+    temperature_c: data?.temperature_c,
+    temp_c: data?.temp_c,
+    hasTemp: Object.prototype.hasOwnProperty.call(data || {}, 'temp'),
+    hasTemperature: Object.prototype.hasOwnProperty.call(data || {}, 'temperature')
+  });
+
   const mapped = {
     ph: data.ph,
     tds: data.tds,
@@ -313,11 +331,26 @@ function mapOcrDataToMeterReadings(data = {}) {
     doPercent: data.do_percent
   };
   const out = {};
+  const dropped = [];
   Object.entries(mapped).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') return;
+    if (value === undefined || value === null || value === '') {
+      if (key === 'temp') dropped.push({ key, reason: 'empty', value });
+      return;
+    }
     // Never auto-fill false zeros (keypad "0" / missing parse) into the form.
-    if (Number(value) === 0 && (key === 'ph' || key === 'temp' || key === 'turbidity')) return;
+    if (Number(value) === 0 && (key === 'ph' || key === 'temp' || key === 'turbidity')) {
+      dropped.push({ key, reason: 'false_zero_filter', value });
+      return;
+    }
     out[key] = String(value);
+  });
+  // TEMP TRACE — temp mapping debug (remove after investigation)
+  console.warn('[TEMP TRACE] mapOcr output', {
+    mappedKeys: Object.keys(out),
+    mappedTemp: out.temp,
+    preFilterTemp: mapped.temp,
+    droppedTemp: dropped.filter(d => d.key === 'temp'),
+    dropped
   });
   return out;
 }
@@ -522,16 +555,24 @@ async function detectMeterReadingsFromImage(photoSrc) {
       };
     }
     // TEMP TRACE (stage 1) — remove after temp-field investigation
-    console.warn('[TEMP TRACE] stage1 raw OCR data.temp/temperature', {
+    console.warn('[TEMP TRACE] stage1 OCR detected input', {
+      dataKeys: Object.keys(body.data),
       temp: body.data?.temp,
-      temperature: body.data?.temperature
+      temperature: body.data?.temperature,
+      temperature_c: body.data?.temperature_c,
+      temp_c: body.data?.temp_c,
+      fullData: body.data
     });
     const mapped = mapOcrDataToMeterReadings(body.data);
     // Immutable Raw evidence = OCR data as returned (not form-mapped keys).
     const rawMeasurement = freezeMeasurement(body.data);
     const metadata = buildMeasurementMetadata(body, { source: 'ocr' });
     // TEMP TRACE (stage 2) — remove after temp-field investigation
-    console.warn('[TEMP TRACE] stage2 detectMeterReadingsFromImage returned', { temp: mapped.temp });
+    console.warn('[TEMP TRACE] stage2 mapped readings output', {
+      mappedKeys: Object.keys(mapped),
+      temp: mapped.temp,
+      mapped
+    });
     console.warn('[OCR] mapped readings:', mapped);
     return { readings: mapped, rawMeasurement, metadata };
   } catch (error) {

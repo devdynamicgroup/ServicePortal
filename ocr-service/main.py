@@ -6,6 +6,8 @@ Contract-ready mock OCR API. No real OCR engines.
 
 from __future__ import annotations
 
+print("[MAIN BUILD] small-model-fix-v1", flush=True)
+
 import json
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer

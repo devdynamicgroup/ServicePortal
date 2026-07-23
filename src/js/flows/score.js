@@ -370,24 +370,16 @@ function activeStandardKey() {
   return activeComparisonResult()?.standardKey || S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY;
 }
 
-function renderStandardSwitcher(context = getScoreEvalContext()) {
-  const listEl = document.getElementById('score-standard-switch');
-  if (!listEl) return;
+function renderStandardSelect(context = getScoreEvalContext()) {
+  const selectEl = document.getElementById('score-standard-select');
+  if (!selectEl) return;
   const selected = context.selectedStandard;
-  listEl.replaceChildren();
-  SCORE_STANDARD_ORDER.forEach(key => {
+  const benchmarkLabel = t('score.benchmark');
+  selectEl.innerHTML = SCORE_STANDARD_ORDER.map(key => {
     const standard = getWaterQualityStandard(key);
-    const active = selected === key;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `score-standard-chip${active ? ' is-active' : ''}`;
-    btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-selected', active ? 'true' : 'false');
-    btn.dataset.standardKey = key;
-    btn.textContent = t(standard.shortKey);
-    btn.addEventListener('click', () => setScoreReferenceStandard(key));
-    listEl.appendChild(btn);
-  });
+    return `<option value="${key}"${selected === key ? ' selected' : ''}>${benchmarkLabel}: ${t(standard.shortKey)}</option>`;
+  }).join('');
+  selectEl.onchange = () => setScoreReferenceStandard(selectEl.value);
 }
 
 function renderAboutForStandard(standardKey) {
@@ -473,15 +465,16 @@ function renderScoreDisplay() {
   }
 
   renderScoreStatusBar(wq);
-  S.scoreParamOpen = null;
   if (!S.scoreTapFilter) {
     S.scoreTapFilter = (S.taps?.length || 0) > 1 ? 'all' : (S.taps?.[0] || 'all');
   }
   animateScoreNumber(document.getElementById('gauge-val'), wq);
-  renderStandardSwitcher(context);
+  renderStandardSelect(context);
+  renderLocationSelect(context);
   renderAboutForStandard(context.selectedStandard);
   renderScoreReadings(context);
-  renderRoomAnalysis(context);
+  renderScoreImprove(context);
+  renderScorePhotos();
 }
 
 /** Switch comparison standard — recalculates statuses from the same resolved readings. */
@@ -848,94 +841,123 @@ function renderScoreReadings(context = getScoreEvalContext()) {
   }
 
   const rows = scoreTapRows(S.scoreTapFilter, context);
-  const openIndex = Number.isInteger(S.scoreParamOpen) ? S.scoreParamOpen : -1;
   const statusLabels = {
     good: t('score.status.good'),
     attn: t('score.status.attn')
   };
 
-  listEl.innerHTML = rows.map((r, index) => {
-    const open = openIndex === index;
+  const countEl = document.getElementById('score-indicator-count');
+  if (countEl) countEl.innerHTML = `${rows.length} <span data-i18n="score.indicators">${t('score.indicators')}</span>`;
+
+  listEl.innerHTML = rows.map(r => {
     const statusKey = paramStatusUiKey(r.st);
     const statusLabel = statusLabels[statusKey];
-    const detail = paramMeaningText(r.p, statusKey);
-    return `<div class="score-metric${open ? ' is-open' : ''} is-${statusKey}">
-  <button type="button" class="score-metric-head" onclick="toggleScoreParam(${index})" aria-expanded="${open ? 'true' : 'false'}">
-    <span class="score-metric-name">${r.p}</span>
-    <span class="score-metric-right">
-      <span class="score-metric-value">${r.r}</span>
-      <span class="score-metric-status">${statusLabel}</span>
-    </span>
-  </button>
-  <div class="score-metric-body"${open ? '' : ' hidden'}>
-    <div class="score-metric-detail">
-      <span>${t('score.currentValue')}</span>
-      <strong>${r.r}</strong>
-    </div>
-    <div class="score-metric-detail">
-      <span>${t('score.recommended')}</span>
-      <strong>${r.std}</strong>
-    </div>
-    <p class="score-metric-meaning">${detail}</p>
-  </div>
+    return `<div class="score-metric-row is-${statusKey}">
+  <span class="score-metric-name">${r.p}</span>
+  <span class="score-metric-range">${r.std}</span>
+  <span class="score-metric-value">${r.r}</span>
+  <span class="score-metric-status"><i class="score-dot" aria-hidden="true"></i>${statusLabel}</span>
 </div>`;
   }).join('');
 }
 
-function renderRoomAnalysis(context = getScoreEvalContext()) {
-  const section = document.getElementById('score-rooms-section');
-  const listEl = document.getElementById('score-room-list');
-  const taps = S.taps?.length ? S.taps : [];
+/** "Room to improve" — attention-status rows for the currently viewed location. */
+function renderScoreImprove(context = getScoreEvalContext()) {
+  const section = document.getElementById('score-improve-section');
+  const listEl = document.getElementById('score-improve-list');
+  const countEl = document.getElementById('score-improve-count');
   if (!section || !listEl) return;
 
-  if (taps.length <= 1) {
-    section.classList.add('hidden');
+  const rows = scoreTapRows(S.scoreTapFilter || 'all', context).filter(r => paramStatusUiKey(r.st) === 'attn');
+  if (!rows.length) {
+    section.hidden = true;
     listEl.replaceChildren();
     return;
   }
 
-  section.classList.remove('hidden');
-  const rows = [
-    { key: 'all', label: `${t('score.roomsAll')} (${taps.length})` },
-    ...taps.map(tap => ({ key: tap, label: tap }))
-  ];
-
-  listEl.replaceChildren();
-  rows.forEach(row => {
-    const active = S.scoreTapFilter === row.key;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `score-room-row${active ? ' is-active' : ''}`;
-    btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-selected', active ? 'true' : 'false');
-    btn.dataset.roomKey = row.key;
-    btn.dataset.standard = context.selectedStandard;
-
-    const name = document.createElement('span');
-    name.className = 'score-room-name';
-    name.textContent = row.label;
-    btn.appendChild(name);
-
-    btn.addEventListener('click', () => {
-      setScoreTapFilter(row.key);
-    });
-
-    listEl.appendChild(btn);
-  });
+  section.hidden = false;
+  if (countEl) countEl.textContent = `· ${rows.length}`;
+  listEl.innerHTML = rows.map(r => `<div class="score-improve-row">
+  <span class="score-improve-name">${r.p}</span>
+  <span class="score-improve-range">${r.std}</span>
+  <span class="score-improve-value">${r.r}</span>
+</div>`).join('');
 }
 
-function toggleScoreParam(index) {
-  S.scoreParamOpen = S.scoreParamOpen === index ? null : index;
-  renderScoreReadings(getScoreEvalContext());
+/** Photo carousel for the currently viewed location(s), sourced from assessment tap photos. */
+function renderScorePhotos() {
+  const wrap = document.getElementById('score-photo-carousel');
+  const track = document.getElementById('score-photo-track');
+  const dotsEl = document.getElementById('score-photo-dots');
+  if (!wrap || !track || !dotsEl) return;
+
+  const taps = S.taps?.length ? S.taps : [];
+  const tapData = (S.activeJob?.draft?.tapData?.length ? S.activeJob.draft.tapData : S.tapData) || [];
+  const indices = S.scoreTapFilter && S.scoreTapFilter !== 'all'
+    ? [taps.indexOf(S.scoreTapFilter)].filter(i => i >= 0)
+    : taps.map((_, i) => i);
+
+  const photoSrc = photo => {
+    if (!photo) return '';
+    if (typeof DrivePhoto !== 'undefined' && DrivePhoto.previewSrc) return DrivePhoto.previewSrc(photo) || '';
+    return typeof photo === 'string' ? photo : '';
+  };
+
+  const images = indices.map(i => {
+    const photos = tapData[i]?.photos || {};
+    const src = photoSrc(photos.tapphoto) || photoSrc(photos.visual) || photoSrc(photos.meter);
+    return src ? { label: taps[i] || '', src } : null;
+  }).filter(Boolean);
+
+  if (!images.length) {
+    wrap.hidden = true;
+    track.replaceChildren();
+    dotsEl.replaceChildren();
+    return;
+  }
+
+  wrap.hidden = false;
+  track.innerHTML = images.map(img => `<div class="score-photo-slide"><img src="${img.src}" alt="${img.label}" loading="lazy"></div>`).join('');
+  dotsEl.innerHTML = images.map((_, i) => `<span class="score-photo-dot${i === 0 ? ' is-active' : ''}"></span>`).join('');
+  dotsEl.style.display = images.length > 1 ? '' : 'none';
+
+  if (images.length > 1) {
+    const dots = Array.from(dotsEl.children);
+    track.onscroll = () => {
+      const idx = Math.round(track.scrollLeft / track.clientWidth);
+      dots.forEach((d, i) => d.classList.toggle('is-active', i === idx));
+    };
+  } else {
+    track.onscroll = null;
+  }
+}
+
+function renderLocationSelect() {
+  const wrap = document.getElementById('score-room-select-wrap');
+  const selectEl = document.getElementById('score-room-select');
+  const taps = S.taps?.length ? S.taps : [];
+  if (!wrap || !selectEl) return;
+
+  if (taps.length <= 1) {
+    wrap.classList.add('hidden');
+    return;
+  }
+  wrap.classList.remove('hidden');
+
+  const allLabel = `${t('score.allLocations')} (${taps.length})`;
+  const options = [{ key: 'all', label: allLabel }, ...taps.map(tap => ({ key: tap, label: tap }))];
+  selectEl.innerHTML = options.map(opt =>
+    `<option value="${opt.key}"${S.scoreTapFilter === opt.key ? ' selected' : ''}>${opt.label}</option>`
+  ).join('');
+  selectEl.onchange = () => setScoreTapFilter(selectEl.value);
 }
 
 function setScoreTapFilter(key) {
   const context = getScoreEvalContext();
   S.scoreTapFilter = key;
-  S.scoreParamOpen = null;
   renderScoreReadings(context);
-  renderRoomAnalysis(context);
-  document.getElementById('score-readings-rows')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  renderScoreImprove(context);
+  renderScorePhotos();
 }
 
 let sharingScore = false;
