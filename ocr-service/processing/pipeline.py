@@ -95,7 +95,8 @@ class OcrPipeline:
             "denoise": self.settings.preprocess_denoise,
             "normalize": self.settings.preprocess_normalize,
         }
-        processed, history = run_preprocess_chain(image_path, flags=flags)
+        options = {"resize": {"max_side": self.settings.preprocess_resize_max_side}}
+        processed, history = run_preprocess_chain(image_path, flags=flags, options=options)
         ctx.processed_image_path = processed
         ctx.preprocessing_history = history
         ctx.timings["preprocess_ms"] = _ms_since(t0)

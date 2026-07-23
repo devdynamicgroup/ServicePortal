@@ -69,3 +69,11 @@ services:
         value: max
       - key: OCR_PADDLE_DET_LIMIT_SIDE_LEN
         value: "960"
+      # Downscale real phone photos before predict() — full-resolution images
+      # were pushing predict() past OCR_REQUEST_TIMEOUT on free-tier CPU.
+      - key: OCR_PREPROCESS_RESIZE
+        value: "True"
+      - key: OCR_PREPROCESS_RESIZE_MAX_SIDE
+        value: "1280"
+      - key: OCR_REQUEST_TIMEOUT
+        value: "60"

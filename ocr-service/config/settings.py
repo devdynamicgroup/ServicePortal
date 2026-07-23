@@ -72,7 +72,12 @@ class Settings:
     host: str = "0.0.0.0"
     port: int = 5055
 
-    request_timeout_seconds: float = 30.0
+    # 30s default was too tight for a real phone photo at full resolution on
+    # Render free-tier CPU — a stuck/abandoned predict() also risked colliding
+    # with the next queued request on the single persistent engine worker
+    # thread (see OcrPipeline._engine_executor). 60s + the resize above gives
+    # real predict() calls room to finish instead of hitting this ceiling.
+    request_timeout_seconds: float = 60.0
     # Enough for browser data URLs (base64 ≈ 4/3 of decoded image) + JSON wrapper.
     # Decoded image cap remains image_max_bytes (20 MiB).
     max_body_bytes: int = 28_000_000
@@ -91,8 +96,15 @@ class Settings:
     image_max_bytes: int = 20_000_000
     allow_virtual_images: bool = True
 
-    # Optional preprocess steps (all off by default)
-    preprocess_resize: bool = False
+    # Optional preprocess steps.
+    # Resize is on by default — real phone photos (3000x4000+) otherwise hit
+    # PaddleOCR predict() at full resolution and can exceed request_timeout_seconds
+    # on constrained CPU (Render free tier). Downscaling before predict() is the
+    # single biggest lever on wall-clock time; det_limit_side_len (paddle_engine.py)
+    # still caps detection internally, but recognition crops + image decode/preprocess
+    # all benefit from a smaller source image too.
+    preprocess_resize: bool = True
+    preprocess_resize_max_side: int = 1280
     preprocess_rotate: bool = False
     preprocess_crop: bool = False
     preprocess_contrast: bool = False
@@ -117,7 +129,7 @@ def load_settings() -> Settings:
         phase=_env("OCR_SERVICE_PHASE", "3.5"),
         host=_env("OCR_HOST", "0.0.0.0"),
         port=_env_int("OCR_PORT", 5055),
-        request_timeout_seconds=_env_float("OCR_REQUEST_TIMEOUT", 30.0),
+        request_timeout_seconds=_env_float("OCR_REQUEST_TIMEOUT", 60.0),
         max_body_bytes=_env_int("OCR_MAX_BODY_BYTES", 28_000_000),
         ocr_engine=engine,
         log_dir=_env("OCR_LOG_DIR", "logs"),
@@ -128,7 +140,8 @@ def load_settings() -> Settings:
         image_max_height=_env_int("OCR_IMAGE_MAX_HEIGHT", 8000),
         image_max_bytes=_env_int("OCR_IMAGE_MAX_BYTES", 20_000_000),
         allow_virtual_images=_env_bool("OCR_ALLOW_VIRTUAL_IMAGES", True),
-        preprocess_resize=_env_bool("OCR_PREPROCESS_RESIZE", False),
+        preprocess_resize=_env_bool("OCR_PREPROCESS_RESIZE", True),
+        preprocess_resize_max_side=_env_int("OCR_PREPROCESS_RESIZE_MAX_SIDE", 1280),
         preprocess_rotate=_env_bool("OCR_PREPROCESS_ROTATE", False),
         preprocess_crop=_env_bool("OCR_PREPROCESS_CROP", False),
         preprocess_contrast=_env_bool("OCR_PREPROCESS_CONTRAST", False),
