@@ -315,9 +315,130 @@ function mapOcrDataToMeterReadings(data = {}) {
   const out = {};
   Object.entries(mapped).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '') return;
+    // Never auto-fill false zeros (keypad "0" / missing parse) into the form.
+    if (Number(value) === 0 && (key === 'ph' || key === 'temp' || key === 'turbidity')) return;
     out[key] = String(value);
   });
   return out;
+}
+
+/**
+ * PR2 — Layer 2 storage helpers.
+ * Raw is immutable OCR evidence. Standard is derived only via ConversionEngine.
+ * Legacy meterReadings / form mapping remain unchanged for UI + Score.
+ */
+function cloneMeasurement(value = {}) {
+  if (!value || typeof value !== 'object') return {};
+  return { ...value };
+}
+
+function freezeMeasurement(value = {}) {
+  return Object.freeze(cloneMeasurement(value));
+}
+
+function mergeRawMeasurement(existing = {}, incoming = {}) {
+  const out = cloneMeasurement(existing);
+  Object.entries(incoming || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    out[key] = value;
+  });
+  return freezeMeasurement(out);
+}
+
+/**
+ * Build additive metadata from the existing OCR envelope + client context.
+ * Does not require OCR schema changes. Omits profile / parser_version / spatial
+ * source when the public response does not include them.
+ */
+function buildMeasurementMetadata(ocrBody = {}, context = {}) {
+  const meta = {
+    timestamp: context.timestamp || new Date().toISOString()
+  };
+  if (context.image != null && context.image !== '') meta.image = context.image;
+  if (ocrBody && typeof ocrBody === 'object') {
+    if (ocrBody.meter_type != null && ocrBody.meter_type !== '') {
+      meta.meter_type = ocrBody.meter_type;
+    }
+    if (ocrBody.confidence != null && Number.isFinite(Number(ocrBody.confidence))) {
+      meta.confidence = Number(ocrBody.confidence);
+    }
+    if (ocrBody.request_id != null && ocrBody.request_id !== '') {
+      meta.request_id = ocrBody.request_id;
+    }
+    // Pass through additive fields only if already present on the envelope.
+    if (ocrBody.profile != null && ocrBody.profile !== '') meta.profile = ocrBody.profile;
+    if (ocrBody.source != null && ocrBody.source !== '') meta.source = ocrBody.source;
+    if (ocrBody.parser_version != null && ocrBody.parser_version !== '') {
+      meta.parser_version = ocrBody.parser_version;
+    }
+  }
+  if (!meta.source) meta.source = context.source || 'ocr';
+  return meta;
+}
+
+function convertRawToStandard(rawMeasurement) {
+  if (typeof ConversionEngine === 'undefined' || !ConversionEngine?.toStandardMeasurement) {
+    return {
+      standardMeasurement: {},
+      applied: [],
+      missing: [],
+      rawSnapshot: freezeMeasurement(rawMeasurement)
+    };
+  }
+  const result = ConversionEngine.toStandardMeasurement(rawMeasurement);
+  return {
+    standardMeasurement: freezeMeasurement(result.standardMeasurement || {}),
+    applied: Array.isArray(result.applied) ? result.applied.slice() : [],
+    missing: Array.isArray(result.missing) ? result.missing.slice() : [],
+    rawSnapshot: freezeMeasurement(result.rawSnapshot || rawMeasurement)
+  };
+}
+
+/**
+ * Persist Raw + Standard + metadata on tap (and optional meter image entry).
+ * Never mutates prior Raw in place; never writes Standard into Raw.
+ * Does not change meterReadings / UI fields.
+ */
+function storeRawAndStandardMeasurements(tap, {
+  rawMeasurement,
+  metadata,
+  entry = null
+} = {}) {
+  if (!tap || !rawMeasurement || typeof rawMeasurement !== 'object') return null;
+  if (!Object.keys(rawMeasurement).length) return null;
+
+  const imageRaw = freezeMeasurement(rawMeasurement);
+  const imageConversion = convertRawToStandard(imageRaw);
+  const imageMeta = {
+    ...(metadata && typeof metadata === 'object' ? metadata : {}),
+    conversion: {
+      applied: imageConversion.applied,
+      missing: imageConversion.missing
+    }
+  };
+
+  if (entry) {
+    entry.rawMeasurement = imageRaw;
+    entry.standardMeasurement = imageConversion.standardMeasurement;
+    entry.metadata = imageMeta;
+  }
+
+  tap.rawMeasurement = mergeRawMeasurement(tap.rawMeasurement, imageRaw);
+  const tapConversion = convertRawToStandard(tap.rawMeasurement);
+  tap.standardMeasurement = tapConversion.standardMeasurement;
+  tap.metadata = {
+    ...imageMeta,
+    conversion: {
+      applied: tapConversion.applied,
+      missing: tapConversion.missing
+    }
+  };
+
+  return {
+    rawMeasurement: tap.rawMeasurement,
+    standardMeasurement: tap.standardMeasurement,
+    metadata: tap.metadata
+  };
 }
 
 const OCR_USER_ERROR_CODES = new Set([
@@ -330,8 +451,15 @@ const OCR_USER_ERROR_CODES = new Set([
 
 /**
  * Read meter values from the image via OCR.
- * Returns only fields actually present in the OCR response — never invents values.
+ * Returns form-mapped readings for legacy UI fill, plus Raw OCR data for PR2 storage.
+ * Never invents measurement values.
  * Throws with code ENGINE_UNAVAILABLE / OCR_OFFLINE / OCR_TIMEOUT when OCR cannot run.
+ *
+ * @returns {Promise<{
+ *   readings: object,
+ *   rawMeasurement: object,
+ *   metadata: object
+ * }>}
  */
 async function detectMeterReadingsFromImage(photoSrc) {
   const imageUrl = typeof photoSrc === 'string'
@@ -343,7 +471,11 @@ async function detectMeterReadingsFromImage(photoSrc) {
       isString: typeof photoSrc === 'string',
       stringPrefix: typeof photoSrc === 'string' ? photoSrc.slice(0, 32) : null
     });
-    return {};
+    return {
+      readings: {},
+      rawMeasurement: {},
+      metadata: buildMeasurementMetadata({}, { source: 'ocr' })
+    };
   }
 
   try {
@@ -383,7 +515,11 @@ async function detectMeterReadingsFromImage(photoSrc) {
     }
     if (!body || body.success === false || !body.data || typeof body.data !== 'object') {
       console.warn('[OCR] mapped readings:', {});
-      return {};
+      return {
+        readings: {},
+        rawMeasurement: {},
+        metadata: buildMeasurementMetadata(body || {}, { source: 'ocr' })
+      };
     }
     // TEMP TRACE (stage 1) — remove after temp-field investigation
     console.warn('[TEMP TRACE] stage1 raw OCR data.temp/temperature', {
@@ -391,10 +527,13 @@ async function detectMeterReadingsFromImage(photoSrc) {
       temperature: body.data?.temperature
     });
     const mapped = mapOcrDataToMeterReadings(body.data);
+    // Immutable Raw evidence = OCR data as returned (not form-mapped keys).
+    const rawMeasurement = freezeMeasurement(body.data);
+    const metadata = buildMeasurementMetadata(body, { source: 'ocr' });
     // TEMP TRACE (stage 2) — remove after temp-field investigation
     console.warn('[TEMP TRACE] stage2 detectMeterReadingsFromImage returned', { temp: mapped.temp });
     console.warn('[OCR] mapped readings:', mapped);
-    return mapped;
+    return { readings: mapped, rawMeasurement, metadata };
   } catch (error) {
     if (OCR_USER_ERROR_CODES.has(error?.code)) throw error;
     const message = String(error?.message || '');
@@ -409,7 +548,11 @@ async function detectMeterReadingsFromImage(photoSrc) {
       message,
       code: error?.code || null
     });
-    return {};
+    return {
+      readings: {},
+      rawMeasurement: {},
+      metadata: buildMeasurementMetadata({}, { source: 'ocr' })
+    };
   }
 }
 
@@ -745,6 +888,8 @@ async function appendMeterSessionPhoto(photoSrc) {
 
   // 2) Always run OCR for this image (never skip because Drive/busy).
   let detected = {};
+  let ocrRawMeasurement = {};
+  let ocrMetadata = {};
   let ocrUnavailable = false;
   console.warn('[OCR FLOW] starting detection', {
     imageLength: imageSrc.length,
@@ -752,11 +897,28 @@ async function appendMeterSessionPhoto(photoSrc) {
     meterImageId
   });
   try {
-    detected = await detectMeterReadingsFromImage(imageSrc);
+    const ocrResult = await detectMeterReadingsFromImage(imageSrc);
+    detected = ocrResult?.readings && typeof ocrResult.readings === 'object'
+      ? ocrResult.readings
+      : {};
+    ocrRawMeasurement = ocrResult?.rawMeasurement && typeof ocrResult.rawMeasurement === 'object'
+      ? ocrResult.rawMeasurement
+      : {};
+    ocrMetadata = buildMeasurementMetadata(ocrResult?.metadata || {}, {
+      image: meterImageId,
+      timestamp: entry.uploadedAt,
+      source: ocrResult?.metadata?.source || 'ocr'
+    });
   } catch (error) {
     if (OCR_USER_ERROR_CODES.has(error?.code)) {
       ocrUnavailable = true;
       detected = {};
+      ocrRawMeasurement = {};
+      ocrMetadata = buildMeasurementMetadata({}, {
+        image: meterImageId,
+        timestamp: entry.uploadedAt,
+        source: 'ocr'
+      });
       console.warn('[OCR FLOW] detection unavailable', {
         meterImageId,
         code: error.code,
@@ -769,8 +931,17 @@ async function appendMeterSessionPhoto(photoSrc) {
   console.warn('[OCR FLOW] detected result', { meterImageId, detected, ocrUnavailable });
 
   // 3) Merge + write form fields from OCR result only (no mock/fallback values).
+  // Legacy meterReadings path unchanged — Score still consumes this in PR2.
   entry.detected = detected;
+  // Always keep per-image metadata for the OCR attempt (even when Raw is empty).
+  entry.metadata = { ...(entry.metadata || {}), ...ocrMetadata };
   tap.meterReadings = mergeMeterReadings(tap.meterReadings, detected);
+  // PR2: store Raw + Standard + metadata without changing form/Score behavior.
+  storeRawAndStandardMeasurements(tap, {
+    rawMeasurement: ocrRawMeasurement,
+    metadata: ocrMetadata,
+    entry
+  });
   if (Object.keys(detected).length) tap.meterSource = 'ocr';
   syncMeterThumbFromSession(tap);
   writeMeterReadingFields(tap.meterReadings);
