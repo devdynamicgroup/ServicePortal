@@ -8,9 +8,19 @@ function getScoreStyle(wq) {
 
 /** Customer-facing verdict shown on the summary card (not the DWQI band legend). */
 function customerVerdict(wq) {
-  if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#6ee7b7' };
-  if (wq >= 65) return { label: t('score.verdict.good'), color: '#93c5fd' };
-  return { label: t('score.verdict.attention'), color: '#fbbf24' };
+  if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#3b82f6', tier: 'high' };
+  if (wq >= 65) return { label: t('score.verdict.good'), color: '#22c55e', tier: 'mid' };
+  return { label: t('score.verdict.attention'), color: '#f07b7b', tier: 'low' };
+}
+
+function scoreSummaryNote(wq, findings) {
+  const attnCount = (findings || []).length;
+  if (wq >= 80) return t('score.msg.excellent');
+  if (wq >= 65) return t('score.msg.goodDetail');
+  if (attnCount > 0) {
+    return t('score.msg.attentionDetail').replace('{n}', String(attnCount));
+  }
+  return t('score.msg.low');
 }
 
 function animateScoreNumber(el, target) {
@@ -357,9 +367,11 @@ function paramMeaningText(paramName, status) {
 function renderScoreStatusBar(wq) {
   const bar = document.getElementById('score-status-bar');
   const fill = document.getElementById('score-progress-fill');
+  const knob = document.getElementById('score-progress-knob');
   const score = Math.max(0, Math.min(100, Number(wq) || 0));
   if (bar) bar.setAttribute('aria-label', `Water Score ${Math.round(score)} of 100`);
   if (fill) fill.style.width = `${score}%`;
+  if (knob) knob.style.left = `${score}%`;
 }
 
 function activeComparisonResult() {
@@ -374,10 +386,9 @@ function renderStandardSelect(context = getScoreEvalContext()) {
   const selectEl = document.getElementById('score-standard-select');
   if (!selectEl) return;
   const selected = context.selectedStandard;
-  const benchmarkLabel = t('score.benchmark');
   selectEl.innerHTML = SCORE_STANDARD_ORDER.map(key => {
     const standard = getWaterQualityStandard(key);
-    return `<option value="${key}"${selected === key ? ' selected' : ''}>${benchmarkLabel}: ${t(standard.shortKey)}</option>`;
+    return `<option value="${key}"${selected === key ? ' selected' : ''}>${t(standard.shortKey)}</option>`;
   }).join('');
   selectEl.onchange = () => setScoreReferenceStandard(selectEl.value);
 }
@@ -430,7 +441,6 @@ function renderScoreDisplay() {
     readings: result.readings
   });
   const findings = result.findings || [];
-  const top = findings[0];
   const verdict = customerVerdict(wq);
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
@@ -439,7 +449,7 @@ function renderScoreDisplay() {
 
   if (hero) {
     hero.className = 'score-report score-live';
-    hero.dataset.tier = wq >= 80 ? 'high' : wq >= 65 ? 'mid' : 'low';
+    hero.dataset.tier = verdict.tier;
   }
   const summaryCard = hero?.querySelector('.score-summary-card');
   if (summaryCard) {
@@ -453,15 +463,7 @@ function renderScoreDisplay() {
     bandEl.style.color = '';
   }
   if (noteEl) {
-    if (top) {
-      noteEl.textContent = top.note;
-    } else if (wq >= 80) {
-      noteEl.textContent = t('score.msg.high');
-    } else if (wq >= 65) {
-      noteEl.textContent = t('score.msg.good');
-    } else {
-      noteEl.textContent = t('score.msg.subShort');
-    }
+    noteEl.textContent = scoreSummaryNote(wq, findings);
   }
 
   renderScoreStatusBar(wq);
@@ -861,25 +863,49 @@ function renderScoreReadings(context = getScoreEvalContext()) {
   }).join('');
 }
 
-/** "Room to improve" — attention-status rows for the currently viewed location. */
+/** "Fix first" / "Room to improve" — attention-status rows for the currently viewed location. */
 function renderScoreImprove(context = getScoreEvalContext()) {
   const section = document.getElementById('score-improve-section');
   const listEl = document.getElementById('score-improve-list');
   const countEl = document.getElementById('score-improve-count');
+  const headingEl = document.getElementById('score-improve-heading');
+  const allGood = document.getElementById('score-all-good');
+  const allGoodText = document.getElementById('score-all-good-text');
   if (!section || !listEl) return;
 
-  const rows = scoreTapRows(S.scoreTapFilter || 'all', context).filter(r => paramStatusUiKey(r.st) === 'attn');
+  const allRows = scoreTapRows(S.scoreTapFilter || 'all', context);
+  const rows = allRows.filter(r => paramStatusUiKey(r.st) === 'attn');
+  const score = Number(activeComparisonResult()?.score);
+  const computedWho = Number(S.currentScoreResult?.computedScore);
+  const wq = Number.isFinite(computedWho) ? computedWho : (Number.isFinite(score) ? score : 0);
+  const verdict = customerVerdict(wq);
+
   if (!rows.length) {
     section.hidden = true;
     listEl.replaceChildren();
+    if (allGood) {
+      const showPass = verdict.tier === 'high';
+      allGood.hidden = !showPass;
+      if (allGoodText && showPass) {
+        allGoodText.textContent = t('score.allGood').replace('{n}', String(allRows.length || 8));
+      }
+    }
     return;
   }
 
+  if (allGood) allGood.hidden = true;
   section.hidden = false;
+  if (headingEl) {
+    headingEl.textContent = verdict.tier === 'low' ? t('score.fixFirst') : t('score.improveTitle');
+  }
   if (countEl) countEl.textContent = `· ${rows.length}`;
+  const warnIcon = `<span class="score-improve-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.5" r="0.8" fill="currentColor" stroke="none"/></svg></span>`;
   listEl.innerHTML = rows.map(r => `<div class="score-improve-row">
-  <span class="score-improve-name">${r.p}</span>
-  <span class="score-improve-range">${r.std}</span>
+  ${warnIcon}
+  <span class="score-improve-body">
+    <span class="score-improve-name">${r.p}</span>
+    <span class="score-improve-range">${r.std}</span>
+  </span>
   <span class="score-improve-value">${r.r}</span>
 </div>`).join('');
 }
