@@ -119,6 +119,46 @@ function addCaseForSelectedDay() {
   showToast(`Added case for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
 }
 
+// Ad-hoc case created by staff on-site (no scheduled Notion appointment).
+// Jumps straight to the Start assessment step and records the actual start time.
+function createManualCase() {
+  const now = new Date();
+  const iso = formatDate(now);
+  const maxId = JOBS.reduce((m, j) => {
+    const legacy = Number(j.legacyNumericId);
+    const numeric = Number(j.id);
+    const candidate = Number.isFinite(legacy) ? legacy : (Number.isFinite(numeric) ? numeric : 0);
+    return Math.max(m, candidate);
+  }, 1000);
+  const fmtTime = d => {
+    const h = d.getHours() % 12 || 12;
+    return `${h}:${String(d.getMinutes()).padStart(2, '0')}${d.getHours() >= 12 ? 'PM' : 'AM'}`;
+  };
+  const end = new Date(now.getTime() + 60 * 60 * 1000);
+  const job = {
+    id: maxId + 1,
+    name: `New Client ${maxId + 1}`,
+    addr: 'Address to confirm',
+    timeStart: fmtTime(now),
+    timeEnd: fmtTime(end),
+    day: (now.getDay() + 6) % 7,
+    date: iso,
+    pkg: 'essential',
+    status: 'new',
+    startedAt: now.toISOString(),
+    meta: 'Manual case - started on-site'
+  };
+  JOBS.push(job);
+  ensureJobDraft(job);
+  persistJobs();
+  pushNotifEvent('New appointment', `${job.name} - ${iso} ${job.timeStart}`);
+  weekBase = getMonday(now);
+  S.selDay = job.day;
+  renderCalendar();
+  openJob(job.id);
+  goScreen('s-assess');
+}
+
 function addNextDayAppt() {
   let dayIndex = S.selDay + 1;
   if (dayIndex > 6) {

@@ -144,6 +144,8 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .dash-add-btn{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--blue);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap}
 .dash-add-btn.secondary{background:var(--accent-50);border-color:var(--accent-100)}
 .dash-add-btn svg{flex-shrink:0}
+.dash-fab{position:fixed;left:50%;transform:translateX(calc(-50% + 155px));bottom:calc(24px + env(safe-area-inset-bottom));width:52px;height:52px;border-radius:50%;border:none;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;z-index:30}
+.dash-fab:active{transform:translateX(calc(-50% + 155px)) scale(.95)}
 .appt-empty{text-align:center;padding:40px 16px;color:var(--muted);font-size:14px;line-height:1.6}
 .appt-empty-hint{display:block;margin-top:8px;font-size:13px;color:var(--dim)}
 .appt-search{width:32px;height:32px;border:none;background:none;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center}
