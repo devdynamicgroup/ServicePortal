@@ -192,26 +192,6 @@ function selSeg(el, group) {
   el.classList.add('sel');
 }
 
-const SCORE_READING_BASE = { ph: 7.2, tds: 450, ec: 690, temp: 28, turbidity: 1.2, orp: 320, do: 6.8, chlorine: 2.1 };
-
-function generateRandomScoreReadings() {
-  const spread = () => (Math.random() * 2 - 1);
-  const d = spread();
-  const freeCl = Math.max(0.05, SCORE_READING_BASE.chlorine * 0.45 + d * 0.18);
-  const totalCl = Math.max(freeCl + 0.05, SCORE_READING_BASE.chlorine * 0.55 + d * 0.22);
-  return {
-    ph: (SCORE_READING_BASE.ph + d * 0.22).toFixed(1),
-    tds: String(Math.round(SCORE_READING_BASE.tds + d * 55)),
-    ec: String(Math.round(SCORE_READING_BASE.ec + d * 75)),
-    temp: String(Math.round(SCORE_READING_BASE.temp + d * 3)),
-    turbidity: Math.max(0.1, +(SCORE_READING_BASE.turbidity + d * 0.35).toFixed(1)),
-    orp: String(Math.round(SCORE_READING_BASE.orp + d * 45)),
-    do: Math.max(0.1, +(SCORE_READING_BASE.do + d * 0.7).toFixed(1)),
-    freeChlorine: freeCl.toFixed(2),
-    totalChlorine: totalCl.toFixed(2)
-  };
-}
-
 const METER_READING_FIELDS = {
   ph: 'm-ph',
   tds: 'm-tds',
@@ -594,6 +574,81 @@ async function detectMeterReadingsFromImage(photoSrc) {
       rawMeasurement: {},
       metadata: buildMeasurementMetadata({}, { source: 'ocr' })
     };
+  }
+}
+
+/**
+ * Read a chlorine (mg/L) value from a HACH DR300 photo via OCR.
+ * The device shows a single "Chlorine" reading — it never labels whether
+ * the reagent used was Free or Total, so the value only ever fills
+ * freeChlorine. totalChlorine stays for manual entry — never invented.
+ * Never invents a value when OCR finds nothing.
+ * Throws with code ENGINE_UNAVAILABLE / OCR_OFFLINE / OCR_TIMEOUT when OCR cannot run.
+ *
+ * @returns {Promise<{ readings: {freeChlorine?: string}, metadata: object }>}
+ */
+async function detectChlorineFromImage(photoSrc) {
+  const imageUrl = typeof photoSrc === 'string'
+    ? photoSrc
+    : resolveCaptureDataUrl(photoSrc);
+  if (!imageUrl) {
+    console.warn('[OCR FLOW] missing imageSrc — aborting detectChlorineFromImage', {
+      photoSrcType: typeof photoSrc
+    });
+    return { readings: {}, metadata: buildMeasurementMetadata({}, { source: 'ocr' }) };
+  }
+
+  try {
+    console.warn('[OCR] request started', {
+      endpoint: '/api/ocr/read-meter',
+      meter_type: 'chlorine',
+      imageUrlLen: imageUrl.length
+    });
+    const response = await fetch('/api/ocr/read-meter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      cache: 'no-store',
+      body: JSON.stringify({
+        image_url: imageUrl,
+        meter_type: 'chlorine'
+      })
+    });
+    const body = await response.json().catch(() => ({}));
+    console.warn('[OCR] response received', {
+      httpStatus: response.status,
+      success: body?.success,
+      error: body?.error || null,
+      dataKeys: body?.data && typeof body.data === 'object' ? Object.keys(body.data) : []
+    });
+    if (body && body.success === false && OCR_USER_ERROR_CODES.has(body.error)) {
+      const err = new Error(body.message || 'OCR is not available');
+      err.code = body.error;
+      throw err;
+    }
+    if (!body || body.success === false || !body.data || typeof body.data !== 'object') {
+      return { readings: {}, metadata: buildMeasurementMetadata(body || {}, { source: 'ocr' }) };
+    }
+    const chlorineValue = body.data.chlorine;
+    const readings = {};
+    if (chlorineValue !== undefined && chlorineValue !== null && chlorineValue !== '') {
+      readings.freeChlorine = String(chlorineValue);
+    }
+    const metadata = buildMeasurementMetadata(body, { source: 'ocr' });
+    console.warn('[OCR] mapped chlorine readings:', readings);
+    return { readings, metadata };
+  } catch (error) {
+    if (OCR_USER_ERROR_CODES.has(error?.code)) throw error;
+    const message = String(error?.message || '');
+    if (error?.name === 'TypeError' || /failed to fetch|networkerror|load failed/i.test(message)) {
+      const offline = new Error('OCR service is not available');
+      offline.code = 'OCR_OFFLINE';
+      throw offline;
+    }
+    console.warn('Chlorine OCR request failed', error);
+    return { readings: {}, metadata: buildMeasurementMetadata({}, { source: 'ocr' }) };
   }
 }
 
@@ -1020,22 +1075,6 @@ const CHLORINE_READING_FIELDS = {
   totalChlorine: 'm-total-cl'
 };
 
-const PHOTO_SCAN_PROFILES = {
-  'cl-photo-preview': {
-    fields: CHLORINE_READING_FIELDS,
-    pick(readings) {
-      return {
-        freeChlorine: readings.freeChlorine,
-        totalChlorine: readings.totalChlorine
-      };
-    },
-    persist(tap, readings) {
-      tap.chlorineReadings = readings;
-      tap.chlorineSource = 'mock-ocr';
-    }
-  }
-};
-
 function writeReadingFields(fieldMap, readings = {}) {
   Object.entries(fieldMap).forEach(([key, id]) => {
     const el = document.getElementById(id);
@@ -1044,7 +1083,7 @@ function writeReadingFields(fieldMap, readings = {}) {
 }
 
 async function processAssessmentPhoto(previewId, photoSrc) {
-  // Meter session uses the dedicated OCR queue — never the chlorine mock busy lock.
+  // Meter session uses the dedicated OCR queue — never the chlorine busy lock.
   if (previewId === 'meter-photo-preview') {
     if (window.MeterReadingCapture?.processPhoto) {
       return MeterReadingCapture.processPhoto(photoSrc);
@@ -1052,20 +1091,39 @@ async function processAssessmentPhoto(previewId, photoSrc) {
     return appendMeterSessionPhoto(photoSrc);
   }
 
-  const profile = PHOTO_SCAN_PROFILES[previewId];
-  if (!profile || !photoSrc || processAssessmentPhoto._busy) return;
+  if (previewId !== 'cl-photo-preview' || !photoSrc || processAssessmentPhoto._busy) return;
   processAssessmentPhoto._busy = true;
 
   try {
     showToast(typeof t === 'function' ? t('meter.processingTitle') : 'Reading image...');
-    await new Promise(resolve => setTimeout(resolve, 650));
 
-    const random = generateRandomScoreReadings();
-    const readings = profile.pick(random);
-    writeReadingFields(profile.fields, readings);
+    let detected = {};
+    let ocrUnavailable = false;
+    try {
+      const ocrResult = await detectChlorineFromImage(photoSrc);
+      detected = ocrResult?.readings && typeof ocrResult.readings === 'object' ? ocrResult.readings : {};
+    } catch (error) {
+      if (OCR_USER_ERROR_CODES.has(error?.code)) {
+        ocrUnavailable = true;
+        console.warn('[OCR FLOW] chlorine detection unavailable', { code: error.code, message: error.message });
+      } else {
+        throw error;
+      }
+    }
 
     const tap = getActiveTapRecord();
-    profile.persist(tap, readings);
+    // Merge onto existing readings — OCR only ever fills freeChlorine (the
+    // device never labels Free vs Total), so a manually-entered
+    // totalChlorine must survive instead of being wiped by this merge.
+    const readings = { ...(tap.chlorineReadings || {}) };
+    Object.entries(detected).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      readings[key] = value;
+    });
+    writeReadingFields(CHLORINE_READING_FIELDS, readings);
+    tap.chlorineReadings = readings;
+    if (Object.keys(detected).length) tap.chlorineSource = 'ocr';
+
     S.scoreBaseReadings = null;
     S.scoreVal = null;
     if (S.activeJob?.draft) {
@@ -1074,7 +1132,13 @@ async function processAssessmentPhoto(previewId, photoSrc) {
     }
     saveActiveJobState?.();
     renderAssessList();
-    showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
+    if (ocrUnavailable) {
+      showToast(typeof t === 'function' ? t('meter.toastOcrUnavailable') : 'OCR is not ready. Enter readings manually.');
+    } else if (Object.keys(detected).length) {
+      showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
+    } else {
+      showToast(typeof t === 'function' ? t('meter.toastNoValues') : 'No values detected. Enter readings manually.');
+    }
   } finally {
     processAssessmentPhoto._busy = false;
   }
