@@ -189,6 +189,38 @@ class TestFieldBinder(unittest.TestCase):
         self.assertNotIn("temperature", payload.data)
         self.assertNotIn("do_percent", payload.data)
 
+    def test_dotted_microsiemens_unit_binds_ec(self) -> None:
+        """PaddleOCR splits the tiny LCD 'μS/cm' glyph with spurious periods
+        ('μ.S.cm'). Real single-value EC screen — no other reading present."""
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "HANNA", "score": 0.99, "box": [443, 180, 773, 300]},
+            {"text": "369", "score": 0.99, "box": [419, 428, 620, 593]},
+            {"text": "μ.S.cm", "score": 0.90, "box": [650, 440, 760, 500]},
+            {"text": "HI98194", "score": 0.99, "box": [283, 711, 470, 758]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id="hanna_hi98194"
+        )
+        self.assertEqual(payload.data.get("ec"), 369.0)
+
+    def test_ppmdo_label_binds_do(self) -> None:
+        """Hanna single-value DO mg/L screen: OCR reads the label as 'pPmDO'
+        (garbled 'ppm DO')."""
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "HANNA", "score": 0.99, "box": [443, 180, 773, 300]},
+            {"text": "4.01", "score": 0.99, "box": [419, 428, 620, 593]},
+            {"text": "pPmDO", "score": 0.88, "box": [650, 440, 760, 500]},
+            {"text": "HI98194", "score": 0.99, "box": [283, 711, 470, 758]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id="hanna_hi98194"
+        )
+        self.assertEqual(payload.data.get("do"), 4.01)
+
     def test_percent_do_still_binds_to_do_percent_not_do(self) -> None:
         """Regression guard alongside the fix above: '%DO' must still route to
         do_percent, not the mg/L do field."""

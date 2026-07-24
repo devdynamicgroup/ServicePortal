@@ -75,6 +75,12 @@ def _strip_label(label: str) -> str:
     # Normalize both micro-sign variants (µ U+00B5 and μ U+03BC) to ASCII "u".
     text = text.replace("µ", "u").replace("μ", "u").replace("?", "u")
     text = re.sub(r"\s+", "", text)
+    # PaddleOCR frequently splits tiny LCD unit glyphs with spurious periods
+    # (e.g. "μS/cm" -> "μ.S.cm"). Real aliases that use a period on purpose
+    # ("cond.", "d.o.", "do.") already have a period-free twin in the alias
+    # lists ("cond", "do"), so dropping periods here is safe and just lets
+    # the noisy OCR variant collapse onto the same canonical form.
+    text = text.replace(".", "")
     return text
 
 
