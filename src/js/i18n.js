@@ -68,6 +68,7 @@ const I18N = {
     'dash.menu.start': 'Start assessment',
     'dash.menu.reschedule': 'Reschedule',
     'dash.menu.contact': 'Contact',
+    'dash.menu.cancel': 'Cancel',
     'dash.menu.preassess': 'Pre-assessment form',
 
     'job.currentJob': 'Current Job',
@@ -410,6 +411,7 @@ const I18N = {
     'dash.menu.start': 'เริ่มประเมิน',
     'dash.menu.reschedule': 'เลื่อนนัด',
     'dash.menu.contact': 'ติดต่อ',
+    'dash.menu.cancel': 'ยกเลิกนัด',
     'dash.menu.preassess': 'แบบฟอร์มก่อนประเมิน',
 
     'job.currentJob': 'งานปัจจุบัน',

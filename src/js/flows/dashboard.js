@@ -113,6 +113,8 @@ function addCaseForSelectedDay() {
   });
   ensureJobDraft(JOBS[JOBS.length - 1]);
   persistJobs();
+  const newJob = JOBS[JOBS.length - 1];
+  pushNotifEvent('New appointment', `${newJob.name} - ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} ${newJob.timeStart}`);
   renderCalendar();
   showToast(`Added case for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
 }
@@ -146,6 +148,8 @@ function addNextDayAppt() {
   });
   ensureJobDraft(JOBS[JOBS.length - 1]);
   persistJobs();
+  const newJob = JOBS[JOBS.length - 1];
+  pushNotifEvent('New appointment', `${newJob.name} - ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} ${newJob.timeStart}`);
   renderCalendar();
   showToast(`Added for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
 }
@@ -182,12 +186,51 @@ function renderCalendar() {
 }
 const PIN_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
 const MENU_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
-const NOTIFICATIONS = [
-  { type: 'schedule', title: 'New appointment', sub: 'Vasinee K. - Today 11:00 AM' },
-  { type: 'schedule', title: 'Changed appointment', sub: 'Maetud T. rescheduled to 2:00 PM' },
-  { type: 'service', title: 'Upcoming service', sub: 'Saranya C. starts in 1 hour' },
-  { type: 'billing', title: 'Payment pending', sub: 'Full Assessment payment needs confirmation' }
-];
+// Schedule-change log (new / rescheduled / cancelled appointments), newest first.
+let notifEvents = [];
+function pushNotifEvent(title, sub) {
+  notifEvents.unshift({ type: 'schedule', title, sub, ts: Date.now() });
+}
+
+// Parse job.date + job.timeStart ("9:00AM" or "09:00") into a Date, or null if unknown.
+function parseJobDateTime(job) {
+  const iso = jobDateIso(job);
+  if (!iso) return null;
+  const raw = String(job.timeStart || '').trim();
+  let hour, minute = 0;
+  const ampm = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  const hm24 = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (ampm) {
+    hour = Number(ampm[1]) % 12;
+    minute = Number(ampm[2]);
+    if (/PM/i.test(ampm[3])) hour += 12;
+  } else if (hm24) {
+    hour = Number(hm24[1]);
+    minute = Number(hm24[2]);
+  } else {
+    return null;
+  }
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d, hour, minute);
+}
+
+// Jobs not yet marked done that start within the next hour.
+function buildServiceNotifications() {
+  const now = Date.now();
+  return JOBS.filter(j => j.status !== 'cancelled' && j.status !== 'done').reduce((acc, job) => {
+    const start = parseJobDateTime(job);
+    if (!start) return acc;
+    const diffMs = start.getTime() - now;
+    if (diffMs <= 0 || diffMs > 60 * 60 * 1000) return acc;
+    const mins = Math.max(1, Math.round(diffMs / 60000));
+    acc.push({ type: 'service', title: 'Upcoming service', sub: `${job.name} starts in ${mins} min` });
+    return acc;
+  }, []);
+}
+
+function currentNotifications() {
+  return [...notifEvents, ...buildServiceNotifications()];
+}
 let notifFilter = 'all';
 function statusLabel(s) {
   if (s === 'in_progress') return t('dash.status.in_progress');
@@ -275,9 +318,10 @@ function showApptMenu(id) {
   document.getElementById('action-sheet-title').textContent = job.name;
   const actions = [
     { label: t('dash.menu.start'), fn: () => { closeActionSheet(); openJob(id); } },
-    { label: t('dash.menu.reschedule'), fn: () => { closeActionSheet(); showToast('Reschedule request sent'); } },
+    { label: t('dash.menu.reschedule'), fn: () => { closeActionSheet(); pushNotifEvent('Changed appointment', `${job.name} reschedule requested`); showToast('Reschedule request sent'); } },
     { label: t('dash.menu.contact'), fn: () => { closeActionSheet(); showToast('Calling ' + job.name); } },
-    { label: t('dash.menu.preassess'), fn: () => { closeActionSheet(); openJob(id); goScreen('s-preassess'); } }
+    { label: t('dash.menu.preassess'), fn: () => { closeActionSheet(); openJob(id); goScreen('s-preassess'); } },
+    { label: t('dash.menu.cancel'), fn: () => { closeActionSheet(); cancelCase(id); } }
   ];
   document.getElementById('action-sheet-actions').innerHTML = actions.map(a=>`<button class="modal-action" type="button">${a.label}</button>`).join('');
   document.getElementById('action-sheet-actions').querySelectorAll('.modal-action').forEach((btn,i)=>btn.onclick=actions[i].fn);
@@ -292,6 +336,7 @@ function cancelCase(id = S.activeJob?.id) {
   const index = JOBS.findIndex(j => String(j.id) === String(id));
   if (index >= 0) JOBS.splice(index, 1);
   if (S.activeJob && String(S.activeJob.id) === String(id)) S.activeJob = null;
+  pushNotifEvent('Changed appointment', `${job.name} cancelled`);
   persistJobs();
   renderCalendar();
   goScreen('s-dash');
@@ -321,15 +366,16 @@ function filterAppointments(q){
 function renderNotifications() {
   const list = document.getElementById('notif-list');
   if (!list) return;
+  const notifications = currentNotifications();
   document.querySelectorAll('.notif-filter-btn').forEach(btn => {
     const type = btn.dataset.type;
-    const count = type === 'all' ? NOTIFICATIONS.length : NOTIFICATIONS.filter(item => item.type === type).length;
+    const count = type === 'all' ? notifications.length : notifications.filter(item => item.type === type).length;
     btn.classList.toggle('sel', type === notifFilter);
     btn.textContent = `${t('notif.' + type)} (${count})`;
   });
   const items = notifFilter === 'all'
-    ? NOTIFICATIONS
-    : NOTIFICATIONS.filter(item => item.type === notifFilter);
+    ? notifications
+    : notifications.filter(item => item.type === notifFilter);
   list.innerHTML = items.map(item => `
     <div class="notif-item">
       <span class="notif-type">${t('notif.type.' + item.type)}</span>
