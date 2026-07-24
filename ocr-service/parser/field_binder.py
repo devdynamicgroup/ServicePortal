@@ -161,8 +161,16 @@ def score_row_against_field(
             alias_score = unit_match_score(label.text, list(field_cfg.aliases) + [field_cfg.key])
 
     hint_bonus = 0.0
-    if field_cfg.row_hint is not None and row.index == field_cfg.row_hint:
-        hint_bonus = 0.15
+    # Row hint only applies when the row has no label at all — a row with a
+    # *different* label (e.g. "D.O.") must never be stolen by another
+    # field's row_hint fallback; it means this row belongs to that label's
+    # field, not an unlabeled one.
+    if field_cfg.row_hint is not None and row.index == field_cfg.row_hint and label is None:
+        # 0.55 base + 0.25 = 0.80 clears both FIELD_ACCEPT_THRESHOLD (0.75)
+        # and the <0.80 weak-unit penalty in field_confidence() — a
+        # label-less single-value screen (e.g. Hanna "Info" page showing only
+        # temperature) can still bind via row position + in-range value alone.
+        hint_bonus = 0.25
         used_hint = True
 
     # Strong unit match wins; row hint is a weak prior.

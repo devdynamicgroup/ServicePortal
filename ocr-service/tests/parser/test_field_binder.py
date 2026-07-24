@@ -157,6 +157,36 @@ class TestFieldBinder(unittest.TestCase):
             detections, meter_type="ph", profile_id="hanna_hi98194"
         )
         self.assertEqual(payload.data.get("do"), 6.5)
+
+    def test_labelless_single_value_info_screen_binds_temperature_via_row_hint(self) -> None:
+        """Hanna 'Info' screen shows only a bare number (no °C detected by OCR,
+        no other reading on screen) — must still bind to temperature via
+        row_hint(0) + in-range value, not silently return empty data."""
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "HANNA", "score": 0.99, "box": [443, 180, 773, 300]},
+            {"text": "22.39", "score": 0.99, "box": [419, 428, 755, 593]},
+            {"text": "HI98194", "score": 0.99, "box": [283, 711, 470, 758]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id="hanna_hi98194"
+        )
+        self.assertEqual(payload.data.get("temperature"), 22.39)
+
+    def test_labelless_out_of_range_row0_value_does_not_false_bind_temperature(self) -> None:
+        """Row-hint fallback must not let an unrelated out-of-range number
+        (e.g. a labelless mV reading) get misread as temperature."""
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "HANNA", "score": 0.99, "box": [443, 180, 773, 300]},
+            {"text": "-15.0", "score": 0.99, "box": [419, 428, 755, 593]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id="hanna_hi98194"
+        )
+        self.assertNotIn("temperature", payload.data)
         self.assertNotIn("do_percent", payload.data)
 
     def test_percent_do_still_binds_to_do_percent_not_do(self) -> None:

@@ -47,6 +47,7 @@
       "aliases": ["temp", "temperature", "°c", "ºc", "˚c", "degc"],
       "exclude_aliases": ["mo.cm", "mohm", "resistivity", "°f", "ºf", "˚f", "degf"],
       "range": [0, 100],
+      "row_hint": 0,
       "required": false
     },
     "temperature_f": {
