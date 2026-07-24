@@ -1,0 +1,17 @@
+{
+  "id": "hach_dr300",
+  "name": "HACH DR300 Chlorine Colorimeter",
+  "match_hints": {
+    "text_any": ["DR300", "HACH", "Chlorine"]
+  },
+  "ignore_tokens": ["LR", "HR", "MENU", "ESC", "OK", "READ", "OPTIONS", "VERIFY CAL"],
+  "fields": {
+    "chlorine": {
+      "aliases": ["chlorine", "cl2", "cl_2", "cl", "mg/lcl2", "mgl", "mg/l"],
+      "range": [0, 10],
+      "row_hint": 0,
+      "required": false
+    }
+  },
+  "primary_field": "chlorine"
+}

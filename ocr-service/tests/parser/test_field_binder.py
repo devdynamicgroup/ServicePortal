@@ -221,6 +221,48 @@ class TestFieldBinder(unittest.TestCase):
         )
         self.assertEqual(payload.data.get("do"), 4.01)
 
+    def test_hach_dr300_chlorine_binds_via_label_and_auto_detects_profile(self) -> None:
+        """Real detections from a HACH DR300 colorimeter photo. Calibration
+        sticker text (Cert No./S/N/dates) has no purely-numeric token so it
+        never forms a measurement row; only "0.0" does. profile_id=None to
+        prove match_hints auto-detection (DR300/HACH/Chlorine) picks
+        hach_dr300 over the default hanna_hi98194 fallback."""
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "HACH", "score": 0.99, "box": [401, 247, 600, 295]},
+            {"text": "Cert No.: STCR-2412052-1", "score": 0.98, "box": [333, 390, 564, 410]},
+            {"text": "DR300", "score": 0.99, "box": [547, 659, 715, 705]},
+            {"text": "Chlorine", "score": 0.99, "box": [454, 708, 593, 744]},
+            {"text": "LR", "score": 0.99, "box": [368, 737, 406, 766]},
+            {"text": "mg/L Cl_2", "score": 0.89, "box": [466, 738, 576, 774]},
+            {"text": "HR", "score": 0.99, "box": [637, 746, 681, 773]},
+            {"text": "0.0", "score": 0.99, "box": [512, 816, 698, 962]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id=None
+        )
+        self.assertEqual(payload.data.get("chlorine"), 0.0)
+
+    def test_hach_dr300_calibration_screen_never_invents_chlorine(self) -> None:
+        """Calibration-cert-only screen (no reading yet) must return no data,
+        never a fabricated chlorine value."""
+        from parser.spatial_parser import SpatialMeasurementParser
+
+        detections = [
+            {"text": "HACH", "score": 0.99, "box": [417, 226, 597, 267]},
+            {"text": "Cert No.: STCR-2412052-1", "score": 0.99, "box": [359, 354, 571, 374]},
+            {"text": "DR300", "score": 0.99, "box": [557, 604, 714, 649]},
+            {"text": "Chlorine", "score": 0.99, "box": [472, 650, 599, 684]},
+            {"text": "LR", "score": 0.99, "box": [391, 673, 427, 702]},
+            {"text": "mg/L Cl2", "score": 0.95, "box": [482, 677, 582, 711]},
+            {"text": "HR", "score": 0.99, "box": [638, 684, 680, 711]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(
+            detections, meter_type="ph", profile_id=None
+        )
+        self.assertNotIn("chlorine", payload.data)
+
     def test_percent_do_still_binds_to_do_percent_not_do(self) -> None:
         """Regression guard alongside the fix above: '%DO' must still route to
         do_percent, not the mg/L do field."""

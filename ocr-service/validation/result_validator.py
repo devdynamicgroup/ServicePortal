@@ -19,6 +19,7 @@ RANGES: dict[str, tuple[float, float]] = {
     "mv": (-2000.0, 2000.0),
     "orp": (-2000.0, 2000.0),
     "do_percent": (0.0, 200.0),
+    "chlorine": (0.0, 10.0),
 }
 
 

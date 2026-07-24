@@ -22,6 +22,7 @@ METER_TYPE_DEFAULTS: dict[str, str] = {
     "orp": "generic_orp",
     "do": "generic_do",
     "multiparam": "hanna_hi98194",
+    "chlorine": "hach_dr300",
 }
 
 

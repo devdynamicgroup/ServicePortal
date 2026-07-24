@@ -11,7 +11,7 @@ from typing import Any
 
 from core.exceptions import UnsupportedMeterError, ValidationError
 
-SUPPORTED_METER_TYPES = frozenset({"tds", "ph", "ec", "orp", "do"})
+SUPPORTED_METER_TYPES = frozenset({"tds", "ph", "ec", "orp", "do", "chlorine"})
 
 # Special test hooks (Phase 3.5 contract tests only)
 FORCE_ENGINE_ERROR_URL = "__force_engine_error__"

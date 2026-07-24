@@ -206,6 +206,7 @@ class OcrPipeline:
             "ec": "ec",
             "orp": "orp",
             "do": "do_percent",
+            "chlorine": "chlorine",
         }.get(ctx.meter_type)
         conf_out = self.confidence_service.calculate(
             ocr_confidence=ctx.ocr_confidence,
