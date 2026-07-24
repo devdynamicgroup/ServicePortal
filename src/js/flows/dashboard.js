@@ -42,7 +42,7 @@ function jobMatchesDate(job, iso) {
   return jobIso === iso;
 }
 function jobsOnDate(iso) {
-  return JOBS.filter(j => j.status !== 'cancelled' && jobMatchesDate(j, iso));
+  return JOBS.filter(j => j.status !== 'cancelled' && !j.manualPending && jobMatchesDate(j, iso));
 }
 
 function escapeHtml(value) {
@@ -119,9 +119,22 @@ function addCaseForSelectedDay() {
   showToast(`Added case for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
 }
 
+function discardUnsavedManualCases() {
+  const pendingIds = JOBS.filter(j => j.manualPending).map(j => String(j.id));
+  if (!pendingIds.length) return;
+  for (let i = JOBS.length - 1; i >= 0; i--) {
+    if (JOBS[i].manualPending) JOBS.splice(i, 1);
+  }
+  if (S.activeJob && pendingIds.includes(String(S.activeJob.id))) {
+    S.activeJob = null;
+  }
+}
+
 // Ad-hoc case created by staff on-site (no scheduled Notion appointment).
-// Jumps straight to the Start assessment step and records the actual start time.
+// Opens Start assessment (job hub), stores start timestamp, and only shows a
+// dashboard card after Save Draft.
 function createManualCase() {
+  discardUnsavedManualCases();
   const now = new Date();
   const iso = formatDate(now);
   const maxId = JOBS.reduce((m, j) => {
@@ -144,19 +157,24 @@ function createManualCase() {
     day: (now.getDay() + 6) % 7,
     date: iso,
     pkg: 'essential',
-    status: 'new',
+    status: 'in_progress',
     startedAt: now.toISOString(),
-    meta: 'Manual case - started on-site'
+    manual: true,
+    manualPending: true,
+    meta: 'Manual case · started on-site'
   };
   JOBS.push(job);
   ensureJobDraft(job);
-  persistJobs();
-  pushNotifEvent('New appointment', `${job.name} - ${iso} ${job.timeStart}`);
   weekBase = getMonday(now);
   S.selDay = job.day;
-  renderCalendar();
   openJob(job.id);
-  goScreen('s-assess');
+}
+
+function commitManualCaseIfNeeded(job = S.activeJob) {
+  if (!job?.manualPending) return false;
+  delete job.manualPending;
+  pushNotifEvent('New appointment', `${job.name} - ${job.date || ''} ${job.timeStart || ''}`);
+  return true;
 }
 
 function addNextDayAppt() {
@@ -318,7 +336,7 @@ function buildApptCard(job) {
 
 function renderJobs(filter) {
   const q = (filter ?? S.searchQuery).toLowerCase().trim();
-  const activeJobs = JOBS.filter(j => j.status !== 'cancelled');
+  const activeJobs = JOBS.filter(j => j.status !== 'cancelled' && !j.manualPending);
   const selected = selectedDateIso();
   let visibleJobs = activeJobs.filter(job => {
     return jobMatchesDate(job, selected);
@@ -389,7 +407,7 @@ function filterAppointments(q){
   renderJobs(q);
   const needle = q.toLowerCase();
   const visibleJobs = JOBS
-    .filter(j => j.status !== 'cancelled')
+    .filter(j => j.status !== 'cancelled' && !j.manualPending)
     .filter(j =>
       String(j.name || '').toLowerCase().includes(needle) ||
       String(j.addr || '').toLowerCase().includes(needle)

@@ -141,6 +141,21 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .appt-header{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 8px}
 .appt-header h2{font-size:16px;font-weight:600}
 .appt-header-actions{display:flex;align-items:center;gap:8px}
+.appt-create-btn{
+  border:none;
+  background:var(--blue);
+  color:#fff;
+  font:inherit;
+  font-size:13px;
+  font-weight:600;
+  padding:8px 14px;
+  border-radius:var(--radius);
+  cursor:pointer;
+  height:32px;
+  display:inline-flex;
+  align-items:center;
+}
+.appt-create-btn:active{opacity:.9;transform:scale(.97)}
 .dash-add-btn{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--blue);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap}
 .dash-add-btn.secondary{background:var(--accent-50);border-color:var(--accent-100)}
 .dash-add-btn svg{flex-shrink:0}

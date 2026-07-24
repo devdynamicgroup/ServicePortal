@@ -276,7 +276,8 @@ function updateJobHeader(job) {
 
 function persistJobs() {
   try {
-    localStorage.setItem('wm-jobs', JSON.stringify(JOBS));
+    const toSave = JOBS.filter(j => !j.manualPending);
+    localStorage.setItem('wm-jobs', JSON.stringify(toSave));
   } catch (error) {
     console.warn('Could not persist jobs', error);
   }
@@ -500,7 +501,9 @@ async function loadJobsFromApi() {
 
     // Notion is authoritative for the job list, but local drafts (meterImages,
     // photos, readings, steps) must survive refresh / dashboard re-fetch.
+    // Manual Create cases live only in the portal until synced elsewhere.
     const preservedDrafts = collectLocalJobDrafts();
+    const preservedManualJobs = JOBS.filter(job => job.manual && !job.manualPending);
     const locallyInProgress = new Set(
       JOBS
         .filter(job => job.status === 'in_progress')
@@ -517,6 +520,11 @@ async function loadJobsFromApi() {
       return next;
     });
     JOBS.splice(0, JOBS.length, ...normalizedJobs);
+    preservedManualJobs.forEach(job => {
+      if (!JOBS.some(existing => String(existing.id) === String(job.id))) {
+        JOBS.push(job);
+      }
+    });
     if (activeJobId) {
       const refreshed = JOBS.find(job => String(job.id) === activeJobId);
       if (refreshed) S.activeJob = refreshed;

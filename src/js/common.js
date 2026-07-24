@@ -1,13 +1,19 @@
 function saveDraft() {
   if (S.activeJob) {
+    if (typeof commitManualCaseIfNeeded === 'function') commitManualCaseIfNeeded();
     saveActiveJobState();
-    if (typeof renderJobs === 'function') renderJobs();
+    persistJobs();
+    if (typeof renderCalendar === 'function') renderCalendar();
+    else if (typeof renderJobs === 'function') renderJobs();
   }
   showToast('Draft saved');
   goScreen('s-dash');
 }
 function completeJob() {
-  if (S.activeJob) saveActiveJobState();
+  if (S.activeJob) {
+    if (typeof commitManualCaseIfNeeded === 'function') commitManualCaseIfNeeded();
+    saveActiveJobState();
+  }
   const required = S.pkg === 'full'
     ? ['preassess','assess','score','payment','feedback']
     : ['preassess','assess','score','feedback'];

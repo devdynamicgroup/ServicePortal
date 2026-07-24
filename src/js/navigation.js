@@ -15,6 +15,8 @@ function closeTransientOverlays() {
 
 function goScreen(id) {
   if (id === 's-dash') {
+    // Manual Create cases only become cards after Save Draft.
+    if (typeof discardUnsavedManualCases === 'function') discardUnsavedManualCases();
     if (S.activeJob) saveActiveJobState();
     closeTransientOverlays();
     document.getElementById(S.screen)?.classList.remove('active');
