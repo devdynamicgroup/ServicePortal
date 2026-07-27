@@ -393,32 +393,6 @@ function renderStandardSelect(context = getScoreEvalContext()) {
   selectEl.onchange = () => setScoreReferenceStandard(selectEl.value);
 }
 
-function renderAboutForStandard(standardKey) {
-  const aboutP1 = document.getElementById('score-about-p1');
-  const thaiTitle = document.getElementById('score-about-thai-title');
-  const aboutP2 = document.getElementById('score-about-p2');
-  const aboutP3 = document.getElementById('score-about-p3');
-  const compareNote = document.getElementById('score-about-compare');
-  const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
-
-  if (aboutP1) aboutP1.textContent = t(`score.about.${key}.p1`);
-  if (compareNote) {
-    compareNote.textContent = t('score.about.compareNote');
-    // Primary view is Thailand — note appears when comparing other standards.
-    compareNote.hidden = key === DEFAULT_SCORE_STANDARD_KEY;
-  }
-  const showThaiDiff = key === 'who';
-  if (thaiTitle) {
-    thaiTitle.textContent = t('score.thaiDiffTitle');
-    thaiTitle.hidden = !showThaiDiff;
-  }
-  if (aboutP2) {
-    aboutP2.textContent = t('score.aboutP2');
-    aboutP2.hidden = !showThaiDiff;
-  }
-  if (aboutP3) aboutP3.textContent = t(showThaiDiff ? 'score.aboutP3' : `score.about.${key}.p2`);
-}
-
 /**
  * Renders the on-screen report from comparisonScoreResult.
  * Does not mutate S.scoreVal / currentScoreResult / backend values.
@@ -473,7 +447,6 @@ function renderScoreDisplay() {
   animateScoreNumber(document.getElementById('gauge-val'), wq);
   renderStandardSelect(context);
   renderLocationSelect(context);
-  renderAboutForStandard(context.selectedStandard);
   renderScoreReadings(context);
   renderScoreImprove(context);
   renderScorePhotos();
