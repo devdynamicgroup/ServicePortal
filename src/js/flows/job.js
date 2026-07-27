@@ -13,6 +13,13 @@ function openJob(id) {
   updateAssessScreen();
   renderCalendar();
   goScreen('s-job');
+  pushCaseOpenToNotion(S.activeJob).then(result => {
+    if (!result?.ok) return;
+    if (S.activeJob && String(S.activeJob.id) === String(id)) {
+      updateJobHeader(S.activeJob);
+      renderCalendar();
+    }
+  });
 }
 
 const STEP_SVGS = STEP_ICONS;

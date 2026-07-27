@@ -114,7 +114,9 @@ async function resolveCreatedJob(notionId) {
 }
 
 async function createCase(customerPayload = {}, options = {}) {
-  const customer = options.skipMap ? pickCustomerInput(customerPayload) : mapPreassessmentPayload(customerPayload);
+  const customer = options.skipMap
+    ? pickCustomerInput(customerPayload)
+    : mapPreassessmentPayload(customerPayload);
   if (!customer.fullName) {
     const error = new Error('Full Name is required');
     error.statusCode = 400;
@@ -127,6 +129,10 @@ async function createCase(customerPayload = {}, options = {}) {
     ...customer,
     ...buildSystemDefaults({ feedbackToken, reportToken, reviewUrl: options.reviewUrl })
   };
+  if (options.startOnSite) {
+    notionPayload.caseWorkflowStatus = 'in_progress';
+    notionPayload.serviceStartedAt = customerPayload.serviceStartedAt || new Date().toISOString();
+  }
 
   const created = await createClient(notionPayload);
   const job = await resolveCreatedJob(created.notionId) || created;

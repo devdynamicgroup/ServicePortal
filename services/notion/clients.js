@@ -216,6 +216,9 @@ function buildNotionProperties(payload, schemaProperties = {}) {
   setText(FIELD_ALIASES.lineUserId, payload.lineUserId);
   setCheckbox(FIELD_ALIASES.lineLinked, payload.lineLinked);
   setDate(FIELD_ALIASES.lineLinkedAt, payload.lineLinkedAt);
+  setDate(FIELD_ALIASES.appointmentDate, payload.appointmentDate);
+  setText(FIELD_ALIASES.appointmentStart, payload.appointmentStart);
+  setText(FIELD_ALIASES.appointmentEnd, payload.appointmentEnd);
   setText(FIELD_ALIASES.waterConcerns, payload.waterConcerns);
   setSelect(FIELD_ALIASES.packageHistory, payload.packageHistory);
   setSelect(FIELD_ALIASES.propertyType, payload.propertyType);

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   closeCase,
+  startCase,
   publishCaseScore,
   sendCaseResult,
   repairCaseResultNotification,
@@ -423,8 +424,23 @@ async function handleCaseFlowRoute(req, res, urlPath) {
 
   if (urlPath === '/api/cases' && req.method === 'POST') {
     try {
-      const result = await createCase(await readJson(req));
+      const body = await readJson(req);
+      const result = await createCase(body, {
+        startOnSite: Boolean(body.startOnSite),
+        skipMap: Boolean(body.skipMap)
+      });
       sendJson(res, 201, result);
+    } catch (error) {
+      sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
+    }
+    return true;
+  }
+
+  const startMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/start$/);
+  if (startMatch && req.method === 'POST') {
+    try {
+      const result = await startCase(decodeURIComponent(startMatch[1]), await readJson(req));
+      sendJson(res, 200, result);
     } catch (error) {
       sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
     }

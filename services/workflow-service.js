@@ -360,6 +360,44 @@ async function publishCaseScore(caseId, payload = {}) {
   });
 }
 
+/** Mark a scheduled Notion case as in progress when a specialist opens it on-site. */
+async function startCase(caseId, payload = {}) {
+  const initial = await resolveJob(caseId);
+  if (!initial?.notionId) {
+    const error = new Error('Case not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return withCaseLock(initial.notionId, async () => {
+    const job = await getClient(initial.notionId);
+    const workflow = String(job.workflow?.status || '').toLowerCase();
+    const terminal = ['cancelled', 'canceled', 'closed'];
+    if (terminal.includes(workflow)) {
+      return { ok: true, idempotent: true, case: job };
+    }
+
+    const now = payload.serviceStartedAt || new Date().toISOString();
+    const updates = {};
+    if (!stateAtLeast(job.workflow?.status, 'completed') && workflow !== 'in_progress') {
+      updates.caseWorkflowStatus = 'in_progress';
+    }
+    if (!job.workflow?.serviceStartedAt) {
+      updates.serviceStartedAt = now;
+    }
+
+    const updated = Object.keys(updates).length
+      ? await updateClient(job.notionId, updates)
+      : job;
+
+    return {
+      ok: true,
+      case: updated,
+      startedAt: updated.workflow?.serviceStartedAt || now
+    };
+  });
+}
+
 async function closeCase(caseId, payload = {}) {
   const initial = await resolveJob(caseId);
   if (!initial?.notionId) {
@@ -558,6 +596,7 @@ module.exports = {
   stateAtLeast,
   canTransition,
   linkLineUser,
+  startCase,
   closeCase,
   sendCaseResult,
   markCaseResultNotificationFailed,

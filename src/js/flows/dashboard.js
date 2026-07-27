@@ -120,10 +120,10 @@ function addCaseForSelectedDay() {
 }
 
 function discardUnsavedManualCases() {
-  const pendingIds = JOBS.filter(j => j.manualPending).map(j => String(j.id));
+  const pendingIds = JOBS.filter(j => j.manualPending && !j.notionId).map(j => String(j.id));
   if (!pendingIds.length) return;
   for (let i = JOBS.length - 1; i >= 0; i--) {
-    if (JOBS[i].manualPending) JOBS.splice(i, 1);
+    if (JOBS[i].manualPending && !JOBS[i].notionId) JOBS.splice(i, 1);
   }
   if (S.activeJob && pendingIds.includes(String(S.activeJob.id))) {
     S.activeJob = null;

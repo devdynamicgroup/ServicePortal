@@ -276,10 +276,85 @@ function updateJobHeader(job) {
 
 function persistJobs() {
   try {
-    const toSave = JOBS.filter(j => !j.manualPending);
-    localStorage.setItem('wm-jobs', JSON.stringify(toSave));
+    localStorage.setItem('wm-jobs', JSON.stringify(JOBS));
   } catch (error) {
     console.warn('Could not persist jobs', error);
+  }
+}
+
+function mergeApiCaseIntoJob(localJob, apiCase) {
+  if (!localJob || !apiCase) return localJob;
+  const preservedDraft = localJob.draft || getJobDraft(localJob);
+  const keepInProgress = localJob.status === 'in_progress';
+  Object.assign(localJob, apiCase, {
+    draft: preservedDraft,
+    status: keepInProgress ? 'in_progress' : (apiCase.status || localJob.status),
+    manual: localJob.manual,
+    startedAt: localJob.startedAt || apiCase.workflow?.serviceStartedAt || null
+  });
+  if (apiCase.notionId) {
+    localJob.notionId = apiCase.notionId;
+    localJob.notionSource = true;
+    delete localJob.manualPending;
+  }
+  syncJobMetaFromDraft(localJob, preservedDraft);
+  return localJob;
+}
+
+async function pushCaseOpenToNotion(job = S.activeJob) {
+  if (!job) return { ok: false, reason: 'no_job' };
+
+  try {
+    if (job.manual && !job.notionId) {
+      const draft = getJobDraft(job);
+      const fields = draft?.fields || {};
+      const fullName = [fields['ci-fname'], fields['ci-lname']].filter(Boolean).join(' ').trim()
+        || String(job.name || '').trim()
+        || 'New Client';
+      const response = await fetch('/api/cases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          skipMap: true,
+          startOnSite: true,
+          fullName,
+          address: fields['ci-addr'] || job.addr || '',
+          appointmentDate: job.date || '',
+          appointmentStart: job.timeStart || '',
+          appointmentEnd: job.timeEnd || '',
+          packageHistory: draft?.pkg || job.pkg || 'essential',
+          serviceStartedAt: job.startedAt || new Date().toISOString()
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok === false) {
+        console.warn('[pushCaseOpenToNotion] create failed', payload.error || response.status);
+        return { ok: false, error: payload.error || 'create_failed' };
+      }
+      if (payload.case) mergeApiCaseIntoJob(job, payload.case);
+      persistJobs();
+      return { ok: true, case: job };
+    }
+
+    const caseRef = job.notionId || job.id;
+    if (!caseRef) return { ok: false, reason: 'no_case_ref' };
+
+    const response = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) {
+      console.warn('[pushCaseOpenToNotion] start failed', payload.error || response.status);
+      return { ok: false, error: payload.error || 'start_failed' };
+    }
+    if (payload.case) mergeApiCaseIntoJob(job, payload.case);
+    persistJobs();
+    return { ok: true, case: job };
+  } catch (error) {
+    console.warn('[pushCaseOpenToNotion] error', error);
+    return { ok: false, error: error.message || 'network_error' };
   }
 }
 
@@ -503,7 +578,7 @@ async function loadJobsFromApi() {
     // photos, readings, steps) must survive refresh / dashboard re-fetch.
     // Manual Create cases live only in the portal until synced elsewhere.
     const preservedDrafts = collectLocalJobDrafts();
-    const preservedManualJobs = JOBS.filter(job => job.manual && !job.manualPending);
+    const preservedManualJobs = JOBS.filter(job => job.manual && (!job.manualPending || job.notionId));
     const locallyInProgress = new Set(
       JOBS
         .filter(job => job.status === 'in_progress')
