@@ -187,17 +187,7 @@ function validatePreassessment({ showErrors = true } = {}) {
   trackedIds.forEach(id => setFieldInvalid(id, showErrors && invalidIds.has(id)));
 
   const btn = document.getElementById('btn-preassess-done');
-  const blocker = document.getElementById('preassess-blocker');
   if (btn) btn.disabled = false;
-  if (blocker) {
-    if (errors.length && showErrors) {
-      blocker.innerHTML = `<strong>${t('preassess.err.fixThese')}</strong>${errors.map(msg => `<div>${msg}</div>`).join('')}`;
-      blocker.classList.remove('hidden');
-    } else {
-      blocker.innerHTML = '';
-      blocker.classList.add('hidden');
-    }
-  }
   return { valid: errors.length === 0, errors, invalidIds };
 }
 

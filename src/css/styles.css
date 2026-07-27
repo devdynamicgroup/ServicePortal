@@ -249,7 +249,6 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .property-suggest-bar .ps-sub{font-size:12px;line-height:1.25;color:rgba(255,255,255,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .property-suggest-bar .ps-use{height:32px;border:none;border-radius:var(--radius);background:#fff;color:var(--blue);font:600 13px inherit;padding:0 13px;cursor:pointer;flex-shrink:0}
 .property-suggest-bar .ps-dismiss{width:28px;height:28px;border:none;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:20px;line-height:1;cursor:pointer;flex-shrink:0}
-.preassess-blocker{margin:0;padding:8px 16px 0;font-size:12px;line-height:1.45;color:var(--red);text-align:center}
 #s-preassess .content-consent{padding-bottom:112px}
 
 /* ─── Multi-select dropdown ──────────────────────── */
