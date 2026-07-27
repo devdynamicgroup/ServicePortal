@@ -15,9 +15,12 @@
           </div>
 
           <div class="score-summary-hero">
-            <div class="score-summary-score">
+            <div class="score-summary-score" id="score-summary-score">
               <span class="score-summary-num" id="gauge-val">—</span>
               <span class="score-summary-den">/100</span>
+              <span class="score-summary-loading" id="score-summary-loading" hidden aria-hidden="true">
+                <span class="score-loading-pulse"></span>
+              </span>
             </div>
             <span class="score-summary-badge" id="score-summary-band">—</span>
           </div>
@@ -27,6 +30,7 @@
               <span></span><span></span><span></span><span></span>
             </div>
             <div class="score-progress-fill" id="score-progress-fill"></div>
+            <div class="score-progress-indeterminate" aria-hidden="true"></div>
             <span class="score-progress-knob" id="score-progress-knob" aria-hidden="true"></span>
           </div>
           <div class="score-progress-ticks" aria-hidden="true">

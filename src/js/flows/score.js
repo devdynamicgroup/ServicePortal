@@ -364,14 +364,47 @@ function paramMeaningText(paramName, status) {
   return paramCollapsedHint(paramName, status);
 }
 
-function renderScoreStatusBar(wq) {
+function canDisplayScoreNumber(readiness, job = S.activeJob) {
+  if (S.publicScoreView) {
+    const published = Number(job?.result?.waterScore ?? job?.draft?.scoreVal);
+    if (Number.isFinite(published)) return true;
+  }
+  return Boolean(readiness?.ready) && !readiness?.ocrBusy;
+}
+
+function renderScoreStatusBar(wq, { loading = false } = {}) {
   const bar = document.getElementById('score-status-bar');
   const fill = document.getElementById('score-progress-fill');
   const knob = document.getElementById('score-progress-knob');
+  if (bar) {
+    bar.classList.toggle('is-loading', loading);
+    bar.setAttribute(
+      'aria-label',
+      loading
+        ? t('score.readiness.processingTitle')
+        : `Water Score ${Math.round(Math.max(0, Math.min(100, Number(wq) || 0)))} of 100`
+    );
+  }
+  if (loading) {
+    if (fill) fill.style.width = '0%';
+    if (knob) knob.style.left = '0%';
+    return;
+  }
   const score = Math.max(0, Math.min(100, Number(wq) || 0));
-  if (bar) bar.setAttribute('aria-label', `Water Score ${Math.round(score)} of 100`);
   if (fill) fill.style.width = `${score}%`;
   if (knob) knob.style.left = `${score}%`;
+}
+
+function setScoreHeroLoading(loading) {
+  const card = document.querySelector('#score-hero .score-summary-card');
+  const numEl = document.getElementById('gauge-val');
+  const denEl = document.querySelector('#score-summary-score .score-summary-den');
+  const loadingEl = document.getElementById('score-summary-loading');
+  card?.classList.toggle('is-loading', loading);
+  if (loadingEl) loadingEl.hidden = !loading;
+  if (numEl) numEl.hidden = loading;
+  if (denEl) denEl.hidden = loading;
+  if (loading && numEl) numEl.textContent = '—';
 }
 
 function activeComparisonResult() {
@@ -403,6 +436,7 @@ function renderScoreDisplay() {
 
   const context = getScoreEvalContext(result);
   const readiness = getScoreDataReadiness(S.activeJob);
+  const showScore = canDisplayScoreNumber(readiness, S.activeJob);
   // Summary number comes from computeScoreFromReadings (fresh), never a cached draft.scoreVal.
   // Selected standard still drives parameter status, recommended ranges, and findings.
   const computedWho = Number(S.currentScoreResult?.computedScore);
@@ -414,7 +448,8 @@ function renderScoreDisplay() {
     comparisonScore,
     standard: result.standardKey,
     readings: result.readings,
-    readiness
+    readiness,
+    showScore
   });
   const findings = result.findings || [];
   const verdict = customerVerdict(wq);
@@ -425,32 +460,43 @@ function renderScoreDisplay() {
 
   if (hero) {
     hero.className = 'score-report score-live';
-    hero.dataset.tier = verdict.tier;
+    hero.dataset.tier = showScore ? verdict.tier : 'pending';
   }
   const summaryCard = hero?.querySelector('.score-summary-card');
   if (summaryCard) {
-    summaryCard.style.setProperty('--score-accent', verdict.color);
+    summaryCard.style.setProperty('--score-accent', showScore ? verdict.color : '#284dcd');
   }
   if (standardEl) {
     standardEl.textContent = t(context.standard.labelKey);
   }
+
+  setScoreHeroLoading(!showScore);
+
   if (bandEl) {
-    bandEl.textContent = readiness && (!readiness.ready || readiness.ocrBusy)
-      ? t('score.readiness.pendingBadge')
-      : verdict.label;
+    bandEl.textContent = showScore
+      ? verdict.label
+      : (readiness?.ocrBusy ? t('score.readiness.calculatingBadge') : t('score.readiness.waitingBadge'));
     bandEl.style.color = '';
   }
   if (noteEl) {
-    noteEl.textContent = readiness && (!readiness.ready || readiness.ocrBusy)
-      ? (readiness.ocrBusy ? t('score.readiness.processingText') : t('score.readiness.note'))
-      : scoreSummaryNote(wq, findings);
+    if (!showScore) {
+      noteEl.textContent = readiness?.ocrBusy
+        ? t('score.readiness.processingText')
+        : t('score.readiness.waitingNote')
+          .replace('{filled}', String(readiness?.filledCount ?? 0))
+          .replace('{total}', String(readiness?.totalCount ?? 7));
+    } else {
+      noteEl.textContent = scoreSummaryNote(wq, findings);
+    }
   }
 
-  renderScoreStatusBar(wq);
+  renderScoreStatusBar(showScore ? wq : 0, { loading: !showScore });
   if (!S.scoreTapFilter) {
     S.scoreTapFilter = (S.taps?.length || 0) > 1 ? 'all' : (S.taps?.[0] || 'all');
   }
-  animateScoreNumber(document.getElementById('gauge-val'), wq);
+  if (showScore) {
+    animateScoreNumber(document.getElementById('gauge-val'), wq);
+  }
   renderStandardSelect(context);
   renderLocationSelect(context);
   renderScoreReadiness(readiness);
@@ -620,37 +666,19 @@ function getScoreDataReadiness(job = S.activeJob) {
 
 function renderScoreReadiness(readiness) {
   const banner = document.getElementById('score-readiness');
-  const titleEl = document.getElementById('score-readiness-title');
-  const textEl = document.getElementById('score-readiness-text');
   const hero = document.getElementById('score-hero');
-  if (!banner) return readiness;
+  const showPending = Boolean(readiness && (!readiness.ready || readiness.ocrBusy));
 
-  const show = Boolean(readiness && (!readiness.ready || readiness.ocrBusy));
-  banner.hidden = !show;
-  banner.classList.toggle('is-busy', Boolean(readiness?.ocrBusy));
-  hero?.classList.toggle('is-incomplete', show);
+  // Loading state lives in the summary card — keep the extra banner hidden.
+  if (banner) banner.hidden = true;
+  hero?.classList.toggle('is-incomplete', showPending);
 
-  if (!show) {
+  if (!showPending) {
     if (S._scoreReadyPoll) {
       clearInterval(S._scoreReadyPoll);
       S._scoreReadyPoll = null;
     }
     return readiness;
-  }
-
-  if (titleEl) {
-    titleEl.textContent = readiness.ocrBusy
-      ? t('score.readiness.processingTitle')
-      : t('score.readiness.incompleteTitle');
-  }
-  if (textEl) {
-    if (readiness.ocrBusy) {
-      textEl.textContent = t('score.readiness.processingText');
-    } else {
-      textEl.textContent = t('score.readiness.incompleteText')
-        .replace('{filled}', String(readiness.filledCount))
-        .replace('{total}', String(readiness.totalCount));
-    }
   }
 
   // Keep refreshing while OCR is still processing so photos/values appear when ready.

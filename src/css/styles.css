@@ -627,6 +627,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   align-items:baseline;
   gap:4px;
   margin:0;
+  position:relative;
+  min-height:56px;
 }
 .score-summary-num{
   font-size:56px;
@@ -635,6 +637,60 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   line-height:1;
   color:var(--text);
   font-variant-numeric:tabular-nums;
+}
+.score-summary-num[hidden],
+.score-summary-den[hidden],
+.score-summary-loading[hidden]{display:none!important}
+.score-summary-loading{
+  display:inline-flex;
+  align-items:center;
+  min-height:56px;
+}
+.score-loading-pulse{
+  display:block;
+  width:92px;
+  height:42px;
+  border-radius:12px;
+  background:linear-gradient(90deg,#eceae6 0%,#f7f6f4 45%,#eceae6 90%);
+  background-size:200% 100%;
+  animation:score-shimmer 1.2s ease-in-out infinite;
+}
+.score-summary-card.is-loading{
+  background:
+    radial-gradient(circle at 12% 0%,rgba(40,77,205,.06),transparent 46%),
+    var(--surface);
+}
+.score-summary-card.is-loading .score-summary-badge{
+  color:var(--blue);
+  font-weight:650;
+}
+.score-summary-card.is-loading .score-summary-note{
+  color:var(--muted);
+}
+.score-report[data-tier=pending] .score-summary-card{--score-accent:#284dcd}
+.score-progress-indeterminate{
+  display:none;
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  width:38%;
+  border-radius:999px;
+  background:linear-gradient(90deg,transparent,rgba(40,77,205,.55),transparent);
+  animation:score-indet 1.35s ease-in-out infinite;
+  z-index:1;
+}
+.score-progress.is-loading .score-progress-fill,
+.score-progress.is-loading .score-progress-knob{opacity:0}
+.score-progress.is-loading .score-progress-indeterminate{display:block}
+.score-progress.is-loading .score-progress-segments span{background:#e8eefc}
+@keyframes score-shimmer{
+  0%{background-position:100% 0}
+  100%{background-position:-100% 0}
+}
+@keyframes score-indet{
+  0%{transform:translateX(-40%)}
+  100%{transform:translateX(280%)}
 }
 .score-summary-den{
   font-size:18px;
