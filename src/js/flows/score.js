@@ -501,7 +501,14 @@ function renderScoreDisplay() {
   renderLocationSelect(context);
   renderScoreReadiness(readiness);
   renderScoreReadings(context);
-  renderScoreImprove(context);
+  if (showScore) {
+    renderScoreImprove(context);
+  } else {
+    const improve = document.getElementById('score-improve-section');
+    const allGood = document.getElementById('score-all-good');
+    if (improve) improve.hidden = true;
+    if (allGood) allGood.hidden = true;
+  }
   renderScorePhotos(readiness);
 }
 
@@ -949,12 +956,22 @@ function renderScoreReadings(context = getScoreEvalContext()) {
 
   const countEl = document.getElementById('score-indicator-count');
   if (countEl) {
-    countEl.textContent = t('score.basedOnIndicators').replace('{n}', String(rows.length || 7));
+    countEl.innerHTML = `${rows.length || 7} <span data-i18n="score.indicators">${t('score.indicators')}</span>`;
   }
 
+  const showScore = canDisplayScoreNumber(getScoreDataReadiness(S.activeJob), S.activeJob);
+  listEl.classList.toggle('is-loading', !showScore);
   listEl.innerHTML = rows.map(r => {
     const statusKey = paramStatusUiKey(r.st);
     const statusLabel = statusLabels[statusKey];
+    if (!showScore) {
+      return `<div class="score-metric-row is-pending">
+  <span class="score-metric-name">${r.p}</span>
+  <span class="score-metric-range"> </span>
+  <span class="score-metric-value"> </span>
+  <span class="score-metric-status"> </span>
+</div>`;
+    }
     return `<div class="score-metric-row is-${statusKey}">
   <span class="score-metric-name">${r.p}</span>
   <span class="score-metric-range">${r.std}</span>
