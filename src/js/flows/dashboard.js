@@ -387,18 +387,44 @@ function showApptMenu(id) {
 }
 
 function closeActionSheet(){ document.getElementById('action-sheet-overlay').classList.add('hidden'); }
-function cancelCase(id = S.activeJob?.id) {
+async function cancelCase(id = S.activeJob?.id) {
   const job = JOBS.find(j => String(j.id) === String(id));
   if (!job) return;
-  if (!confirm(`Cancel case for ${job.name}?`)) return;
-  const index = JOBS.findIndex(j => String(j.id) === String(id));
-  if (index >= 0) JOBS.splice(index, 1);
+  const confirmMsg = typeof t === 'function' && S.lang === 'th'
+    ? `ยกเลิกนัดของ ${job.name}?`
+    : `Cancel case for ${job.name}?`;
+  if (!confirm(confirmMsg)) return;
+
+  const caseId = job.notionId || job.id;
+  const isNotionJob = Boolean(job.notionId || job.notionSource);
+  if (isNotionJob) {
+    try {
+      const response = await fetch(`/api/cases/${encodeURIComponent(caseId)}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok === false) {
+        showToast(payload.error || (S.lang === 'th' ? 'ยกเลิกนัดไม่สำเร็จ' : 'Could not cancel appointment'));
+        return;
+      }
+    } catch (error) {
+      console.warn('cancelCase failed', error);
+      showToast(S.lang === 'th' ? 'ยกเลิกนัดไม่สำเร็จ' : 'Could not cancel appointment');
+      return;
+    }
+  }
+
+  job.status = 'cancelled';
+  if (job.workflow) job.workflow.status = 'cancelled';
+  else job.workflow = { status: 'cancelled' };
   if (S.activeJob && String(S.activeJob.id) === String(id)) S.activeJob = null;
   pushNotifEvent('Changed appointment', `${job.name} cancelled`);
   persistJobs();
   renderCalendar();
   goScreen('s-dash');
-  showToast('Case cancelled');
+  showToast(S.lang === 'th' ? 'ยกเลิกนัดแล้ว' : 'Case cancelled');
 }
 function openSearchModal(){ document.getElementById('search-overlay').classList.remove('hidden'); document.getElementById('search-input').value=S.searchQuery; document.getElementById('search-input').focus(); filterAppointments(S.searchQuery); }
 function closeSearchModal(){ document.getElementById('search-overlay').classList.add('hidden'); }

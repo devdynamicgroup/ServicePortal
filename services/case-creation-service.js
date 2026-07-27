@@ -191,6 +191,52 @@ async function createTestCase(overrides = {}) {
   }, { skipMap: true, reviewUrl: overrides.reviewUrl });
 }
 
+async function cancelAppointment(caseId) {
+  const { resolveJob } = require('./workflow-service');
+  const { getDataSourceSchema } = require('./notion/client');
+  const { findPropertyKey } = require('./notion/props');
+  const { FIELD_ALIASES } = require('./notion/mapper');
+
+  const job = await resolveJob(caseId);
+  if (!job?.notionId) {
+    const error = new Error('Case not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const alreadyCancelled = job.status === 'cancelled'
+    || ['cancelled', 'canceled'].includes(String(job.workflow?.status || '').toLowerCase());
+  if (alreadyCancelled) {
+    return { ok: true, idempotent: true, case: job };
+  }
+
+  const now = new Date().toISOString();
+  const payload = {
+    caseWorkflowStatus: 'cancelled',
+    closedAt: now
+  };
+
+  // Only write Status when the select already has a cancelled option.
+  try {
+    const { properties } = await getDataSourceSchema();
+    const statusKey = findPropertyKey(properties, FIELD_ALIASES.status);
+    const options = properties[statusKey]?.select?.options || [];
+    const hasCancelled = options.some(opt =>
+      ['cancelled', 'canceled'].includes(String(opt?.name || '').toLowerCase())
+    );
+    if (hasCancelled) payload.status = 'cancelled';
+  } catch (error) {
+    console.warn('[cancelAppointment] could not inspect Status options', error.message);
+  }
+
+  const updated = await updateClient(job.notionId, payload);
+  return {
+    ok: true,
+    case: updated,
+    cancelledAt: now
+  };
+}
+
 module.exports = {
   CUSTOMER_INPUT_FIELDS,
   SYSTEM_GENERATED_FIELDS,
@@ -198,5 +244,6 @@ module.exports = {
   buildSystemDefaults,
   createCase,
   submitCustomerPreassessment,
-  createTestCase
+  createTestCase,
+  cancelAppointment
 };

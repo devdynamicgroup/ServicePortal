@@ -8,6 +8,7 @@ const {
   createCase,
   submitCustomerPreassessment,
   createTestCase,
+  cancelAppointment,
   getReportByToken,
   getFeedbackByToken,
   submitFeedback,
@@ -463,6 +464,17 @@ async function handleCaseFlowRoute(req, res, urlPath) {
   if (closeMatch && req.method === 'POST') {
     try {
       const result = await closeCase(decodeURIComponent(closeMatch[1]), await readJson(req));
+      sendJson(res, 200, result);
+    } catch (error) {
+      sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
+    }
+    return true;
+  }
+
+  const cancelMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/cancel$/);
+  if (cancelMatch && req.method === 'POST') {
+    try {
+      const result = await cancelAppointment(decodeURIComponent(cancelMatch[1]));
       sendJson(res, 200, result);
     } catch (error) {
       sendJson(res, error.statusCode || 502, { ok: false, error: error.message });

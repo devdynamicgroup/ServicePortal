@@ -212,12 +212,17 @@ function notionPageToJob(page, index) {
   const source = getPropertyValue(properties, FIELD_ALIASES.source);
   const stage = getPropertyValue(properties, FIELD_ALIASES.stage);
   const rawStatus = getPropertyValue(properties, FIELD_ALIASES.status);
-  const status = mapJobStatus(rawStatus);
+  let status = mapJobStatus(rawStatus);
   const concern = getPropertyValue(properties, FIELD_ALIASES.waterConcerns);
   const lineDisplayName = getPropertyValue(properties, FIELD_ALIASES.lineDisplayName)
     || getPropertyValue(properties, FIELD_ALIASES.lineId);
   const lineUserId = getPropertyValue(properties, FIELD_ALIASES.lineUserId);
   const workflowStatus = getPropertyValue(properties, FIELD_ALIASES.caseWorkflowStatus) || status;
+  // Appointment cancel is stored on Case Workflow Status; surface it as job.status
+  // so the dashboard can hide cancelled cases after Notion refresh.
+  if (['cancelled', 'canceled'].includes(String(workflowStatus || '').toLowerCase())) {
+    status = 'cancelled';
+  }
   const latestWaterScore = asNumber(getPropertyValue(properties, FIELD_ALIASES.latestWaterScore));
   const created1 = getPropertyValue(properties, ['Created 1'], null);
   // finalDate follows the appointment-date priority (Created 1 first). We never

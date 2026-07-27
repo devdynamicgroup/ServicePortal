@@ -5,6 +5,7 @@ const {
   createCase,
   submitCustomerPreassessment,
   createTestCase,
+  cancelAppointment,
   CUSTOMER_INPUT_FIELDS,
   SYSTEM_GENERATED_FIELDS
 } = require('./case-creation-service');
@@ -23,6 +24,7 @@ module.exports = {
   createCase,
   submitCustomerPreassessment,
   createTestCase,
+  cancelAppointment,
   CUSTOMER_INPUT_FIELDS,
   SYSTEM_GENERATED_FIELDS,
   getReportByToken,
