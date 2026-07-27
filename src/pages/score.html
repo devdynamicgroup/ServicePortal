@@ -9,16 +9,19 @@
     <section class="score-report" id="score-hero">
       <div class="score-report-inner score-reveal">
         <div class="score-summary-card">
-          <div class="score-summary-head">
+          <div class="score-summary-intro">
+            <h2 class="score-summary-title" data-i18n="score.heroTitle">Water Quality</h2>
+            <p class="score-summary-subtitle" id="score-indicator-count">Based on 7 indicators</p>
+          </div>
+
+          <div class="score-summary-hero">
             <div class="score-summary-score">
               <span class="score-summary-num" id="gauge-val">—</span>
               <span class="score-summary-den">/100</span>
             </div>
-            <div class="score-summary-meta">
-              <span class="score-summary-count" id="score-indicator-count">8 <span data-i18n="score.indicators">Indicators</span></span>
-              <span class="score-summary-badge" id="score-summary-band">—</span>
-            </div>
+            <span class="score-summary-badge" id="score-summary-band">—</span>
           </div>
+
           <div class="score-progress" id="score-status-bar" role="img" aria-label="Water Score level">
             <div class="score-progress-segments" aria-hidden="true">
               <span></span><span></span><span></span><span></span>
@@ -32,6 +35,7 @@
             <span id="score-tick-intl">80 &middot; Int'l</span>
             <span>100</span>
           </div>
+
           <p class="score-summary-note" id="score-summary-note"></p>
         </div>
 

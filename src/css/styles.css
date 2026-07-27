@@ -587,30 +587,40 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-report[data-tier=high] .score-summary-card{--score-accent:#284dcd}
 .score-report[data-tier=mid] .score-summary-card{--score-accent:#22c55e}
 .score-report[data-tier=low] .score-summary-card{--score-accent:#f07b7b}
-.score-summary-head{
+.score-summary-intro{
+  margin:0 0 14px;
+}
+.score-summary-title{
+  margin:0 0 4px;
+  font-size:18px;
+  font-weight:700;
+  letter-spacing:-.02em;
+  color:var(--text);
+  line-height:1.25;
+}
+.score-summary-subtitle{
+  margin:0;
+  font-size:13px;
+  font-weight:500;
+  color:var(--muted);
+  line-height:1.35;
+}
+.score-summary-hero{
   display:flex;
-  align-items:flex-start;
+  align-items:flex-end;
   justify-content:space-between;
   gap:16px;
-  margin-bottom:18px;
+  margin:0 0 16px;
 }
-.score-summary-meta{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-end;
-  gap:4px;
-  padding-top:8px;
-  flex-shrink:0;
-}
-.score-summary-count{font-size:13px;font-weight:500;color:var(--muted);text-align:right}
 .score-summary-badge{
-  font-size:15px;
+  font-size:16px;
   font-weight:700;
-  padding:0;
+  padding:0 0 6px;
   border-radius:0;
   color:var(--score-accent);
   background:transparent;
   line-height:1.2;
+  flex-shrink:0;
 }
 .score-summary-score{
   display:flex;

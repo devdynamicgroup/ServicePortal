@@ -920,7 +920,9 @@ function renderScoreReadings(context = getScoreEvalContext()) {
   };
 
   const countEl = document.getElementById('score-indicator-count');
-  if (countEl) countEl.innerHTML = `${rows.length} <span data-i18n="score.indicators">${t('score.indicators')}</span>`;
+  if (countEl) {
+    countEl.textContent = t('score.basedOnIndicators').replace('{n}', String(rows.length || 7));
+  }
 
   listEl.innerHTML = rows.map(r => {
     const statusKey = paramStatusUiKey(r.st);
