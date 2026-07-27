@@ -214,12 +214,16 @@ function scoreDoAgainstLimits(doValue, lim) {
 /** Parameter sub-scores + weighted overall for a selected standard. */
 function computeParamScoresForStandard(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
   const lim = getWaterQualityStandard(standardKey).limits;
-  const ph = Number(readings.ph) || 7.2;
-  const tds = Number(readings.tds) || 450;
-  const turb = Number(readings.turbidity) || 1.2;
-  const orp = Number(readings.orp) || 320;
-  const fcl = Number(readings.chlorine) || 2.1;
-  const do_ = Number(readings.do) || 6.8;
+  const ph = Number(readings.ph);
+  const tds = Number(readings.tds);
+  const turb = Number(readings.turbidity);
+  const orp = Number(readings.orp);
+  const fcl = Number(readings.chlorine);
+  const do_ = Number(readings.do);
+  // Never invent demo/placeholder values — incomplete readings skip scoring.
+  if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
+    return { score: null, params: null };
+  }
   const params = {
     ph: scorePhAgainstLimits(ph, lim.ph),
     tds: scoreTdsAgainstLimits(tds, lim.tds),
@@ -294,16 +298,17 @@ function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDA
   const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const standard = getWaterQualityStandard(key);
   const scored = computeParamScoresForStandard(readings, key);
+  const score = Number.isFinite(scored.score) ? scored.score : null;
   // Always recalculate display score from the selected standard (simulation only).
   // Production/share score stays on S.scoreVal / currentScoreResult.
   return {
     standardKey: key,
     standard,
     readings: { ...readings },
-    score: scored.score,
+    score,
     paramScores: scored.params,
     findings: buildScoreFindings(readings, key),
-    verdict: customerVerdict(scored.score)
+    verdict: score == null ? null : customerVerdict(score)
   };
 }
 
@@ -439,9 +444,11 @@ function renderScoreDisplay() {
   const showScore = canDisplayScoreNumber(readiness, S.activeJob);
   // Summary number comes from computeScoreFromReadings (fresh), never a cached draft.scoreVal.
   // Selected standard still drives parameter status, recommended ranges, and findings.
-  const computedWho = Number(S.currentScoreResult?.computedScore);
-  const comparisonScore = Number(result.score);
-  const wq = Number.isFinite(computedWho) ? computedWho : comparisonScore;
+  const computedWho = S.currentScoreResult?.computedScore;
+  const comparisonScore = result.score;
+  const wq = Number.isFinite(computedWho)
+    ? computedWho
+    : (Number.isFinite(comparisonScore) ? comparisonScore : NaN);
   console.log('RENDER SCORE DISPLAY', {
     score: wq,
     computedWho,
@@ -452,7 +459,7 @@ function renderScoreDisplay() {
     showScore
   });
   const findings = result.findings || [];
-  const verdict = customerVerdict(wq);
+  const verdict = Number.isFinite(wq) ? customerVerdict(wq) : { tier: 'pending', label: '—', color: '#284dcd' };
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
   const noteEl = document.getElementById('score-summary-note');
@@ -539,13 +546,6 @@ function setScoreReferenceStandard(standardKey) {
   renderScoreDisplay();
 }
 
-function meterFieldValue(id, fallback) {
-  const el = document.getElementById(id);
-  if (!el) return fallback;
-  const value = parseFloat(el.value);
-  return Number.isFinite(value) ? value : fallback;
-}
-
 function numOrUndefined(value) {
   const n = typeof value === 'number' ? value : parseFloat(value);
   return Number.isFinite(n) ? n : undefined;
@@ -624,28 +624,19 @@ function mergeReadingLayers(...layers) {
   return out;
 }
 
-const SCORE_READING_FALLBACKS = Object.freeze({
-  ph: 7.2,
-  tds: 450,
-  chlorine: 2.1,
-  turbidity: 1.2,
-  orp: 320,
-  do: 6.8,
-  temp: 28
-});
-
 const SCORE_READY_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp']);
 
-/** Real measurements only — no demo fallbacks — used for readiness UI. */
+/**
+ * Real measurements only — never HTML placeholders, never demo fill values.
+ * Sources: tap snapshots, saved draft fields, and live DOM input values.
+ */
 function resolveScoreReadingsPresent(job) {
   const draft = job?.draft || {};
   const fromTaps = readingsFromTapData(draft.tapData?.length ? draft.tapData : S.tapData);
   const fromFields = readingsFromFieldMap(draft.fields || {});
   const fromDom = readingsFromDomFields();
-  const fromCache = draft.scoreBaseReadings && typeof draft.scoreBaseReadings === 'object'
-    ? { ...draft.scoreBaseReadings }
-    : (S.scoreBaseReadings && typeof S.scoreBaseReadings === 'object' ? { ...S.scoreBaseReadings } : {});
-  return mergeReadingLayers(fromTaps, fromFields, fromDom, fromCache);
+  // Do not use scoreBaseReadings here — older drafts may have cached demo fill values.
+  return mergeReadingLayers(fromTaps, fromFields, fromDom);
 }
 
 function getScoreDataReadiness(job = S.activeJob) {
@@ -708,29 +699,13 @@ function renderScoreReadiness(readiness) {
 }
 
 /**
- * Resolve readings for scoring. Never let a stale scoreBaseReadings cache
- * hide fresher randomized tap/field/DOM values.
+ * Resolve readings for scoring from entered/OCR values only.
+ * Empty inputs and HTML placeholders are never treated as measurements.
  */
 function resolveScoreReadings(job) {
-  const draft = job?.draft || {};
-  const fromTaps = readingsFromTapData(draft.tapData?.length ? draft.tapData : S.tapData);
-  const fromFields = readingsFromFieldMap(draft.fields || {});
-  const fromDom = readingsFromDomFields();
-  // scoreBaseReadings is last-resort fill only (not a wholesale override).
-  const fromCache = draft.scoreBaseReadings && typeof draft.scoreBaseReadings === 'object'
-    ? { ...draft.scoreBaseReadings }
-    : (S.scoreBaseReadings && typeof S.scoreBaseReadings === 'object' ? { ...S.scoreBaseReadings } : {});
+  const readings = resolveScoreReadingsPresent(job);
 
-  const merged = mergeReadingLayers(fromTaps, fromFields, fromDom, fromCache);
-  const readings = { ...SCORE_READING_FALLBACKS, ...merged };
-
-  console.log('INPUT READINGS', {
-    readings,
-    fromTaps,
-    fromFields,
-    fromDom,
-    fromCache
-  });
+  console.log('INPUT READINGS', { readings });
 
   return readings;
 }
@@ -741,13 +716,18 @@ function readingsFromJob(job) {
 
 function computeScoreFromReadings(readings) {
   // Production / saved score — original WHO (DWQI) formula. Unchanged for share/API.
-  const ph = Number(readings.ph) || 7.2;
-  const tds = Number(readings.tds) || 450;
-  const turb = Number(readings.turbidity) || 1.2;
-  const orp = Number(readings.orp) || 320;
-  const fcl = Number(readings.chlorine) || 2.1;
-  const do_ = Number(readings.do) || 6.8;
+  // Missing keys stay missing — do not substitute demo/example numbers.
+  const ph = Number(readings.ph);
+  const tds = Number(readings.tds);
+  const turb = Number(readings.turbidity);
+  const orp = Number(readings.orp);
+  const fcl = Number(readings.chlorine);
+  const do_ = Number(readings.do);
   console.log('PARAMETER VALUES', { ph, tds, turbidity: turb, orp, chlorine: fcl, do: do_ });
+  if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
+    console.log('FINAL SCORE skipped — incomplete readings');
+    return null;
+  }
   const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
   const pHs = ph >= 6.5 && ph <= 8.5 ? 100 : ph >= 6 && ph <= 9 ? 70 : ph >= 5.5 && ph <= 9.5 ? 40 : 15;
   const tdss = tds <= 300 ? 100 : tds <= 600 ? 100 - (tds - 300) / 300 * 20 : tds <= 1000 ? 80 - (tds - 600) / 400 * 30 : clamp(50 - (tds - 1000) / 30);
@@ -778,7 +758,7 @@ function renderWaterScore(job, options = {}) {
   // Public report may show the published score; field app always uses the fresh calculation.
   const productionScore = publicView && Number.isFinite(published)
     ? Math.max(0, Math.min(100, Math.round(published)))
-    : computedScore;
+    : (Number.isFinite(computedScore) ? computedScore : null);
 
   const taps = draft.taps?.length
     ? [...draft.taps]
@@ -787,7 +767,8 @@ function renderWaterScore(job, options = {}) {
   if (job) S.activeJob = job;
   // Saved / shareable score stays on the WHO production path.
   S.scoreVal = productionScore;
-  S.scoreBaseReadings = readings;
+  // Cache only real entered/OCR values — never demo fill-ins.
+  S.scoreBaseReadings = { ...readings };
   S.currentScoreResult = {
     score: productionScore,
     standardKey: 'who',
@@ -848,7 +829,7 @@ function averageRoomReadings(base, tapCount) {
   return avg;
 }
 
-function readingsFromSingleTap(tap, fallback) {
+function readingsFromSingleTap(tap, fallback = {}) {
   const standard = tap?.standardMeasurement && typeof tap.standardMeasurement === 'object'
     ? tap.standardMeasurement
     : null;
@@ -863,15 +844,21 @@ function readingsFromSingleTap(tap, fallback) {
     temp: numOrUndefined(standard?.temp ?? meter.temp),
     chlorine: numOrUndefined(standard?.chlorine ?? (chlorine.freeChlorine ?? chlorine.chlorine))
   };
-  return { ...fallback, ...Object.fromEntries(Object.entries(mapped).filter(([, v]) => v !== undefined)) };
+  // Only fill gaps from other real measurements — never demo placeholders.
+  const realFallback = Object.fromEntries(
+    Object.entries(fallback || {}).filter(([, v]) => Number.isFinite(Number(v)))
+  );
+  return { ...realFallback, ...Object.fromEntries(Object.entries(mapped).filter(([, v]) => v !== undefined)) };
 }
 
-/** True when a tap has any Standard (Layer 2) or legacy reading source. */
+/** True when a tap has any Standard (Layer 2) or legacy reading with a real number. */
 function hasTapReadingSource(tap) {
+  const hasFinite = (row) => row && typeof row === 'object'
+    && Object.values(row).some(v => Number.isFinite(typeof v === 'number' ? v : parseFloat(v)));
   return Boolean(
-    (tap?.standardMeasurement && Object.keys(tap.standardMeasurement).length)
-    || tap?.meterReadings
-    || tap?.chlorineReadings
+    hasFinite(tap?.standardMeasurement)
+    || hasFinite(tap?.meterReadings)
+    || hasFinite(tap?.chlorineReadings)
   );
 }
 
@@ -879,20 +866,23 @@ function hasTapReadingSource(tap) {
 function getRoomReadings(tapKey, context = getScoreEvalContext()) {
   const base = context.readings && Object.keys(context.readings).length
     ? context.readings
-    : (S.scoreBaseReadings || { ...SCORE_READING_FALLBACKS });
+    : (S.scoreBaseReadings || {});
   const taps = S.taps?.length ? S.taps : ['Tap 1'];
   const tapData = (S.activeJob?.draft?.tapData?.length ? S.activeJob.draft.tapData : S.tapData) || [];
+  const baseReady = SCORE_READY_KEYS.every(key => Number.isFinite(Number(base?.[key])));
 
   if (tapKey === 'all') {
     const rows = taps.map((_, i) => {
       const tap = tapData[i];
       if (hasTapReadingSource(tap)) return readingsFromSingleTap(tap, base);
-      return readingsFromBase(base, i, taps.length);
-    });
+      // Without a tap snapshot, only synthesize offsets when base is fully measured.
+      return baseReady ? readingsFromBase(base, i, taps.length) : { ...base };
+    }).filter(row => SCORE_READY_KEYS.some(key => Number.isFinite(Number(row?.[key]))));
     const keys = ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp'];
     const avg = {};
     keys.forEach(key => {
-      avg[key] = rows.reduce((sum, row) => sum + Number(row[key]), 0) / rows.length;
+      const vals = rows.map(row => Number(row[key])).filter(Number.isFinite);
+      if (vals.length) avg[key] = vals.reduce((sum, n) => sum + n, 0) / vals.length;
     });
     return avg;
   }
@@ -903,13 +893,15 @@ function getRoomReadings(tapKey, context = getScoreEvalContext()) {
   if (hasTapReadingSource(tap)) {
     return readingsFromSingleTap(tap, base);
   }
-  return readingsFromBase(base, safeIndex, taps.length);
+  return baseReady ? readingsFromBase(base, safeIndex, taps.length) : { ...base };
 }
 
 /** Build metric rows for one room using selectedStandard limits — never shared across rooms. */
 function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   const standardKey = context.selectedStandard || DEFAULT_SCORE_STANDARD_KEY;
   const display = context.display || getWaterQualityStandard(standardKey).display;
+  const fmt = (n, digits, suffix = '') => (Number.isFinite(n) ? n.toFixed(digits) + suffix : '—');
+  const fmtInt = (n, suffix = '') => (Number.isFinite(n) ? Math.round(n) + suffix : '—');
   const ph = Number(readings.ph);
   const tds = Number(readings.tds);
   const chlorine = Number(readings.chlorine);
@@ -918,13 +910,13 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   const doVal = Number(readings.do);
   const temp = Number(readings.temp);
   return [
-    { p: 'pH', r: ph.toFixed(1), std: display.ph, st: evaluateParamStatus('ph', ph, standardKey) },
-    { p: 'TDS', r: Math.round(tds) + ' mg/L', std: display.tds, st: evaluateParamStatus('tds', tds, standardKey) },
-    { p: 'Chlorine', r: chlorine.toFixed(1) + ' mg/L', std: display.chlorine, st: evaluateParamStatus('chlorine', chlorine, standardKey) },
-    { p: 'Turbidity', r: turbidity.toFixed(1) + ' NTU', std: display.turbidity, st: evaluateParamStatus('turbidity', turbidity, standardKey) },
-    { p: 'ORP', r: Math.round(orp) + ' mV', std: display.orp, st: evaluateParamStatus('orp', orp, standardKey) },
-    { p: 'DO', r: doVal.toFixed(1) + ' mg/L', std: display.do, st: evaluateParamStatus('do', doVal, standardKey) },
-    { p: 'Temp', r: temp.toFixed(1) + '°C', std: display.temp, st: evaluateParamStatus('temp', temp, standardKey) }
+    { p: 'pH', r: fmt(ph, 1), std: display.ph, st: evaluateParamStatus('ph', ph, standardKey) },
+    { p: 'TDS', r: fmtInt(tds, ' mg/L'), std: display.tds, st: evaluateParamStatus('tds', tds, standardKey) },
+    { p: 'Chlorine', r: fmt(chlorine, 1, ' mg/L'), std: display.chlorine, st: evaluateParamStatus('chlorine', chlorine, standardKey) },
+    { p: 'Turbidity', r: fmt(turbidity, 1, ' NTU'), std: display.turbidity, st: evaluateParamStatus('turbidity', turbidity, standardKey) },
+    { p: 'ORP', r: fmtInt(orp, ' mV'), std: display.orp, st: evaluateParamStatus('orp', orp, standardKey) },
+    { p: 'DO', r: fmt(doVal, 1, ' mg/L'), std: display.do, st: evaluateParamStatus('do', doVal, standardKey) },
+    { p: 'Temp', r: fmt(temp, 1, '°C'), std: display.temp, st: evaluateParamStatus('temp', temp, standardKey) }
   ];
 }
 
