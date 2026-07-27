@@ -894,7 +894,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   .score-summary-card{margin-bottom:18px}
   .score-summary-num{font-size:46px}
   .score-summary-den{font-size:16px}
-  .score-summary-count{font-size:12px}
+  .score-summary-subtitle{font-size:12px}
   .score-summary-badge{font-size:14px}
   .score-params-scope{margin-bottom:4px}
   .score-metric-name,.score-metric-value{font-size:13px}
