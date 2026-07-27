@@ -402,6 +402,7 @@ function renderScoreDisplay() {
   if (!result) return;
 
   const context = getScoreEvalContext(result);
+  const readiness = getScoreDataReadiness(S.activeJob);
   // Summary number comes from computeScoreFromReadings (fresh), never a cached draft.scoreVal.
   // Selected standard still drives parameter status, recommended ranges, and findings.
   const computedWho = Number(S.currentScoreResult?.computedScore);
@@ -412,7 +413,8 @@ function renderScoreDisplay() {
     computedWho,
     comparisonScore,
     standard: result.standardKey,
-    readings: result.readings
+    readings: result.readings,
+    readiness
   });
   const findings = result.findings || [];
   const verdict = customerVerdict(wq);
@@ -433,11 +435,15 @@ function renderScoreDisplay() {
     standardEl.textContent = t(context.standard.labelKey);
   }
   if (bandEl) {
-    bandEl.textContent = verdict.label;
+    bandEl.textContent = readiness && (!readiness.ready || readiness.ocrBusy)
+      ? t('score.readiness.pendingBadge')
+      : verdict.label;
     bandEl.style.color = '';
   }
   if (noteEl) {
-    noteEl.textContent = scoreSummaryNote(wq, findings);
+    noteEl.textContent = readiness && (!readiness.ready || readiness.ocrBusy)
+      ? (readiness.ocrBusy ? t('score.readiness.processingText') : t('score.readiness.note'))
+      : scoreSummaryNote(wq, findings);
   }
 
   renderScoreStatusBar(wq);
@@ -447,9 +453,10 @@ function renderScoreDisplay() {
   animateScoreNumber(document.getElementById('gauge-val'), wq);
   renderStandardSelect(context);
   renderLocationSelect(context);
+  renderScoreReadiness(readiness);
   renderScoreReadings(context);
   renderScoreImprove(context);
-  renderScorePhotos();
+  renderScorePhotos(readiness);
 }
 
 /** Switch comparison standard — recalculates statuses from the same resolved readings. */
@@ -573,6 +580,97 @@ const SCORE_READING_FALLBACKS = Object.freeze({
   do: 6.8,
   temp: 28
 });
+
+const SCORE_READY_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp']);
+
+/** Real measurements only — no demo fallbacks — used for readiness UI. */
+function resolveScoreReadingsPresent(job) {
+  const draft = job?.draft || {};
+  const fromTaps = readingsFromTapData(draft.tapData?.length ? draft.tapData : S.tapData);
+  const fromFields = readingsFromFieldMap(draft.fields || {});
+  const fromDom = readingsFromDomFields();
+  const fromCache = draft.scoreBaseReadings && typeof draft.scoreBaseReadings === 'object'
+    ? { ...draft.scoreBaseReadings }
+    : (S.scoreBaseReadings && typeof S.scoreBaseReadings === 'object' ? { ...S.scoreBaseReadings } : {});
+  return mergeReadingLayers(fromTaps, fromFields, fromDom, fromCache);
+}
+
+function getScoreDataReadiness(job = S.activeJob) {
+  const present = resolveScoreReadingsPresent(job);
+  const missing = SCORE_READY_KEYS.filter(key => present[key] === undefined);
+  const ocrBusy = Boolean(window.MeterReadingCapture?._processing)
+    || Boolean(typeof processAssessmentPhoto === 'function' && processAssessmentPhoto._busy);
+  const hasPhotos = (() => {
+    const taps = (job?.draft?.tapData?.length ? job.draft.tapData : S.tapData) || [];
+    return taps.some(tap => {
+      const photos = tap?.photos || {};
+      return Boolean(photos.tapphoto || photos.visual || photos.meter || (Array.isArray(tap?.meterImages) && tap.meterImages.length));
+    });
+  })();
+  return {
+    present,
+    missing,
+    ready: missing.length === 0,
+    ocrBusy,
+    hasPhotos,
+    filledCount: SCORE_READY_KEYS.length - missing.length,
+    totalCount: SCORE_READY_KEYS.length
+  };
+}
+
+function renderScoreReadiness(readiness) {
+  const banner = document.getElementById('score-readiness');
+  const titleEl = document.getElementById('score-readiness-title');
+  const textEl = document.getElementById('score-readiness-text');
+  const hero = document.getElementById('score-hero');
+  if (!banner) return readiness;
+
+  const show = Boolean(readiness && (!readiness.ready || readiness.ocrBusy));
+  banner.hidden = !show;
+  banner.classList.toggle('is-busy', Boolean(readiness?.ocrBusy));
+  hero?.classList.toggle('is-incomplete', show);
+
+  if (!show) {
+    if (S._scoreReadyPoll) {
+      clearInterval(S._scoreReadyPoll);
+      S._scoreReadyPoll = null;
+    }
+    return readiness;
+  }
+
+  if (titleEl) {
+    titleEl.textContent = readiness.ocrBusy
+      ? t('score.readiness.processingTitle')
+      : t('score.readiness.incompleteTitle');
+  }
+  if (textEl) {
+    if (readiness.ocrBusy) {
+      textEl.textContent = t('score.readiness.processingText');
+    } else {
+      textEl.textContent = t('score.readiness.incompleteText')
+        .replace('{filled}', String(readiness.filledCount))
+        .replace('{total}', String(readiness.totalCount));
+    }
+  }
+
+  // Keep refreshing while OCR is still processing so photos/values appear when ready.
+  if (readiness.ocrBusy && !S._scoreReadyPoll && !S.publicScoreView) {
+    S._scoreReadyPoll = setInterval(() => {
+      if (S.screen !== 's-score') {
+        clearInterval(S._scoreReadyPoll);
+        S._scoreReadyPoll = null;
+        return;
+      }
+      const next = getScoreDataReadiness(S.activeJob);
+      if (!next.ocrBusy) {
+        clearInterval(S._scoreReadyPoll);
+        S._scoreReadyPoll = null;
+        if (typeof calcAndShowScore === 'function') calcAndShowScore();
+      }
+    }, 1200);
+  }
+  return readiness;
+}
 
 /**
  * Resolve readings for scoring. Never let a stale scoreBaseReadings cache
@@ -884,10 +982,12 @@ function renderScoreImprove(context = getScoreEvalContext()) {
 }
 
 /** Photo carousel for the currently viewed location(s), sourced from assessment tap photos. */
-function renderScorePhotos() {
+function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
   const wrap = document.getElementById('score-photo-carousel');
   const track = document.getElementById('score-photo-track');
   const dotsEl = document.getElementById('score-photo-dots');
+  const placeholder = document.getElementById('score-photo-placeholder');
+  const placeholderText = document.getElementById('score-photo-placeholder-text');
   if (!wrap || !track || !dotsEl) return;
 
   const taps = S.taps?.length ? S.taps : [];
@@ -912,9 +1012,18 @@ function renderScorePhotos() {
     wrap.hidden = true;
     track.replaceChildren();
     dotsEl.replaceChildren();
+    if (placeholder) {
+      placeholder.hidden = false;
+      if (placeholderText) {
+        placeholderText.textContent = readiness?.ocrBusy
+          ? t('score.readiness.photosProcessing')
+          : t('score.readiness.photosPending');
+      }
+    }
     return;
   }
 
+  if (placeholder) placeholder.hidden = true;
   wrap.hidden = false;
   track.innerHTML = images.map(img => `<div class="score-photo-slide"><img src="${img.src}" alt="${img.label}" loading="lazy"></div>`).join('');
   dotsEl.innerHTML = images.map((_, i) => `<span class="score-photo-dot${i === 0 ? ' is-active' : ''}"></span>`).join('');

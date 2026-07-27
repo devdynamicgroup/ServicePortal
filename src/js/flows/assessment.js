@@ -1153,6 +1153,56 @@ function getActiveTapRecord() {
   return tap;
 }
 
+function bindTouchedRequiredValidation(ids = []) {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.touchedBound === 'true') return;
+    el.dataset.touchedBound = 'true';
+    el.addEventListener('focus', () => {
+      el.dataset.wasFocused = 'true';
+    });
+    el.addEventListener('blur', () => {
+      if (el.dataset.wasFocused !== 'true') return;
+      const empty = !String(el.value || '').trim();
+      el.classList.toggle('invalid', empty);
+      el.closest('.field')?.classList.toggle('field-invalid', empty);
+    });
+    el.addEventListener('input', () => {
+      if (!String(el.value || '').trim()) return;
+      el.classList.remove('invalid');
+      el.closest('.field')?.classList.remove('field-invalid');
+    });
+  });
+}
+
+function persistChlorineReadings() {
+  const tap = getActiveTapRecord();
+  const next = { ...(tap.chlorineReadings || {}) };
+  Object.entries(CHLORINE_READING_FIELDS).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    next[key] = el.value || '';
+  });
+  tap.chlorineReadings = next;
+  saveActiveJobState?.();
+}
+
+function initChlorineReadingFields() {
+  Object.entries(CHLORINE_READING_FIELDS).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.dataset.chlorineBound !== 'true') {
+      el.dataset.chlorineBound = 'true';
+      el.addEventListener('input', persistChlorineReadings);
+      el.addEventListener('change', persistChlorineReadings);
+    }
+  });
+  const tap = getActiveTapRecord();
+  writeReadingFields(CHLORINE_READING_FIELDS, tap.chlorineReadings || {});
+  // Free chlorine feeds Water Score; warn if touched then left empty.
+  bindTouchedRequiredValidation(['m-free-cl']);
+}
+
 function readMeterReadingFields() {
   return Object.fromEntries(Object.entries(METER_READING_FIELDS).map(([key, id]) => [key, document.getElementById(id)?.value || '']));
 }
@@ -1202,6 +1252,7 @@ window.MeterReadingCapture = {
       el.addEventListener('input', persistMeterReadings);
       el.addEventListener('change', persistMeterReadings);
     });
+    bindTouchedRequiredValidation(Object.values(METER_READING_FIELDS));
   },
 
   async processPhoto(photoSrc) {
