@@ -81,6 +81,7 @@ const { handleFeedbackSuggestRoute } = require('./api/feedback-suggest-routes');
 const { handleGoogleDriveRoute } = require('./api/google-drive-routes');
 const { handleGoogleDriveOAuthRoute } = require('./api/google-drive-oauth-routes');
 const { handleOcrProxyRoute } = require('./api/ocr-proxy-routes');
+const { handlePublicRoute } = require('./api/public-routes');
 const { startGoogleReviewScheduler } = require('./services/google-review-scheduler');
 const { getDriveStatus } = require('./services/google-drive');
 const {
@@ -182,6 +183,7 @@ function mapMetroCity(address) {
 async function handleApiRequest(req, res) {
   const urlPath = req.url.split('?')[0];
 
+  if (await handlePublicRoute(req, res, urlPath)) return true;
   if (await handleGoogleDriveOAuthRoute(req, res, urlPath)) return true;
   if (await handleClientsRoute(req, res, urlPath)) return true;
   if (await handleCaseFlowRoute(req, res, urlPath)) return true;
@@ -305,6 +307,19 @@ function resolvePath(urlPath) {
 }
 
 async function handleRequest(req, res) {
+  try {
+    await handleRequestInner(req, res);
+  } catch (error) {
+    console.error('[handleRequest] unhandled error', error);
+    if (!res.headersSent) {
+      send(res, 500, JSON.stringify({ ok: false, error: 'Internal server error' }), 'application/json; charset=utf-8');
+    } else {
+      res.end();
+    }
+  }
+}
+
+async function handleRequestInner(req, res) {
   if (await handleApiRequest(req, res)) return;
 
   if (req.method !== 'GET' && req.method !== 'HEAD') {
