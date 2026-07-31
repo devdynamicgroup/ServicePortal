@@ -1,7 +1,9 @@
 /**
  * Water Score share cards for LINE / social (3 formats).
- * Dynamic: photo + score card (number, verdict, knob, note).
- * Static: headline, logo, QR CTA block.
+ * Matches the approved design plate:
+ *  - left: real site photo (default faucet plate when missing)
+ *  - right: static headline + dynamic score card
+ *  - static QR CTA + Water Motion wordmark
  */
 
 const path = require('path');
@@ -14,11 +16,19 @@ const FORMATS = Object.freeze({
 });
 
 const BRAND_BLUE = '#284DCD';
-const SURFACE = '#EDEBE8';
+const SURFACE = '#C0C1C5';
 const CARD_BG = '#FFFFFF';
-const INK = '#0C0A09';
-const MUTED = '#78716C';
-const DIM = '#A8A29D';
+const INK = '#111111';
+const MUTED = '#6B7280';
+const DIM = '#9CA3AF';
+const GOOD_GREEN = '#34A853';
+const GOOD_GREEN_SOFT = '#8FCF9B';
+const HEADLINE = '#F0F1F3';
+const LOGO_FILL = '#F0F1F3';
+
+const ASSET_DIR = path.join(__dirname, '..', 'src', 'assets');
+const DEFAULT_PHOTO = path.join(ASSET_DIR, 'score-share-default-photo.jpg');
+const QR_ASSET = path.join(ASSET_DIR, 'score-share-qr.png');
 
 function escapeXml(value) {
   return String(value || '')
@@ -29,10 +39,16 @@ function escapeXml(value) {
     .replace(/'/g, '&apos;');
 }
 
+function fileToDataUri(filePath, mime) {
+  if (!filePath || !fs.existsSync(filePath)) return '';
+  const buf = fs.readFileSync(filePath);
+  return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
 function customerVerdict(score) {
   const wq = Number(score);
   if (wq >= 80) return { label: 'Excellent', color: BRAND_BLUE, tier: 'high' };
-  if (wq >= 65) return { label: 'Good', color: '#22C55E', tier: 'mid' };
+  if (wq >= 65) return { label: 'Good', color: GOOD_GREEN, tier: 'mid' };
   return { label: 'Needs attention', color: '#F07B7B', tier: 'low' };
 }
 
@@ -72,105 +88,65 @@ function resolveFormat(format) {
   return FORMATS[key] || FORMATS.landscape;
 }
 
-function photoFilterOverlay() {
-  // Soft cool grade so light/dark site photos land in one brand tone.
-  return `
-    <filter id="photoTone" x="-5%" y="-5%" width="110%" height="110%">
-      <feColorMatrix type="matrix" values="
-        0.90 0.05 0.05 0 0.02
-        0.04 0.92 0.06 0 0.02
-        0.05 0.08 0.95 0 0.04
-        0    0    0    1 0"/>
-      <feComponentTransfer>
-        <feFuncR type="linear" slope="0.92" intercept="0.04"/>
-        <feFuncG type="linear" slope="0.92" intercept="0.04"/>
-        <feFuncB type="linear" slope="0.94" intercept="0.03"/>
-      </feComponentTransfer>
-    </filter>`;
+function fillColorFor(verdict) {
+  if (verdict.tier === 'high') return BRAND_BLUE;
+  if (verdict.tier === 'mid') return GOOD_GREEN_SOFT;
+  return '#F07B7B';
 }
 
-function logoMark(x, y, scale = 1, fill = '#FFFFFF') {
-  const s = scale;
+/** Continuous progress bar matching the design mock. */
+function progressBar(pad, barY, barW, barH, wq, fillColor) {
+  const knobX = pad + (barW * wq) / 100;
+  const fillW = Math.max(0, (barW * wq) / 100);
   return `
-    <g transform="translate(${x},${y}) scale(${s})">
-      <path fill="${fill}" d="M18 4.2c-5.8 7.1-10.5 12.8-10.5 18.2A10.5 10.5 0 0 0 18 32.9a10.5 10.5 0 0 0 10.5-10.5c0-5.4-4.7-11.1-10.5-18.2z"/>
-      <path fill="#5B8DEF" d="M14.2 21.6c0-2.8 1.6-5.1 3.8-6.8 1.7 2.3 3.1 4.6 3.1 6.8a3.45 3.45 0 0 1-6.9 0z"/>
-      <text x="36" y="24" fill="${fill}" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" letter-spacing="1.2">WATER MOTION</text>
-    </g>`;
-}
-
-function qrBlock(x, y, size) {
-  // Static CTA visual — Flex / share action opens the report URL.
-  const cell = size / 11;
-  const pattern = [
-    [1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0],
-    [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0],
-    [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0],
-    [1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-    [1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1],
-    [0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0],
-    [1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1]
-  ];
-  let dots = '';
-  for (let row = 0; row < 11; row += 1) {
-    for (let col = 0; col < 11; col += 1) {
-      if (!pattern[row][col]) continue;
-      dots += `<rect x="${(col * cell).toFixed(2)}" y="${(row * cell).toFixed(2)}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}" fill="#fff"/>`;
-    }
-  }
-  return `
-    <g transform="translate(${x},${y})">
-      <rect width="${size}" height="${size}" rx="14" fill="${BRAND_BLUE}"/>
-      <text x="${size / 2}" y="22" text-anchor="middle" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600">Get your score</text>
-      <g transform="translate(${size * 0.18},${size * 0.28})">${dots}</g>
-    </g>`;
+    <rect x="${pad}" y="${barY}" width="${barW}" height="${barH}" rx="${barH / 2}" fill="#E5E4E1"/>
+    <rect x="${pad}" y="${barY}" width="${fillW}" height="${barH}" rx="${barH / 2}" fill="${fillColor}"/>
+    <circle cx="${knobX}" cy="${barY + barH / 2}" r="8" fill="#fff" stroke="${INK}" stroke-width="2.5"/>
+  `;
 }
 
 function scoreCard({ x, y, width, height, score, verdict, note, indicators = 8 }) {
   const wq = Math.max(0, Math.min(100, Number(score) || 0));
-  const pad = 28;
-  const barY = 118;
+  const pad = 32;
+  const barY = 128;
   const barH = 10;
   const barW = width - pad * 2;
-  const knobX = pad + (barW * wq) / 100;
-  const noteLines = wrapNote(note, Math.floor(width / 9.5), 3);
+  const noteLines = wrapNote(note, Math.floor(width / 10.2), 3);
+  const fill = fillColorFor(verdict);
+  const verdictX = pad + (String(Math.round(wq)).length >= 3 ? 130 : String(Math.round(wq)).length === 2 ? 100 : 62);
 
   const ticks = [
     { at: 0, label: '0' },
-    { at: 50, label: '50 · Thai' },
-    { at: 80, label: "80 · Int'l" },
+    { at: 50, label: '50 - Thai' },
+    { at: 80, label: "80 - Int'l" },
     { at: 100, label: '100' }
   ];
 
-  const fillColor = verdict.tier === 'high' ? BRAND_BLUE : verdict.tier === 'mid' ? '#22C55E' : '#F07B7B';
-
   const noteSvg = noteLines.map((line, i) => (
-    `<text x="${pad}" y="${barY + 52 + i * 22}" fill="${MUTED}" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400">${escapeXml(line)}</text>`
+    `<text x="${pad}" y="${barY + 58 + i * 22}" fill="${MUTED}" font-family="Arial, Helvetica, sans-serif" font-size="16">${escapeXml(line)}</text>`
   )).join('');
 
   return `
     <g transform="translate(${x},${y})">
-      <rect width="${width}" height="${height}" rx="22" fill="${CARD_BG}" filter="url(#cardShadow)"/>
-      <text x="${pad}" y="36" fill="${DIM}" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" letter-spacing="1.4">WATER SCORE</text>
-      <text x="${width - pad}" y="36" text-anchor="end" fill="${DIM}" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500">${indicators} indicators</text>
-      <text x="${pad}" y="92" fill="${INK}" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="700">${Math.round(wq)}</text>
-      <text x="${pad + (wq >= 100 ? 118 : wq >= 10 ? 90 : 58)}" y="86" fill="${verdict.color}" font-family="Arial, Helvetica, sans-serif" font-size="${verdict.tier === 'low' ? 22 : 26}" font-weight="700">${escapeXml(verdict.label)}</text>
-
-      <rect x="${pad}" y="${barY}" width="${barW}" height="${barH}" rx="5" fill="#E8EEFC"/>
-      <rect x="${pad}" y="${barY}" width="${Math.max(0, (barW * wq) / 100)}" height="${barH}" rx="5" fill="${fillColor}"/>
-      <circle cx="${knobX}" cy="${barY + barH / 2}" r="9" fill="#fff" stroke="${INK}" stroke-width="2.5"/>
-
-      ${ticks.map(t => {
+      <rect width="${width}" height="${height}" rx="24" fill="${CARD_BG}" filter="url(#cardShadow)"/>
+      <text x="${pad}" y="38" fill="${DIM}" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" letter-spacing="0.08em">WATER SCORE</text>
+      <text x="${width - pad}" y="38" text-anchor="end" fill="${DIM}" font-family="Arial, Helvetica, sans-serif" font-size="14">${indicators} indicators</text>
+      <text x="${pad}" y="100" fill="${INK}" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700">${Math.round(wq)}</text>
+      <text x="${verdictX}" y="92" fill="${verdict.color}" font-family="Arial, Helvetica, sans-serif" font-size="${verdict.tier === 'low' ? 24 : 28}" font-weight="700">${escapeXml(verdict.label)}</text>
+      ${progressBar(pad, barY, barW, barH, wq, fill)}
+      ${ticks.map((t) => {
         const tx = pad + (barW * t.at) / 100;
         const anchor = t.at === 0 ? 'start' : t.at === 100 ? 'end' : 'middle';
-        return `<text x="${tx}" y="${barY + 28}" text-anchor="${anchor}" fill="${DIM}" font-family="Arial, Helvetica, sans-serif" font-size="11">${escapeXml(t.label)}</text>`;
+        return `<text x="${tx}" y="${barY + 30}" text-anchor="${anchor}" fill="${DIM}" font-family="Arial, Helvetica, sans-serif" font-size="12">${escapeXml(t.label)}</text>`;
       }).join('')}
-
       ${noteSvg}
+    </g>`;
+}
+
+function logoWordmark(x, y, fill = LOGO_FILL) {
+  return `
+    <g transform="translate(${x},${y})">
+      <text x="0" y="15" fill="${fill}" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" letter-spacing="0.14em">WATER MOTION</text>
     </g>`;
 }
 
@@ -179,129 +155,111 @@ function buildLandscapeSvg(opts) {
   const score = Number(opts.score);
   const verdict = customerVerdict(score);
   const note = opts.note || scoreSummaryNote(score, opts.findingsCount);
-  const photoHref = opts.photoDataUri || opts.photoUrl || '';
-  const photoLeft = 0;
-  const photoW = 540;
-  const cardW = 520;
-  const cardH = 280;
-  const cardX = 620;
-  const cardY = 160;
+  const photoHref = opts.photoDataUri || '';
+  const qrHref = opts.qrDataUri || '';
+  const photoW = 560;
 
   const photoLayer = photoHref
-    ? `<image href="${escapeXml(photoHref)}" x="${photoLeft}" y="0" width="${photoW}" height="${height}" preserveAspectRatio="xMidYMid slice" filter="url(#photoTone)"/>`
-    : `<rect x="${photoLeft}" y="0" width="${photoW}" height="${height}" fill="#1c1917"/>
-       <rect x="${photoLeft}" y="0" width="${photoW}" height="${height}" fill="url(#photoFallback)"/>`;
+    ? `<image href="${escapeXml(photoHref)}" x="0" y="0" width="${photoW}" height="${height}" preserveAspectRatio="xMidYMid slice" filter="url(#photoTone)"/>`
+    : `<rect x="0" y="0" width="${photoW}" height="${height}" fill="#1a1f2b"/>`;
+
+  const qrLayer = qrHref
+    ? `<image href="${escapeXml(qrHref)}" x="32" y="${height - 188}" width="138" height="160" preserveAspectRatio="xMidYMid meet"/>`
+    : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
-    ${photoFilterOverlay()}
-    <linearGradient id="photoFallback" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1e293b"/>
-      <stop offset="55%" stop-color="#334155"/>
-      <stop offset="100%" stop-color="#0f172a"/>
-    </linearGradient>
-    <linearGradient id="photoScrim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="40%" stop-color="#000" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#000" stop-opacity="0.45"/>
-    </linearGradient>
-    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#0c0a09" flood-opacity="0.18"/>
+    <filter id="photoTone" x="0" y="0" width="100%" height="100%">
+      <feColorMatrix type="matrix" values="
+        0.85 0.08 0.05 0 0.02
+        0.05 0.88 0.07 0 0.02
+        0.06 0.08 0.92 0 0.04
+        0 0 0 1 0"/>
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="0.9" intercept="0.03"/>
+        <feFuncG type="linear" slope="0.9" intercept="0.03"/>
+        <feFuncB type="linear" slope="0.92" intercept="0.03"/>
+      </feComponentTransfer>
     </filter>
-  </defs>
-  <rect width="${width}" height="${height}" fill="${SURFACE}"/>
-  ${photoLayer}
-  <rect x="${photoLeft}" y="0" width="${photoW}" height="${height}" fill="url(#photoScrim)"/>
-  <text x="620" y="84" fill="${INK}" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" letter-spacing="0.5">SEE YOUR WATER</text>
-  <text x="620" y="124" fill="${INK}" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" letter-spacing="0.5">DIFFERENTLY.</text>
-  ${scoreCard({ x: cardX, y: cardY, width: cardW, height: cardH, score, verdict, note, indicators: opts.indicators || 8 })}
-  ${qrBlock(36, height - 156, 120)}
-  ${logoMark(width - 250, height - 52, 0.95, INK)}
-</svg>`;
-}
-
-function buildSquareSvg(opts) {
-  const { width, height } = FORMATS.square;
-  const score = Number(opts.score);
-  const verdict = customerVerdict(score);
-  const note = opts.note || scoreSummaryNote(score, opts.findingsCount);
-  const photoHref = opts.photoDataUri || opts.photoUrl || '';
-  const photoH = 470;
-
-  const photoLayer = photoHref
-    ? `<image href="${escapeXml(photoHref)}" x="0" y="0" width="${width}" height="${photoH}" preserveAspectRatio="xMidYMid slice" filter="url(#photoTone)"/>`
-    : `<rect x="0" y="0" width="${width}" height="${photoH}" fill="url(#photoFallback)"/>`;
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    ${photoFilterOverlay()}
-    <linearGradient id="photoFallback" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1e293b"/>
-      <stop offset="100%" stop-color="#0f172a"/>
-    </linearGradient>
-    <linearGradient id="photoScrim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="50%" stop-color="#000" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#000" stop-opacity="0.5"/>
-    </linearGradient>
-    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#0c0a09" flood-opacity="0.16"/>
-    </filter>
-  </defs>
-  <rect width="${width}" height="${height}" fill="${SURFACE}"/>
-  ${photoLayer}
-  <rect x="0" y="0" width="${width}" height="${photoH}" fill="url(#photoScrim)"/>
-  <text x="48" y="64" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="800">SEE YOUR WATER</text>
-  <text x="48" y="108" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="800">DIFFERENTLY.</text>
-  ${scoreCard({ x: 70, y: 430, width: 940, height: 300, score, verdict, note, indicators: opts.indicators || 8 })}
-  ${qrBlock(48, height - 168, 130)}
-  ${logoMark(width - 270, height - 58, 1, INK)}
-</svg>`;
-}
-
-function buildStorySvg(opts) {
-  const { width, height } = FORMATS.story;
-  const score = Number(opts.score);
-  const verdict = customerVerdict(score);
-  const note = opts.note || scoreSummaryNote(score, opts.findingsCount);
-  const photoHref = opts.photoDataUri || opts.photoUrl || '';
-  const photoH = 980;
-
-  const photoLayer = photoHref
-    ? `<image href="${escapeXml(photoHref)}" x="0" y="0" width="${width}" height="${photoH}" preserveAspectRatio="xMidYMid slice" filter="url(#photoTone)"/>`
-    : `<rect x="0" y="0" width="${width}" height="${photoH}" fill="url(#photoFallback)"/>`;
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    ${photoFilterOverlay()}
-    <linearGradient id="photoFallback" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1e293b"/>
-      <stop offset="100%" stop-color="#0f172a"/>
-    </linearGradient>
     <linearGradient id="photoScrim" x1="0" y1="0" x2="0" y2="1">
       <stop offset="55%" stop-color="#000" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#000" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.35"/>
     </linearGradient>
-    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#0c0a09" flood-opacity="0.18"/>
+    <filter id="cardShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0c0a09" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect width="${width}" height="${height}" fill="${SURFACE}"/>
+  ${photoLayer}
+  <rect x="0" y="0" width="${photoW}" height="${height}" fill="url(#photoScrim)"/>
+  <text x="610" y="86" fill="${HEADLINE}" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="800" letter-spacing="0.04em">SEE YOUR WATER</text>
+  <text x="610" y="128" fill="${HEADLINE}" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="800" letter-spacing="0.04em">DIFFERENTLY.</text>
+  ${scoreCard({ x: 600, y: 168, width: 540, height: 310, score, verdict, note, indicators: opts.indicators || 8 })}
+  ${qrLayer}
+  ${logoWordmark(width - 230, height - 42, LOGO_FILL)}
+</svg>`;
+}
+
+function buildStackedSvg(opts, meta, photoH, cardY, cardH, qrY) {
+  const { width, height } = meta;
+  const score = Number(opts.score);
+  const verdict = customerVerdict(score);
+  const note = opts.note || scoreSummaryNote(score, opts.findingsCount);
+  const photoHref = opts.photoDataUri || '';
+  const qrHref = opts.qrDataUri || '';
+
+  const photoLayer = photoHref
+    ? `<image href="${escapeXml(photoHref)}" x="0" y="0" width="${width}" height="${photoH}" preserveAspectRatio="xMidYMid slice" filter="url(#photoTone)"/>`
+    : `<rect x="0" y="0" width="${width}" height="${photoH}" fill="#1a1f2b"/>`;
+
+  const qrLayer = qrHref
+    ? `<image href="${escapeXml(qrHref)}" x="48" y="${qrY}" width="150" height="150"/>`
+    : '';
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <filter id="photoTone" x="0" y="0" width="100%" height="100%">
+      <feColorMatrix type="matrix" values="
+        0.85 0.08 0.05 0 0.02
+        0.05 0.88 0.07 0 0.02
+        0.06 0.08 0.92 0 0.04
+        0 0 0 1 0"/>
+    </filter>
+    <linearGradient id="photoScrim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="45%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.5"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#0c0a09" flood-opacity="0.2"/>
     </filter>
   </defs>
   <rect width="${width}" height="${height}" fill="${SURFACE}"/>
   ${photoLayer}
   <rect x="0" y="0" width="${width}" height="${photoH}" fill="url(#photoScrim)"/>
-  <text x="56" y="90" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800">SEE YOUR WATER</text>
-  <text x="56" y="142" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800">DIFFERENTLY.</text>
-  ${qrBlock(56, photoH - 180, 140)}
-  ${scoreCard({ x: 70, y: 1040, width: 940, height: 320, score, verdict, note, indicators: opts.indicators || 8 })}
-  ${logoMark(width - 280, height - 70, 1.05, INK)}
+  <text x="48" y="72" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800">SEE YOUR WATER</text>
+  <text x="48" y="120" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800">DIFFERENTLY.</text>
+  ${scoreCard({ x: 70, y: cardY, width: width - 140, height: cardH, score, verdict, note, indicators: opts.indicators || 8 })}
+  ${qrLayer}
+  ${logoWordmark(width - 250, height - 48, INK)}
 </svg>`;
 }
 
 function buildShareCardSvg(format, options = {}) {
   const meta = resolveFormat(format);
-  if (meta.key === 'square') return { ...meta, svg: buildSquareSvg(options) };
-  if (meta.key === 'story') return { ...meta, svg: buildStorySvg(options) };
+  if (meta.key === 'square') {
+    return {
+      ...meta,
+      svg: buildStackedSvg(options, meta, 480, 420, 320, meta.height - 190)
+    };
+  }
+  if (meta.key === 'story') {
+    return {
+      ...meta,
+      svg: buildStackedSvg(options, meta, 980, 1020, 340, 800)
+    };
+  }
   return { ...meta, svg: buildLandscapeSvg(options) };
 }
 
@@ -322,11 +280,20 @@ async function fetchAsDataUri(url) {
   }
 }
 
+async function resolvePhotoDataUri(options = {}) {
+  if (options.photoDataUri) return options.photoDataUri;
+  if (options.photoUrl) {
+    const remote = await fetchAsDataUri(options.photoUrl);
+    if (remote) return remote;
+  }
+  return fileToDataUri(DEFAULT_PHOTO, 'image/jpeg');
+}
+
 async function renderShareCardPng(format, options = {}) {
   const sharp = require('sharp');
-  const photoDataUri = options.photoDataUri
-    || (options.photoUrl ? await fetchAsDataUri(options.photoUrl) : '');
-  const built = buildShareCardSvg(format, { ...options, photoDataUri });
+  const photoDataUri = await resolvePhotoDataUri(options);
+  const qrDataUri = options.qrDataUri || fileToDataUri(QR_ASSET, 'image/png');
+  const built = buildShareCardSvg(format, { ...options, photoDataUri, qrDataUri });
   const png = await sharp(Buffer.from(built.svg))
     .png({ compressionLevel: 8 })
     .toBuffer();
@@ -348,11 +315,6 @@ function cardOptionsFromJob(job = {}, overrides = {}) {
   };
 }
 
-function defaultSamplePhotoPath() {
-  const candidate = path.join(__dirname, '..', 'src', 'assets', 'score-share-sample.jpg');
-  return fs.existsSync(candidate) ? candidate : '';
-}
-
 module.exports = {
   FORMATS,
   resolveFormat,
@@ -361,6 +323,5 @@ module.exports = {
   buildShareCardSvg,
   renderShareCardPng,
   cardOptionsFromJob,
-  defaultSamplePhotoPath,
   fetchAsDataUri
 };
