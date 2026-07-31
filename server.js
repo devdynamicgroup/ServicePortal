@@ -182,8 +182,9 @@ function mapMetroCity(address) {
 
 async function handleApiRequest(req, res) {
   const urlPath = req.url.split('?')[0];
+  const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
-  if (await handlePublicRoute(req, res, urlPath)) return true;
+  if (await handlePublicRoute(req, res, urlPath, requestUrl)) return true;
   if (await handleGoogleDriveOAuthRoute(req, res, urlPath)) return true;
   if (await handleClientsRoute(req, res, urlPath)) return true;
   if (await handleCaseFlowRoute(req, res, urlPath)) return true;

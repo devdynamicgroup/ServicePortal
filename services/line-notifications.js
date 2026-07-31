@@ -186,7 +186,7 @@ function buildCaseResultTextMessage({ resultLinkUrl, feedbackUrl }) {
   return { type: 'text', text: lines.join('\n') };
 }
 
-function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName }) {
+function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName, scoreCardImageUrl, waterScore }) {
   const footerButtons = [
     {
       type: 'button',
@@ -219,107 +219,129 @@ function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName }) 
     ? `สวัสดีคุณ ${clientName}`
     : 'ผลการตรวจน้ำพร้อมแล้ว';
 
+  const scoreLabel = Number.isFinite(Number(waterScore))
+    ? `Water Score ${Math.round(Number(waterScore))}/100`
+    : 'ผลตรวจของคุณพร้อมแล้วครับ';
+
+  const bubble = {
+    type: 'bubble',
+    size: 'mega',
+    styles: {
+      header: { backgroundColor: WATER_MOTION_BLUE },
+      body: { backgroundColor: '#ffffff' },
+      footer: { backgroundColor: WATER_MOTION_SURFACE }
+    },
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      contents: [
+        {
+          type: 'text',
+          text: 'WATER MOTION',
+          size: 'xs',
+          color: '#bfdbfe',
+          weight: 'bold'
+        },
+        {
+          type: 'text',
+          text: scoreLabel,
+          weight: 'bold',
+          size: 'xl',
+          color: '#ffffff',
+          wrap: true
+        }
+      ],
+      paddingAll: '22px'
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'md',
+      contents: [
+        {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              width: '4px',
+              height: '48px',
+              backgroundColor: WATER_MOTION_BLUE,
+              cornerRadius: '4px',
+              flex: 0,
+              contents: [{ type: 'filler' }]
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              spacing: 'sm',
+              contents: [
+                {
+                  type: 'text',
+                  text: greeting,
+                  weight: 'bold',
+                  size: 'md',
+                  color: '#1c1917',
+                  wrap: true
+                },
+                {
+                  type: 'text',
+                  text: 'กดปุ่มด้านล่างเพื่อเปิดดูรายละเอียดผลตรวจ และรีวิวบริการบน Google',
+                  size: 'sm',
+                  color: WATER_MOTION_MUTED,
+                  wrap: true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          type: 'separator',
+          color: '#e7e5e1'
+        },
+        {
+          type: 'text',
+          text: 'Water Motion · บริการตรวจคุณภาพน้ำ',
+          size: 'xs',
+          color: '#a8a29d',
+          align: 'center'
+        }
+      ],
+      paddingAll: '20px'
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      contents: footerButtons,
+      paddingAll: '16px'
+    }
+  };
+
+  // Share-card hero for LINE — landscape 1200×630 template.
+  if (scoreCardImageUrl) {
+    bubble.hero = {
+      type: 'image',
+      url: scoreCardImageUrl,
+      size: 'full',
+      aspectRatio: '1200:630',
+      aspectMode: 'cover',
+      action: {
+        type: 'uri',
+        label: 'ดูผลตรวจ',
+        uri: resultLinkUrl
+      }
+    };
+  }
+
   return {
     type: 'flex',
-    altText: 'ผลตรวจของคุณพร้อมแล้วครับ',
-    contents: {
-      type: 'bubble',
-      size: 'mega',
-      styles: {
-        header: { backgroundColor: WATER_MOTION_BLUE },
-        body: { backgroundColor: '#ffffff' },
-        footer: { backgroundColor: WATER_MOTION_SURFACE }
-      },
-      header: {
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'sm',
-        contents: [
-          {
-            type: 'text',
-            text: 'WATER MOTION',
-            size: 'xs',
-            color: '#bfdbfe',
-            weight: 'bold'
-          },
-          {
-            type: 'text',
-            text: 'ผลตรวจของคุณพร้อมแล้วครับ',
-            weight: 'bold',
-            size: 'xl',
-            color: '#ffffff',
-            wrap: true
-          }
-        ],
-        paddingAll: '22px'
-      },
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'md',
-        contents: [
-          {
-            type: 'box',
-            layout: 'horizontal',
-            spacing: 'md',
-            contents: [
-              {
-                type: 'box',
-                layout: 'vertical',
-                width: '4px',
-                height: '48px',
-                backgroundColor: WATER_MOTION_BLUE,
-                cornerRadius: '4px',
-                flex: 0,
-                contents: [{ type: 'filler' }]
-              },
-              {
-                type: 'box',
-                layout: 'vertical',
-                flex: 1,
-                spacing: 'sm',
-                contents: [
-                  {
-                    type: 'text',
-                    text: greeting,
-                    weight: 'bold',
-                    size: 'md',
-                    color: '#1c1917',
-                    wrap: true
-                  },
-                  {
-                    type: 'text',
-                    text: 'กดปุ่มด้านล่างเพื่อเปิดดูรายละเอียดผลตรวจ และรีวิวบริการบน Google',
-                    size: 'sm',
-                    color: WATER_MOTION_MUTED,
-                    wrap: true
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            type: 'separator',
-            color: '#e7e5e1'
-          },
-          {
-            type: 'text',
-            text: 'Water Motion · บริการตรวจคุณภาพน้ำ',
-            size: 'xs',
-            color: '#a8a29d',
-            align: 'center'
-          }
-        ],
-        paddingAll: '20px'
-      },
-      footer: {
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'sm',
-        contents: footerButtons,
-        paddingAll: '16px'
-      }
-    }
+    altText: scoreLabel,
+    contents: bubble
   };
 }
 
@@ -343,7 +365,11 @@ async function sendCaseResultNotification(job, payload) {
   const messagePayload = {
     resultLinkUrl,
     feedbackUrl,
-    clientName: String(job.name || '').replace(/\s+\S\.$/, '').trim()
+    clientName: String(job.name || '').replace(/\s+\S\.$/, '').trim(),
+    waterScore: Number(job.result?.waterScore),
+    scoreCardImageUrl: reportToken
+      ? `${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(reportToken)}?format=landscape`
+      : ''
   };
   const flexMessage = buildCaseResultFlexMessage(messagePayload);
   const textMessage = buildCaseResultTextMessage(messagePayload);

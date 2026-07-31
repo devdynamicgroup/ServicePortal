@@ -1,7 +1,12 @@
-const { getAllClients } = require('../services/notion/clients');
+const { getAllClients, findClientByReportToken, getClient } = require('../services/notion/clients');
 const { getDataSourceSchema } = require('../services/notion/client');
 const { findPropertyKey } = require('../services/notion/props');
 const { FIELD_ALIASES } = require('../services/notion/mapper');
+const {
+  renderShareCardPng,
+  cardOptionsFromJob,
+  resolveFormat
+} = require('../services/score-share-card');
 
 // Public, read-only endpoints meant to be called directly from the Framer
 // marketing site (browser-side fetch). Scoped narrowly on purpose:
@@ -101,7 +106,69 @@ async function getWaterCheckOfferStatus() {
   return value;
 }
 
-async function handlePublicRoute(req, res, urlPath) {
+function sendPng(res, buffer, cacheSeconds = 300) {
+  res.writeHead(200, {
+    'Content-Type': 'image/png',
+    'Cache-Control': `public, max-age=${cacheSeconds}`,
+    'Content-Length': buffer.length
+  });
+  res.end(buffer);
+}
+
+function parseFormat(urlObj) {
+  return resolveFormat(urlObj.searchParams.get('format') || 'landscape').key;
+}
+
+async function handleScoreCardRoute(req, res, urlPath, urlObj) {
+  const demoMatch = urlPath.match(/^\/api\/public\/score-card\/demo$/);
+  if (demoMatch && req.method === 'GET') {
+    try {
+      const score = Number(urlObj.searchParams.get('score') || 65);
+      const format = parseFormat(urlObj);
+      const photoUrl = urlObj.searchParams.get('photo') || '';
+      const { png } = await renderShareCardPng(format, {
+        score: Number.isFinite(score) ? score : 65,
+        photoUrl,
+        findingsCount: Number(urlObj.searchParams.get('findings') || 0)
+      });
+      sendPng(res, png, 60);
+    } catch (error) {
+      console.warn('GET /api/public/score-card/demo failed', error.message);
+      sendJson(res, 502, { ok: false, error: 'Score card unavailable' });
+    }
+    return true;
+  }
+
+  const tokenMatch = urlPath.match(/^\/api\/public\/score-card\/([^/]+)$/);
+  if (tokenMatch && req.method === 'GET') {
+    try {
+      const token = decodeURIComponent(tokenMatch[1]);
+      const match = await findClientByReportToken(token);
+      if (!match?.clientPageId) {
+        sendJson(res, 404, { ok: false, error: 'Report not found' });
+        return true;
+      }
+      const job = await getClient(match.clientPageId);
+      if (!job || !Number.isFinite(Number(job.result?.waterScore))) {
+        sendJson(res, 404, { ok: false, error: 'Score not published' });
+        return true;
+      }
+      const format = parseFormat(urlObj);
+      const { png } = await renderShareCardPng(format, cardOptionsFromJob(job, {
+        photoUrl: urlObj.searchParams.get('photo') || undefined
+      }));
+      sendPng(res, png, 300);
+    } catch (error) {
+      console.warn('GET /api/public/score-card/:token failed', error.message);
+      sendJson(res, 502, { ok: false, error: 'Score card unavailable' });
+    }
+    return true;
+  }
+
+  return false;
+}
+
+async function handlePublicRoute(req, res, urlPath, urlObj) {
   if (!urlPath.startsWith('/api/public/')) return false;
 
   applyCors(req, res);
@@ -109,6 +176,10 @@ async function handlePublicRoute(req, res, urlPath) {
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
+    return true;
+  }
+
+  if (await handleScoreCardRoute(req, res, urlPath, urlObj || new URL(req.url, 'http://localhost'))) {
     return true;
   }
 
