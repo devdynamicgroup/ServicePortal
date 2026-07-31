@@ -148,6 +148,19 @@ function scoreCard({ x, y, width, height, score, verdict, note, indicators = 8 }
     </g>`;
 }
 
+/** Rounded translucent tile so the QR sits on the photo instead of on top of it. */
+function qrBadge(qrHref, x, y, size) {
+  if (!qrHref) return '';
+  const pad = Math.round(size * 0.1);
+  const inner = size - pad * 2;
+  const radius = Math.round(size * 0.16);
+  return `
+    <g opacity="0.94" filter="url(#qrShadow)">
+      <rect x="${x}" y="${y}" width="${size}" height="${size}" rx="${radius}" fill="#FFFFFF"/>
+      <image href="${escapeXml(qrHref)}" x="${x + pad}" y="${y + pad}" width="${inner}" height="${inner}" preserveAspectRatio="xMidYMid meet"/>
+    </g>`;
+}
+
 function logoWordmark(x, y, fill = LOGO_FILL) {
   return `
     <g transform="translate(${x},${y})">
@@ -164,9 +177,7 @@ function buildLandscapeSvg(opts) {
   const qrHref = opts.qrDataUri || '';
   const photoW = 560;
 
-  const qrLayer = qrHref
-    ? `<image href="${escapeXml(qrHref)}" x="32" y="${height - 178}" width="146" height="146" preserveAspectRatio="xMidYMid meet"/>`
-    : '';
+  const qrLayer = qrBadge(qrHref, 38, height - 190, 152);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -177,6 +188,9 @@ function buildLandscapeSvg(opts) {
     </linearGradient>
     <filter id="cardShadow" x="-25%" y="-25%" width="150%" height="150%">
       <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0c0a09" flood-opacity="0.22"/>
+    </filter>
+    <filter id="qrShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0c0a09" flood-opacity="0.28"/>
     </filter>
   </defs>
   <rect x="0" y="0" width="${photoW}" height="${height}" fill="url(#photoScrim)"/>
@@ -196,9 +210,7 @@ function buildStackedSvg(opts, meta, photoH, cardY, cardH, qrY) {
   const note = opts.note || scoreSummaryNote(score, opts.findingsCount);
   const qrHref = opts.qrDataUri || '';
 
-  const qrLayer = qrHref
-    ? `<image href="${escapeXml(qrHref)}" x="48" y="${qrY}" width="150" height="150"/>`
-    : '';
+  const qrLayer = qrBadge(qrHref, 48, qrY, 158);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -209,6 +221,9 @@ function buildStackedSvg(opts, meta, photoH, cardY, cardH, qrY) {
     </linearGradient>
     <filter id="cardShadow" x="-25%" y="-25%" width="150%" height="150%">
       <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#0c0a09" flood-opacity="0.2"/>
+    </filter>
+    <filter id="qrShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0c0a09" flood-opacity="0.28"/>
     </filter>
   </defs>
   <rect x="0" y="0" width="${width}" height="${photoH}" fill="url(#photoScrim)"/>
