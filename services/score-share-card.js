@@ -333,6 +333,31 @@ async function resolvePhotoDataUri(options = {}) {
 }
 
 /**
+ * Real site photos come in at wildly different exposures (bright bathroom
+ * vs. dim under-sink shot). `sharp().normalize()` stretches each photo's own
+ * histogram to full contrast, which looks harsh and can crush shadows/blow
+ * highlights on photos that already use most of their range — it doesn't
+ * reliably pull different photos toward each other, so it's not used here.
+ * Instead: measure the photo's mean brightness and shift it (without
+ * touching contrast) toward one fixed target, so every card reads at the
+ * same overall exposure regardless of how the original was shot.
+ */
+const PHOTO_TARGET_MEAN = 148;
+const PHOTO_BIAS_CLAMP = 70;
+
+async function normalizePhoto(sharp, photoBuf) {
+  const stats = await sharp(photoBuf).stats();
+  const currentMean = stats.channels.slice(0, 3).reduce((sum, c) => sum + c.mean, 0) / 3;
+  const bias = Math.max(-PHOTO_BIAS_CLAMP, Math.min(PHOTO_BIAS_CLAMP, PHOTO_TARGET_MEAN - currentMean));
+
+  return sharp(photoBuf)
+    .linear(1, bias)
+    .modulate({ saturation: 0.92 })
+    .png()
+    .toBuffer();
+}
+
+/**
  * Collapsing the photo to a handful of pixels before scaling it back up gives
  * the smooth colour wash of the design plate — a plain blur still leaves the
  * faucet readable as a dark smudge behind the card.
@@ -402,10 +427,11 @@ async function renderShareCardPng(format, options = {}) {
   let png;
   if (!photoBuf) {
     png = await sharp(svgBuffer).png({ compressionLevel: 8 }).toBuffer();
-  } else if (built.key === 'landscape') {
-    png = await compositeLandscape(sharp, photoBuf, svgBuffer);
   } else {
-    png = await compositeFullBleed(sharp, photoBuf, svgBuffer, built);
+    const normalizedPhotoBuf = await normalizePhoto(sharp, photoBuf);
+    png = built.key === 'landscape'
+      ? await compositeLandscape(sharp, normalizedPhotoBuf, svgBuffer)
+      : await compositeFullBleed(sharp, normalizedPhotoBuf, svgBuffer, built);
   }
 
   return { ...built, png };
