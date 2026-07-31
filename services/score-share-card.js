@@ -1,8 +1,8 @@
 /**
  * Water Score share cards for LINE / social (3 formats).
  * Matches the approved design plate:
- *  - left: real site photo (default faucet plate when missing)
- *  - right: static headline + dynamic score card
+ *  - left/top: site photo (default faucet plate when missing)
+ *  - right/bottom: blurred photo wash + headline + dynamic score card
  *  - static QR CTA + Water Motion wordmark
  */
 
@@ -16,7 +16,6 @@ const FORMATS = Object.freeze({
 });
 
 const BRAND_BLUE = '#284DCD';
-const SURFACE = '#B4B5B9';
 const CARD_BG = '#FFFFFF';
 const INK = '#0A0A0A';
 const MUTED = '#57534E';
@@ -43,6 +42,12 @@ function fileToDataUri(filePath, mime) {
   if (!filePath || !fs.existsSync(filePath)) return '';
   const buf = fs.readFileSync(filePath);
   return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
+function dataUriToBuffer(dataUri) {
+  const match = String(dataUri || '').match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return null;
+  return Buffer.from(match[2], 'base64');
 }
 
 function customerVerdict(score) {
@@ -150,18 +155,14 @@ function logoWordmark(x, y, fill = LOGO_FILL) {
     </g>`;
 }
 
+/** Landscape UI overlay only — photo/blur are composited with sharp. */
 function buildLandscapeSvg(opts) {
   const { width, height } = FORMATS.landscape;
   const score = Number(opts.score);
   const verdict = customerVerdict(score);
   const note = opts.note || scoreSummaryNote(score, opts.findingsCount);
-  const photoHref = opts.photoDataUri || '';
   const qrHref = opts.qrDataUri || '';
   const photoW = 560;
-
-  const photoLayer = photoHref
-    ? `<image href="${escapeXml(photoHref)}" x="0" y="0" width="${photoW}" height="${height}" preserveAspectRatio="xMidYMid slice"/>`
-    : `<rect x="0" y="0" width="${photoW}" height="${height}" fill="#1a1f2b"/>`;
 
   const qrLayer = qrHref
     ? `<image href="${escapeXml(qrHref)}" x="32" y="${height - 178}" width="146" height="146" preserveAspectRatio="xMidYMid meet"/>`
@@ -178,8 +179,6 @@ function buildLandscapeSvg(opts) {
       <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0c0a09" flood-opacity="0.22"/>
     </filter>
   </defs>
-  <rect width="${width}" height="${height}" fill="${SURFACE}"/>
-  ${photoLayer}
   <rect x="0" y="0" width="${photoW}" height="${height}" fill="url(#photoScrim)"/>
   <text x="610" y="86" fill="${HEADLINE}" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="800" letter-spacing="0.04em">SEE YOUR WATER</text>
   <text x="610" y="128" fill="${HEADLINE}" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="800" letter-spacing="0.04em">DIFFERENTLY.</text>
@@ -189,17 +188,13 @@ function buildLandscapeSvg(opts) {
 </svg>`;
 }
 
+/** Stacked UI overlay — photo/blur are composited with sharp. */
 function buildStackedSvg(opts, meta, photoH, cardY, cardH, qrY) {
   const { width, height } = meta;
   const score = Number(opts.score);
   const verdict = customerVerdict(score);
   const note = opts.note || scoreSummaryNote(score, opts.findingsCount);
-  const photoHref = opts.photoDataUri || '';
   const qrHref = opts.qrDataUri || '';
-
-  const photoLayer = photoHref
-    ? `<image href="${escapeXml(photoHref)}" x="0" y="0" width="${width}" height="${photoH}" preserveAspectRatio="xMidYMid slice"/>`
-    : `<rect x="0" y="0" width="${width}" height="${photoH}" fill="#1a1f2b"/>`;
 
   const qrLayer = qrHref
     ? `<image href="${escapeXml(qrHref)}" x="48" y="${qrY}" width="150" height="150"/>`
@@ -216,8 +211,6 @@ function buildStackedSvg(opts, meta, photoH, cardY, cardH, qrY) {
       <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#0c0a09" flood-opacity="0.2"/>
     </filter>
   </defs>
-  <rect width="${width}" height="${height}" fill="${SURFACE}"/>
-  ${photoLayer}
   <rect x="0" y="0" width="${width}" height="${photoH}" fill="url(#photoScrim)"/>
   <text x="48" y="72" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800">SEE YOUR WATER</text>
   <text x="48" y="120" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800">DIFFERENTLY.</text>
@@ -270,14 +263,87 @@ async function resolvePhotoDataUri(options = {}) {
   return fileToDataUri(DEFAULT_PHOTO, 'image/jpeg');
 }
 
+async function buildBlurredBackdrop(sharp, photoBuf, width, height) {
+  return sharp(photoBuf)
+    .resize(width, height, { fit: 'cover', position: 'centre' })
+    .blur(64)
+    .modulate({ brightness: 1.28, saturation: 0.35 })
+    .linear(0.85, 48)
+    .png()
+    .toBuffer();
+}
+
+async function buildGreyWash(sharp, width, height, alpha = 0.28) {
+  return sharp({
+    create: {
+      width,
+      height,
+      channels: 4,
+      background: { r: 210, g: 212, b: 216, alpha }
+    }
+  })
+    .png()
+    .toBuffer();
+}
+
+async function compositeLandscape(sharp, photoBuf, svgBuffer) {
+  const { width, height } = FORMATS.landscape;
+  const photoW = 560;
+  const blurred = await buildBlurredBackdrop(sharp, photoBuf, width, height);
+  const wash = await buildGreyWash(sharp, width - photoW, height, 0.34);
+  const leftPhoto = await sharp(photoBuf)
+    .resize(photoW, height, { fit: 'cover', position: 'centre' })
+    .png()
+    .toBuffer();
+
+  return sharp(blurred)
+    .composite([
+      { input: wash, left: photoW, top: 0 },
+      { input: leftPhoto, left: 0, top: 0 },
+      { input: svgBuffer, left: 0, top: 0 }
+    ])
+    .png({ compressionLevel: 8 })
+    .toBuffer();
+}
+
+async function compositeStacked(sharp, photoBuf, svgBuffer, meta, photoH) {
+  const { width, height } = meta;
+  const blurred = await buildBlurredBackdrop(sharp, photoBuf, width, height);
+  const wash = await buildGreyWash(sharp, width, height - photoH, 0.52);
+  const topPhoto = await sharp(photoBuf)
+    .resize(width, photoH, { fit: 'cover', position: 'centre' })
+    .png()
+    .toBuffer();
+
+  return sharp(blurred)
+    .composite([
+      { input: wash, left: 0, top: photoH },
+      { input: topPhoto, left: 0, top: 0 },
+      { input: svgBuffer, left: 0, top: 0 }
+    ])
+    .png({ compressionLevel: 8 })
+    .toBuffer();
+}
+
 async function renderShareCardPng(format, options = {}) {
   const sharp = require('sharp');
   const photoDataUri = await resolvePhotoDataUri(options);
   const qrDataUri = options.qrDataUri || fileToDataUri(QR_ASSET, 'image/png');
   const built = buildShareCardSvg(format, { ...options, photoDataUri, qrDataUri });
-  const png = await sharp(Buffer.from(built.svg))
-    .png({ compressionLevel: 8 })
-    .toBuffer();
+  const svgBuffer = Buffer.from(built.svg);
+  const photoBuf = dataUriToBuffer(photoDataUri);
+
+  let png;
+  if (!photoBuf) {
+    png = await sharp(svgBuffer).png({ compressionLevel: 8 }).toBuffer();
+  } else if (built.key === 'landscape') {
+    png = await compositeLandscape(sharp, photoBuf, svgBuffer);
+  } else if (built.key === 'square') {
+    png = await compositeStacked(sharp, photoBuf, svgBuffer, built, 480);
+  } else {
+    png = await compositeStacked(sharp, photoBuf, svgBuffer, built, 980);
+  }
+
   return { ...built, png };
 }
 
