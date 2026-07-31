@@ -167,27 +167,25 @@ function freeReportHtml(job) {
     html, body { margin: 0; height: 100%; background: #0c0a09; }
     body { min-height: 100vh; }
     .card-wrap { width: 100%; min-height: 100vh; }
-    .card-wrap img { display: block; width: 100%; }
-    .story-img { height: 100vh; object-fit: cover; }
-    .landscape-img { display: none; }
+    .score-img { display: block; width: 100%; height: 100vh; object-fit: cover; }
     @media (min-width: 720px) {
       body { display: flex; align-items: center; justify-content: center; padding: 24px; }
       .card-wrap { width: auto; max-width: 860px; min-height: 0; }
-      .card-wrap img {
+      .score-img {
         width: 100%;
         height: auto;
         border-radius: 20px;
         box-shadow: 0 24px 60px rgba(0,0,0,0.5);
       }
-      .story-img { display: none; }
-      .landscape-img { display: block; }
     }
   </style>
 </head>
 <body>
   <div class="card-wrap">
-    <img class="story-img" src="${cardUrl('story')}" alt="Water Score">
-    <img class="landscape-img" src="${cardUrl('landscape')}" alt="Water Score">
+    <picture>
+      <source media="(min-width: 720px)" srcset="${cardUrl('landscape')}">
+      <img class="score-img" src="${cardUrl('story')}" alt="Water Score">
+    </picture>
   </div>
 </body>
 </html>`;
