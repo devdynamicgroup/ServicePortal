@@ -19,7 +19,6 @@ const {
   getClientFeedbackStatus,
   ensureClientFeedbackSchema
 } = require('../services/client-feedback');
-const { customerVerdict, cardOptionsFromJob } = require('../services/score-share-card');
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -146,16 +145,15 @@ function isFreeInspectionJob(job) {
 }
 
 /**
- * Simple, non-technical report page for free-campaign customers viewed
- * inside the LINE in-app browser. Mirrors the approved score-share-card
- * design (services/score-share-card.js) instead of the full technician
- * score screen used for paid inspections.
+ * Free-campaign customers get the exact same approved share-card design
+ * they already received in LINE — not a re-implementation of it — so the
+ * two can never visually drift apart. It's the same PNG the LINE Flex
+ * message hero uses (services/score-share-card.js), shown full-bleed.
  */
 function freeReportHtml(job) {
-  const opts = cardOptionsFromJob(job);
-  const verdict = customerVerdict(opts.score);
-  const wq = Math.max(0, Math.min(100, Math.round(opts.score)));
-  const photoUrl = opts.photoUrl || '/src/assets/score-share-default-photo.jpg';
+  const token = String(job.result?.publicReportToken || '').trim();
+  const cacheBust = Date.now();
+  const imageUrl = `/api/public/score-card/${encodeURIComponent(token)}?format=landscape&v=${cacheBust}`;
 
   return `<!doctype html>
 <html lang="th">
@@ -164,59 +162,15 @@ function freeReportHtml(job) {
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#0c0a09">
   <title>Water Score · Water Motion</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { color-scheme: light; }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: 'Geist', Arial, Helvetica, sans-serif; background: #0c0a09; color: #1D1917; }
-    .fr-hero { position: relative; min-height: 46vh; display: flex; align-items: flex-end; padding: 28px 24px 96px; background: #0c0a09 center/cover no-repeat url('${escapeHtml(photoUrl)}'); }
-    .fr-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12,10,9,0.15) 0%, rgba(12,10,9,0.75) 100%); }
-    .fr-headline { position: relative; color: #fff; font-size: 34px; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; }
-    .fr-card-wrap { margin: -72px 16px 24px; position: relative; }
-    .fr-card { background: #FAFAF8; border-radius: 20px; padding: 22px 22px 26px; box-shadow: 0 10px 30px rgba(63,63,70,0.18); }
-    .fr-card-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: #797674; letter-spacing: 0.02em; text-transform: uppercase; }
-    .fr-score-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; }
-    .fr-score { font-size: 52px; font-weight: 700; letter-spacing: -0.02em; }
-    .fr-score span { font-size: 20px; font-weight: 500; color: #797674; }
-    .fr-verdict { font-size: 24px; font-weight: 600; color: ${verdict.color}; }
-    .fr-bar { position: relative; height: 10px; background: #E6E5E1; border-radius: 999px; margin: 22px 0 8px; }
-    .fr-bar-fill { position: absolute; inset: 0; width: ${wq}%; background: ${verdict.color}; border-radius: 999px; }
-    .fr-bar-knob { position: absolute; top: 50%; left: ${wq}%; width: 20px; height: 20px; margin: -10px 0 0 -10px; background: #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(63,63,70,0.35); }
-    .fr-ticks { display: flex; justify-content: space-between; font-size: 12px; color: #797674; }
-    .fr-note { margin: 18px 0 0; font-size: 15px; line-height: 1.5; color: #4F4E4C; }
-    .fr-foot { text-align: center; padding: 8px 24px 40px; color: #797674; font-size: 13px; }
-    .fr-wordmark { font-weight: 700; letter-spacing: 0.02em; color: #1D1917; }
+    html, body { margin: 0; background: #0c0a09; }
+    body { display: flex; align-items: center; min-height: 100vh; }
+    img { display: block; width: 100%; height: auto; }
   </style>
 </head>
 <body>
-  <div class="fr-hero">
-    <div class="fr-headline">SEE YOUR WATER<br>DIFFERENTLY.</div>
-  </div>
-  <div class="fr-card-wrap">
-    <div class="fr-card">
-      <div class="fr-card-head">
-        <span>Water Score</span>
-        <span>${opts.indicators} indicators</span>
-      </div>
-      <div class="fr-score-row">
-        <div class="fr-score">${wq}<span>/100</span></div>
-        <div class="fr-verdict">${escapeHtml(verdict.label)}</div>
-      </div>
-      <div class="fr-bar">
-        <div class="fr-bar-fill"></div>
-        <div class="fr-bar-knob"></div>
-      </div>
-      <div class="fr-ticks">
-        <span>0</span>
-        <span>50 &middot; Thai</span>
-        <span>80 &middot; Int'l</span>
-        <span>100</span>
-      </div>
-      <p class="fr-note">${escapeHtml(opts.note)}</p>
-    </div>
-  </div>
-  <div class="fr-foot"><span class="fr-wordmark">WATER MOTION</span></div>
+  <img src="${imageUrl}" alt="Water Score">
 </body>
 </html>`;
 }
