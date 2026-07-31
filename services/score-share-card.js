@@ -16,15 +16,15 @@ const FORMATS = Object.freeze({
 });
 
 const BRAND_BLUE = '#284DCD';
-const SURFACE = '#C0C1C5';
+const SURFACE = '#B4B5B9';
 const CARD_BG = '#FFFFFF';
-const INK = '#111111';
-const MUTED = '#6B7280';
-const DIM = '#9CA3AF';
-const GOOD_GREEN = '#34A853';
-const GOOD_GREEN_SOFT = '#8FCF9B';
-const HEADLINE = '#F0F1F3';
-const LOGO_FILL = '#F0F1F3';
+const INK = '#0A0A0A';
+const MUTED = '#57534E';
+const DIM = '#78716C';
+const GOOD_GREEN = '#22C55E';
+const GOOD_GREEN_SOFT = '#4ADE80';
+const HEADLINE = '#FFFFFF';
+const LOGO_FILL = '#FFFFFF';
 
 const ASSET_DIR = path.join(__dirname, '..', 'src', 'assets');
 const DEFAULT_PHOTO = path.join(ASSET_DIR, 'score-share-default-photo.jpg');
@@ -160,7 +160,7 @@ function buildLandscapeSvg(opts) {
   const photoW = 560;
 
   const photoLayer = photoHref
-    ? `<image href="${escapeXml(photoHref)}" x="0" y="0" width="${photoW}" height="${height}" preserveAspectRatio="xMidYMid slice" filter="url(#photoTone)"/>`
+    ? `<image href="${escapeXml(photoHref)}" x="0" y="0" width="${photoW}" height="${height}" preserveAspectRatio="xMidYMid slice"/>`
     : `<rect x="0" y="0" width="${photoW}" height="${height}" fill="#1a1f2b"/>`;
 
   const qrLayer = qrHref
@@ -170,21 +170,9 @@ function buildLandscapeSvg(opts) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
-    <filter id="photoTone" x="0" y="0" width="100%" height="100%">
-      <feColorMatrix type="matrix" values="
-        0.85 0.08 0.05 0 0.02
-        0.05 0.88 0.07 0 0.02
-        0.06 0.08 0.92 0 0.04
-        0 0 0 1 0"/>
-      <feComponentTransfer>
-        <feFuncR type="linear" slope="0.9" intercept="0.03"/>
-        <feFuncG type="linear" slope="0.9" intercept="0.03"/>
-        <feFuncB type="linear" slope="0.92" intercept="0.03"/>
-      </feComponentTransfer>
-    </filter>
     <linearGradient id="photoScrim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="55%" stop-color="#000" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#000" stop-opacity="0.35"/>
+      <stop offset="70%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.28"/>
     </linearGradient>
     <filter id="cardShadow" x="-25%" y="-25%" width="150%" height="150%">
       <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0c0a09" flood-opacity="0.22"/>
@@ -210,7 +198,7 @@ function buildStackedSvg(opts, meta, photoH, cardY, cardH, qrY) {
   const qrHref = opts.qrDataUri || '';
 
   const photoLayer = photoHref
-    ? `<image href="${escapeXml(photoHref)}" x="0" y="0" width="${width}" height="${photoH}" preserveAspectRatio="xMidYMid slice" filter="url(#photoTone)"/>`
+    ? `<image href="${escapeXml(photoHref)}" x="0" y="0" width="${width}" height="${photoH}" preserveAspectRatio="xMidYMid slice"/>`
     : `<rect x="0" y="0" width="${width}" height="${photoH}" fill="#1a1f2b"/>`;
 
   const qrLayer = qrHref
@@ -220,16 +208,9 @@ function buildStackedSvg(opts, meta, photoH, cardY, cardH, qrY) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
-    <filter id="photoTone" x="0" y="0" width="100%" height="100%">
-      <feColorMatrix type="matrix" values="
-        0.85 0.08 0.05 0 0.02
-        0.05 0.88 0.07 0 0.02
-        0.06 0.08 0.92 0 0.04
-        0 0 0 1 0"/>
-    </filter>
     <linearGradient id="photoScrim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="45%" stop-color="#000" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#000" stop-opacity="0.5"/>
+      <stop offset="55%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.35"/>
     </linearGradient>
     <filter id="cardShadow" x="-25%" y="-25%" width="150%" height="150%">
       <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#0c0a09" flood-opacity="0.2"/>
@@ -242,7 +223,7 @@ function buildStackedSvg(opts, meta, photoH, cardY, cardH, qrY) {
   <text x="48" y="120" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800">DIFFERENTLY.</text>
   ${scoreCard({ x: 70, y: cardY, width: width - 140, height: cardH, score, verdict, note, indicators: opts.indicators || 8 })}
   ${qrLayer}
-  ${logoWordmark(width - 250, height - 48, INK)}
+  ${logoWordmark(width - 250, height - 48, LOGO_FILL)}
 </svg>`;
 }
 
