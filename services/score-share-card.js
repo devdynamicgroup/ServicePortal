@@ -164,7 +164,7 @@ function buildLandscapeSvg(opts) {
     : `<rect x="0" y="0" width="${photoW}" height="${height}" fill="#1a1f2b"/>`;
 
   const qrLayer = qrHref
-    ? `<image href="${escapeXml(qrHref)}" x="32" y="${height - 188}" width="138" height="160" preserveAspectRatio="xMidYMid meet"/>`
+    ? `<image href="${escapeXml(qrHref)}" x="32" y="${height - 178}" width="146" height="146" preserveAspectRatio="xMidYMid meet"/>`
     : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
