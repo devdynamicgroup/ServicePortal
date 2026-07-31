@@ -446,9 +446,14 @@ function renderScoreDisplay() {
   // Selected standard still drives parameter status, recommended ranges, and findings.
   const computedWho = S.currentScoreResult?.computedScore;
   const comparisonScore = result.score;
-  const wq = Number.isFinite(computedWho)
-    ? computedWho
-    : (Number.isFinite(comparisonScore) ? comparisonScore : NaN);
+  const publishedScore = S.currentScoreResult?.score;
+  // Public report page has no live readings to recompute from — it must fall
+  // back to the already-published score instead of showing NaN.
+  const wq = S.publicScoreView && Number.isFinite(publishedScore)
+    ? publishedScore
+    : Number.isFinite(computedWho)
+      ? computedWho
+      : (Number.isFinite(comparisonScore) ? comparisonScore : NaN);
   console.log('RENDER SCORE DISPLAY', {
     score: wq,
     computedWho,
