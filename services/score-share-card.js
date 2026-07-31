@@ -8,6 +8,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const FORMATS = Object.freeze({
   landscape: { key: 'landscape', width: 1200, height: 630, label: '1200×630' },
@@ -16,18 +17,74 @@ const FORMATS = Object.freeze({
 });
 
 const BRAND_BLUE = '#284DCD';
-const CARD_BG = '#FFFFFF';
-const INK = '#0A0A0A';
-const MUTED = '#57534E';
-const DIM = '#78716C';
-const GOOD_GREEN = '#22C55E';
-const GOOD_GREEN_SOFT = '#4ADE80';
+const CARD_BG = '#FAFAF8';
+const INK = '#1D1917';
+const NOTE_INK = '#4F4E4C';
+const DIM = '#797674';
+const TRACK = '#E6E5E1';
+const GOOD_GREEN = '#71D29C';
+const BAR_GREEN = '#6CD498';
 const HEADLINE = '#FFFFFF';
-const LOGO_FILL = '#FFFFFF';
+
+const FONT = 'Geist, Inter, Arial, Helvetica, sans-serif';
+
+/** Card artwork is authored once at this size, then scaled per format. */
+const CARD_W = 780;
+const CARD_H = 383;
 
 const ASSET_DIR = path.join(__dirname, '..', 'src', 'assets');
 const DEFAULT_PHOTO = path.join(ASSET_DIR, 'score-share-default-photo.jpg');
 const QR_ASSET = path.join(ASSET_DIR, 'score-share-qr.png');
+const CTA_BADGE_ASSET = path.join(ASSET_DIR, 'score-share-cta-badge.png');
+const WORDMARK_ASSET = path.join(ASSET_DIR, 'score-share-wordmark.png');
+const FONT_DIR = path.join(ASSET_DIR, 'fonts');
+
+/**
+ * librsvg resolves SVG fonts through fontconfig, which on a stock Render Node
+ * image only sees the handful of system fonts. Point it at the vendored Geist
+ * files so the rendered card uses the same typeface as the portal UI.
+ * Must run before sharp is first required.
+ */
+function ensureFontconfig() {
+  if (process.env.FONTCONFIG_PATH || !fs.existsSync(FONT_DIR)) return;
+  try {
+    const confDir = path.join(os.tmpdir(), 'water-motion-fontconfig');
+    const cacheDir = path.join(confDir, 'cache');
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(path.join(confDir, 'fonts.conf'), `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>${escapeXml(FONT_DIR)}</dir>
+  <cachedir>${escapeXml(cacheDir)}</cachedir>
+  <alias>
+    <family>Geist</family>
+    <prefer>
+      <family>Geist</family>
+      <family>Geist Medium</family>
+      <family>Geist SemiBold</family>
+    </prefer>
+  </alias>
+  <match target="pattern">
+    <test name="family"><string>Geist</string></test>
+    <test name="weight" compare="more_eq"><const>medium</const></test>
+    <test name="weight" compare="less"><const>bold</const></test>
+    <edit name="family" mode="assign" binding="strong"><string>Geist Medium</string></edit>
+    <edit name="weight" mode="assign"><const>regular</const></edit>
+  </match>
+  <match target="pattern">
+    <test name="family"><string>Geist</string></test>
+    <test name="weight" compare="more_eq"><const>demibold</const></test>
+    <test name="weight" compare="less"><const>bold</const></test>
+    <edit name="family" mode="assign" binding="strong"><string>Geist SemiBold</string></edit>
+    <edit name="weight" mode="assign"><const>regular</const></edit>
+  </match>
+</fontconfig>
+`);
+    process.env.FONTCONFIG_PATH = confDir;
+  } catch (error) {
+    console.warn('[score-share-card] fontconfig setup failed', error.message);
+  }
+}
 
 function escapeXml(value) {
   return String(value || '')
@@ -95,159 +152,156 @@ function resolveFormat(format) {
 
 function fillColorFor(verdict) {
   if (verdict.tier === 'high') return BRAND_BLUE;
-  if (verdict.tier === 'mid') return GOOD_GREEN_SOFT;
+  if (verdict.tier === 'mid') return BAR_GREEN;
   return '#F07B7B';
 }
 
-/** Continuous progress bar matching the design mock. */
-function progressBar(pad, barY, barW, barH, wq, fillColor) {
-  const knobX = pad + (barW * wq) / 100;
-  const fillW = Math.max(0, (barW * wq) / 100);
-  return `
-    <rect x="${pad}" y="${barY}" width="${barW}" height="${barH}" rx="${barH / 2}" fill="#E5E4E1"/>
-    <rect x="${pad}" y="${barY}" width="${fillW}" height="${barH}" rx="${barH / 2}" fill="${fillColor}"/>
-    <circle cx="${knobX}" cy="${barY + barH / 2}" r="8" fill="#fff" stroke="${INK}" stroke-width="2.5"/>
-  `;
+/** Intrinsic size straight from the PNG header, so <image> keeps its aspect. */
+function pngSize(filePath) {
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const head = Buffer.alloc(24);
+    fs.readSync(fd, head, 0, 24, 0);
+    fs.closeSync(fd);
+    if (head.toString('ascii', 12, 16) !== 'IHDR') return null;
+    return { width: head.readUInt32BE(16), height: head.readUInt32BE(20) };
+  } catch {
+    return null;
+  }
 }
 
-function scoreCard({ x, y, width, height, score, verdict, note, indicators = 8 }) {
+/**
+ * Track split at the Thai (50) and international (80) thresholds, so the
+ * gaps themselves read as the benchmarks the tick labels name.
+ */
+function progressBar(x, y, barW, barH, wq, fillColor) {
+  const GAP = 7;
+  const at = (pct) => x + (barW * pct) / 100;
+  const knobX = at(wq);
+  const segments = [[0, 50], [50, 80], [80, 100]];
+
+  const draw = segments.map(([from, to]) => {
+    const segX = at(from);
+    const segEnd = at(to) - (to === 100 ? 0 : GAP);
+    const track = `<rect x="${segX}" y="${y}" width="${segEnd - segX}" height="${barH}" rx="${barH / 2}" fill="${TRACK}"/>`;
+    const fillEnd = Math.min(segEnd, knobX);
+    if (fillEnd <= segX) return track;
+    return `${track}<rect x="${segX}" y="${y}" width="${fillEnd - segX}" height="${barH}" rx="${barH / 2}" fill="${fillColor}"/>`;
+  }).join('');
+
+  return `${draw}<circle cx="${knobX}" cy="${y + barH / 2}" r="15" fill="#FFFFFF" filter="url(#knobShadow)"/>`;
+}
+
+/** Drawn at CARD_W x CARD_H; callers place it with translate + scale. */
+function scoreCard({ score, verdict, note, indicators = 8 }) {
   const wq = Math.max(0, Math.min(100, Number(score) || 0));
-  const pad = 32;
-  const barY = 128;
-  const barH = 10;
-  const barW = width - pad * 2;
-  const noteLines = wrapNote(note, Math.floor(width / 10.2), 3);
+  const pad = 26;
+  const right = CARD_W - pad;
+  const barW = CARD_W - pad * 2;
+  const noteLines = wrapNote(note, 56, 2);
   const fill = fillColorFor(verdict);
-  const verdictX = pad + (String(Math.round(wq)).length >= 3 ? 130 : String(Math.round(wq)).length === 2 ? 100 : 62);
 
   const ticks = [
-    { at: 0, label: '0' },
-    { at: 50, label: '50 - Thai' },
-    { at: 80, label: "80 - Int'l" },
-    { at: 100, label: '100' }
+    { at: 0, label: '0', anchor: 'start' },
+    { at: 50, label: '50 · Thai', anchor: 'middle' },
+    { at: 80, label: "80 · Int'l", anchor: 'middle' },
+    { at: 100, label: '100', anchor: 'end' }
   ];
 
-  const noteSvg = noteLines.map((line, i) => (
-    `<text x="${pad}" y="${barY + 58 + i * 22}" fill="${MUTED}" font-family="Arial, Helvetica, sans-serif" font-size="16">${escapeXml(line)}</text>`
-  )).join('');
-
   return `
-    <g transform="translate(${x},${y})">
-      <rect width="${width}" height="${height}" rx="24" fill="${CARD_BG}" filter="url(#cardShadow)"/>
-      <text x="${pad}" y="38" fill="${DIM}" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" letter-spacing="0.08em">WATER SCORE</text>
-      <text x="${width - pad}" y="38" text-anchor="end" fill="${DIM}" font-family="Arial, Helvetica, sans-serif" font-size="14">${indicators} indicators</text>
-      <text x="${pad}" y="100" fill="${INK}" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700">${Math.round(wq)}</text>
-      <text x="${verdictX}" y="92" fill="${verdict.color}" font-family="Arial, Helvetica, sans-serif" font-size="${verdict.tier === 'low' ? 24 : 28}" font-weight="700">${escapeXml(verdict.label)}</text>
-      ${progressBar(pad, barY, barW, barH, wq, fill)}
-      ${ticks.map((t) => {
-        const tx = pad + (barW * t.at) / 100;
-        const anchor = t.at === 0 ? 'start' : t.at === 100 ? 'end' : 'middle';
-        return `<text x="${tx}" y="${barY + 30}" text-anchor="${anchor}" fill="${DIM}" font-family="Arial, Helvetica, sans-serif" font-size="12">${escapeXml(t.label)}</text>`;
-      }).join('')}
-      ${noteSvg}
+      <rect width="${CARD_W}" height="${CARD_H}" rx="20" fill="${CARD_BG}" filter="url(#cardShadow)"/>
+      <text x="${pad}" y="55" fill="${DIM}" font-family="${FONT}" font-size="21" letter-spacing="0.02em">WATER SCORE</text>
+      <text x="${right}" y="55" text-anchor="end" fill="${DIM}" font-family="${FONT}" font-size="21">${indicators} indicators</text>
+      <text x="${pad}" y="150" fill="${INK}" font-family="${FONT}" font-size="68" font-weight="700" letter-spacing="-0.02em">${Math.round(wq)}</text>
+      <text x="${right}" y="152" text-anchor="end" fill="${verdict.color}" font-family="${FONT}" font-size="34" font-weight="600">${escapeXml(verdict.label)}</text>
+      ${progressBar(pad, 198, barW, 10, wq, fill)}
+      ${ticks.map((t) => (
+        `<text x="${pad + (barW * t.at) / 100}" y="254" text-anchor="${t.anchor}" fill="${DIM}" font-family="${FONT}" font-size="19">${escapeXml(t.label)}</text>`
+      )).join('')}
+      ${noteLines.map((line, i) => (
+        `<text x="${pad}" y="${310 + i * 38}" fill="${NOTE_INK}" font-family="${FONT}" font-size="24">${escapeXml(line)}</text>`
+      )).join('')}`;
+}
+
+function placedCard(x, y, width, opts, verdict, note) {
+  return `
+    <g transform="translate(${x},${y}) scale(${(width / CARD_W).toFixed(5)})">
+      ${scoreCard({ score: opts.score, verdict, note, indicators: opts.indicators })}
     </g>`;
 }
 
-/** Rounded translucent tile so the QR sits on the photo instead of on top of it. */
-function qrBadge(qrHref, x, y, size) {
-  if (!qrHref) return '';
-  const pad = Math.round(size * 0.1);
-  const inner = size - pad * 2;
-  const radius = Math.round(size * 0.16);
-  return `
-    <g opacity="0.94" filter="url(#qrShadow)">
-      <rect x="${x}" y="${y}" width="${size}" height="${size}" rx="${radius}" fill="#FFFFFF"/>
-      <image href="${escapeXml(qrHref)}" x="${x + pad}" y="${y + pad}" width="${inner}" height="${inner}" preserveAspectRatio="xMidYMid meet"/>
-    </g>`;
+/** Places an asset by one dimension, deriving the other from its intrinsic aspect. */
+function assetLayer(asset, { x, y, width, height, right, bottom }) {
+  if (!asset?.href || !asset.size) return '';
+  const aspect = asset.size.width / asset.size.height;
+  const w = width != null ? width : height * aspect;
+  const h = height != null ? height : width / aspect;
+  const px = x != null ? x : right - w;
+  const py = y != null ? y : bottom - h;
+  return `<image href="${escapeXml(asset.href)}" x="${px}" y="${py}" width="${w}" height="${h}"/>`;
 }
 
-function logoWordmark(x, y, fill = LOGO_FILL) {
+function headline(x, baseline, size, lineGap) {
   return `
-    <g transform="translate(${x},${y})">
-      <text x="0" y="15" fill="${fill}" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" letter-spacing="0.14em">WATER MOTION</text>
-    </g>`;
+  <text x="${x}" y="${baseline}" fill="${HEADLINE}" font-family="${FONT}" font-size="${size}" font-weight="700">SEE YOUR WATER</text>
+  <text x="${x}" y="${baseline + lineGap}" fill="${HEADLINE}" font-family="${FONT}" font-size="${size}" font-weight="700">DIFFERENTLY.</text>`;
 }
 
-/** Landscape UI overlay only — photo/blur are composited with sharp. */
+const SHARED_DEFS = `
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#3F3F46" flood-opacity="0.18"/>
+    </filter>
+    <filter id="knobShadow" x="-100%" y="-100%" width="300%" height="300%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#3F3F46" flood-opacity="0.35"/>
+    </filter>`;
+
+/** Photo left, blurred wash right. Photo/backdrop are composited with sharp. */
 function buildLandscapeSvg(opts) {
   const { width, height } = FORMATS.landscape;
-  const score = Number(opts.score);
-  const verdict = customerVerdict(score);
-  const note = opts.note || scoreSummaryNote(score, opts.findingsCount);
-  const qrHref = opts.qrDataUri || '';
-  const photoW = 560;
-
-  const qrLayer = qrBadge(qrHref, 38, height - 190, 152);
+  const verdict = customerVerdict(opts.score);
+  const note = opts.note || scoreSummaryNote(opts.score, opts.findingsCount);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    <linearGradient id="photoScrim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="70%" stop-color="#000" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#000" stop-opacity="0.28"/>
-    </linearGradient>
-    <filter id="cardShadow" x="-25%" y="-25%" width="150%" height="150%">
-      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0c0a09" flood-opacity="0.22"/>
-    </filter>
-    <filter id="qrShadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0c0a09" flood-opacity="0.28"/>
-    </filter>
-  </defs>
-  <rect x="0" y="0" width="${photoW}" height="${height}" fill="url(#photoScrim)"/>
-  <text x="610" y="86" fill="${HEADLINE}" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="800" letter-spacing="0.04em">SEE YOUR WATER</text>
-  <text x="610" y="128" fill="${HEADLINE}" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="800" letter-spacing="0.04em">DIFFERENTLY.</text>
-  ${scoreCard({ x: 600, y: 168, width: 540, height: 310, score, verdict, note, indicators: opts.indicators || 8 })}
-  ${qrLayer}
-  ${logoWordmark(width - 230, height - 42, LOGO_FILL)}
+  <defs>${SHARED_DEFS}</defs>
+  ${headline(662, 103, 48, 51)}
+  ${placedCard(660, 216, 480, opts, verdict, note)}
+  ${assetLayer(opts.ctaBadge, { x: 30, y: 428, width: 146 })}
+  ${assetLayer(opts.wordmark, { right: width - 28, bottom: height - 22, height: 20 })}
 </svg>`;
 }
 
-/** Stacked UI overlay — photo/blur are composited with sharp. */
-function buildStackedSvg(opts, meta, photoH, cardY, cardH, qrY) {
+/** Full-bleed blurred wash, no photo panel — matches the approved square plate. */
+function buildFullBleedSvg(opts, meta, layout) {
   const { width, height } = meta;
-  const score = Number(opts.score);
-  const verdict = customerVerdict(score);
-  const note = opts.note || scoreSummaryNote(score, opts.findingsCount);
-  const qrHref = opts.qrDataUri || '';
-
-  const qrLayer = qrBadge(qrHref, 48, qrY, 158);
+  const verdict = customerVerdict(opts.score);
+  const note = opts.note || scoreSummaryNote(opts.score, opts.findingsCount);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    <linearGradient id="photoScrim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="55%" stop-color="#000" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#000" stop-opacity="0.35"/>
-    </linearGradient>
-    <filter id="cardShadow" x="-25%" y="-25%" width="150%" height="150%">
-      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#0c0a09" flood-opacity="0.2"/>
-    </filter>
-    <filter id="qrShadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0c0a09" flood-opacity="0.28"/>
-    </filter>
-  </defs>
-  <rect x="0" y="0" width="${width}" height="${photoH}" fill="url(#photoScrim)"/>
-  <text x="48" y="72" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800">SEE YOUR WATER</text>
-  <text x="48" y="120" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800">DIFFERENTLY.</text>
-  ${scoreCard({ x: 70, y: cardY, width: width - 140, height: cardH, score, verdict, note, indicators: opts.indicators || 8 })}
-  ${qrLayer}
-  ${logoWordmark(width - 250, height - 48, LOGO_FILL)}
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>${SHARED_DEFS}</defs>
+  ${headline(layout.textX, layout.headlineBaseline, layout.headlineSize, layout.headlineGap)}
+  ${placedCard(layout.cardX, layout.cardY, layout.cardW, opts, verdict, note)}
+  ${assetLayer(opts.wordmark, { right: width - layout.margin, bottom: height - layout.margin, height: layout.wordmarkH })}
 </svg>`;
 }
+
+const FULL_BLEED_LAYOUT = {
+  square: {
+    textX: 112, headlineBaseline: 172, headlineSize: 70, headlineGap: 82,
+    cardX: 108, cardY: 389, cardW: 864, margin: 50, wordmarkH: 36
+  },
+  story: {
+    textX: 112, headlineBaseline: 340, headlineSize: 70, headlineGap: 82,
+    cardX: 108, cardY: 760, cardW: 864, margin: 50, wordmarkH: 36
+  }
+};
 
 function buildShareCardSvg(format, options = {}) {
   const meta = resolveFormat(format);
-  if (meta.key === 'square') {
-    return {
-      ...meta,
-      svg: buildStackedSvg(options, meta, 480, 420, 320, meta.height - 190)
-    };
-  }
-  if (meta.key === 'story') {
-    return {
-      ...meta,
-      svg: buildStackedSvg(options, meta, 980, 1020, 340, 800)
-    };
+  const layout = FULL_BLEED_LAYOUT[meta.key];
+  if (layout) {
+    return { ...meta, svg: buildFullBleedSvg(options, meta, layout) };
   }
   return { ...meta, svg: buildLandscapeSvg(options) };
 }
@@ -278,42 +332,38 @@ async function resolvePhotoDataUri(options = {}) {
   return fileToDataUri(DEFAULT_PHOTO, 'image/jpeg');
 }
 
-async function buildBlurredBackdrop(sharp, photoBuf, width, height) {
-  return sharp(photoBuf)
-    .resize(width, height, { fit: 'cover', position: 'centre' })
-    .blur(64)
-    .modulate({ brightness: 1.28, saturation: 0.35 })
-    .linear(0.85, 48)
+/**
+ * Collapsing the photo to a handful of pixels before scaling it back up gives
+ * the smooth colour wash of the design plate — a plain blur still leaves the
+ * faucet readable as a dark smudge behind the card.
+ */
+async function buildBackdrop(sharp, photoBuf, width, height) {
+  const seed = await sharp(photoBuf)
+    .resize(28, 28, { fit: 'cover', position: 'centre' })
+    .blur(5)
     .png()
     .toBuffer();
-}
 
-async function buildGreyWash(sharp, width, height, alpha = 0.28) {
-  return sharp({
-    create: {
-      width,
-      height,
-      channels: 4,
-      background: { r: 210, g: 212, b: 216, alpha }
-    }
-  })
+  return sharp(seed)
+    .resize(width, height, { fit: 'fill', kernel: 'cubic' })
+    .modulate({ brightness: 1.2, saturation: 0.18 })
+    .linear(0.5, 104)
     .png()
     .toBuffer();
 }
 
 async function compositeLandscape(sharp, photoBuf, svgBuffer) {
   const { width, height } = FORMATS.landscape;
-  const photoW = 560;
-  const blurred = await buildBlurredBackdrop(sharp, photoBuf, width, height);
-  const wash = await buildGreyWash(sharp, width - photoW, height, 0.34);
+  // Mock plate is ~40.6% photo / 59.4% wash.
+  const photoW = 488;
+  const backdrop = await buildBackdrop(sharp, photoBuf, width, height);
   const leftPhoto = await sharp(photoBuf)
     .resize(photoW, height, { fit: 'cover', position: 'centre' })
     .png()
     .toBuffer();
 
-  return sharp(blurred)
+  return sharp(backdrop)
     .composite([
-      { input: wash, left: photoW, top: 0 },
       { input: leftPhoto, left: 0, top: 0 },
       { input: svgBuffer, left: 0, top: 0 }
     ])
@@ -321,30 +371,31 @@ async function compositeLandscape(sharp, photoBuf, svgBuffer) {
     .toBuffer();
 }
 
-async function compositeStacked(sharp, photoBuf, svgBuffer, meta, photoH) {
-  const { width, height } = meta;
-  const blurred = await buildBlurredBackdrop(sharp, photoBuf, width, height);
-  const wash = await buildGreyWash(sharp, width, height - photoH, 0.52);
-  const topPhoto = await sharp(photoBuf)
-    .resize(width, photoH, { fit: 'cover', position: 'centre' })
-    .png()
-    .toBuffer();
-
-  return sharp(blurred)
-    .composite([
-      { input: wash, left: 0, top: photoH },
-      { input: topPhoto, left: 0, top: 0 },
-      { input: svgBuffer, left: 0, top: 0 }
-    ])
+async function compositeFullBleed(sharp, photoBuf, svgBuffer, meta) {
+  const backdrop = await buildBackdrop(sharp, photoBuf, meta.width, meta.height);
+  return sharp(backdrop)
+    .composite([{ input: svgBuffer, left: 0, top: 0 }])
     .png({ compressionLevel: 8 })
     .toBuffer();
 }
 
+function loadAsset(filePath) {
+  const size = pngSize(filePath);
+  if (!size) return null;
+  return { href: fileToDataUri(filePath, 'image/png'), size };
+}
+
 async function renderShareCardPng(format, options = {}) {
+  ensureFontconfig();
   const sharp = require('sharp');
   const photoDataUri = await resolvePhotoDataUri(options);
-  const qrDataUri = options.qrDataUri || fileToDataUri(QR_ASSET, 'image/png');
-  const built = buildShareCardSvg(format, { ...options, photoDataUri, qrDataUri });
+  const built = buildShareCardSvg(format, {
+    ...options,
+    score: Number(options.score),
+    indicators: options.indicators || 8,
+    ctaBadge: loadAsset(CTA_BADGE_ASSET) || loadAsset(QR_ASSET),
+    wordmark: loadAsset(WORDMARK_ASSET)
+  });
   const svgBuffer = Buffer.from(built.svg);
   const photoBuf = dataUriToBuffer(photoDataUri);
 
@@ -353,10 +404,8 @@ async function renderShareCardPng(format, options = {}) {
     png = await sharp(svgBuffer).png({ compressionLevel: 8 }).toBuffer();
   } else if (built.key === 'landscape') {
     png = await compositeLandscape(sharp, photoBuf, svgBuffer);
-  } else if (built.key === 'square') {
-    png = await compositeStacked(sharp, photoBuf, svgBuffer, built, 480);
   } else {
-    png = await compositeStacked(sharp, photoBuf, svgBuffer, built, 980);
+    png = await compositeFullBleed(sharp, photoBuf, svgBuffer, built);
   }
 
   return { ...built, png };
