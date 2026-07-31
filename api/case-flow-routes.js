@@ -153,7 +153,7 @@ function isFreeInspectionJob(job) {
 function freeReportHtml(job) {
   const token = String(job.result?.publicReportToken || '').trim();
   const cacheBust = Date.now();
-  const imageUrl = `/api/public/score-card/${encodeURIComponent(token)}?format=landscape&v=${cacheBust}`;
+  const cardUrl = (format) => `/api/public/score-card/${encodeURIComponent(token)}?format=${format}&v=${cacheBust}`;
 
   return `<!doctype html>
 <html lang="th">
@@ -164,13 +164,35 @@ function freeReportHtml(job) {
   <title>Water Score · Water Motion</title>
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; background: #0c0a09; }
-    body { display: flex; align-items: center; min-height: 100vh; }
-    img { display: block; width: 100%; height: auto; }
+    html, body { margin: 0; min-height: 100%; background: #0c0a09; }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .card-wrap { width: 100%; max-width: 420px; }
+    .card-wrap img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+    .card-wrap .landscape-img { display: none; }
+    @media (min-width: 720px) {
+      .card-wrap { max-width: 860px; }
+      .card-wrap .story-img { display: none; }
+      .card-wrap .landscape-img { display: block; }
+    }
   </style>
 </head>
 <body>
-  <img src="${imageUrl}" alt="Water Score">
+  <div class="card-wrap">
+    <img class="story-img" src="${cardUrl('story')}" alt="Water Score">
+    <img class="landscape-img" src="${cardUrl('landscape')}" alt="Water Score">
+  </div>
 </body>
 </html>`;
 }
