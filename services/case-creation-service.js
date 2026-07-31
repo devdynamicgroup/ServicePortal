@@ -2,6 +2,7 @@ const { createClient, updateClient, getAllClients } = require('./notion/clients'
 const { generateFeedbackToken, generateReportToken } = require('./case-tokens');
 
 const DEFAULT_REVIEW_URL = process.env.GOOGLE_REVIEW_URL || 'https://g.page/r/Ce0EFhVtUyRpEBM/review';
+const DEFAULT_LAUNCH_CAMPAIGN_OFFER = process.env.WATER_CHECK_CAMPAIGN_OFFER || 'Launch Offer 2026';
 
 const CUSTOMER_INPUT_FIELDS = Object.freeze([
   'fullName',
@@ -18,7 +19,8 @@ const CUSTOMER_INPUT_FIELDS = Object.freeze([
   'consentSigned',
   'appointmentDate',
   'appointmentStart',
-  'appointmentEnd'
+  'appointmentEnd',
+  'campaignOffer'
 ]);
 
 const SYSTEM_GENERATED_FIELDS = Object.freeze([
@@ -104,13 +106,24 @@ function mapPreassessmentPayload(body = {}) {
     consentSigned: Boolean(fields['ci-consent'] || body.consentSigned),
     appointmentDate: body.appointmentDate || fields.appointmentDate || '',
     appointmentStart: body.appointmentStart || fields.appointmentStart || '',
-    appointmentEnd: body.appointmentEnd || fields.appointmentEnd || ''
+    appointmentEnd: body.appointmentEnd || fields.appointmentEnd || '',
+    campaignOffer: body.campaignOffer || fields.campaignOffer || ''
   });
 }
 
 async function resolveCreatedJob(notionId) {
   const jobs = await getAllClients();
   return jobs.find(job => job.notionId === notionId) || null;
+}
+
+function resolveCampaignOffer(customer = {}, customerPayload = {}, options = {}) {
+  if (customer.campaignOffer) return customer.campaignOffer;
+  if (customerPayload.campaignOffer) return customerPayload.campaignOffer;
+  if (options.campaignOffer) return options.campaignOffer;
+  // Launch-offer booking flow (Framer / free water check) defaults to the
+  // active campaign so the public counter can distinguish these cases.
+  if (options.launchOffer) return DEFAULT_LAUNCH_CAMPAIGN_OFFER;
+  return '';
 }
 
 async function createCase(customerPayload = {}, options = {}) {
@@ -122,6 +135,9 @@ async function createCase(customerPayload = {}, options = {}) {
     error.statusCode = 400;
     throw error;
   }
+
+  const campaignOffer = resolveCampaignOffer(customer, customerPayload, options);
+  if (campaignOffer) customer.campaignOffer = campaignOffer;
 
   const feedbackToken = await generateFeedbackToken();
   const reportToken = await generateReportToken();
@@ -246,6 +262,7 @@ async function cancelAppointment(caseId) {
 module.exports = {
   CUSTOMER_INPUT_FIELDS,
   SYSTEM_GENERATED_FIELDS,
+  DEFAULT_LAUNCH_CAMPAIGN_OFFER,
   mapPreassessmentPayload,
   buildSystemDefaults,
   createCase,

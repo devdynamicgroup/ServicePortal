@@ -53,7 +53,8 @@ const FIELD_ALIASES = {
   // intentionally NOT listed here so it can never be used as the appointment.
   appointmentDate: ['Created 1', 'Next Follow-up', 'Appointment Date', 'Scheduled Date', 'appointmentDate'],
   appointmentStart: ['Appointment Start', 'Time Start', 'Start Time', 'appointmentStart'],
-  appointmentEnd: ['Appointment End', 'Time End', 'End Time', 'appointmentEnd']
+  appointmentEnd: ['Appointment End', 'Time End', 'End Time', 'appointmentEnd'],
+  campaignOffer: ['Campaign Offer', 'campaignOffer']
 };
 
 function splitClientName(fullName) {
@@ -210,6 +211,7 @@ function notionPageToJob(page, index) {
   const propertyType = mapPropertyType(getPropertyValue(properties, FIELD_ALIASES.propertyType));
   const propertyAge = mapPropertyAge(getPropertyValue(properties, FIELD_ALIASES.propertyAge));
   const source = getPropertyValue(properties, FIELD_ALIASES.source);
+  const campaignOffer = getPropertyValue(properties, FIELD_ALIASES.campaignOffer) || '';
   const stage = getPropertyValue(properties, FIELD_ALIASES.stage);
   const rawStatus = getPropertyValue(properties, FIELD_ALIASES.status);
   let status = mapJobStatus(rawStatus);
@@ -254,6 +256,7 @@ function notionPageToJob(page, index) {
     rawStatus: rawStatus || '',
     meta: [propertyType, propertyAge, stage || 'Notion'].filter(Boolean).join(' - '),
     notionSource: true,
+    campaignOffer,
     line: {
       displayName: lineDisplayName || '',
       userId: lineUserId || '',

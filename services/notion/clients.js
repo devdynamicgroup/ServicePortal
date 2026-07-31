@@ -225,6 +225,7 @@ function buildNotionProperties(payload, schemaProperties = {}) {
   setSelect(FIELD_ALIASES.source, payload.source);
   setSelect(FIELD_ALIASES.currentFilter, payload.currentFilter);
   setSelect(FIELD_ALIASES.stage, payload.stage);
+  setSelect(FIELD_ALIASES.campaignOffer, payload.campaignOffer);
   setSelect(FIELD_ALIASES.status, payload.status);
   setSelect(FIELD_ALIASES.caseWorkflowStatus, payload.caseWorkflowStatus);
   setDate(FIELD_ALIASES.serviceStartedAt, payload.serviceStartedAt);

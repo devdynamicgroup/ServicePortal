@@ -1,4 +1,7 @@
 const { getAllClients } = require('../services/notion/clients');
+const { getDataSourceSchema } = require('../services/notion/client');
+const { findPropertyKey } = require('../services/notion/props');
+const { FIELD_ALIASES } = require('../services/notion/mapper');
 
 // Public, read-only endpoints meant to be called directly from the Framer
 // marketing site (browser-side fetch). Scoped narrowly on purpose:
@@ -52,20 +55,45 @@ function getTotalSlots() {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 100;
 }
 
+function getCampaignOfferName() {
+  const fromEnv = String(process.env.WATER_CHECK_CAMPAIGN_OFFER || '').trim();
+  return fromEnv || 'Launch Offer 2026';
+}
+
+async function schemaHasCampaignOfferProperty() {
+  try {
+    const { properties } = await getDataSourceSchema();
+    return Boolean(findPropertyKey(properties, FIELD_ALIASES.campaignOffer));
+  } catch (error) {
+    console.warn('[water-check-offer] could not read Notion schema', error.message);
+    return false;
+  }
+}
+
+function countCampaignOfferUsage(jobs, offerName) {
+  const target = String(offerName || '').trim();
+  if (!target) return 0;
+  return jobs.filter(job => String(job.campaignOffer || '').trim() === target).length;
+}
+
 async function getWaterCheckOfferStatus() {
   const now = Date.now();
   if (offerCache.value && offerCache.expiresAt > now) {
     return offerCache.value;
   }
 
-  // NOTE: counts every non-archived Case in Notion as "using" this offer.
-  // Data is mock/launch-only today, so this is intentionally simple.
-  // Once real campaigns/paid services coexist, filter this list by
-  // whichever field marks a Case as belonging to the Free Water Check
-  // launch offer instead of counting every Case.
   const jobs = await getAllClients();
   const totalSlots = getTotalSlots();
-  const used = Math.min(jobs.length, totalSlots);
+  const offerName = getCampaignOfferName();
+  const hasCampaignProperty = await schemaHasCampaignOfferProperty();
+  // Before the "Campaign Offer" select property exists in Notion, no case can
+  // possibly be tagged as having used the offer yet — treat usage as 0, not
+  // "every case ever created" (jobs.length), which wrongly counted unrelated
+  // historical jobs against the launch-offer slot count.
+  const rawUsed = hasCampaignProperty
+    ? countCampaignOfferUsage(jobs, offerName)
+    : 0;
+  const used = Math.min(rawUsed, totalSlots);
   const remaining = Math.max(0, totalSlots - used);
 
   const value = { totalSlots, used, remaining };

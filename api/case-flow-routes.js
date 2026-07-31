@@ -427,7 +427,11 @@ async function handleCaseFlowRoute(req, res, urlPath) {
       const body = await readJson(req);
       const result = await createCase(body, {
         startOnSite: Boolean(body.startOnSite),
-        skipMap: Boolean(body.skipMap)
+        skipMap: Boolean(body.skipMap),
+        // Launch-offer / Framer free-water-check bookings set launchOffer:true
+        // or send campaignOffer. Explicit campaignOffer always wins in createCase.
+        launchOffer: body.launchOffer === true,
+        campaignOffer: body.campaignOffer
       });
       sendJson(res, 201, result);
     } catch (error) {

@@ -15,10 +15,12 @@ const SELECT_OPTIONS = {
   ],
   feedbackStatus: ['not_sent', 'pending', 'submitted'],
   reviewStatus: ['not_requested', 'requested', 'completed'],
-  notificationStatus: ['not_sent', 'ready', 'sending', 'sent', 'failed']
+  notificationStatus: ['not_sent', 'ready', 'sending', 'sent', 'failed'],
+  campaignOffer: ['Launch Offer 2026', 'Referral 2026']
 };
 
 const PROPERTY_DEFINITIONS = [
+  { key: 'campaignOffer', name: 'Campaign Offer', schema: selectSchema('campaignOffer') },
   { key: 'lineDisplayName', name: 'LINE Display Name', schema: { rich_text: {} } },
   { key: 'lineUserId', name: 'LINE User ID', schema: { rich_text: {} } },
   { key: 'lineLinked', name: 'LINE Linked', schema: { checkbox: {} } },
