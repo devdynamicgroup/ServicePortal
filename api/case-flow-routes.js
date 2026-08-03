@@ -145,10 +145,9 @@ function isFreeInspectionJob(job) {
 }
 
 /**
- * Free-campaign customers get the exact same approved share-card design
- * they already received in LINE — not a re-implementation of it — so the
- * two can never visually drift apart. Mobile uses the square plate (matches
- * the design mock); desktop uses landscape.
+ * Free-campaign customers get the approved share-card design.
+ * Mobile = vertical story plate (photo + CTA + score) matching the mock.
+ * Desktop = landscape plate.
  */
 function freeReportHtml(job) {
   const token = String(job.result?.publicReportToken || '').trim();
@@ -169,7 +168,7 @@ function freeReportHtml(job) {
       min-height: 100vh;
       min-height: 100dvh;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
     }
     .card-wrap { width: 100%; max-width: 100vw; }
@@ -181,7 +180,10 @@ function freeReportHtml(job) {
     }
     @media (min-width: 720px) {
       html, body { background: #0c0a09; }
-      body { padding: 24px; }
+      body {
+        align-items: center;
+        padding: 24px;
+      }
       .card-wrap { width: min(920px, 100%); }
       .score-img {
         border-radius: 20px;
@@ -194,7 +196,7 @@ function freeReportHtml(job) {
   <div class="card-wrap">
     <picture>
       <source media="(min-width: 720px)" srcset="${cardUrl('landscape')}">
-      <img class="score-img" src="${cardUrl('square')}" alt="Water Score" decoding="async">
+      <img class="score-img" src="${cardUrl('story')}" alt="Water Score" decoding="async">
     </picture>
   </div>
 </body>

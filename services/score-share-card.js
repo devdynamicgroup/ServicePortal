@@ -271,38 +271,49 @@ function buildLandscapeSvg(opts) {
 </svg>`;
 }
 
-/** Full-bleed blurred wash, no photo panel — matches the approved square plate. */
-function buildFullBleedSvg(opts, meta, layout) {
-  const { width, height } = meta;
+/**
+ * Vertical stack of the landscape plate for phones:
+ * photo + CTA on top, wash + headline + score card + wordmark below.
+ */
+function buildStorySvg(opts) {
+  const { width, height } = FORMATS.story;
+  const photoH = 900;
   const verdict = customerVerdict(opts.score);
   const note = opts.note || scoreSummaryNote(opts.score, opts.findingsCount);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>${SHARED_DEFS}</defs>
-  ${headline(layout.textX, layout.headlineBaseline, layout.headlineSize, layout.headlineGap)}
-  ${placedCard(layout.cardX, layout.cardY, layout.cardW, opts, verdict, note)}
-  ${assetLayer(opts.wordmark, { right: width - layout.margin, bottom: height - layout.margin, height: layout.wordmarkH })}
+  ${assetLayer(opts.ctaBadge, { x: 48, y: photoH - 250, width: 200 })}
+  ${headline(72, photoH + 110, 64, 74)}
+  ${placedCard(70, photoH + 230, 940, opts, verdict, note)}
+  ${assetLayer(opts.wordmark, { right: width - 48, bottom: height - 56, height: 34 })}
 </svg>`;
 }
 
-const FULL_BLEED_LAYOUT = {
-  square: {
+/** Full-bleed blurred wash — square social plate (no photo panel). */
+function buildSquareSvg(opts) {
+  const meta = FORMATS.square;
+  const layout = {
     textX: 112, headlineBaseline: 172, headlineSize: 70, headlineGap: 82,
     cardX: 108, cardY: 389, cardW: 864, margin: 50, wordmarkH: 36
-  },
-  story: {
-    textX: 112, headlineBaseline: 340, headlineSize: 70, headlineGap: 82,
-    cardX: 108, cardY: 760, cardW: 864, margin: 50, wordmarkH: 36
-  }
-};
+  };
+  const verdict = customerVerdict(opts.score);
+  const note = opts.note || scoreSummaryNote(opts.score, opts.findingsCount);
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${meta.width}" height="${meta.height}" viewBox="0 0 ${meta.width} ${meta.height}">
+  <defs>${SHARED_DEFS}</defs>
+  ${headline(layout.textX, layout.headlineBaseline, layout.headlineSize, layout.headlineGap)}
+  ${placedCard(layout.cardX, layout.cardY, layout.cardW, opts, verdict, note)}
+  ${assetLayer(opts.wordmark, { right: meta.width - layout.margin, bottom: meta.height - layout.margin, height: layout.wordmarkH })}
+</svg>`;
+}
 
 function buildShareCardSvg(format, options = {}) {
   const meta = resolveFormat(format);
-  const layout = FULL_BLEED_LAYOUT[meta.key];
-  if (layout) {
-    return { ...meta, svg: buildFullBleedSvg(options, meta, layout) };
-  }
+  if (meta.key === 'story') return { ...meta, svg: buildStorySvg(options) };
+  if (meta.key === 'square') return { ...meta, svg: buildSquareSvg(options) };
   return { ...meta, svg: buildLandscapeSvg(options) };
 }
 
@@ -396,6 +407,24 @@ async function compositeLandscape(sharp, photoBuf, svgBuffer) {
     .toBuffer();
 }
 
+async function compositeStory(sharp, photoBuf, svgBuffer) {
+  const { width, height } = FORMATS.story;
+  const photoH = 900;
+  const backdrop = await buildBackdrop(sharp, photoBuf, width, height);
+  const topPhoto = await sharp(photoBuf)
+    .resize(width, photoH, { fit: 'cover', position: 'centre' })
+    .png()
+    .toBuffer();
+
+  return sharp(backdrop)
+    .composite([
+      { input: topPhoto, left: 0, top: 0 },
+      { input: svgBuffer, left: 0, top: 0 }
+    ])
+    .png({ compressionLevel: 8 })
+    .toBuffer();
+}
+
 async function compositeFullBleed(sharp, photoBuf, svgBuffer, meta) {
   const backdrop = await buildBackdrop(sharp, photoBuf, meta.width, meta.height);
   return sharp(backdrop)
@@ -429,9 +458,13 @@ async function renderShareCardPng(format, options = {}) {
     png = await sharp(svgBuffer).png({ compressionLevel: 8 }).toBuffer();
   } else {
     const normalizedPhotoBuf = await normalizePhoto(sharp, photoBuf);
-    png = built.key === 'landscape'
-      ? await compositeLandscape(sharp, normalizedPhotoBuf, svgBuffer)
-      : await compositeFullBleed(sharp, normalizedPhotoBuf, svgBuffer, built);
+    if (built.key === 'landscape') {
+      png = await compositeLandscape(sharp, normalizedPhotoBuf, svgBuffer);
+    } else if (built.key === 'story') {
+      png = await compositeStory(sharp, normalizedPhotoBuf, svgBuffer);
+    } else {
+      png = await compositeFullBleed(sharp, normalizedPhotoBuf, svgBuffer, built);
+    }
   }
 
   return { ...built, png };
