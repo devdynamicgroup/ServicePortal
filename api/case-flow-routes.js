@@ -163,29 +163,43 @@ function freeReportHtml(job) {
   <title>Water Score · Water Motion</title>
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; background: #121212; }
+    html, body { margin: 0; height: 100%; background: #121212; }
     body {
       min-height: 100vh;
       min-height: 100dvh;
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: center;
+      overflow: hidden;
     }
-    .card-wrap { width: 100%; max-width: 100vw; }
+    .card-wrap {
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      max-width: 100vw;
+    }
     .score-img {
       display: block;
       width: 100%;
-      height: auto;
-      vertical-align: top;
+      height: 100%;
+      object-fit: cover;
+      object-position: center center;
     }
     @media (min-width: 720px) {
-      html, body { background: #0c0a09; }
+      html, body { background: #0c0a09; height: auto; }
       body {
-        align-items: center;
+        min-height: 100vh;
         padding: 24px;
+        overflow: auto;
       }
-      .card-wrap { width: min(920px, 100%); }
+      .card-wrap {
+        width: min(920px, 100%);
+        height: auto;
+      }
       .score-img {
+        width: 100%;
+        height: auto;
+        object-fit: contain;
         border-radius: 20px;
         box-shadow: 0 24px 60px rgba(0,0,0,0.5);
       }

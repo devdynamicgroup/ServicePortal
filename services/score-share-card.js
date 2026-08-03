@@ -272,25 +272,45 @@ function buildLandscapeSvg(opts) {
 }
 
 /**
- * Mobile story plate — full-bleed photo with score integrated on the image
- * and a frosted glass insight panel (approved mobile concept).
+ * Mobile story plate — full-bleed photo with score on the image and a
+ * compact frosted insight panel sized to the copy (no tall empty glass).
  */
+function storyPanelLayout(noteLineCount) {
+  const width = FORMATS.story.width;
+  const height = FORMATS.story.height;
+  const lines = Math.max(1, Math.min(3, noteLineCount || 1));
+  const pad = 36;
+  const panelX = 48;
+  const panelW = width - 96;
+  const panelH = 160 + lines * 46;
+  const ctaSize = 196;
+  const ctaH = Math.round(ctaSize * (342 / 294));
+  const footerTop = height - 56 - ctaH;
+  const panelY = footerTop - 36 - panelH;
+  const barY = panelY + 44;
+  const barW = panelW - pad * 2;
+  const noteStartY = panelY + 138;
+  const scoreLabelY = panelY - 190;
+  const scoreNumY = panelY - 32;
+  const scoreMetaY = panelY - 64;
+  return {
+    width, height, pad, panelX, panelY, panelW, panelH, barY, barW,
+    noteStartY, footerTop, scoreLabelY, scoreNumY, scoreMetaY, ctaSize, lines
+  };
+}
+
 function buildStorySvg(opts) {
-  const { width, height } = FORMATS.story;
   const wq = Math.max(0, Math.min(100, Number(opts.score) || 0));
   const verdict = customerVerdict(wq);
   const note = opts.note || scoreSummaryNote(wq, opts.findingsCount);
-  const noteLines = wrapNote(note, 38, 3);
+  const noteLines = wrapNote(note, 36, 3);
   const fill = fillColorFor(verdict);
-
-  const panelX = 48;
-  const panelY = 1040;
-  const panelW = width - 96;
-  const panelH = 400;
-  const pad = 40;
-  const barY = panelY + 56;
-  const barW = panelW - pad * 2;
-  const knobX = panelX + pad + (barW * wq) / 100;
+  const L = storyPanelLayout(noteLines.length);
+  const knobX = L.panelX + L.pad + (L.barW * wq) / 100;
+  const scoreDigits = String(Math.round(wq)).length;
+  const denX = 56 + (scoreDigits >= 3 ? 290 : 200);
+  const verdictX = denX + 108;
+  const verdictSize = verdict.tier === 'low' ? 38 : 50;
 
   const ticks = [
     { at: 0, label: '0', anchor: 'start' },
@@ -300,38 +320,37 @@ function buildStorySvg(opts) {
   ];
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${L.width}" height="${L.height}" viewBox="0 0 ${L.width} ${L.height}">
   <defs>
     ${SHARED_DEFS}
     <linearGradient id="storyScrimTop" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#000" stop-opacity="0.45"/>
-      <stop offset="28%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="0%" stop-color="#000" stop-opacity="0.5"/>
+      <stop offset="22%" stop-color="#000" stop-opacity="0"/>
     </linearGradient>
     <linearGradient id="storyScrimBottom" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="45%" stop-color="#000" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#000" stop-opacity="0.55"/>
+      <stop offset="40%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.62"/>
     </linearGradient>
   </defs>
-  <rect width="${width}" height="${height}" fill="url(#storyScrimTop)"/>
-  <rect width="${width}" height="${height}" fill="url(#storyScrimBottom)"/>
-  ${headline(56, 118, 58, 68)}
-  <text x="56" y="760" fill="#FFFFFF" font-family="${FONT}" font-size="22" letter-spacing="0.12em">WATER SCORE</text>
-  <text x="56" y="930" fill="#FFFFFF" font-family="${FONT}" font-size="168" font-weight="700" letter-spacing="-0.04em">${Math.round(wq)}</text>
-  <text x="${56 + (String(Math.round(wq)).length >= 3 ? 310 : 220)}" y="900" fill="rgba(255,255,255,0.55)" font-family="${FONT}" font-size="42" font-weight="500">/100</text>
-  <text x="${56 + (String(Math.round(wq)).length >= 3 ? 420 : 330)}" y="900" fill="${verdict.color}" font-family="${FONT}" font-size="${verdict.tier === 'low' ? 36 : 48}" font-weight="600">${escapeXml(verdict.label)}</text>
-  <!-- Glass plate is composited under this SVG; keep panel content only. -->
-  <rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="32" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.28)" stroke-width="1.5"/>
-  <rect x="${panelX + pad}" y="${barY}" width="${barW}" height="10" rx="5" fill="rgba(255,255,255,0.28)"/>
-  <rect x="${panelX + pad}" y="${barY}" width="${Math.max(0, (barW * wq) / 100)}" height="10" rx="5" fill="${fill}"/>
-  <circle cx="${knobX}" cy="${barY + 5}" r="14" fill="#FFFFFF" filter="url(#knobShadow)"/>
+  <rect width="${L.width}" height="${L.height}" fill="url(#storyScrimTop)"/>
+  <rect width="${L.width}" height="${L.height}" fill="url(#storyScrimBottom)"/>
+  ${headline(56, 110, 54, 62)}
+  <text x="56" y="${L.scoreLabelY}" fill="rgba(255,255,255,0.92)" font-family="${FONT}" font-size="24" letter-spacing="0.14em">WATER SCORE</text>
+  <text x="56" y="${L.scoreNumY}" fill="#FFFFFF" font-family="${FONT}" font-size="148" font-weight="700" letter-spacing="-0.04em">${Math.round(wq)}</text>
+  <text x="${denX}" y="${L.scoreMetaY}" fill="rgba(255,255,255,0.55)" font-family="${FONT}" font-size="38" font-weight="500">/100</text>
+  <text x="${verdictX}" y="${L.scoreMetaY}" fill="${verdict.color}" font-family="${FONT}" font-size="${verdictSize}" font-weight="600">${escapeXml(verdict.label)}</text>
+  <rect x="${L.panelX}" y="${L.panelY}" width="${L.panelW}" height="${L.panelH}" rx="26" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.28)" stroke-width="1.5"/>
+  <rect x="${L.panelX + L.pad}" y="${L.barY}" width="${L.barW}" height="10" rx="5" fill="rgba(255,255,255,0.28)"/>
+  <rect x="${L.panelX + L.pad}" y="${L.barY}" width="${Math.max(0, (L.barW * wq) / 100)}" height="10" rx="5" fill="${fill}"/>
+  <circle cx="${knobX}" cy="${L.barY + 5}" r="13" fill="#FFFFFF" filter="url(#knobShadow)"/>
   ${ticks.map((t) => (
-    `<text x="${panelX + pad + (barW * t.at) / 100}" y="${barY + 48}" text-anchor="${t.anchor}" fill="rgba(255,255,255,0.78)" font-family="${FONT}" font-size="22">${escapeXml(t.label)}</text>`
+    `<text x="${L.panelX + L.pad + (L.barW * t.at) / 100}" y="${L.barY + 40}" text-anchor="${t.anchor}" fill="rgba(255,255,255,0.82)" font-family="${FONT}" font-size="22">${escapeXml(t.label)}</text>`
   )).join('')}
   ${noteLines.map((line, i) => (
-    `<text x="${panelX + pad}" y="${panelY + 200 + i * 38}" fill="#FFFFFF" font-family="${FONT}" font-size="26">${escapeXml(line)}</text>`
+    `<text x="${L.panelX + L.pad}" y="${L.noteStartY + i * 40}" fill="#FFFFFF" font-family="${FONT}" font-size="30">${escapeXml(line)}</text>`
   )).join('')}
-  ${assetLayer(opts.ctaBadge, { x: 48, y: height - 300, width: 210 })}
-  ${assetLayer(opts.wordmark, { right: width - 48, bottom: height - 64, height: 34 })}
+  ${assetLayer(opts.ctaBadge, { x: 48, y: L.footerTop, width: L.ctaSize })}
+  ${assetLayer(opts.wordmark, { right: L.width - 48, bottom: L.height - 52, height: 30 })}
 </svg>`;
 }
 
@@ -480,7 +499,7 @@ async function buildGlassPlate(sharp, photoBuf, x, y, w, h, radius = 32) {
     .toBuffer();
 }
 
-async function compositeStory(sharp, photoBuf, svgBuffer) {
+async function compositeStory(sharp, photoBuf, svgBuffer, options = {}) {
   const { width, height } = FORMATS.story;
   const photo = await sharp(photoBuf)
     .resize(width, height, { fit: 'cover', position: 'centre' })
@@ -488,15 +507,15 @@ async function compositeStory(sharp, photoBuf, svgBuffer) {
     .png()
     .toBuffer();
 
-  const panelX = 48;
-  const panelY = 1040;
-  const panelW = width - 96;
-  const panelH = 400;
-  const glass = await buildGlassPlate(sharp, photo, panelX, panelY, panelW, panelH, 32);
+  const score = Number(options.score);
+  const note = options.note || scoreSummaryNote(score, options.findingsCount);
+  const noteLines = wrapNote(note, 36, 3);
+  const L = storyPanelLayout(noteLines.length);
+  const glass = await buildGlassPlate(sharp, photo, L.panelX, L.panelY, L.panelW, L.panelH, 28);
 
   return sharp(photo)
     .composite([
-      { input: glass, left: panelX, top: panelY },
+      { input: glass, left: L.panelX, top: L.panelY },
       { input: svgBuffer, left: 0, top: 0 }
     ])
     .png({ compressionLevel: 8 })
@@ -539,7 +558,11 @@ async function renderShareCardPng(format, options = {}) {
     if (built.key === 'landscape') {
       png = await compositeLandscape(sharp, normalizedPhotoBuf, svgBuffer);
     } else if (built.key === 'story') {
-      png = await compositeStory(sharp, normalizedPhotoBuf, svgBuffer);
+      png = await compositeStory(sharp, normalizedPhotoBuf, svgBuffer, {
+        score: Number(options.score),
+        note: options.note,
+        findingsCount: options.findingsCount
+      });
     } else {
       png = await compositeFullBleed(sharp, normalizedPhotoBuf, svgBuffer, built);
     }
