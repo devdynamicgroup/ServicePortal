@@ -127,7 +127,16 @@ function completePreassess() {
 
   renderJobSteps();
   goScreen('s-job');
-  if (S.activeJob?.notionId && typeof syncJobProfileToNotion === 'function') {
+  if (typeof ensureCaseSyncedToNotion === 'function') {
+    ensureCaseSyncedToNotion(S.activeJob).then((synced) => {
+      if (synced?.ok && typeof syncJobProfileToNotion === 'function') {
+        return syncJobProfileToNotion(S.activeJob);
+      }
+      return synced;
+    }).then(() => {
+      if (S.activeJob) updateJobHeader(S.activeJob);
+    }).catch(() => {});
+  } else if (S.activeJob?.notionId && typeof syncJobProfileToNotion === 'function') {
     syncJobProfileToNotion(S.activeJob).then(() => {
       if (S.activeJob) updateJobHeader(S.activeJob);
     }).catch(() => {});

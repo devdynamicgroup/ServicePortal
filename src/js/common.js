@@ -1,15 +1,21 @@
-function saveDraft() {
+async function saveDraft() {
   if (S.activeJob) {
     if (typeof commitManualCaseIfNeeded === 'function') commitManualCaseIfNeeded();
     saveActiveJobState();
     persistJobs();
+    // Create Notion row only after Save Draft (manual cases stay local until then).
+    if (typeof ensureCaseSyncedToNotion === 'function') {
+      const synced = await ensureCaseSyncedToNotion(S.activeJob);
+      if (!synced?.ok && S.activeJob?.manual && !S.activeJob?.notionId) {
+        showToast(S.lang === 'th' ? 'บันทึกร่างแล้ว แต่ยังซิงค์ Notion ไม่สำเร็จ' : 'Draft saved, but Notion sync failed');
+      }
+    }
     if (typeof renderCalendar === 'function') renderCalendar();
     else if (typeof renderJobs === 'function') renderJobs();
   }
   showToast('Draft saved');
   const profileJob = S.activeJob;
   goScreen('s-dash');
-  // Fire-and-forget: keep Notion Full Name aligned with the draft the specialist just saved.
   if (profileJob?.notionId && typeof syncJobProfileToNotion === 'function') {
     syncJobProfileToNotion(profileJob).catch(() => {});
   }
@@ -19,6 +25,9 @@ async function completeJob() {
   if (S.activeJob) {
     if (typeof commitManualCaseIfNeeded === 'function') commitManualCaseIfNeeded();
     saveActiveJobState();
+    if (typeof ensureCaseSyncedToNotion === 'function') {
+      await ensureCaseSyncedToNotion(S.activeJob);
+    }
   }
   const required = S.pkg === 'full'
     ? ['preassess', 'assess', 'score', 'payment', 'feedback']

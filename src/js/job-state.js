@@ -301,39 +301,62 @@ function mergeApiCaseIntoJob(localJob, apiCase) {
   return localJob;
 }
 
+async function createManualCaseInNotion(job = S.activeJob) {
+  if (!job?.manual) return { ok: false, reason: 'not_manual' };
+  if (job.notionId) return { ok: true, case: job, idempotent: true };
+
+  const draft = getJobDraft(job);
+  const fields = draft?.fields || {};
+  const fullName = [fields['ci-fname'], fields['ci-lname']].filter(Boolean).join(' ').trim()
+    || String(job.name || '').trim()
+    || 'New Client';
+
+  try {
+    const response = await fetch('/api/cases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        skipMap: true,
+        startOnSite: true,
+        fullName,
+        address: fields['ci-addr'] || job.addr || '',
+        appointmentDate: job.date || '',
+        appointmentStart: job.timeStart || '',
+        appointmentEnd: job.timeEnd || '',
+        packageHistory: draft?.pkg || job.pkg || 'essential',
+        serviceStartedAt: job.startedAt || new Date().toISOString()
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) {
+      console.warn('[createManualCaseInNotion] create failed', payload.error || response.status);
+      return { ok: false, error: payload.error || 'create_failed' };
+    }
+    if (payload.case) mergeApiCaseIntoJob(job, payload.case);
+    delete job.manualPending;
+    persistJobs();
+    return { ok: true, case: job };
+  } catch (error) {
+    console.warn('[createManualCaseInNotion] error', error);
+    return { ok: false, error: error.message || 'network_error' };
+  }
+}
+
+/** Ensure a local manual case exists in Notion (Save Draft / complete paths only). */
+async function ensureCaseSyncedToNotion(job = S.activeJob) {
+  if (!job) return { ok: false, reason: 'no_job' };
+  if (job.notionId) return { ok: true, case: job };
+  if (job.manual) return createManualCaseInNotion(job);
+  return { ok: false, reason: 'no_notion_id' };
+}
+
 async function pushCaseOpenToNotion(job = S.activeJob) {
   if (!job) return { ok: false, reason: 'no_job' };
 
   try {
+    // Manual Create stays local until Save Draft — do not POST /api/cases on open.
     if (job.manual && !job.notionId) {
-      const draft = getJobDraft(job);
-      const fields = draft?.fields || {};
-      const fullName = [fields['ci-fname'], fields['ci-lname']].filter(Boolean).join(' ').trim()
-        || String(job.name || '').trim()
-        || 'New Client';
-      const response = await fetch('/api/cases', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          skipMap: true,
-          startOnSite: true,
-          fullName,
-          address: fields['ci-addr'] || job.addr || '',
-          appointmentDate: job.date || '',
-          appointmentStart: job.timeStart || '',
-          appointmentEnd: job.timeEnd || '',
-          packageHistory: draft?.pkg || job.pkg || 'essential',
-          serviceStartedAt: job.startedAt || new Date().toISOString()
-        })
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || payload.ok === false) {
-        console.warn('[pushCaseOpenToNotion] create failed', payload.error || response.status);
-        return { ok: false, error: payload.error || 'create_failed' };
-      }
-      if (payload.case) mergeApiCaseIntoJob(job, payload.case);
-      persistJobs();
-      return { ok: true, case: job };
+      return { ok: true, deferred: true };
     }
 
     const caseRef = job.notionId || job.id;
@@ -595,6 +618,13 @@ async function syncJobProfileToNotion(job = S.activeJob) {
   }
 }
 
+function isJobCancelled(job) {
+  const status = String(job?.status || '').toLowerCase();
+  const workflow = String(job?.workflow?.status || '').toLowerCase();
+  return ['cancelled', 'canceled'].includes(status)
+    || ['cancelled', 'canceled'].includes(workflow);
+}
+
 async function loadJobsFromApi() {
   try {
     const response = await fetch('/api/clients', { cache: 'no-store' });
@@ -615,16 +645,25 @@ async function loadJobsFromApi() {
       return false;
     }
 
+    // Cancelled cases stay in Notion but are never loaded into the dashboard list.
+    const visibleJobs = jobs.filter(job => !isJobCancelled(job));
+
     console.info('[Service Portal] GET /api/clients ok', {
       status: response.status,
-      count: jobs.length
+      count: jobs.length,
+      visible: visibleJobs.length,
+      cancelledSkipped: jobs.length - visibleJobs.length
     });
 
     // Notion is authoritative for the job list, but local drafts (meterImages,
     // photos, readings, steps, preassess name) must survive refresh.
     // Manual Create cases live only in the portal until synced elsewhere.
     const preservedDrafts = collectLocalJobDrafts();
-    const preservedManualJobs = JOBS.filter(job => job.manual && (!job.manualPending || job.notionId));
+    const preservedManualJobs = JOBS.filter(job =>
+      job.manual
+      && !isJobCancelled(job)
+      && (!job.manualPending || job.notionId)
+    );
     const locallyInProgress = new Set(
       JOBS
         .filter(job => job.status === 'in_progress')
@@ -632,7 +671,7 @@ async function loadJobsFromApi() {
     );
     const activeJobId = S.activeJob?.id != null ? String(S.activeJob.id) : null;
     const activeNotionId = S.activeJob?.notionId != null ? String(S.activeJob.notionId) : null;
-    const normalizedJobs = jobs.map(job => {
+    const normalizedJobs = visibleJobs.map(job => {
       const next = { ...job };
       if (
         (locallyInProgress.has(String(job.id)) || (job.notionId && locallyInProgress.has(String(job.notionId))))
@@ -665,11 +704,12 @@ async function loadJobsFromApi() {
         || (activeNotionId && String(job.id) === activeNotionId.replace(/-/g, ''))
       );
       if (refreshed) S.activeJob = refreshed;
+      else if (S.activeJob && isJobCancelled(S.activeJob)) S.activeJob = null;
     }
     persistJobs();
     setDataSource('notion', {
-      count: jobs.length,
-      dates: jobs.map(j => ({ name: j.name, date: j.date || '(none)', day: j.day })).slice(0, 5)
+      count: visibleJobs.length,
+      dates: visibleJobs.map(j => ({ name: j.name, date: j.date || '(none)', day: j.day })).slice(0, 5)
     });
     return true;
   } catch (error) {

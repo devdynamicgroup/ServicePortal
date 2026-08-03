@@ -420,6 +420,13 @@ async function cancelCase(id = S.activeJob?.id) {
   if (job.workflow) job.workflow.status = 'cancelled';
   else job.workflow = { status: 'cancelled' };
   if (S.activeJob && String(S.activeJob.id) === String(id)) S.activeJob = null;
+  // Keep the Notion row, but drop it from the local dashboard list immediately.
+  for (let i = JOBS.length - 1; i >= 0; i--) {
+    if (String(JOBS[i].id) === String(id)
+      || (job.notionId && String(JOBS[i].notionId || '') === String(job.notionId))) {
+      JOBS.splice(i, 1);
+    }
+  }
   pushNotifEvent('Changed appointment', `${job.name} cancelled`);
   persistJobs();
   renderCalendar();
