@@ -189,7 +189,7 @@ function progressBar(x, y, barW, barH, wq, fillColor) {
     return `${track}<rect x="${segX}" y="${y}" width="${fillEnd - segX}" height="${barH}" rx="${barH / 2}" fill="${fillColor}"/>`;
   }).join('');
 
-  return `${draw}<circle cx="${knobX}" cy="${y + barH / 2}" r="15" fill="#FFFFFF" filter="url(#knobShadow)"/>`;
+  return `${draw}<circle cx="${knobX}" cy="${y + barH / 2}" r="17" fill="#FFFFFF" filter="url(#knobShadow)"/>`;
 }
 
 /** Drawn at CARD_W x CARD_H; callers place it with translate + scale. */
@@ -214,7 +214,7 @@ function scoreCard({ score, verdict, note, indicators = 8 }) {
       <text x="${right}" y="55" text-anchor="end" fill="${DIM}" font-family="${FONT}" font-size="21">${indicators} indicators</text>
       <text x="${pad}" y="150" fill="${INK}" font-family="${FONT}" font-size="68" font-weight="700" letter-spacing="-0.02em">${Math.round(wq)}</text>
       <text x="${right}" y="152" text-anchor="end" fill="${verdict.color}" font-family="${FONT}" font-size="34" font-weight="600">${escapeXml(verdict.label)}</text>
-      ${progressBar(pad, 198, barW, 10, wq, fill)}
+      ${progressBar(pad, 198, barW, 14, wq, fill)}
       ${ticks.map((t) => (
         `<text x="${pad + (barW * t.at) / 100}" y="254" text-anchor="${t.anchor}" fill="${DIM}" font-family="${FONT}" font-size="19">${escapeXml(t.label)}</text>`
       )).join('')}
@@ -340,14 +340,14 @@ function buildStorySvg(opts) {
   <text x="${denX}" y="${L.scoreMetaY}" fill="rgba(255,255,255,0.55)" font-family="${FONT}" font-size="38" font-weight="500">/100</text>
   <text x="${verdictX}" y="${L.scoreMetaY}" fill="${verdict.color}" font-family="${FONT}" font-size="${verdictSize}" font-weight="600">${escapeXml(verdict.label)}</text>
   <rect x="${L.panelX}" y="${L.panelY}" width="${L.panelW}" height="${L.panelH}" rx="26" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.28)" stroke-width="1.5"/>
-  <rect x="${L.panelX + L.pad}" y="${L.barY}" width="${L.barW}" height="10" rx="5" fill="rgba(255,255,255,0.28)"/>
-  <rect x="${L.panelX + L.pad}" y="${L.barY}" width="${Math.max(0, (L.barW * wq) / 100)}" height="10" rx="5" fill="${fill}"/>
-  <circle cx="${knobX}" cy="${L.barY + 5}" r="13" fill="#FFFFFF" filter="url(#knobShadow)"/>
+  <rect x="${L.panelX + L.pad}" y="${L.barY}" width="${L.barW}" height="14" rx="7" fill="rgba(255,255,255,0.28)"/>
+  <rect x="${L.panelX + L.pad}" y="${L.barY}" width="${Math.max(0, (L.barW * wq) / 100)}" height="14" rx="7" fill="${fill}"/>
+  <circle cx="${knobX}" cy="${L.barY + 7}" r="16" fill="#FFFFFF" filter="url(#knobShadow)"/>
   ${ticks.map((t) => (
-    `<text x="${L.panelX + L.pad + (L.barW * t.at) / 100}" y="${L.barY + 40}" text-anchor="${t.anchor}" fill="rgba(255,255,255,0.82)" font-family="${FONT}" font-size="22">${escapeXml(t.label)}</text>`
+    `<text x="${L.panelX + L.pad + (L.barW * t.at) / 100}" y="${L.barY + 44}" text-anchor="${t.anchor}" fill="rgba(255,255,255,0.82)" font-family="${FONT}" font-size="22">${escapeXml(t.label)}</text>`
   )).join('')}
   ${noteLines.map((line, i) => (
-    `<text x="${L.panelX + L.pad}" y="${L.noteStartY + i * 40}" fill="#FFFFFF" font-family="${FONT}" font-size="30">${escapeXml(line)}</text>`
+    `<text x="${L.panelX + L.pad}" y="${L.noteStartY + 6 + i * 40}" fill="#FFFFFF" font-family="${FONT}" font-size="30">${escapeXml(line)}</text>`
   )).join('')}
   ${assetLayer(opts.ctaBadge, { x: 48, y: L.footerTop, width: L.ctaSize })}
   ${assetLayer(opts.wordmark, { right: L.width - 48, bottom: L.height - 52, height: 30 })}
