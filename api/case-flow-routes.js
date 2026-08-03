@@ -159,11 +159,11 @@ function freeReportHtml(job) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-  <meta name="theme-color" content="#C8C9CE">
+  <meta name="theme-color" content="#1a1a1a">
   <title>Water Score · Water Motion</title>
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; background: #C8C9CE; }
+    html, body { margin: 0; min-height: 100%; background: #121212; }
     body {
       min-height: 100vh;
       min-height: 100dvh;
