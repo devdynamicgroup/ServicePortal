@@ -29,7 +29,15 @@ function goScreen(id) {
     else if (scroller) scroller.scrollTop = 0;
     if (typeof window.scrollTo === 'function') window.scrollTo(0, 0);
 
+    // Show local name immediately, then sync profile to Notion before re-fetch
+    // so the dashboard refresh does not flash the create-time placeholder name.
+    if (typeof renderCalendar === 'function') renderCalendar();
+    else if (typeof renderJobs === 'function') renderJobs();
+
     (async () => {
+      if (typeof syncJobProfileToNotion === 'function' && S.activeJob?.notionId) {
+        await syncJobProfileToNotion(S.activeJob);
+      }
       if (typeof loadJobsFromApi === 'function') await loadJobsFromApi();
       if (typeof renderCalendar === 'function') renderCalendar();
       else if (typeof renderJobs === 'function') renderJobs();

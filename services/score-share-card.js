@@ -110,14 +110,14 @@ function dataUriToBuffer(dataUri) {
 function customerVerdict(score) {
   const wq = Number(score);
   if (wq >= 80) return { label: 'Excellent', color: BRAND_BLUE, tier: 'high' };
-  if (wq >= 65) return { label: 'Good', color: GOOD_GREEN, tier: 'mid' };
+  if (wq >= 60) return { label: 'Acceptable', color: GOOD_GREEN, tier: 'mid' };
   return { label: 'Needs attention', color: '#F07B7B', tier: 'low' };
 }
 
 function scoreSummaryNote(score, findingsCount = 0) {
   const wq = Number(score);
   if (wq >= 80) return 'Your water meets international standards. Clean and balanced at every tap.';
-  if (wq >= 65) return 'Clean water for daily use. A few small adjustments would bring it up to international quality.';
+  if (wq >= 60) return 'Clean water for daily use. A few small adjustments would bring it up to international quality.';
   if (findingsCount > 0) {
     return `${findingsCount} readings exceed recommended levels — affecting your skin, hair, and appliances.`;
   }

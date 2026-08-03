@@ -127,6 +127,11 @@ function completePreassess() {
 
   renderJobSteps();
   goScreen('s-job');
+  if (S.activeJob?.notionId && typeof syncJobProfileToNotion === 'function') {
+    syncJobProfileToNotion(S.activeJob).then(() => {
+      if (S.activeJob) updateJobHeader(S.activeJob);
+    }).catch(() => {});
+  }
 }
 function updatePackageVisibility() {
   const isFull = S.pkg === 'full';

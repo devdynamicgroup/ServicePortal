@@ -7,7 +7,12 @@ function saveDraft() {
     else if (typeof renderJobs === 'function') renderJobs();
   }
   showToast('Draft saved');
+  const profileJob = S.activeJob;
   goScreen('s-dash');
+  // Fire-and-forget: keep Notion Full Name aligned with the draft the specialist just saved.
+  if (profileJob?.notionId && typeof syncJobProfileToNotion === 'function') {
+    syncJobProfileToNotion(profileJob).catch(() => {});
+  }
 }
 
 async function completeJob() {

@@ -1,22 +1,23 @@
 function getScoreStyle(wq) {
   if (wq >= 90) return { band: t('score.band.exceptional'), pill: '#5b8def', pillText: '#fff', arc: '#5b8def', glow: 'rgba(91,141,239,.35)' };
   if (wq >= 80) return { band: t('score.band.international'), pill: '#2e9b6f', pillText: '#0c0a09', arc: '#2e9b6f', glow: 'rgba(46,155,111,.4)' };
-  if (wq >= 65) return { band: t('score.band.good'), pill: '#d9a441', pillText: '#0c0a09', arc: '#d9a441', glow: 'rgba(217,164,65,.35)' };
+  if (wq >= 60) return { band: t('score.band.good'), pill: '#d9a441', pillText: '#0c0a09', arc: '#d9a441', glow: 'rgba(217,164,65,.35)' };
   if (wq >= 50) return { band: t('score.band.fair'), pill: '#c48a3a', pillText: '#0c0a09', arc: '#c48a3a', glow: 'rgba(196,138,58,.35)' };
   return { band: t('score.band.attention'), pill: '#f07b7b', pillText: '#0c0a09', arc: '#f07b7b', glow: 'rgba(240,123,123,.35)' };
 }
 
-/** Customer-facing verdict shown on the summary card (not the DWQI band legend). */
+/** Customer-facing verdict shown on the summary card (not the DWQI band legend).
+ *  Bands follow Excel Report summary: ≥80 Excellent, ≥60 Acceptable, else Action. */
 function customerVerdict(wq) {
   if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#284dcd', tier: 'high' };
-  if (wq >= 65) return { label: t('score.verdict.good'), color: '#22c55e', tier: 'mid' };
+  if (wq >= 60) return { label: t('score.verdict.good'), color: '#22c55e', tier: 'mid' };
   return { label: t('score.verdict.attention'), color: '#f07b7b', tier: 'low' };
 }
 
 function scoreSummaryNote(wq, findings) {
   const attnCount = (findings || []).length;
   if (wq >= 80) return t('score.msg.excellent');
-  if (wq >= 65) return t('score.msg.goodDetail');
+  if (wq >= 60) return t('score.msg.goodDetail');
   if (attnCount > 0) {
     return t('score.msg.attentionDetail').replace('{n}', String(attnCount));
   }
@@ -69,23 +70,25 @@ const WATER_QUALITY_STANDARDS = Object.freeze({
     key: 'thailand',
     labelKey: 'score.refStandard.thailand',
     shortKey: 'score.refStandard.short.thailand',
+    // Min/Max aligned to Water Quality Report.xlsx → Reference (Pass/Fail only).
+    // Production Water Score still uses computeScoreFromReadings() (DWQI).
     display: Object.freeze({
       ph: '6.5 - 8.5',
       tds: '<= 1000 mg/L',
-      chlorine: '0.2 - 2.5 mg/L',
+      chlorine: '0.2 - 2.0 mg/L',
       turbidity: '<= 5 NTU',
       orp: '200 - 600 mV',
-      do: '>= 5 mg/L',
-      temp: '<= 30°C'
+      do: 'Not specified',
+      temp: 'Not specified'
     }),
     limits: Object.freeze({
       ph: { min: 6.5, max: 8.5, fairMin: 6, fairMax: 9, poorMin: 5.5, poorMax: 9.5 },
       tds: { ideal: 500, fair: 1000, poor: 1500, displayMax: 1000 },
-      chlorine: { idealMin: 0.2, idealMax: 2.5, fair: 3, poor: 4 },
+      chlorine: { idealMin: 0.2, idealMax: 2.0, fair: 3, poor: 4 },
       turbidity: { ideal: 5, fair: 8, poor: 12 },
       orp: { min: 200, max: 600 },
-      do: { min: 5 },
-      temp: { max: 30 }
+      do: { unbounded: true },
+      temp: { unbounded: true, displayMax: 30 }
     })
   }),
   eu: Object.freeze({
@@ -207,6 +210,8 @@ function scoreChlorineAgainstLimits(fcl, lim) {
 }
 
 function scoreDoAgainstLimits(doValue, lim) {
+  // Excel "ไม่กำหนด" — no Pass/Fail ceiling; comparison treats any reading as full credit.
+  if (lim.unbounded) return 100;
   if (doValue >= lim.min) return 100;
   return clampScore(doValue / lim.min * 100);
 }
@@ -242,8 +247,8 @@ function evaluateParamStatus(paramName, value, standardKey = DEFAULT_SCORE_STAND
   const n = Number(value);
   if (!Number.isFinite(n)) return 'good';
 
-  // Status is Good only when inside the selected standard's recommended range.
-  // Outside that band → Attention (drives Thailand vs WHO/EU differences in the UI).
+  // Good = inside Min–Max for the selected standard (Excel Pass); else Attention (Fail).
+  // Parameters marked unbounded ("ไม่กำหนด") never raise Attention from the standard table.
   if (key === 'ph') {
     return n >= lim.ph.min && n <= lim.ph.max ? 'good' : 'attn';
   }
@@ -260,9 +265,11 @@ function evaluateParamStatus(paramName, value, standardKey = DEFAULT_SCORE_STAND
     return n >= lim.orp.min && n <= lim.orp.max ? 'good' : 'attn';
   }
   if (key === 'do') {
+    if (lim.do.unbounded) return 'good';
     return n >= lim.do.min ? 'good' : 'attn';
   }
   if (key === 'temp') {
+    if (lim.temp.unbounded) return 'good';
     return n <= lim.temp.max ? 'good' : 'attn';
   }
   return 'good';
@@ -278,7 +285,8 @@ function buildScoreFindings(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) 
   if (Number.isFinite(fcl) && fcl > lim.chlorine.idealMax) {
     findings.push({ label: t('score.concern.highChlorine'), val: fcl + ' mg/L', note: t('score.note.highChlorine') });
   }
-  if (Number.isFinite(turb) && turb > lim.turbidity.fair) {
+  // Turbidity Pass ceiling = ideal (Excel Max), not the softer fair ladder tier.
+  if (Number.isFinite(turb) && turb > lim.turbidity.ideal) {
     findings.push({ label: t('score.concern.highTurbidity'), val: turb + ' NTU', note: t('score.note.highTurbidity') });
   }
   if (Number.isFinite(fcl) && fcl < lim.chlorine.idealMin) {
@@ -287,7 +295,7 @@ function buildScoreFindings(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) 
   if (Number.isFinite(ph) && (ph < lim.ph.min || ph > lim.ph.max)) {
     findings.push({ label: t('score.concern.phRange'), val: String(ph), note: t('score.note.phRange') });
   }
-  if (Number.isFinite(tds) && tds > lim.tds.fair) {
+  if (Number.isFinite(tds) && tds > lim.tds.displayMax) {
     findings.push({ label: t('score.concern.highTds'), val: tds + ' mg/L', note: t('score.note.highTds') });
   }
   return findings;
@@ -905,6 +913,7 @@ function getRoomReadings(tapKey, context = getScoreEvalContext()) {
 function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   const standardKey = context.selectedStandard || DEFAULT_SCORE_STANDARD_KEY;
   const display = context.display || getWaterQualityStandard(standardKey).display;
+  const stdLabel = (text) => (text === 'Not specified' ? t('score.std.notSpecified') : text);
   const fmt = (n, digits, suffix = '') => (Number.isFinite(n) ? n.toFixed(digits) + suffix : '—');
   const fmtInt = (n, suffix = '') => (Number.isFinite(n) ? Math.round(n) + suffix : '—');
   const ph = Number(readings.ph);
@@ -915,13 +924,13 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   const doVal = Number(readings.do);
   const temp = Number(readings.temp);
   return [
-    { p: 'pH', r: fmt(ph, 1), std: display.ph, st: evaluateParamStatus('ph', ph, standardKey) },
-    { p: 'TDS', r: fmtInt(tds, ' mg/L'), std: display.tds, st: evaluateParamStatus('tds', tds, standardKey) },
-    { p: 'Chlorine', r: fmt(chlorine, 1, ' mg/L'), std: display.chlorine, st: evaluateParamStatus('chlorine', chlorine, standardKey) },
-    { p: 'Turbidity', r: fmt(turbidity, 1, ' NTU'), std: display.turbidity, st: evaluateParamStatus('turbidity', turbidity, standardKey) },
-    { p: 'ORP', r: fmtInt(orp, ' mV'), std: display.orp, st: evaluateParamStatus('orp', orp, standardKey) },
-    { p: 'DO', r: fmt(doVal, 1, ' mg/L'), std: display.do, st: evaluateParamStatus('do', doVal, standardKey) },
-    { p: 'Temp', r: fmt(temp, 1, '°C'), std: display.temp, st: evaluateParamStatus('temp', temp, standardKey) }
+    { p: 'pH', r: fmt(ph, 1), std: stdLabel(display.ph), st: evaluateParamStatus('ph', ph, standardKey) },
+    { p: 'TDS', r: fmtInt(tds, ' mg/L'), std: stdLabel(display.tds), st: evaluateParamStatus('tds', tds, standardKey) },
+    { p: 'Chlorine', r: fmt(chlorine, 1, ' mg/L'), std: stdLabel(display.chlorine), st: evaluateParamStatus('chlorine', chlorine, standardKey) },
+    { p: 'Turbidity', r: fmt(turbidity, 1, ' NTU'), std: stdLabel(display.turbidity), st: evaluateParamStatus('turbidity', turbidity, standardKey) },
+    { p: 'ORP', r: fmtInt(orp, ' mV'), std: stdLabel(display.orp), st: evaluateParamStatus('orp', orp, standardKey) },
+    { p: 'DO', r: fmt(doVal, 1, ' mg/L'), std: stdLabel(display.do), st: evaluateParamStatus('do', doVal, standardKey) },
+    { p: 'Temp', r: fmt(temp, 1, '°C'), std: stdLabel(display.temp), st: evaluateParamStatus('temp', temp, standardKey) }
   ];
 }
 

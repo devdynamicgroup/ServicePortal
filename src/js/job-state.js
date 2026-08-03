@@ -514,8 +514,15 @@ window.clearJobsCache = clearJobsCache;
 
 function jobDraftLookupKeys(job) {
   const keys = [];
-  if (job?.id != null && job.id !== '') keys.push(String(job.id));
-  if (job?.notionId != null && job.notionId !== '') keys.push(String(job.notionId));
+  const push = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return;
+    keys.push(raw);
+    const compact = raw.replace(/-/g, '');
+    if (compact && compact !== raw) keys.push(compact);
+  };
+  push(job?.id);
+  push(job?.notionId);
   return keys;
 }
 
@@ -549,6 +556,45 @@ function findPreservedDraft(job, draftMap) {
   return null;
 }
 
+/** Push local preassessment profile (name/address/etc.) to Notion so refresh keeps the latest name. */
+async function syncJobProfileToNotion(job = S.activeJob) {
+  if (!job?.notionId || job.manualPending) return { ok: false, reason: 'not_ready' };
+
+  const draft = getJobDraft(job);
+  const fields = draft?.fields || {};
+  const fullName = [fields['ci-fname'], fields['ci-lname']].filter(Boolean).join(' ').trim()
+    || String(job.name || '').trim();
+  if (!fullName || /^New Client\b/i.test(fullName)) {
+    return { ok: false, reason: 'no_real_name' };
+  }
+
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(job.notionId)}/preassessment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields: { ...fields },
+        msConcerns: draft?.msConcerns || [],
+        owner: draft?.owner || 'yes',
+        package: draft?.pkg || job.pkg || 'essential',
+        fullName
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) {
+      console.warn('[syncJobProfileToNotion] failed', payload.error || response.status);
+      return { ok: false, error: payload.error || 'sync_failed' };
+    }
+    if (payload.case) mergeApiCaseIntoJob(job, payload.case);
+    else syncJobMetaFromDraft(job, draft);
+    persistJobs();
+    return { ok: true, case: job };
+  } catch (error) {
+    console.warn('[syncJobProfileToNotion] error', error);
+    return { ok: false, error: error.message || 'network_error' };
+  }
+}
+
 async function loadJobsFromApi() {
   try {
     const response = await fetch('/api/clients', { cache: 'no-store' });
@@ -575,7 +621,7 @@ async function loadJobsFromApi() {
     });
 
     // Notion is authoritative for the job list, but local drafts (meterImages,
-    // photos, readings, steps) must survive refresh / dashboard re-fetch.
+    // photos, readings, steps, preassess name) must survive refresh.
     // Manual Create cases live only in the portal until synced elsewhere.
     const preservedDrafts = collectLocalJobDrafts();
     const preservedManualJobs = JOBS.filter(job => job.manual && (!job.manualPending || job.notionId));
@@ -585,23 +631,39 @@ async function loadJobsFromApi() {
         .map(job => String(job.id))
     );
     const activeJobId = S.activeJob?.id != null ? String(S.activeJob.id) : null;
+    const activeNotionId = S.activeJob?.notionId != null ? String(S.activeJob.notionId) : null;
     const normalizedJobs = jobs.map(job => {
       const next = { ...job };
-      if (locallyInProgress.has(String(job.id)) && !['done', 'cancelled'].includes(job.status)) {
+      if (
+        (locallyInProgress.has(String(job.id)) || (job.notionId && locallyInProgress.has(String(job.notionId))))
+        && !['done', 'cancelled'].includes(job.status)
+      ) {
         next.status = 'in_progress';
       }
       const localDraft = findPreservedDraft(job, preservedDrafts);
-      if (localDraft) next.draft = localDraft;
+      if (localDraft) {
+        next.draft = localDraft;
+        // Keep dashboard name/address from the latest local preassessment draft.
+        // Otherwise Notion's create-time "New Client …" briefly overwrites the saved name.
+        syncJobMetaFromDraft(next, localDraft);
+      }
       return next;
     });
     JOBS.splice(0, JOBS.length, ...normalizedJobs);
     preservedManualJobs.forEach(job => {
-      if (!JOBS.some(existing => String(existing.id) === String(job.id))) {
-        JOBS.push(job);
-      }
+      const already = JOBS.some(existing =>
+        String(existing.id) === String(job.id)
+        || (job.notionId && String(existing.notionId || existing.id) === String(job.notionId))
+        || (job.notionId && String(existing.id) === String(job.notionId).replace(/-/g, ''))
+      );
+      if (!already) JOBS.push(job);
     });
-    if (activeJobId) {
-      const refreshed = JOBS.find(job => String(job.id) === activeJobId);
+    if (activeJobId || activeNotionId) {
+      const refreshed = JOBS.find(job =>
+        String(job.id) === activeJobId
+        || (activeNotionId && String(job.notionId || '') === activeNotionId)
+        || (activeNotionId && String(job.id) === activeNotionId.replace(/-/g, ''))
+      );
       if (refreshed) S.activeJob = refreshed;
     }
     persistJobs();
