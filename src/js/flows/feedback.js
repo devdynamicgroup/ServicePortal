@@ -25,10 +25,6 @@ function syncFeedbackReviewUi() {
   if (qrEl) qrEl.src = `${feedbackAssetPath('src/assets/google-review-qr.png')}?v=4`;
 }
 
-function initFeedbackScreen() {
-  openFeedbackModal();
-}
-
 function openFeedbackModal() {
   S.googleReviewUrl = resolveGoogleReviewUrl();
   syncFeedbackReviewUi();
@@ -40,6 +36,11 @@ function closeFeedbackModal() {
   document.getElementById('feedback-overlay')?.classList.add('hidden');
 }
 
+/** Job Feedback step — popup only (no form screen). */
+function initFeedbackScreen() {
+  openFeedbackModal();
+}
+
 function openGoogleReview() {
   const reviewUrl = resolveGoogleReviewUrl();
   S.googleReviewUrl = reviewUrl;
@@ -48,16 +49,14 @@ function openGoogleReview() {
 
 function completeFeedback() {
   closeFeedbackModal();
-  S.googleReviewUrl = resolveGoogleReviewUrl();
   S.stepsDone.feedback = true;
+  S.googleReviewUrl = resolveGoogleReviewUrl();
   if (S.activeJob?.draft) {
     S.activeJob.draft.stepsDone = S.activeJob.draft.stepsDone || {};
     S.activeJob.draft.stepsDone.feedback = true;
   }
-  if (typeof saveActiveJobState === 'function') saveActiveJobState();
-  if (typeof renderJobSteps === 'function') renderJobSteps();
-  if (typeof goScreen === 'function') goScreen('s-job');
-  if (typeof showToast === 'function') {
-    showToast(typeof t === 'function' ? t('fb.saved') : 'Feedback saved');
-  }
+  saveActiveJobState();
+  renderJobSteps();
+  if (S.screen === 's-feedback') goScreen('s-job');
+  showToast(typeof t === 'function' ? t('fb.saved') : 'Feedback saved');
 }
