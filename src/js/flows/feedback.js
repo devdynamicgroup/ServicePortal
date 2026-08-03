@@ -19,13 +19,17 @@ function feedbackAssetPath(assetPath) {
 
 function syncFeedbackReviewUi() {
   const reviewUrl = resolveGoogleReviewUrl();
-  const linkEl = document.getElementById('fb-review-link-display');
-  if (linkEl) {
+  ['fb-review-link-display', 'fb-page-review-link'].forEach((id) => {
+    const linkEl = document.getElementById(id);
+    if (!linkEl) return;
     linkEl.href = reviewUrl;
     linkEl.textContent = reviewUrl;
-  }
-  const qrEl = document.getElementById('fb-review-qr');
-  if (qrEl) qrEl.src = `${feedbackAssetPath('src/assets/google-review-qr.png')}?v=3`;
+  });
+  const qrSrc = `${feedbackAssetPath('src/assets/google-review-qr.png')}?v=4`;
+  ['fb-review-qr', 'fb-page-review-qr'].forEach((id) => {
+    const qrEl = document.getElementById(id);
+    if (qrEl) qrEl.src = qrSrc;
+  });
 }
 
 function setFeedbackStars(rating) {
@@ -66,7 +70,10 @@ function initFeedbackScreen() {
   S.googleReviewUrl = resolveGoogleReviewUrl();
   bindFeedbackStars();
   resetFeedbackForm();
+  syncFeedbackReviewUi();
   if (typeof applyI18n === 'function') applyI18n(S.lang);
+  // Show the Google Review popup (QR + link) when entering the review page.
+  openFeedbackModal();
 }
 
 function openFeedbackModal() {

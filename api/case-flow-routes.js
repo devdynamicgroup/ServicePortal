@@ -338,6 +338,7 @@ function customerFeedbackHtml(feedback) {
   const token = escapeHtml(feedback.feedbackToken);
   const clientName = escapeHtml(feedback.clientName || '');
   const alreadySubmitted = String(feedback.feedbackStatus || '').toLowerCase() === 'submitted';
+  const reviewUrl = escapeHtml(resolveGoogleReviewUrl(feedback));
 
   return `<!doctype html>
 <html lang="en">
@@ -347,7 +348,7 @@ function customerFeedbackHtml(feedback) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{--blue:#284dcd;--bg:#fafaf9;--surface:#fff;--text:#1c1917;--muted:#78716c;--border:#e7e5e1;--accent-50:#f0f6fe}
+  :root{--blue:#284dcd;--bg:#fafaf9;--surface:#fff;--text:#1c1917;--muted:#78716c;--border:#e7e5e1;--accent-50:#f0f6fe;--accent-100:#dbeafe}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);font-family:Geist,Arial,sans-serif;color:var(--text);line-height:1.5}
   main{width:min(100%,560px);margin:0 auto;padding:20px 16px 40px}
@@ -374,6 +375,12 @@ function customerFeedbackHtml(feedback) {
   .thanks{display:none;text-align:center;padding:28px 8px}
   .thanks.show{display:block}
   .icon{width:64px;height:64px;margin:0 auto 16px;border-radius:50%;background:var(--accent-50);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700}
+  .review-card{margin-top:16px;text-align:left;padding:18px 16px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
+  .review-lead{margin:0 0 8px;font-size:17px;font-weight:600;line-height:1.35}
+  .review-body{margin:0 0 12px;font-size:14px;color:var(--muted);line-height:1.5}
+  .review-qr{display:block;width:160px;height:160px;margin:8px auto 12px;border-radius:12px;border:1px solid var(--border);background:#fff;object-fit:contain}
+  .review-url{display:block;font-size:13px;color:var(--blue);word-break:break-all;line-height:1.45;padding:10px 12px;background:var(--accent-50);border-radius:12px;border:1px solid var(--accent-100);text-decoration:underline}
+  .review-btn{display:block;width:100%;margin-top:12px;height:48px;border:0;border-radius:12px;background:var(--blue);color:#fff;font-weight:700;font-size:15px;text-decoration:none;text-align:center;line-height:48px}
 </style>
 <body>
   <main>
@@ -416,6 +423,13 @@ function customerFeedbackHtml(feedback) {
         <div class="icon" aria-hidden="true">✓</div>
         <h1>Thank you!</h1>
         <p class="sub">Your feedback has been submitted.<br>We appreciate your time.</p>
+        <div class="review-card">
+          <p class="review-lead">Thank you for choosing Water Motion.</p>
+          <p class="review-body">Scan the QR code or tap the link below to leave a Google review.</p>
+          <img class="review-qr" src="/src/assets/google-review-qr.png?v=4" alt="Google Review QR Code" width="160" height="160">
+          <a class="review-url" href="${reviewUrl}" target="_blank" rel="noopener noreferrer">${reviewUrl}</a>
+          <a class="review-btn" href="${reviewUrl}" target="_blank" rel="noopener noreferrer">Leave Google Review</a>
+        </div>
       </div>
     </section>
   </main>
