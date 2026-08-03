@@ -19,17 +19,13 @@ function feedbackAssetPath(assetPath) {
 
 function syncFeedbackReviewUi() {
   const reviewUrl = resolveGoogleReviewUrl();
-  ['fb-review-link-display', 'fb-page-review-link'].forEach((id) => {
-    const linkEl = document.getElementById(id);
-    if (!linkEl) return;
+  const linkEl = document.getElementById('fb-review-link-display');
+  if (linkEl) {
     linkEl.href = reviewUrl;
     linkEl.textContent = reviewUrl;
-  });
-  const qrSrc = `${feedbackAssetPath('src/assets/google-review-qr.png')}?v=4`;
-  ['fb-review-qr', 'fb-page-review-qr'].forEach((id) => {
-    const qrEl = document.getElementById(id);
-    if (qrEl) qrEl.src = qrSrc;
-  });
+  }
+  const qrEl = document.getElementById('fb-review-qr');
+  if (qrEl) qrEl.src = `${feedbackAssetPath('src/assets/google-review-qr.png')}?v=4`;
 }
 
 function setFeedbackStars(rating) {

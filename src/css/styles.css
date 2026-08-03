@@ -1063,7 +1063,6 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .feedback-modal .row{margin-top:16px}
 .feedback-modal .btn-complete-narrow{width:120px;flex-shrink:0}
 .feedback-modal .btn-google{flex:1}
-.fb-google-card{margin-top:14px}
 .feedback-review-card{padding:16px;border-radius:var(--radius-lg);margin-top:8px;display:flex;flex-direction:column;gap:12px}
 .feedback-review-lead{font-size:17px;font-weight:600;color:var(--text);line-height:1.35;margin:0}
 .feedback-review-body{font-size:14px;color:var(--muted);line-height:1.5;margin:0}
