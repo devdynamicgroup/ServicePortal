@@ -147,8 +147,8 @@ function isFreeInspectionJob(job) {
 /**
  * Free-campaign customers get the exact same approved share-card design
  * they already received in LINE — not a re-implementation of it — so the
- * two can never visually drift apart. It's the same PNG the LINE Flex
- * message hero uses (services/score-share-card.js), shown full-bleed.
+ * two can never visually drift apart. Mobile uses the square plate (matches
+ * the design mock); desktop uses landscape.
  */
 function freeReportHtml(job) {
   const token = String(job.result?.publicReportToken || '').trim();
@@ -160,20 +160,30 @@ function freeReportHtml(job) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-  <meta name="theme-color" content="#0c0a09">
+  <meta name="theme-color" content="#C8C9CE">
   <title>Water Score · Water Motion</title>
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; background: #0c0a09; }
-    body { min-height: 100vh; }
-    .card-wrap { width: 100%; min-height: 100vh; }
-    .score-img { display: block; width: 100%; height: 100vh; object-fit: cover; }
+    html, body { margin: 0; min-height: 100%; background: #C8C9CE; }
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card-wrap { width: 100%; max-width: 100vw; }
+    .score-img {
+      display: block;
+      width: 100%;
+      height: auto;
+      vertical-align: top;
+    }
     @media (min-width: 720px) {
-      body { display: flex; align-items: center; justify-content: center; padding: 24px; }
-      .card-wrap { width: auto; max-width: 860px; min-height: 0; }
+      html, body { background: #0c0a09; }
+      body { padding: 24px; }
+      .card-wrap { width: min(920px, 100%); }
       .score-img {
-        width: 100%;
-        height: auto;
         border-radius: 20px;
         box-shadow: 0 24px 60px rgba(0,0,0,0.5);
       }
@@ -184,7 +194,7 @@ function freeReportHtml(job) {
   <div class="card-wrap">
     <picture>
       <source media="(min-width: 720px)" srcset="${cardUrl('landscape')}">
-      <img class="score-img" src="${cardUrl('story')}" alt="Water Score">
+      <img class="score-img" src="${cardUrl('square')}" alt="Water Score" decoding="async">
     </picture>
   </div>
 </body>

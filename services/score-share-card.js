@@ -442,9 +442,16 @@ function cardOptionsFromJob(job = {}, overrides = {}) {
     overrides.score != null ? overrides.score : job.result?.waterScore
   );
   const findingsCount = Number(overrides.findingsCount || 0);
+  // Prefer the designed customer note. Stale Notion summaries like
+  // "Water score 65/100" must not overwrite the card copy.
+  const rawSummary = String(overrides.note || job.result?.summary || '').trim();
+  const noteLooksLikeScoreLabel = /^water\s*score\s*\d+\s*\/\s*100$/i.test(rawSummary);
+  const note = (!noteLooksLikeScoreLabel && rawSummary)
+    ? rawSummary
+    : scoreSummaryNote(score, findingsCount);
   return {
     score: Number.isFinite(score) ? score : 0,
-    note: overrides.note || job.result?.summary || scoreSummaryNote(score, findingsCount),
+    note,
     findingsCount,
     indicators: overrides.indicators || 8,
     photoUrl: overrides.photoUrl || job.drive?.latestFileUrl || '',
