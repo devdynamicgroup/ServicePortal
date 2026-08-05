@@ -76,6 +76,7 @@ try {
 const { handleClientsRoute } = require('./api/clients-routes');
 const { handleCaseFlowRoute } = require('./api/case-flow-routes');
 const { handleLineRoute } = require('./api/line-routes');
+const { handleCalRoute } = require('./api/cal-routes');
 const { handleOpsRoute } = require('./api/ops-routes');
 const { handleGoogleReviewRoute } = require('./api/google-review-routes');
 const { handleFeedbackSuggestRoute } = require('./api/feedback-suggest-routes');
@@ -206,6 +207,7 @@ async function handleApiRequest(req, res) {
   if (await handleClientsRoute(req, res, urlPath)) return true;
   if (await handleCaseFlowRoute(req, res, urlPath)) return true;
   if (await handleLineRoute(req, res, urlPath)) return true;
+  if (await handleCalRoute(req, res, urlPath)) return true;
   if (await handleGoogleReviewRoute(req, res, urlPath)) return true;
   if (await handleFeedbackSuggestRoute(req, res, urlPath)) return true;
   if (await handleOcrProxyRoute(req, res, urlPath)) return true;
