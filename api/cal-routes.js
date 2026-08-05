@@ -124,6 +124,23 @@ async function handleCalRoute(req, res, urlPath) {
       createsCases: false
     });
 
+    // CAL-G01 evidence capture (temporary, Phase 2 scope only). Logs the
+    // complete, unredacted parsed payload for exactly one real BOOKING_CREATED
+    // delivery so the true Cal.com JSON shape can be documented. Read-only:
+    // no Case/Notion/business logic is touched here. Remove once
+    // docs/CALCOM_G01_RUNTIME_CAPTURE.md has been produced from this evidence.
+    if (envelope.triggerEvent === 'BOOKING_CREATED') {
+      console.info('[cal_g01_capture]', JSON.stringify({
+        correlationId,
+        capturedAt: new Date().toISOString(),
+        contentType: req.headers['content-type'] || null,
+        signatureHeaderPresent: Boolean(signature),
+        signatureHeaderValue: signature || null,
+        bodyLength: rawBody.length,
+        rawBody: payload
+      }));
+    }
+
     sendJson(res, 200, {
       ok: true,
       phase: 1,
