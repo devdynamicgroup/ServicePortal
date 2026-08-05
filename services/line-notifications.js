@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const { withRetry, isTransientHttpStatus } = require('./retry');
+const { publicBaseUrl, buildReportUrl } = require('./url-builder');
 
 function isLineConfigured() {
   return Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN);
@@ -88,14 +90,36 @@ async function sendLinePush(userId, messages, logContext = {}) {
     payloadSummary
   });
 
-  const response = await fetch('https://api.line.me/v2/bot/message/push', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ to: userId, messages })
-  });
+  let response;
+  try {
+    response = await withRetry(async () => {
+      const res = await fetch('https://api.line.me/v2/bot/message/push', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ to: userId, messages })
+      });
+      if (!res.ok && isTransientHttpStatus(res.status)) {
+        const transientError = new Error(`LINE push transient failure ${res.status}`);
+        transientError.status = res.status;
+        throw transientError;
+      }
+      return res;
+    });
+  } catch (error) {
+    console.info('[line_push] result', {
+      caseId: logContext.caseId || null,
+      notionId: logContext.notionId || null,
+      httpStatus: error.status || null,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedMs,
+      retriesExhausted: true
+    });
+    return { ok: false, status: 'failed', messageId: '', error: error.message };
+  }
 
   const responseBody = await response.text().catch(() => '');
   const requestId = response.headers.get('x-line-request-id') || '';
@@ -125,14 +149,35 @@ async function sendLineReply(replyToken, messages) {
     return { ok: false, status: isLineConfigured() ? 'missing_reply_token' : 'not_configured' };
   }
 
-  const response = await fetch('https://api.line.me/v2/bot/message/reply', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ replyToken, messages })
-  });
+  let response;
+  try {
+    response = await withRetry(async () => {
+      const res = await fetch('https://api.line.me/v2/bot/message/reply', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ replyToken, messages })
+      });
+      if (!res.ok && isTransientHttpStatus(res.status)) {
+        const transientError = new Error(`LINE reply transient failure ${res.status}`);
+        transientError.status = res.status;
+        throw transientError;
+      }
+      return res;
+    });
+  } catch (error) {
+    console.info('[line_reply] result', {
+      httpStatus: error.status || null,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedMs,
+      ok: false,
+      retriesExhausted: true
+    });
+    return { ok: false, status: 'failed', error: error.message };
+  }
 
   if (!response.ok) {
     const body = await response.text().catch(() => '');
@@ -160,20 +205,12 @@ const WATER_MOTION_BLUE = '#284dcd';
 const WATER_MOTION_MUTED = '#78716c';
 const WATER_MOTION_SURFACE = '#f8fafc';
 
-function publicBaseUrl() {
-  return (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.onrender.com').replace(/\/$/, '');
-}
-
 function buildPreassessmentResultUrl(reportToken) {
-  const token = String(reportToken ?? '').trim();
-  if (!token) return '';
-  return `${publicBaseUrl()}/r/${encodeURIComponent(token)}`;
+  return buildReportUrl(reportToken);
 }
 
 function resolveResultLinkUrl({ reportToken }) {
-  const token = String(reportToken || '').trim();
-  if (!token) return '';
-  return `${publicBaseUrl()}/r/${encodeURIComponent(token)}`;
+  return buildReportUrl(reportToken);
 }
 
 function buildCaseResultTextMessage({ resultLinkUrl, feedbackUrl }) {
@@ -184,6 +221,174 @@ function buildCaseResultTextMessage({ resultLinkUrl, feedbackUrl }) {
   ].filter(Boolean);
 
   return { type: 'text', text: lines.join('\n') };
+}
+
+/** M6: OA quick-reply / rich-menu postback payloads (Manager-compatible). */
+const OA_POSTBACK = Object.freeze({
+  VIEW_LATEST: 'action=view_latest',
+  HISTORY: 'action=history',
+  BOOK_AGAIN: 'action=book_again'
+});
+
+function resolveLineBookingUrl() {
+  return String(process.env.LINE_BOOKING_URL || 'https://www.water-motion.co').trim();
+}
+
+function buildOaQuickReplyItems() {
+  return [
+    {
+      type: 'action',
+      action: {
+        type: 'postback',
+        label: 'ดูผลตรวจ',
+        data: OA_POSTBACK.VIEW_LATEST,
+        displayText: 'ดูผลตรวจ'
+      }
+    },
+    {
+      type: 'action',
+      action: {
+        type: 'postback',
+        label: 'ประวัติคะแนน',
+        data: OA_POSTBACK.HISTORY,
+        displayText: 'ประวัติคะแนน'
+      }
+    },
+    {
+      type: 'action',
+      action: {
+        type: 'uri',
+        label: 'นัดตรวจ',
+        uri: resolveLineBookingUrl()
+      }
+    }
+  ];
+}
+
+function withQuickReply(message, items = buildOaQuickReplyItems()) {
+  if (!message || typeof message !== 'object') return message;
+  return {
+    ...message,
+    quickReply: { items: items.slice(0, 13) }
+  };
+}
+
+function buildLinkPromptTextMessage() {
+  return withQuickReply({
+    type: 'text',
+    text: 'กรุณาส่งรหัส fb-xxxx จากลิงก์บริการ เพื่อเชื่อมบัญชี LINE กับเคสของคุณ\nเชื่อมแล้วจะดูผลตรวจ / ประวัติ / นัดตรวจได้จากเมนูด้านล่าง'
+  });
+}
+
+function buildFollowWelcomeMessage() {
+  return withQuickReply({
+    type: 'text',
+    text: 'ยินดีต้อนรับสู่ Water Motion\nส่งรหัส fb-xxxx เพื่อเชื่อมบัญชี LINE กับบริการของคุณ'
+  });
+}
+
+function buildBookAgainMessage() {
+  const uri = resolveLineBookingUrl();
+  return {
+    type: 'text',
+    text: `นัดตรวจคุณภาพน้ำอีกครั้งได้ที่นี่\n${uri}`,
+    quickReply: {
+      items: [
+        {
+          type: 'action',
+          action: { type: 'uri', label: 'เปิดหน้าจอง', uri }
+        },
+        ...buildOaQuickReplyItems().filter(item => item.action?.type === 'postback')
+      ].slice(0, 13)
+    }
+  };
+}
+
+function buildScoreHistoryFlexMessage(entries = []) {
+  const rows = (Array.isArray(entries) ? entries : []).slice(0, 10);
+  const contents = rows.length
+    ? rows.map((entry, index) => {
+      const score = Number.isFinite(Number(entry.waterScore))
+        ? String(Math.round(Number(entry.waterScore)))
+        : '—';
+      const dateLabel = String(entry.dateLabel || entry.date || '—').slice(0, 32);
+      const row = {
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: dateLabel,
+            size: 'sm',
+            color: WATER_MOTION_MUTED,
+            flex: 3,
+            wrap: true
+          },
+          {
+            type: 'text',
+            text: score,
+            size: 'sm',
+            weight: 'bold',
+            color: WATER_MOTION_BLUE,
+            flex: 1,
+            align: 'end'
+          }
+        ]
+      };
+      if (entry.resultLinkUrl) {
+        return {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'xs',
+          margin: index === 0 ? 'none' : 'md',
+          action: { type: 'uri', label: 'open', uri: entry.resultLinkUrl },
+          contents: [row]
+        };
+      }
+      return { ...row, margin: index === 0 ? 'none' : 'md' };
+    })
+    : [{
+      type: 'text',
+      text: 'ยังไม่มีประวัติผลตรวจ',
+      size: 'sm',
+      color: WATER_MOTION_MUTED,
+      wrap: true
+    }];
+
+  return {
+    type: 'flex',
+    altText: 'ประวัติคะแนนน้ำ',
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      styles: {
+        header: { backgroundColor: WATER_MOTION_BLUE },
+        body: { backgroundColor: '#ffffff' }
+      },
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'ประวัติคะแนนน้ำ',
+            weight: 'bold',
+            size: 'lg',
+            color: '#ffffff'
+          }
+        ],
+        paddingAll: '18px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents,
+        paddingAll: '18px'
+      }
+    }
+  };
 }
 
 function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName, scoreCardImageUrl, waterScore }) {
@@ -415,5 +620,13 @@ module.exports = {
   resolveResultLinkUrl,
   buildCaseResultFlexMessage,
   buildCaseResultTextMessage,
-  sendCaseResultNotification
+  sendCaseResultNotification,
+  OA_POSTBACK,
+  resolveLineBookingUrl,
+  buildOaQuickReplyItems,
+  withQuickReply,
+  buildLinkPromptTextMessage,
+  buildFollowWelcomeMessage,
+  buildBookAgainMessage,
+  buildScoreHistoryFlexMessage
 };

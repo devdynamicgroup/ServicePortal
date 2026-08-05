@@ -1,5 +1,6 @@
 const { Client } = require('@notionhq/client');
 const { getNotionConfig } = require('../../config/env');
+const { withRetry } = require('../retry');
 
 let notionClient = null;
 let cachedDataSourceId = null;
@@ -71,7 +72,7 @@ async function resolveDataSourceId() {
 async function getDataSourceSchema() {
   const notion = getNotionClient();
   const dataSourceId = await resolveDataSourceId();
-  const detail = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+  const detail = await withRetry(() => notion.dataSources.retrieve({ data_source_id: dataSourceId }));
   return { dataSourceId, properties: detail.properties || {} };
 }
 

@@ -45,27 +45,26 @@ function configurePublicScoreChrome() {
 async function sharePublicReport() {
   if (sharingPublicReport) return;
 
-  const shareData = {
-    title: 'Water Motion - Water Score',
-    text: Number.isFinite(Number(S.scoreVal)) ? `ผล Water Score: ${S.scoreVal}/100` : 'Water Motion Water Score',
-    url: window.location.href
-  };
+  const title = 'Water Motion - Water Score';
+  const text = Number.isFinite(Number(S.scoreVal)) ? `ผล Water Score: ${S.scoreVal}/100` : 'Water Motion Water Score';
 
   sharingPublicReport = true;
+  setShareButtonLoading(true);
   try {
-    if (navigator.share) {
-      await navigator.share(shareData);
-      showToast('Score shared');
-      return;
-    }
-    await navigator.clipboard.writeText(window.location.href);
-    showToast('Score link copied');
+    const outcome = await shareScoreResult({
+      reportToken: window.__WM_PUBLIC_REPORT__?.token,
+      reportUrl: window.location.href,
+      title,
+      text
+    });
+    showToast(outcome === 'clipboard' ? 'Score link copied' : 'Score shared');
   } catch (error) {
     if (error?.name === 'AbortError') return;
     console.error('Share report failed', error);
     showToast('Could not share score');
   } finally {
     sharingPublicReport = false;
+    setShareButtonLoading(false);
   }
 }
 

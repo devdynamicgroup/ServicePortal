@@ -9,6 +9,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { isDriveConfigured, downloadImageContent } = require('./google-drive');
 
 const FORMATS = Object.freeze({
   landscape: { key: 'landscape', width: 1200, height: 630, label: '1200×630' },
@@ -380,29 +381,81 @@ function buildShareCardSvg(format, options = {}) {
   return { ...meta, svg: buildLandscapeSvg(options) };
 }
 
+const PHOTO_FETCH_TIMEOUT_MS = 5000;
+const PHOTO_MAX_BYTES = 6 * 1024 * 1024;
+
+/** Bounds a promise to PHOTO_FETCH_TIMEOUT_MS without rejecting — resolves '' on timeout so callers never throw. */
+function withPhotoTimeout(promise) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(''), PHOTO_FETCH_TIMEOUT_MS))
+  ]);
+}
+
+/** One retry: a single failed/empty attempt gets one more try before giving up. */
+async function withOneRetry(attempt) {
+  const first = await attempt();
+  if (first) return first;
+  return attempt();
+}
+
 async function fetchAsDataUri(url) {
   if (!url) return '';
   if (String(url).startsWith('data:')) return String(url);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), PHOTO_FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { redirect: 'follow' });
+    const response = await fetch(url, { redirect: 'follow', signal: controller.signal });
     if (!response.ok) return '';
     const contentType = response.headers.get('content-type') || 'image/jpeg';
     if (!contentType.startsWith('image/')) return '';
     const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length > 6 * 1024 * 1024) return '';
+    if (buffer.length > PHOTO_MAX_BYTES) return '';
     return `data:${contentType};base64,${buffer.toString('base64')}`;
   } catch (error) {
     console.warn('[score-share-card] photo fetch failed', error.message);
+    return '';
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Real customer photos are uploaded straight into the app's own Drive folder
+ * tree — job.drive.latestFileId is the raw file id already sitting on every
+ * job (mapper.js), untouched by whatever URL shape happens to be stored
+ * alongside it. Fetching it in-process through the same OAuth Drive client
+ * uploads already use is the only reliable path: the stored "latest file
+ * URL" is Google's webViewLink (an HTML viewer page, not an image byte
+ * stream), so a plain fetch against it always fails the content-type check
+ * below and silently falls back to the stock photo.
+ */
+async function fetchDriveFileAsDataUri(fileId) {
+  if (!fileId || !isDriveConfigured()) return '';
+  try {
+    const { buffer, contentType } = await downloadImageContent(fileId);
+    if (!buffer?.length || buffer.length > PHOTO_MAX_BYTES) return '';
+    const mime = contentType && contentType.startsWith('image/') ? contentType : 'image/jpeg';
+    return `data:${mime};base64,${buffer.toString('base64')}`;
+  } catch (error) {
+    console.warn('[score-share-card] drive photo fetch failed', error.message);
     return '';
   }
 }
 
 async function resolvePhotoDataUri(options = {}) {
   if (options.photoDataUri) return options.photoDataUri;
-  if (options.photoUrl) {
-    const remote = await fetchAsDataUri(options.photoUrl);
-    if (remote) return remote;
+
+  if (options.photoFileId) {
+    const fromDrive = await withOneRetry(() => withPhotoTimeout(fetchDriveFileAsDataUri(options.photoFileId)));
+    if (fromDrive) return fromDrive;
   }
+
+  if (options.photoUrl) {
+    const fromUrl = await withOneRetry(() => withPhotoTimeout(fetchAsDataUri(options.photoUrl)));
+    if (fromUrl) return fromUrl;
+  }
+
   return fileToDataUri(DEFAULT_PHOTO, 'image/jpeg');
 }
 
@@ -550,21 +603,39 @@ async function renderShareCardPng(format, options = {}) {
   const svgBuffer = Buffer.from(built.svg);
   const photoBuf = dataUriToBuffer(photoDataUri);
 
-  let png;
-  if (!photoBuf) {
-    png = await sharp(svgBuffer).png({ compressionLevel: 8 }).toBuffer();
-  } else {
-    const normalizedPhotoBuf = await normalizePhoto(sharp, photoBuf);
+  const compositeWithPhoto = async (buf) => {
+    const normalizedPhotoBuf = await normalizePhoto(sharp, buf);
     if (built.key === 'landscape') {
-      png = await compositeLandscape(sharp, normalizedPhotoBuf, svgBuffer);
-    } else if (built.key === 'story') {
-      png = await compositeStory(sharp, normalizedPhotoBuf, svgBuffer, {
+      return compositeLandscape(sharp, normalizedPhotoBuf, svgBuffer);
+    }
+    if (built.key === 'story') {
+      return compositeStory(sharp, normalizedPhotoBuf, svgBuffer, {
         score: Number(options.score),
         note: options.note,
         findingsCount: options.findingsCount
       });
-    } else {
-      png = await compositeFullBleed(sharp, normalizedPhotoBuf, svgBuffer, built);
+    }
+    return compositeFullBleed(sharp, normalizedPhotoBuf, svgBuffer, built);
+  };
+
+  let png;
+  if (!photoBuf) {
+    png = await sharp(svgBuffer).png({ compressionLevel: 8 }).toBuffer();
+  } else {
+    try {
+      png = await compositeWithPhoto(photoBuf);
+    } catch (error) {
+      // A resolved photo that sharp/libvips can't decode (e.g. an
+      // unsupported format) must never fail the whole render — fall back
+      // to the known-good stock photo instead of throwing.
+      console.warn('[score-share-card] photo compositing failed, using stock photo', error.message);
+      try {
+        const stockBuf = dataUriToBuffer(fileToDataUri(DEFAULT_PHOTO, 'image/jpeg'));
+        png = await compositeWithPhoto(stockBuf);
+      } catch (fallbackError) {
+        console.warn('[score-share-card] stock photo compositing failed, rendering without a photo', fallbackError.message);
+        png = await sharp(svgBuffer).png({ compressionLevel: 8 }).toBuffer();
+      }
     }
   }
 
@@ -588,6 +659,7 @@ function cardOptionsFromJob(job = {}, overrides = {}) {
     note,
     findingsCount,
     indicators: overrides.indicators || 8,
+    photoFileId: overrides.photoFileId || job.drive?.latestFileId || '',
     photoUrl: overrides.photoUrl || job.drive?.latestFileUrl || '',
     photoDataUri: overrides.photoDataUri || ''
   };

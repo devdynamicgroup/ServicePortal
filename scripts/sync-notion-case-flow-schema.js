@@ -46,7 +46,10 @@ const PROPERTY_DEFINITIONS = [
   { key: 'resultSentAt', name: 'Result Sent At', schema: { date: {} } },
   { key: 'notificationStatus', name: 'Notification Status', schema: selectSchema('notificationStatus') },
   { key: 'lineMessageId', name: 'LINE Message ID', schema: { rich_text: {} } },
-  { key: 'lastNotificationError', name: 'Last Notification Error', schema: { rich_text: {} } }
+  { key: 'lastNotificationError', name: 'Last Notification Error', schema: { rich_text: {} } },
+  // M8.2 additive Case → Customer link (approved; does not rename existing props)
+  { key: 'customerId', name: 'Customer ID', schema: { rich_text: {} } },
+  { key: 'customerPageId', name: 'Customer Page ID', schema: { rich_text: {} } }
 ];
 
 function selectSchema(key) {

@@ -13,7 +13,9 @@ loadDotEnv();
 function getNotionConfig() {
   return {
     apiKey: process.env.NOTION_API_KEY || process.env.NOTION_TOKEN || '',
-    databaseId: process.env.NOTION_DATABASE_ID || process.env.NOTION_DB_ID || ''
+    databaseId: process.env.NOTION_DATABASE_ID || process.env.NOTION_DB_ID || '',
+    /** Customers DB (identity) — optional until Customer Domain flags are enabled */
+    customersDatabaseId: process.env.NOTION_CUSTOMERS_DATABASE_ID || ''
   };
 }
 

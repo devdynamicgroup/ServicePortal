@@ -76,6 +76,7 @@ try {
 const { handleClientsRoute } = require('./api/clients-routes');
 const { handleCaseFlowRoute } = require('./api/case-flow-routes');
 const { handleLineRoute } = require('./api/line-routes');
+const { handleOpsRoute } = require('./api/ops-routes');
 const { handleGoogleReviewRoute } = require('./api/google-review-routes');
 const { handleFeedbackSuggestRoute } = require('./api/feedback-suggest-routes');
 const { handleGoogleDriveRoute } = require('./api/google-drive-routes');
@@ -84,11 +85,26 @@ const { handleOcrProxyRoute } = require('./api/ocr-proxy-routes');
 const { handlePublicRoute } = require('./api/public-routes');
 const { startGoogleReviewScheduler } = require('./services/google-review-scheduler');
 const { getDriveStatus } = require('./services/google-drive');
+const { validateProductionConfig } = require('./services/config-validation');
+const { registerCustomerDomain } = require('./services/customer-domain');
 const {
   authenticateCredentials,
   createSessionToken,
   sessionCookieHeader
 } = require('./services/app-auth');
+
+// M8.1: register Customer Domain infrastructure (flags default OFF — no behavior change).
+try {
+  registerCustomerDomain();
+} catch (e) {
+  console.warn('[customer-domain] registration failed', e && e.message ? e.message : e);
+}
+
+try {
+  validateProductionConfig();
+} catch (e) {
+  console.warn('[config_validation] startup check failed', e && e.message ? e.message : e);
+}
 
 const root = __dirname;
 const port = Number(process.env.PORT) || 3000;
@@ -185,6 +201,7 @@ async function handleApiRequest(req, res) {
   const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
   if (await handlePublicRoute(req, res, urlPath, requestUrl)) return true;
+  if (await handleOpsRoute(req, res, urlPath)) return true;
   if (await handleGoogleDriveOAuthRoute(req, res, urlPath)) return true;
   if (await handleClientsRoute(req, res, urlPath)) return true;
   if (await handleCaseFlowRoute(req, res, urlPath)) return true;

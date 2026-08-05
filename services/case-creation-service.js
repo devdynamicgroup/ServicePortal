@@ -1,7 +1,11 @@
 const { createClient, updateClient, getAllClients } = require('./notion/clients');
 const { generateFeedbackToken, generateReportToken } = require('./case-tokens');
+const { isCancelledJob, invalidateOfferCache } = require('./water-check-offer-service');
+const { buildReportUrl, buildFeedbackUrl, resolveReviewUrl } = require('./url-builder');
+const { validateCustomerInput } = require('./booking-validation');
+const { newCorrelationId, logEvent } = require('./observability');
+const { dualWriteAfterCaseSuccess } = require('./migration/dual-write');
 
-const DEFAULT_REVIEW_URL = process.env.GOOGLE_REVIEW_URL || 'https://g.page/r/Ce0EFhVtUyRpEBM/review';
 const DEFAULT_LAUNCH_CAMPAIGN_OFFER = process.env.WATER_CHECK_CAMPAIGN_OFFER || 'Launch Offer 2026';
 
 const CUSTOMER_INPUT_FIELDS = Object.freeze([
@@ -42,10 +46,6 @@ const SYSTEM_GENERATED_FIELDS = Object.freeze([
   'reviewUrl'
 ]);
 
-function publicBaseUrl() {
-  return (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.onrender.com').replace(/\/$/, '');
-}
-
 function pickCustomerInput(payload = {}) {
   const input = {};
   CUSTOMER_INPUT_FIELDS.forEach((key) => {
@@ -56,19 +56,18 @@ function pickCustomerInput(payload = {}) {
   return input;
 }
 
-function buildSystemDefaults({ feedbackToken, reportToken, reviewUrl = DEFAULT_REVIEW_URL } = {}) {
-  const base = publicBaseUrl();
+function buildSystemDefaults({ feedbackToken, reportToken, reviewUrl } = {}) {
   return {
     feedbackToken,
     publicReportToken: reportToken,
-    reportUrl: `${base}/r/${reportToken}`,
-    feedbackUrl: `${base}/f/${feedbackToken}`,
+    reportUrl: buildReportUrl(reportToken),
+    feedbackUrl: buildFeedbackUrl(feedbackToken),
     lineLinked: false,
     caseWorkflowStatus: 'scheduled',
     notificationStatus: 'not_sent',
     feedbackStatus: 'not_sent',
     reviewStatus: 'not_requested',
-    reviewUrl,
+    reviewUrl: resolveReviewUrl(reviewUrl),
     status: 'scheduled'
   };
 }
@@ -127,14 +126,11 @@ function resolveCampaignOffer(customer = {}, customerPayload = {}, options = {})
 }
 
 async function createCase(customerPayload = {}, options = {}) {
+  const correlationId = options.correlationId || newCorrelationId('booking');
   const customer = options.skipMap
     ? pickCustomerInput(customerPayload)
     : mapPreassessmentPayload(customerPayload);
-  if (!customer.fullName) {
-    const error = new Error('Full Name is required');
-    error.statusCode = 400;
-    throw error;
-  }
+  validateCustomerInput(customer);
 
   const campaignOffer = resolveCampaignOffer(customer, customerPayload, options);
   if (campaignOffer) customer.campaignOffer = campaignOffer;
@@ -152,6 +148,27 @@ async function createCase(customerPayload = {}, options = {}) {
 
   const created = await createClient(notionPayload);
   const job = await resolveCreatedJob(created.notionId) || created;
+
+  if (campaignOffer) invalidateOfferCache();
+
+  // M8.3: additive Customer dual-write (non-blocking; flags default OFF)
+  await dualWriteAfterCaseSuccess({
+    job,
+    source: 'createCase',
+    correlationId,
+    identityOverrides: {
+      name: customer.fullName || '',
+      phone: customer.phone || '',
+      email: customer.email || '',
+      address: customer.address || ''
+    }
+  });
+
+  logEvent('info', 'booking_created', {
+    correlationId,
+    notionId: job.notionId,
+    campaignOffer: campaignOffer || null
+  });
 
   return {
     ok: true,
@@ -176,11 +193,7 @@ async function submitCustomerPreassessment(caseId, customerPayload = {}) {
   }
 
   const customer = mapPreassessmentPayload(customerPayload);
-  if (!customer.fullName) {
-    const error = new Error('Full Name is required');
-    error.statusCode = 400;
-    throw error;
-  }
+  validateCustomerInput(customer);
 
   const updated = await updateClient(job.notionId, {
     ...customer,
@@ -226,9 +239,7 @@ async function cancelAppointment(caseId) {
     throw error;
   }
 
-  const alreadyCancelled = job.status === 'cancelled'
-    || ['cancelled', 'canceled'].includes(String(job.workflow?.status || '').toLowerCase());
-  if (alreadyCancelled) {
+  if (isCancelledJob(job)) {
     return { ok: true, idempotent: true, case: job };
   }
 
@@ -252,6 +263,14 @@ async function cancelAppointment(caseId) {
   }
 
   const updated = await updateClient(job.notionId, payload);
+
+  if (job.campaignOffer) invalidateOfferCache();
+
+  logEvent('info', 'booking_cancelled', {
+    correlationId: newCorrelationId('cancel'),
+    notionId: job.notionId
+  });
+
   return {
     ok: true,
     case: updated,

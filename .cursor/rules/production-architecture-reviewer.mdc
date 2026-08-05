@@ -1,0 +1,30 @@
+---
+description: Production Architecture Reviewer — protect contracts; review before code; required output format
+alwaysApply: true
+---
+
+# Production Architecture Reviewer
+
+Protect production architecture first. **Never start with code.**
+
+Full prompt: `docs/PRODUCTION_ARCHITECTURE_REVIEWER.md`  
+Architecture: `docs/WATER_MOTION_ARCHITECTURE_GUIDE.md`
+
+## Mandatory
+
+- Case = aggregate root; Customer = identity only
+- Offer / Workflow / Booking / Feedback / Reports belong to **Case**
+- Exact customer match only; normalize phone/email; no fuzzy; no name auto-merge
+- Prefer extension, migration, feature flags over rewrite/redesign
+- Business id = `customerId`; Notion page id = persistence only
+- Keep migration (`dual-write` / `backfill`) outside `customer-domain/`
+- Dual-write only with SoT, conflict, rollback, sync, exit criteria
+- Rollout phases: Infrastructure → Dual Write → Read Validation → Primary Read → Cleanup
+
+## Review answers must include
+
+Architecture Understanding → Review → Strengths → Risks → Technical Debt → Recommendations → Protected Contracts → Migration Considerations → **Implementation Readiness** (`READY` | `READY WITH CHANGES` | `NOT READY`)
+
+## Forbidden to recommend
+
+Rewrite working modules; break APIs/Dashboard/Framer/LINE; rename Notion props; move ops under Customer; replace Case root; fuzzy matching.

@@ -6,13 +6,35 @@ const {
   isClientFeedbackConfigured
 } = require('./client-feedback');
 const { sendCaseResultNotification } = require('./line-notifications');
+const { publicBaseUrl, buildReportUrl, buildFeedbackUrl, resolveReviewUrl: resolveDefaultReviewUrl, DEFAULT_REVIEW_URL } = require('./url-builder');
+const { isCancelledJob } = require('./water-check-offer-service');
+const { newCorrelationId, logEvent } = require('./observability');
+const { dualWriteAfterCaseSuccess } = require('./migration/dual-write');
+const {
+  resolveNotifyLineDestination,
+  applyDestinationToJob
+} = require('./customer-domain/notify-reader');
 
-const DEFAULT_REVIEW_URL = 'https://g.page/r/Ce0EFhVtUyRpEBM/review';
 const WORKFLOW_STATES = Object.freeze([
   'created', 'line_linked', 'service_in_progress', 'completed',
   'result_sent', 'feedback_submitted', 'review_requested', 'closed'
 ]);
 const locks = new Map();
+
+// How long a case is allowed to sit in notificationStatus:'sending' before it's
+// treated as stuck (crashed process, hung request) rather than genuinely
+// in-flight. Tracked per-notionId, in-process only — see sendingStartedAt below.
+const STALE_SENDING_MS = 3 * 60 * 1000;
+const sendingStartedAt = new Map();
+
+// Single definition of "terminal" for workflow purposes (was duplicated as an
+// inline array in startCase()). Reuses M3's isCancelledJob() — imported, not
+// modified — plus the one additional terminal value startCase already treated
+// as terminal ('closed').
+function isTerminalCaseStatus(job) {
+  const workflowStatus = String(job?.workflow?.status || '').toLowerCase();
+  return isCancelledJob(job) || workflowStatus === 'closed';
+}
 
 function withCaseLock(key, operation) {
   const lockKey = String(key || 'unknown');
@@ -22,16 +44,6 @@ function withCaseLock(key, operation) {
   return current.finally(() => {
     if (locks.get(lockKey) === current) locks.delete(lockKey);
   });
-}
-
-function publicBaseUrl() {
-  return (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.onrender.com').replace(/\/$/, '');
-}
-
-function normalizeReportUrl(reportToken) {
-  const token = String(reportToken || '').trim();
-  if (!token) return '';
-  return `${publicBaseUrl()}/r/${encodeURIComponent(token)}`;
 }
 
 function newToken(prefix) {
@@ -60,7 +72,7 @@ function notificationState(job) {
 
 function resolveReportUrl(job, payload = {}) {
   const token = String(payload.reportToken || job?.result?.publicReportToken || '').trim();
-  if (token) return normalizeReportUrl(token);
+  if (token) return buildReportUrl(token);
   const raw = String(payload.reportUrl || job?.result?.reportUrl || '').trim();
   if (raw.startsWith('/r/')) return `${publicBaseUrl()}${raw}`;
   return '';
@@ -71,17 +83,12 @@ function resolveFeedbackUrl(job, payload = {}) {
   if (raw.startsWith('https://') || raw.startsWith('http://')) return raw;
   if (raw.startsWith('/f/')) return `${publicBaseUrl()}${raw}`;
   const token = String(job?.feedback?.token || '').trim();
-  if (token) return `${publicBaseUrl()}/f/${token}`;
+  if (token) return buildFeedbackUrl(token);
   return '';
 }
 
 function resolveReviewUrl(job, payload = {}) {
-  return String(
-    payload.reviewUrl
-    || job?.review?.url
-    || process.env.GOOGLE_REVIEW_URL
-    || DEFAULT_REVIEW_URL
-  ).trim();
+  return resolveDefaultReviewUrl(payload.reviewUrl || job?.review?.url);
 }
 
 function reusableResult(job) {
@@ -162,17 +169,29 @@ async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
     const job = await getClient(feedback.clientPageId);
     const currentUserId = String(job?.line?.userId || '').trim();
     if (job?.line?.linked || currentUserId) {
-      return currentUserId === userId
-        ? {
-          linked: true,
-          alreadyLinked: true,
-          reason: 'already_linked',
-          clientPageId: feedback.clientPageId,
-          caseId: job.id,
-          feedbackToken: token,
-          ...reusableResult(job)
+      if (currentUserId !== userId) {
+        return { linked: false, reason: 'linked_to_another_user', clientPageId: feedback.clientPageId };
+      }
+      // Idempotent LINE link: still attempt dual-write sync when flags on
+      await dualWriteAfterCaseSuccess({
+        job,
+        source: 'linkLineUser_already_linked',
+        identityOverrides: {
+          lineUserId: userId,
+          lineDisplayName: displayName || job?.line?.displayName || '',
+          lineLinked: true,
+          lineLinkedAt: job?.line?.linkedAt || new Date().toISOString()
         }
-        : { linked: false, reason: 'linked_to_another_user', clientPageId: feedback.clientPageId };
+      });
+      return {
+        linked: true,
+        alreadyLinked: true,
+        reason: 'already_linked',
+        clientPageId: feedback.clientPageId,
+        caseId: job.id,
+        feedbackToken: token,
+        ...reusableResult(job)
+      };
     }
 
     const now = new Date().toISOString();
@@ -185,6 +204,19 @@ async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
     });
 
     const freshJob = await getClient(feedback.clientPageId);
+
+    // M8.3: additive Customer dual-write (non-blocking; flags default OFF)
+    await dualWriteAfterCaseSuccess({
+      job: freshJob,
+      source: 'linkLineUser',
+      identityOverrides: {
+        lineUserId: userId,
+        lineDisplayName: displayName,
+        lineLinked: true,
+        lineLinkedAt: now
+      }
+    });
+
     const pendingAutoSend = stateAtLeast(freshJob.workflow?.status, 'completed')
       && notificationState(freshJob) !== 'sent';
 
@@ -203,7 +235,10 @@ async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
 
 async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
   const currentState = notificationState(job);
-  const lineUserId = String(job?.line?.userId || '').trim();
+  // M8.6: destination may come from Customer when flagged; Case LINE remains fallback.
+  // Notification lifecycle (status / timestamps / messageId) stays Case-owned below.
+  const destination = await resolveNotifyLineDestination(job);
+  const lineUserId = String(destination.lineUserId || '').trim();
 
   if (currentState === 'sent') {
     return {
@@ -216,13 +251,28 @@ async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
   }
 
   if (currentState === 'sending') {
-    return {
-      ok: true,
-      idempotent: true,
-      action: 'already_sending',
-      case: job,
-      line: { ok: false, status: 'sending', reason: 'already_sending' }
-    };
+    const sendingSince = sendingStartedAt.get(job.notionId);
+    const isStale = !sendingSince || (Date.now() - sendingSince) > STALE_SENDING_MS;
+    if (!isStale) {
+      return {
+        ok: true,
+        idempotent: true,
+        action: 'already_sending',
+        case: job,
+        line: { ok: false, status: 'sending', reason: 'already_sending' }
+      };
+    }
+    // Stuck 'sending' record: either this process was never the one that
+    // started it (crash/restart mid-send) or it's been in flight longer than
+    // STALE_SENDING_MS. Mark the stuck attempt failed and fall through to
+    // retry, instead of blocking forever (M4 audit Critical #2).
+    logEvent('warn', 'notification_stale_sending_recovered', {
+      caseId,
+      notionId: job.notionId,
+      sendingSince: sendingSince ? new Date(sendingSince).toISOString() : null,
+      trackedInThisProcess: Boolean(sendingSince)
+    });
+    sendingStartedAt.delete(job.notionId);
   }
 
   if (!lineUserId) {
@@ -252,18 +302,23 @@ async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
   }
 
   job = await updateClient(job.notionId, { notificationStatus: 'sending' });
+  sendingStartedAt.set(job.notionId, Date.now());
+
+  const sendJob = applyDestinationToJob(job, lineUserId);
 
   console.info('[line_close_notify] sending', {
     caseId,
     notionId: job.notionId,
     lineUserId,
+    destinationSource: destination.source,
+    destinationMode: destination.mode,
     reportUrl,
     reportToken: reportToken || null,
     feedbackUrl: feedbackUrl || null,
     previousNotificationStatus: currentState
   });
 
-  const line = await sendCaseResultNotification(job, {
+  const line = await sendCaseResultNotification(sendJob, {
     reportUrl,
     feedbackUrl,
     reportToken,
@@ -282,6 +337,7 @@ async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
     notificationStatus: 'failed',
     lastNotificationError: line.error || line.reason || line.status || 'send_failed'
   });
+  sendingStartedAt.delete(job.notionId);
 
   console.info('[line_close_notify] result', {
     caseId,
@@ -343,7 +399,7 @@ async function publishCaseScore(caseId, payload = {}) {
   return withCaseLock(initial.notionId, async () => {
     const job = await getClient(initial.notionId);
     const reportToken = job.result?.publicReportToken || newToken('rpt');
-    const reportUrl = normalizeReportUrl(reportToken);
+    const reportUrl = buildReportUrl(reportToken);
     const updated = await updateClient(job.notionId, {
       latestWaterScore: Math.round(score),
       resultSummary: payload.resultSummary || `Water score ${Math.round(score)}/100`,
@@ -372,8 +428,7 @@ async function startCase(caseId, payload = {}) {
   return withCaseLock(initial.notionId, async () => {
     const job = await getClient(initial.notionId);
     const workflow = String(job.workflow?.status || '').toLowerCase();
-    const terminal = ['cancelled', 'canceled', 'closed'];
-    if (terminal.includes(workflow)) {
+    if (isTerminalCaseStatus(job)) {
       return { ok: true, idempotent: true, case: job };
     }
 
@@ -430,9 +485,9 @@ async function closeCase(caseId, payload = {}) {
     const now = new Date().toISOString();
     const reportToken = job.result?.publicReportToken || newToken('rpt');
     const feedbackToken = job.feedback?.token || newToken('fb');
-    const reportUrl = normalizeReportUrl(reportToken);
-    const feedbackUrl = `${publicBaseUrl()}/f/${feedbackToken}`;
-    const reviewUrl = payload.reviewUrl || job.review?.url || process.env.GOOGLE_REVIEW_URL || DEFAULT_REVIEW_URL;
+    const reportUrl = buildReportUrl(reportToken);
+    const feedbackUrl = buildFeedbackUrl(feedbackToken);
+    const reviewUrl = resolveReviewUrl(job, payload);
     const score = payload.score ?? job.result?.waterScore ?? job.draft?.scoreVal ?? null;
 
     job = await updateClient(job.notionId, {
@@ -559,9 +614,9 @@ async function submitCaseFeedback(caseId, payload = {}) {
   return withCaseLock(initial.notionId, async () => {
     let job = await getClient(initial.notionId);
     const feedbackToken = job.feedback?.token || newToken('fb');
-    const feedbackUrl = `${publicBaseUrl()}/f/${feedbackToken}`;
+    const feedbackUrl = buildFeedbackUrl(feedbackToken);
     const reportUrl = job.result?.reportUrl || (job.result?.publicReportToken
-      ? normalizeReportUrl(job.result.publicReportToken)
+      ? buildReportUrl(job.result.publicReportToken)
       : '');
 
     if (!job.feedback?.token) {

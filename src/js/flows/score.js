@@ -1123,6 +1123,79 @@ function setScoreTapFilter(key) {
 
 let sharingScore = false;
 
+/**
+ * Fetches the score-card PNG for a report and returns it as a shareable File.
+ * title/text are accepted for a consistent call signature with the share
+ * cascade below but are not used here — this only does token -> URL ->
+ * fetch -> File. Format mirrors the breakpoint the /r/<token> report page
+ * itself uses (case-flow-routes.js).
+ */
+const SHARE_CARD_FETCH_TIMEOUT_MS = 10000;
+
+// eslint-disable-next-line no-unused-vars
+async function shareScoreCardImage({ reportToken, preferredFormat, title, text } = {}) {
+  if (!reportToken) return null;
+  const format = preferredFormat || (window.matchMedia('(min-width: 720px)').matches ? 'landscape' : 'story');
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SHARE_CARD_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(`/api/public/score-card/${encodeURIComponent(reportToken)}?format=${format}`, {
+      signal: controller.signal
+    });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return new File([blob], 'water-score.png', { type: blob.type || 'image/png' });
+  } catch (error) {
+    console.warn('shareScoreCardImage failed', error);
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/** Toggles the Share button's loading state (shared by shareScore() and sharePublicReport()). */
+function setShareButtonLoading(loading) {
+  const btn = document.querySelector('#s-score .hdr-action');
+  if (!btn) return;
+  if (loading) {
+    if (btn.dataset.shareLabel === undefined) btn.dataset.shareLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Preparing Share Card...';
+  } else {
+    btn.disabled = false;
+    if (btn.dataset.shareLabel !== undefined) {
+      btn.textContent = btn.dataset.shareLabel;
+      delete btn.dataset.shareLabel;
+    }
+  }
+}
+
+/**
+ * Shared fallback cascade used by both shareScore() and sharePublicReport():
+ * share the PNG as a file, else share the link, else copy it to clipboard.
+ * Keeping this in one place is what stops the two callers from drifting.
+ */
+async function shareScoreResult({ reportToken, reportUrl, title, text }) {
+  const file = await shareScoreCardImage({ reportToken, title, text });
+  if (file && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title, text });
+      return 'image';
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error;
+      console.warn('Image share failed, falling back to URL share', error);
+    }
+  }
+
+  if (navigator.share) {
+    await navigator.share({ title, text, url: reportUrl });
+    return 'url';
+  }
+
+  await navigator.clipboard.writeText(reportUrl);
+  return 'clipboard';
+}
+
 async function shareScore() {
   if (sharingScore) return;
 
@@ -1138,6 +1211,7 @@ async function shareScore() {
   }
 
   sharingScore = true;
+  setShareButtonLoading(true);
   saveActiveJobState();
   try {
     const response = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/score`, {
@@ -1149,24 +1223,21 @@ async function shareScore() {
     if (!response.ok || !result.reportUrl) throw new Error(result.error || 'Could not publish score');
 
     job.result = { ...(job.result || {}), waterScore: result.score, reportUrl: result.reportUrl, publicReportToken: result.reportToken };
-    const shareData = {
+
+    const outcome = await shareScoreResult({
+      reportToken: result.reportToken,
+      reportUrl: result.reportUrl,
       title: 'Water Motion - Water Score',
-      text: `ผล Water Score ของคุณ: ${result.score}/100`,
-      url: result.reportUrl
-    };
-    if (navigator.share) {
-      await navigator.share(shareData);
-      showToast('Score shared');
-      return;
-    }
-    await navigator.clipboard.writeText(result.reportUrl);
-    showToast('Score link copied - share with client');
+      text: `ผล Water Score ของคุณ: ${result.score}/100`
+    });
+    showToast(outcome === 'clipboard' ? 'Score link copied - share with client' : 'Score shared');
   } catch (error) {
     if (error?.name === 'AbortError') return;
     console.error('Share Score failed', error);
     showToast('Could not share score');
   } finally {
     sharingScore = false;
+    setShareButtonLoading(false);
   }
 }
 

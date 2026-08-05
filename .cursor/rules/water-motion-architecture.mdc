@@ -1,0 +1,40 @@
+---
+description: Water Motion production architecture — Case aggregate, Customer identity, protected contracts
+alwaysApply: true
+---
+
+# Water Motion Architecture (AI)
+
+Before implementing any feature, read:
+
+`docs/WATER_MOTION_ARCHITECTURE_GUIDE.md`
+
+First responsibility is **understand architecture**, not write code.
+
+## Domain ownership
+
+- **Case** = aggregate root (workflow, booking, offer, feedback, report, notifications ops)
+- **Customer** = identity layer only (incremental migration; Case references Customer)
+- Never move Offer / Workflow / Feedback / Reports under Customer
+
+## Protected contracts (no break without explicit approval)
+
+- `POST /api/cases`, `GET /api/public/water-check-offer`
+- Dashboard payloads, Framer payloads, LINE webhook envelope
+- Notion property names (never rename/remove)
+
+## Matching
+
+Exact match only. Normalize phone/email. **No fuzzy. No name auto-merge.**
+
+## Forbidden unless explicitly instructed
+
+Rewrite Booking/Workflow/Offer; rename APIs/routes/Notion props; fuzzy matching; break Dashboard/Framer/LINE; redesign architecture; unrelated refactors.
+
+## Every implementation must report
+
+Architecture understanding, plan, affected modules, compatibility, regression, migration impact, performance, rollback, verification.
+
+## Related
+
+LINE/care events: `docs/CUSTOMER_COMMUNICATION_ARCHITECTURE.md`

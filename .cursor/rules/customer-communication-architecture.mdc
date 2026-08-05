@@ -1,0 +1,25 @@
+---
+description: Event-Driven LINE / Water Score customer-care architecture — do not regress to token commands
+globs: api/line-routes.js,api/case-flow-routes.js,services/line-notifications.js,services/workflow-service.js,services/case-*.js,services/case-flow.js,src/js/common.js,docs/CUSTOMER_COMMUNICATION_ARCHITECTURE.md
+alwaysApply: false
+---
+
+# Customer Communication Architecture Guardrails
+
+Before changing LINE, case close/send-result, tokens, or Water Score delivery, read:
+
+`docs/CUSTOMER_COMMUNICATION_ARCHITECTURE.md`
+
+## Non-negotiables
+
+1. Prefer **Event-Driven push** (Complete / Lab ready / reminders) over **Command-Driven** “customer types a code”.
+2. After LINE is linked, **`lineUserId` is the primary identity** — not `fb-xxxx` / `rpt-xxxx` / name / phone.
+3. Tokens (`fb-*`, `rpt-*`) stay for **bootstrap link + public URLs only**. Customers must not need to memorize them for normal use.
+4. Do not “fix” result delivery by requiring the customer to ask first when an event already means the result is ready.
+5. LINE OA is a **Customer Care Channel** (lifecycle), not a trivia chatbot.
+
+## When implementing
+
+- Keep automatic push on inspection/lab completion events.
+- Natural language / rich menu “ดูผลตรวจ” should resolve via `lineUserId → cases → report`.
+- Extending events (6-month reminder, filter change, etc.) should plug into the same notification model — do not invent a parallel command protocol.

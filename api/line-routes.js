@@ -5,13 +5,107 @@ const {
   lineSignatureDebug,
   verifyLineSignature,
   sendLineReply,
-  buildCaseResultFlexMessage
+  buildCaseResultFlexMessage,
+  OA_POSTBACK,
+  withQuickReply,
+  buildLinkPromptTextMessage,
+  buildFollowWelcomeMessage,
+  buildBookAgainMessage,
+  buildScoreHistoryFlexMessage,
+  resolveResultLinkUrl
 } = require('../services/line-notifications');
 const {
   linkLineUser,
   sendCaseResult,
   markCaseResultNotificationFailed
 } = require('../services/workflow-service');
+const { buildFeedbackUrl } = require('../services/url-builder');
+const { newCorrelationId, logLineLifecycle } = require('../services/observability');
+const {
+  resolveLineCustomerCases: resolveLineCustomerCasesDomain
+} = require('../services/customer-domain/line-reader');
+
+/** M7: shared inbound priority — 1 token, 2 postback, 3 intent, 4 default. */
+function resolveInboundDecision(event) {
+  if (!event || !event.type) {
+    return { priority: 4, kind: 'ignore', reason: 'missing_event' };
+  }
+  if (event.type === 'message' && event.message?.type === 'text') {
+    const messageText = event.message.text;
+    const token = extractFeedbackToken(messageText);
+    if (token) {
+      return { priority: 1, kind: 'feedback_token', token, messageText };
+    }
+  }
+  if (event.type === 'postback') {
+    const intent = parseOaPostbackData(event.postback?.data);
+    return {
+      priority: 2,
+      kind: intent ? 'postback' : 'postback_unknown',
+      intent: intent || '',
+      postbackData: String(event.postback?.data || '')
+    };
+  }
+  if (event.type === 'message' && event.message?.type === 'text') {
+    const messageText = event.message.text;
+    const intent = detectOaIntent(messageText);
+    if (intent) {
+      return { priority: 3, kind: 'intent', intent, messageText };
+    }
+    return { priority: 4, kind: 'default', messageText };
+  }
+  if (event.type === 'follow') {
+    return { priority: 4, kind: 'follow' };
+  }
+  return { priority: 4, kind: 'ignore', reason: 'unhandled_type', eventType: event.type };
+}
+
+async function sendReplyChecked(replyToken, messages, meta = {}) {
+  const startedMs = Date.now();
+  const replyResult = await sendLineReply(replyToken, messages);
+  const base = {
+    correlationId: meta.correlationId || newCorrelationId('line'),
+    caseId: meta.caseId || null,
+    lineUserId: meta.lineUserId || null,
+    eventType: meta.eventType || null,
+    action: meta.action || null,
+    startedMs
+  };
+  if (replyResult?.ok) {
+    logLineLifecycle('info', 'line_reply_ok', {
+      ...base,
+      success: true,
+      durationMs: Date.now() - startedMs
+    });
+    return {
+      handled: true,
+      action: meta.action || 'replied',
+      replyOk: true,
+      correlationId: base.correlationId
+    };
+  }
+  console.warn('[line_reply_failed]', {
+    action: meta.action || null,
+    lineUserId: meta.lineUserId || null,
+    status: replyResult?.status || null,
+    error: replyResult?.error || null
+  });
+  logLineLifecycle('error', 'line_reply_failed', {
+    ...base,
+    success: false,
+    failureReason: replyResult?.error || replyResult?.status || 'reply_failed',
+    durationMs: Date.now() - startedMs,
+    extra: { replyStatus: replyResult?.status || null }
+  });
+  return {
+    handled: true,
+    action: 'handled_with_reply_failure',
+    replyOk: false,
+    replyStatus: replyResult?.status || 'failed',
+    correlationId: base.correlationId,
+    intendedAction: meta.action || null
+  };
+}
 
 function logErrorStack(error) {
   return error?.stack || error?.message || String(error);
@@ -125,30 +219,249 @@ function extractFeedbackToken(text) {
   return match ? match[0].toLowerCase() : '';
 }
 
+function parseOaPostbackData(data) {
+  const raw = String(data || '').trim();
+  if (raw === OA_POSTBACK.VIEW_LATEST || raw === 'view_latest') return 'view_latest';
+  if (raw === OA_POSTBACK.HISTORY || raw === 'history') return 'history';
+  if (raw === OA_POSTBACK.BOOK_AGAIN || raw === 'book_again') return 'book_again';
+  return '';
+}
+
+/** M6 NL intents — token path always wins first in handleLineEvent. */
+function detectOaIntent(text) {
+  const normalized = normalizeLineMessageText(text).toLowerCase();
+  if (!normalized) return '';
+
+  if (
+    /ดูผลตรวจ|ดูผลน้ำ|ขอดูผล|ผลตรวจล่าสุด|view\s*latest|latest\s*score|ดูคะแนนน้ำ|ผลตรวจน้ำ/.test(normalized)
+  ) {
+    return 'view_latest';
+  }
+  if (
+    /ประวัติ|ผลก่อนหน้า|คะแนนก่อนหน้า|previous\s*scores?|history|ดูประวัติ/.test(normalized)
+  ) {
+    return 'history';
+  }
+  if (
+    /นัดตรวจ|จองอีกครั้ง|book\s*again|นัดหมาย|จองตรวจ/.test(normalized)
+  ) {
+    return 'book_again';
+  }
+  return '';
+}
+
+function caseSortTimestamp(job) {
+  return Date.parse(
+    job?.notification?.resultSentAt
+    || job?.workflow?.serviceCompletedAt
+    || job?.workflow?.closedAt
+    || job?.createdTime
+    || 0
+  ) || 0;
+}
+
+function caseHasReport(job) {
+  return Boolean(String(job?.result?.publicReportToken || '').trim() || String(job?.result?.reportUrl || '').trim());
+}
+
+function formatCaseDateLabel(job) {
+  const raw = job?.notification?.resultSentAt
+    || job?.workflow?.serviceCompletedAt
+    || job?.workflow?.closedAt
+    || job?.createdTime
+    || '';
+  const ms = Date.parse(raw);
+  if (!Number.isFinite(ms)) return '—';
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function toHistoryEntry(job) {
+  const reportToken = String(job?.result?.publicReportToken || '').trim();
+  const resultLinkUrl = reportToken
+    ? resolveResultLinkUrl({ reportToken })
+    : String(job?.result?.reportUrl || '').trim();
+  return {
+    waterScore: job?.result?.waterScore,
+    dateLabel: formatCaseDateLabel(job),
+    resultLinkUrl,
+    clientName: job?.name || job?.clientName || ''
+  };
+}
+
+async function resolveLineCustomerCases(lineUserId) {
+  // M8.5: Customer-backed read when flagged; default OFF → Case LINE query only.
+  // Reply shape unchanged: { linked, jobs, withReport, latest }.
+  return resolveLineCustomerCasesDomain(lineUserId, {
+    caseHasReport,
+    caseSortTimestamp
+  });
+}
+
+async function replyViewLatest(event, lineUserId, correlationId) {
+  const resolved = await resolveLineCustomerCases(lineUserId);
+  if (!resolved.linked) {
+    return sendReplyChecked(event.replyToken, [buildLinkPromptTextMessage()], {
+      correlationId,
+      lineUserId,
+      eventType: event.type,
+      action: 'view_latest_need_link'
+    });
+  }
+  if (!resolved.latest) {
+    return sendReplyChecked(event.replyToken, [withQuickReply({
+      type: 'text',
+      text: 'ยังไม่พบผลตรวจที่พร้อมเปิดได้ เมื่อผลพร้อม ระบบจะส่งให้ทาง LINE อัตโนมัติ'
+    })], {
+      correlationId,
+      lineUserId,
+      eventType: event.type,
+      action: 'view_latest_empty'
+    });
+  }
+
+  const entry = toHistoryEntry(resolved.latest);
+  const feedbackToken = String(resolved.latest?.feedback?.token || '').trim();
+  const flex = buildCaseResultFlexMessage({
+    resultLinkUrl: entry.resultLinkUrl,
+    feedbackUrl: feedbackToken ? buildFeedbackUrl(feedbackToken) : (resolved.latest?.feedback?.url || ''),
+    clientName: entry.clientName,
+    waterScore: entry.waterScore
+  });
+  const result = await sendReplyChecked(event.replyToken, [
+    withQuickReply({ type: 'text', text: 'ผลตรวจล่าสุดของคุณครับ' }),
+    flex
+  ], {
+    correlationId,
+    lineUserId,
+    caseId: resolved.latest?.id || null,
+    eventType: event.type,
+    action: 'view_latest'
+  });
+  return { ...result, caseId: resolved.latest?.id || null };
+}
+
+async function replyHistory(event, lineUserId, correlationId) {
+  const resolved = await resolveLineCustomerCases(lineUserId);
+  if (!resolved.linked) {
+    return sendReplyChecked(event.replyToken, [buildLinkPromptTextMessage()], {
+      correlationId,
+      lineUserId,
+      eventType: event.type,
+      action: 'history_need_link'
+    });
+  }
+  if (!resolved.withReport.length) {
+    return sendReplyChecked(event.replyToken, [withQuickReply({
+      type: 'text',
+      text: 'ยังไม่มีประวัติผลตรวจในระบบ'
+    })], {
+      correlationId,
+      lineUserId,
+      eventType: event.type,
+      action: 'history_empty'
+    });
+  }
+
+  const allWithReport = resolved.withReport;
+  const entries = allWithReport.slice(0, 10).map(toHistoryEntry);
+  const result = await sendReplyChecked(event.replyToken, [
+    withQuickReply({ type: 'text', text: `พบ ${allWithReport.length} รายการผลตรวจ` }),
+    buildScoreHistoryFlexMessage(entries)
+  ], {
+    correlationId,
+    lineUserId,
+    eventType: event.type,
+    action: 'history'
+  });
+  return { ...result, count: allWithReport.length };
+}
+
+async function replyBookAgain(event, lineUserId, correlationId) {
+  return sendReplyChecked(event.replyToken, [buildBookAgainMessage()], {
+    correlationId,
+    lineUserId: lineUserId || '',
+    eventType: event.type,
+    action: 'book_again'
+  });
+}
+
+async function replyUnknownPostback(event, lineUserId, correlationId) {
+  return sendReplyChecked(event.replyToken, [withQuickReply({
+    type: 'text',
+    text: 'ขออภัย กรุณาเลือกเมนูอีกครั้ง'
+  })], {
+    correlationId,
+    lineUserId,
+    eventType: event.type,
+    action: 'postback_unknown'
+  });
+}
+
+async function handleOaIntent(event, intent, lineUserId, correlationId) {
+  if (intent === 'view_latest') return replyViewLatest(event, lineUserId, correlationId);
+  if (intent === 'history') return replyHistory(event, lineUserId, correlationId);
+  if (intent === 'book_again') return replyBookAgain(event, lineUserId, correlationId);
+  return null;
+}
+
 async function handleLineEvent(event) {
   if (!event || !event.type) return { handled: false };
   if (!claimEvent(event)) {
     return { handled: true, action: 'duplicate_ignored', webhookEventId: event.webhookEventId };
   }
 
-  if (event.type === 'message' && event.message?.type === 'text') {
-    const messageText = event.message.text;
-    const token = extractFeedbackToken(messageText);
+  const lineUserId = String(event.source?.userId || '').trim();
+  const correlationId = newCorrelationId('line');
+  const decision = resolveInboundDecision(event);
+  logLineLifecycle('info', 'line_inbound_decision', {
+    correlationId,
+    lineUserId,
+    eventType: event.type,
+    success: true,
+    action: decision.kind,
+    extra: { priority: decision.priority, intent: decision.intent || null }
+  });
+
+  if (decision.kind === 'postback_unknown') {
+    return replyUnknownPostback(event, lineUserId, correlationId);
+  }
+
+  if (decision.kind === 'postback') {
+    return handleOaIntent(event, decision.intent, lineUserId, correlationId);
+  }
+
+  if (decision.kind === 'intent') {
+    return handleOaIntent(event, decision.intent, lineUserId, correlationId);
+  }
+
+  if (decision.kind === 'default') {
+    return sendReplyChecked(event.replyToken, [buildLinkPromptTextMessage()], {
+      correlationId,
+      lineUserId,
+      eventType: event.type,
+      action: 'asked_for_token'
+    });
+  }
+
+  if (decision.kind === 'follow') {
+    return sendReplyChecked(event.replyToken, [buildFollowWelcomeMessage()], {
+      correlationId,
+      lineUserId,
+      eventType: event.type,
+      action: 'follow_prompt'
+    });
+  }
+
+  if (decision.kind === 'feedback_token') {
+    const token = decision.token;
+    const messageText = decision.messageText;
     console.info('[line_token_debug]', {
       id: 'line_token_debug',
       receivedMessageText: messageText,
       parsedToken: token || null,
       messageType: event.message?.type
     });
-    if (!token) {
-      await sendLineReply(event.replyToken, [{
-        type: 'text',
-        text: 'Please send your feedback link token, for example fb-xxxx, to connect LINE with your service case.'
-      }]);
-      return { handled: true, action: 'asked_for_token' };
-    }
 
-    const lineUserId = String(event.source?.userId || '').trim();
     const linked = await linkLineUser(
       token,
       lineUserId,
@@ -172,20 +485,27 @@ async function handleLineEvent(event) {
             : 'ไม่พบรหัส fb-xxxx นี้ กรุณาตรวจสอบและลองอีกครั้ง';
     const replyStartedMs = Date.now();
     const replyStartedAt = new Date(replyStartedMs).toISOString();
-    const replyResult = await sendLineReply(event.replyToken, reusableResultMessage
+    const replyMessages = reusableResultMessage
       ? [
-        { type: 'text', text: 'ผลตรวจของคุณพร้อมแล้วครับ' },
+        withQuickReply({ type: 'text', text: 'ผลตรวจของคุณพร้อมแล้วครับ' }),
         reusableResultMessage
       ]
-      : [{ type: 'text', text: replyText }]);
+      : [withQuickReply({ type: 'text', text: replyText })];
+    const checked = await sendReplyChecked(event.replyToken, replyMessages, {
+      correlationId,
+      lineUserId,
+      caseId: linked.caseId || linked.feedbackToken || token,
+      eventType: event.type,
+      action: 'link_token'
+    });
     console.info('[line_webhook]', {
       caseId: linked.caseId || linked.feedbackToken || token,
       lineUserId,
       replyStartedAt,
       replySentAt: new Date().toISOString(),
       replyDurationMs: Date.now() - replyStartedMs,
-      replyStatus: replyResult.status || '',
-      replyOk: Boolean(replyResult.ok)
+      replyStatus: checked.replyStatus || (checked.replyOk ? 'sent' : 'failed'),
+      replyOk: Boolean(checked.replyOk)
     });
 
     if (linked.linked) {
@@ -216,6 +536,16 @@ async function handleLineEvent(event) {
             lineStatus: result.line?.status || '',
             lineOk: Boolean(result.line?.ok)
           });
+          logLineLifecycle('info', 'line_auto_send', {
+            correlationId,
+            caseId,
+            lineUserId,
+            eventType: 'auto_send',
+            startedMs,
+            success: Boolean(result.line?.ok),
+            action: result.action || 'auto_send',
+            failureReason: result.line?.ok ? null : (result.line?.status || 'send_failed')
+          });
         } catch (error) {
           try {
             await markCaseResultNotificationFailed(caseId, error);
@@ -236,22 +566,32 @@ async function handleLineEvent(event) {
             error: error.message,
             stack: logErrorStack(error)
           });
+          logLineLifecycle('error', 'line_auto_send', {
+            correlationId,
+            caseId,
+            lineUserId,
+            eventType: 'auto_send',
+            startedMs,
+            success: false,
+            failureReason: error.message
+          });
         }
       };
     }
 
-    return { handled: true, action: 'link_token', backgroundTask, ...linked };
+    return {
+      ...linked,
+      handled: true,
+      replyOk: Boolean(checked.replyOk),
+      replyStatus: checked.replyStatus || (checked.replyOk ? 'sent' : 'failed'),
+      correlationId,
+      action: checked.replyOk ? 'link_token' : 'handled_with_reply_failure',
+      intendedAction: 'link_token',
+      backgroundTask
+    };
   }
 
-  if (event.type === 'follow') {
-    await sendLineReply(event.replyToken, [{
-      type: 'text',
-      text: 'Thanks for adding Water Motion. Send your feedback token, for example fb-xxxx, to connect this LINE account.'
-    }]);
-    return { handled: true, action: 'follow_prompt', lineUserId: event.source?.userId || '' };
-  }
-
-  return { handled: false, action: 'ignored', type: event.type };
+  return { handled: false, action: 'ignored', type: event.type, correlationId };
 }
 
 async function handleLineRoute(req, res, urlPath) {

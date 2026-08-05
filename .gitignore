@@ -4,6 +4,7 @@
 node_modules/
 *.log
 data/
+tmp/
 
 # Python
 __pycache__/

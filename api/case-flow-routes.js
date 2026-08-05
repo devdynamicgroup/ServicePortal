@@ -19,6 +19,30 @@ const {
   getClientFeedbackStatus,
   ensureClientFeedbackSchema
 } = require('../services/client-feedback');
+const { fingerprint, withIdempotency, wasReplayed } = require('../services/idempotency-store');
+const { newCorrelationId, logEvent } = require('../services/observability');
+const { publicBaseUrl } = require('../services/url-builder');
+
+const BOOKING_IDEMPOTENCY_TTL_MS = 30 * 1000;
+
+// Derives a dedup key for a booking submission so double-click / page-refresh /
+// browser resubmission of the exact same booking within the TTL window replays
+// the first result instead of creating a second Notion case. An explicit
+// Idempotency-Key header (if a caller ever sends one) always wins; otherwise
+// the key is derived from the fields that identify "the same booking attempt"
+// without requiring any client-side change (M4 audit Critical #1).
+function bookingIdempotencyKey(req, body) {
+  const headerKey = req.headers['idempotency-key'];
+  if (headerKey) return `booking:header:${String(headerKey).trim()}`;
+  return `booking:${fingerprint([
+    body.fullName || '',
+    body.phone || '',
+    body.email || '',
+    body.appointmentDate || '',
+    body.campaignOffer || '',
+    body.launchOffer === true ? 'launch' : ''
+  ])}`;
+}
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -82,10 +106,6 @@ function escapeHtml(value) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-function publicBaseUrl() {
-  return (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.onrender.com').replace(/\/$/, '');
 }
 
 const ROOT_DIR = path.join(__dirname, '..');
@@ -517,14 +537,20 @@ async function handleCaseFlowRoute(req, res, urlPath) {
   if (urlPath === '/api/cases' && req.method === 'POST') {
     try {
       const body = await readJson(req);
-      const result = await createCase(body, {
+      const idempotencyKey = bookingIdempotencyKey(req, body);
+      const correlationId = newCorrelationId('booking');
+      const result = await withIdempotency(idempotencyKey, () => createCase(body, {
         startOnSite: Boolean(body.startOnSite),
         skipMap: Boolean(body.skipMap),
         // Launch-offer / Framer free-water-check bookings set launchOffer:true
         // or send campaignOffer. Explicit campaignOffer always wins in createCase.
         launchOffer: body.launchOffer === true,
-        campaignOffer: body.campaignOffer
-      });
+        campaignOffer: body.campaignOffer,
+        correlationId
+      }), BOOKING_IDEMPOTENCY_TTL_MS);
+      if (wasReplayed(idempotencyKey)) {
+        logEvent('info', 'booking_duplicate_blocked', { correlationId, idempotencyKey });
+      }
       sendJson(res, 201, result);
     } catch (error) {
       sendJson(res, error.statusCode || 502, { ok: false, error: error.message });

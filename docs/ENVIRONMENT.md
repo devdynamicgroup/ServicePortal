@@ -116,6 +116,70 @@ This is **OAuth 2 client** credentials for Google Business Profile — not a ser
 | `NOTION_FEEDBACK_DATABASE_ID` | Feedback / Google reviews Notion DB | Recommended | O | Recommended |
 | `NOTION_FEEDBACK_DATA_SOURCE_ID` | Reviews data source | O | O | O |
 | `NOTION_DEBUG_DATES` | Mapper debug | O | O | O |
+| `NOTION_CUSTOMERS_DATABASE_ID` | Customers identity DB (M8 Customer Domain) | O while flags OFF | O | O until M8 rollout |
+| `NOTION_CUSTOMERS_DATA_SOURCE_ID` | Customers data source override | O | O | O |
+
+### Customer Domain flags (M8 — default OFF)
+
+| Variable | Where used | Required? | Local | Production |
+|----------|------------|-----------|-------|------------|
+| `CUSTOMER_DOMAIN_ENABLED` | `services/customer-domain/flags.js` | O (default `false`) | O | Keep `false` until dual-write milestone |
+| `CUSTOMER_DOMAIN_DUAL_WRITE` | same | O (default `false`) | O | M8.3+ |
+| `CUSTOMER_DOMAIN_READ_LINE` | same | O (default `false`) | O | M8.5 primary Customer LINE read |
+| `CUSTOMER_DOMAIN_READ_LINE_SHADOW` | same | O (default `false`) | O | M8.5 shadow compare (Case authoritative); ignored if `READ_LINE` |
+| `CUSTOMER_DOMAIN_READ_NOTIFY` | same | O (default `false`) | O | M8.6 primary notify destination |
+| `CUSTOMER_DOMAIN_READ_NOTIFY_SHADOW` | same | O (default `false`) | O | M8.6 shadow compare (Case still sends); ignored if `READ_NOTIFY` |
+| `CUSTOMER_DOMAIN_MERGE_ENABLED` | same | O (default `false`) | O | M8.4+ manual merge/rollback only |
+
+> Do **not** enable Customer Domain flags in production until the matching milestone exit criteria pass.  
+> **Flag ownership (permanent):** humans only via env/deploy — see `docs/M8.9_IDENTITY_GOVERNANCE.md`. Repo defaults stay `false`.  
+> **M8.8 rollout:** `docs/M8.8_PHASE_RUNBOOK.md` + `docs/M8.8_GO_NO_GO_CHECKLIST.md`; emergency: `docs/M8.8_ROLLBACK_CARD.md`.  
+> **M8.9 steady state:** `docs/M8.9_OPERATIONS_CADENCE.md` · incidents: `docs/M8.9_IDENTITY_INCIDENT_RUNBOOK.md`.  
+> Gate check (read-only): `node scripts/check-customer-rollout-gates.js`  
+> LINE primary read requires **both** `CUSTOMER_DOMAIN_ENABLED` and `CUSTOMER_DOMAIN_READ_LINE`.  
+> Shadow compare requires **both** `CUSTOMER_DOMAIN_ENABLED` and `CUSTOMER_DOMAIN_READ_LINE_SHADOW` (with `READ_LINE` off).  
+> Notify destination primary requires **both** `CUSTOMER_DOMAIN_ENABLED` and `CUSTOMER_DOMAIN_READ_NOTIFY`.  
+> Notify shadow requires **both** `CUSTOMER_DOMAIN_ENABLED` and `CUSTOMER_DOMAIN_READ_NOTIFY_SHADOW` (with `READ_NOTIFY` off).  
+> Merge execute requires **both** `CUSTOMER_DOMAIN_ENABLED` and `CUSTOMER_DOMAIN_MERGE_ENABLED`.  
+> Schema sync (ops only): `node scripts/sync-notion-customers-schema.js`  
+> Merge ops: `node scripts/run-customer-merge.js detect|enqueue|merge|rollback`  
+> LINE read tests: `node scripts/test-customer-line-read.js`  
+> Notify read tests: `node scripts/test-customer-notify-read.js`  
+> Reconcile ops (M8.7): `node scripts/run-customer-reconcile.js scan|repair|status`  
+> Reconcile tests: `node scripts/test-customer-reconcile.js`
+
+### Care Lifecycle flags (M9.0 — default OFF)
+
+| Variable | Where used | Required? | Local | Production |
+|----------|------------|-----------|-------|------------|
+| `CARE_LIFECYCLE_ENABLED` | `services/care-lifecycle/flags.js` | O (default `false`) | O | Keep false until care rollout |
+| `CARE_LIFECYCLE_SEND` | same | O (default `false`) | O | Requires ENABLED for actual LINE push |
+| `CARE_OUTCOME_TRACKING` | same | O (default `false`) | O | M9.2: write outcome fields back into audit store |
+| `CARE_OUTCOME_REPORT` | same | O (default `false`) | O | M9.2: optional gate for scheduled reports; CLI may still read files |
+| `CARE_REINSPECTION_DAYS` | eligibility | O (default `182`) | O | O |
+| `NOTION_CARE_AUDITS_DATABASE_ID` | optional durable audit | O | O | O (file audit works without it) |
+
+> Care lifecycle is **independent** of `CUSTOMER_DOMAIN_*`. Do not enable SEND in production without dry-run acceptance.
+> **M9.1 Care rollout:** `docs/M9.1_CARE_RUNBOOK.md` + `docs/M9.1_GO_NO_GO_CHECKLIST.md`; emergency: `docs/M9.1_ROLLBACK_CARD.md`; cadence: `docs/M9.1_OPERATIONS_CADENCE.md`.
+> Gate check (read-only): `node scripts/check-care-rollout-gates.js`
+> CLI: `node scripts/run-care-lifecycle.js scan --event=reinspection_6mo --mode=dry-run`
+> SEND ladder: `--limit=10` → `--limit=50` → uncapped (after dry-run ≥7 days + ≥3 scans).
+> **M9.2 outcome reporting (read-only; SEND stays OFF):** `docs/M9.2_OUTCOME_SCHEMA.md`
+> Report CLI: `node scripts/run-care-outcome-report.js` · tests: `node scripts/test-care-outcomes.js`
+> **M9.3 Care governance (docs + read-only tooling; SEND stays OFF):**  
+> `docs/M9.3_CARE_DECISION_RECORDS.md` · `docs/M9.3_POLICY_REVIEW_RUNBOOK.md` · `docs/M9.3_EFFECTIVENESS_GOVERNANCE.md`  
+> Pattern scanner: `node scripts/check-care-patterns.js` · tests: `node scripts/test-care-governance.js`  
+> Policy changes require human-approved CDR; no auto-tuning.
+> **M9.4 Care production rollout package (docs + read-only tooling; flags stay OFF until human go/no-go):**  
+> `docs/M9.4_CARE_PRODUCTION_RUNBOOK.md` · `docs/M9.4_CARE_GO_NO_GO_CHECKLIST.md` · `docs/M9.4_CARE_FIRST_SEND_PLAN.md` · `docs/M9.4_CARE_ROLLBACK_CARD.md`  
+> Readiness: `node scripts/check-care-production-readiness.js` · tests: `node scripts/test-care-production-readiness.js`  
+> Ladder: dry-run → Checkpoint A → SEND → limit 10 (≥24h) → 50 (≥48h, prefer 72h) → uncapped. Outcome flags stay OFF at launch.
+> **M9.5 Care steady-state governance (docs + read-only tooling; never enables SEND):**  
+> `docs/M9.5_CARE_STEADY_STATE_HANDBOOK.md` · `docs/M9.5_CARE_METRICS_OWNERSHIP.md` · `docs/M9.5_CARE_CDR_OPERATIONS.md` · `docs/M9.5_CARE_INCIDENT_OPERATIONS.md`  
+> Steady-state check: `node scripts/check-care-steady-state.js` · tests: `node scripts/test-care-steady-state.js`  
+> After uncapped: humans may enable `CARE_OUTCOME_REPORT` (optional TRACKING) — never auto-enable.
+> Tests: `node scripts/test-care-lifecycle.js`  
+> Schema notes: `docs/M9.0_CARE_AUDIT_SCHEMA.md`
 
 ### LINE
 
@@ -124,7 +188,10 @@ This is **OAuth 2 client** credentials for Google Business Profile — not a ser
 | `LINE_CHANNEL_ID` | LINE routes status | O / R for LINE | O | R if LINE live |
 | `LINE_CHANNEL_SECRET` | Webhook signature | R for webhook | O | R if LINE live |
 | `LINE_CHANNEL_ACCESS_TOKEN` | Send messages | R for send | O | R if LINE live |
+| `LINE_BOOKING_URL` | M6 Book Again / นัดตรวจ URI (default `https://www.water-motion.co`) | O | O | O |
 | `LINE_MOCK_SEND` | Mock outbound LINE | O (`true` local) | Recommended `true` | `false` when live |
+
+Ops probes (no env required): `GET /api/ops/health`, `GET /api/ops/readiness` — read-only, no secrets.
 
 ### Other
 

@@ -6,6 +6,7 @@ const {
 } = require('./client');
 const { findPropertyKey, getPropertyValue } = require('./props');
 const { FIELD_ALIASES, notionPageToJob } = require('./mapper');
+const { withRetry } = require('../retry');
 
 const CASE_FLOW_REQUIREMENTS = {
   line: [
@@ -58,11 +59,11 @@ async function queryAllPages() {
   let startCursor;
 
   do {
-    const response = await notion.dataSources.query({
+    const response = await withRetry(() => notion.dataSources.query({
       data_source_id: dataSourceId,
       start_cursor: startCursor,
       page_size: 100
-    });
+    }));
     pages.push(...(response.results || []));
     startCursor = response.has_more ? response.next_cursor : undefined;
   } while (startCursor);
@@ -155,6 +156,138 @@ async function findClientByReportToken(token) {
     databaseId: process.env.NOTION_DATABASE_ID || '',
     dataSourceId
   };
+}
+
+/** M6/M7: resolve cases bound to a LINE user id (additive; does not replace token finders). */
+async function findClientsByLineUserId(lineUserId, options = {}) {
+  if (!isNotionConfigured()) return [];
+
+  const userId = String(lineUserId || '').trim();
+  if (!userId) return [];
+
+  const notion = getNotionClient();
+  const dataSourceId = await resolveDataSourceId();
+  const { properties } = await getDataSourceSchema();
+  const key = findPropertyKey(properties, FIELD_ALIASES.lineUserId);
+  if (!key) return [];
+
+  const type = properties[key]?.type;
+  const filter = type === 'title'
+    ? { property: key, title: { equals: userId } }
+    : type === 'rich_text'
+      ? { property: key, rich_text: { equals: userId } }
+      : null;
+  if (!filter) {
+    console.warn('[notion_schema_mismatch]', JSON.stringify({
+      ts: new Date().toISOString(),
+      event: 'line_user_id_unsupported_property_type',
+      propertyKey: key,
+      propertyType: type || null,
+      expectedTypes: ['title', 'rich_text'],
+      lineUserId: userId,
+      success: false,
+      failureReason: 'schema_mismatch'
+    }));
+    return [];
+  }
+
+  const limit = Number.isFinite(Number(options.limit)) && Number(options.limit) > 0
+    ? Math.floor(Number(options.limit))
+    : null;
+
+  const resultSentKey = findPropertyKey(properties, FIELD_ALIASES.resultSentAt);
+  const sorts = resultSentKey && properties[resultSentKey]?.type === 'date'
+    ? [{ property: resultSentKey, direction: 'descending' }]
+    : undefined;
+
+  const pages = [];
+  let startCursor;
+  do {
+    const query = {
+      data_source_id: dataSourceId,
+      filter,
+      start_cursor: startCursor,
+      page_size: 100
+    };
+    if (sorts) query.sorts = sorts;
+    const result = await withRetry(() => notion.dataSources.query(query));
+    pages.push(...(result.results || []));
+    startCursor = result.has_more ? result.next_cursor : undefined;
+    if (limit && pages.length >= limit) {
+      break;
+    }
+  } while (startCursor);
+
+  const sliced = limit ? pages.slice(0, limit) : pages;
+  return sliced
+    .filter(page => page.object === 'page' && !page.archived && !page.in_trash)
+    .map((page, index) => notionPageToJob(page, index));
+}
+
+/** M8.5: resolve cases linked to a Customer business id (exact Customer ID; no full DB scan). */
+async function findClientsByCustomerId(customerId, options = {}) {
+  if (!isNotionConfigured()) return [];
+
+  const id = String(customerId || '').trim();
+  if (!id) return [];
+
+  const notion = getNotionClient();
+  const dataSourceId = await resolveDataSourceId();
+  const { properties } = await getDataSourceSchema();
+  const key = findPropertyKey(properties, FIELD_ALIASES.customerId);
+  if (!key) return [];
+
+  const type = properties[key]?.type;
+  const filter = type === 'title'
+    ? { property: key, title: { equals: id } }
+    : type === 'rich_text'
+      ? { property: key, rich_text: { equals: id } }
+      : null;
+  if (!filter) {
+    console.warn('[notion_schema_mismatch]', JSON.stringify({
+      ts: new Date().toISOString(),
+      event: 'customer_id_unsupported_property_type',
+      propertyKey: key,
+      propertyType: type || null,
+      expectedTypes: ['title', 'rich_text'],
+      customerId: id,
+      success: false,
+      failureReason: 'schema_mismatch'
+    }));
+    return [];
+  }
+
+  const limit = Number.isFinite(Number(options.limit)) && Number(options.limit) > 0
+    ? Math.floor(Number(options.limit))
+    : null;
+
+  const resultSentKey = findPropertyKey(properties, FIELD_ALIASES.resultSentAt);
+  const sorts = resultSentKey && properties[resultSentKey]?.type === 'date'
+    ? [{ property: resultSentKey, direction: 'descending' }]
+    : undefined;
+
+  const pages = [];
+  let startCursor;
+  do {
+    const query = {
+      data_source_id: dataSourceId,
+      filter,
+      start_cursor: startCursor,
+      page_size: 100
+    };
+    if (sorts) query.sorts = sorts;
+    const result = await withRetry(() => notion.dataSources.query(query));
+    pages.push(...(result.results || []));
+    startCursor = result.has_more ? result.next_cursor : undefined;
+    if (limit && pages.length >= limit) {
+      break;
+    }
+  } while (startCursor);
+
+  const sliced = limit ? pages.slice(0, limit) : pages;
+  return sliced
+    .filter(page => page.object === 'page' && !page.archived && !page.in_trash)
+    .map((page, index) => notionPageToJob(page, index));
 }
 
 async function getClient(pageId) {
@@ -257,6 +390,9 @@ function buildNotionProperties(payload, schemaProperties = {}) {
   setText(FIELD_ALIASES.driveLatestFileUrl, payload.driveLatestFileUrl);
   setText(FIELD_ALIASES.driveLatestCategory, payload.driveLatestCategory);
   setText(FIELD_ALIASES.driveLatestPurpose, payload.driveLatestPurpose);
+  // M8.2 additive link fields (migration / future dual-write only)
+  setText(FIELD_ALIASES.customerId, payload.customerId);
+  setText(FIELD_ALIASES.customerPageId, payload.customerPageId);
 
   return properties;
 }
@@ -270,10 +406,10 @@ async function createClient(payload = {}) {
   const { dataSourceId, properties: schema } = await getDataSourceSchema();
   const properties = buildNotionProperties(payload, schema);
 
-  const page = await notion.pages.create({
+  const page = await withRetry(() => notion.pages.create({
     parent: { type: 'data_source_id', data_source_id: dataSourceId },
     properties
-  });
+  }));
 
   return notionPageToJob(page);
 }
@@ -287,10 +423,10 @@ async function updateClient(pageId, payload = {}) {
   const { properties: schema } = await getDataSourceSchema();
   const properties = buildNotionProperties(payload, schema);
 
-  const page = await notion.pages.update({
+  const page = await withRetry(() => notion.pages.update({
     page_id: pageId,
     properties
-  });
+  }));
 
   return notionPageToJob(page);
 }
@@ -360,6 +496,8 @@ module.exports = {
   updateClient,
   findClientByFeedbackToken,
   findClientByReportToken,
+  findClientsByLineUserId,
+  findClientsByCustomerId,
   getIntegrationStatus,
   getCaseFlowDatasetStatus,
   CASE_FLOW_REQUIREMENTS

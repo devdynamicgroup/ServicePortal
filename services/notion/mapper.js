@@ -54,7 +54,10 @@ const FIELD_ALIASES = {
   appointmentDate: ['Created 1', 'Next Follow-up', 'Appointment Date', 'Scheduled Date', 'appointmentDate'],
   appointmentStart: ['Appointment Start', 'Time Start', 'Start Time', 'appointmentStart'],
   appointmentEnd: ['Appointment End', 'Time End', 'End Time', 'appointmentEnd'],
-  campaignOffer: ['Campaign Offer', 'campaignOffer']
+  campaignOffer: ['Campaign Offer', 'campaignOffer'],
+  // M8.2 additive Case → Customer link (do not rename; optional until backfill)
+  customerId: ['Customer ID', 'CustomerId', 'customerId'],
+  customerPageId: ['Customer Page ID', 'Customer Notion ID', 'customerPageId']
 };
 
 function splitClientName(fullName) {
@@ -257,6 +260,10 @@ function notionPageToJob(page, index) {
     meta: [propertyType, propertyAge, stage || 'Notion'].filter(Boolean).join(' - '),
     notionSource: true,
     campaignOffer,
+    customer: {
+      id: getPropertyValue(properties, FIELD_ALIASES.customerId, '') || '',
+      pageId: getPropertyValue(properties, FIELD_ALIASES.customerPageId, '') || ''
+    },
     line: {
       displayName: lineDisplayName || '',
       userId: lineUserId || '',

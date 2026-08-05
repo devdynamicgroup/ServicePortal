@@ -1,12 +1,10 @@
-const { getAllClients, findClientByReportToken, getClient } = require('../services/notion/clients');
-const { getDataSourceSchema } = require('../services/notion/client');
-const { findPropertyKey } = require('../services/notion/props');
-const { FIELD_ALIASES } = require('../services/notion/mapper');
+const { findClientByReportToken, getClient } = require('../services/notion/clients');
 const {
   renderShareCardPng,
   cardOptionsFromJob,
   resolveFormat
 } = require('../services/score-share-card');
+const { getOfferStatus } = require('../services/water-check-offer-service');
 
 // Public, read-only endpoints meant to be called directly from the Framer
 // marketing site (browser-side fetch). Scoped narrowly on purpose:
@@ -46,64 +44,6 @@ function sendJson(res, status, payload) {
     'Cache-Control': 'no-store'
   });
   res.end(JSON.stringify(payload));
-}
-
-// Short in-memory cache so every Framer page load doesn't hit the Notion API
-// directly (Notion has real rate limits — see architecture notes). Good
-// enough for a single-instance deployment; revisit if this ever runs as
-// more than one process.
-const OFFER_CACHE_TTL_MS = 60 * 1000;
-let offerCache = { value: null, expiresAt: 0 };
-
-function getTotalSlots() {
-  const parsed = Number(process.env.WATER_CHECK_OFFER_TOTAL_SLOTS);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 100;
-}
-
-function getCampaignOfferName() {
-  const fromEnv = String(process.env.WATER_CHECK_CAMPAIGN_OFFER || '').trim();
-  return fromEnv || 'Launch Offer 2026';
-}
-
-async function schemaHasCampaignOfferProperty() {
-  try {
-    const { properties } = await getDataSourceSchema();
-    return Boolean(findPropertyKey(properties, FIELD_ALIASES.campaignOffer));
-  } catch (error) {
-    console.warn('[water-check-offer] could not read Notion schema', error.message);
-    return false;
-  }
-}
-
-function countCampaignOfferUsage(jobs, offerName) {
-  const target = String(offerName || '').trim();
-  if (!target) return 0;
-  return jobs.filter(job => String(job.campaignOffer || '').trim() === target).length;
-}
-
-async function getWaterCheckOfferStatus() {
-  const now = Date.now();
-  if (offerCache.value && offerCache.expiresAt > now) {
-    return offerCache.value;
-  }
-
-  const jobs = await getAllClients();
-  const totalSlots = getTotalSlots();
-  const offerName = getCampaignOfferName();
-  const hasCampaignProperty = await schemaHasCampaignOfferProperty();
-  // Before the "Campaign Offer" select property exists in Notion, no case can
-  // possibly be tagged as having used the offer yet — treat usage as 0, not
-  // "every case ever created" (jobs.length), which wrongly counted unrelated
-  // historical jobs against the launch-offer slot count.
-  const rawUsed = hasCampaignProperty
-    ? countCampaignOfferUsage(jobs, offerName)
-    : 0;
-  const used = Math.min(rawUsed, totalSlots);
-  const remaining = Math.max(0, totalSlots - used);
-
-  const value = { totalSlots, used, remaining };
-  offerCache = { value, expiresAt: now + OFFER_CACHE_TTL_MS };
-  return value;
 }
 
 function sendPng(res, buffer, cacheSeconds = 300) {
@@ -185,7 +125,7 @@ async function handlePublicRoute(req, res, urlPath, urlObj) {
 
   if (urlPath === '/api/public/water-check-offer' && req.method === 'GET') {
     try {
-      const status = await getWaterCheckOfferStatus();
+      const status = await getOfferStatus();
       sendJson(res, 200, { ok: true, ...status });
     } catch (error) {
       console.warn('GET /api/public/water-check-offer failed', error.message);
