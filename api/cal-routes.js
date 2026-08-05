@@ -1,7 +1,12 @@
 /**
- * Cal.com webhook routes — Phase 1 receive-only.
- * Accepts events, verifies signature (when secret set), logs, placeholder dedupe.
- * Does not call createCase(), write Notion, or map customer fields.
+ * Cal.com webhook routes.
+ *
+ * BOOKING_CREATED: verified, deduped, and processed by the Adapter
+ * (services/cal-booking-adapter.js) into a real Case via the existing,
+ * unmodified createCase(). Scope is BOOKING_CREATED only — every other
+ * trigger event (including BOOKING_CANCELLED / BOOKING_RESCHEDULED) is
+ * still received, verified, and acknowledged, but not processed — no
+ * handler exists for them by design (out of current scope).
  */
 const crypto = require('crypto');
 const {
@@ -14,6 +19,7 @@ const {
 } = require('../services/cal-webhook');
 const { noteCalDelivery, calDedupePlaceholderSize } = require('../services/cal-dedupe-placeholder');
 const { newCorrelationId, logEvent } = require('../services/observability');
+const { processBookingCreated } = require('../services/cal-booking-adapter');
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -52,11 +58,12 @@ async function handleCalRoute(req, res, urlPath) {
     sendJson(res, 200, {
       ok: true,
       phase: 1,
-      mode: 'receive_only',
+      mode: 'booking_created_active',
       hasWebhookSecret: isCalWebhookConfigured(),
       signatureHeader: SIGNATURE_HEADER,
       dedupePlaceholderEntries: calDedupePlaceholderSize(),
-      createsCases: false,
+      createsCases: true,
+      createsCasesFor: ['BOOKING_CREATED'],
       webhookUrl: `${(process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'http://127.0.0.1:3040').replace(/\/$/, '')}/api/cal/webhook`
     });
     return true;
@@ -112,45 +119,64 @@ async function handleCalRoute(req, res, urlPath) {
 
     logEvent('info', 'cal_webhook_received', {
       correlationId,
-      phase: 1,
-      mode: 'receive_only',
       triggerEvent: envelope.triggerEvent,
       bookingUidPresent: envelope.bookingUidPresent,
       hasInnerPayload: envelope.hasInnerPayload,
       topLevelKeys: envelope.topLevelKeys,
       dedupeKeyFingerprint: cryptoSafeFingerprint(dedupeKey),
       duplicate: Boolean(dedupe.seen),
-      dedupePlaceholder: true,
-      createsCases: false
+      dedupePlaceholder: true
     });
 
-    // CAL-G01 evidence capture (temporary, Phase 2 scope only). Logs the
-    // complete, unredacted parsed payload for exactly one real BOOKING_CREATED
-    // delivery so the true Cal.com JSON shape can be documented. Read-only:
-    // no Case/Notion/business logic is touched here. Remove once
-    // docs/CALCOM_G01_RUNTIME_CAPTURE.md has been produced from this evidence.
-    if (envelope.triggerEvent === 'BOOKING_CREATED') {
-      console.info('[cal_g01_capture]', JSON.stringify({
+    // Scope: BOOKING_CREATED only. Every other trigger event (including
+    // BOOKING_CANCELLED / BOOKING_RESCHEDULED) is received, verified, and
+    // acknowledged above, but intentionally has no handler — out of scope
+    // by design, not an oversight.
+    if (envelope.triggerEvent !== 'BOOKING_CREATED') {
+      sendJson(res, 200, {
+        ok: true,
+        received: true,
+        processed: false,
+        duplicate: Boolean(dedupe.seen),
         correlationId,
-        capturedAt: new Date().toISOString(),
-        contentType: req.headers['content-type'] || null,
-        signatureHeaderPresent: Boolean(signature),
-        signatureHeaderValue: signature || null,
-        bodyLength: rawBody.length,
-        rawBody: payload
-      }));
+        triggerEvent: envelope.triggerEvent,
+        createsCases: false,
+        note: 'Received and acknowledged. No handler for this trigger event in current scope.'
+      });
+      return true;
     }
 
-    sendJson(res, 200, {
-      ok: true,
-      phase: 1,
-      mode: 'receive_only',
-      received: true,
-      duplicate: Boolean(dedupe.seen),
-      correlationId,
-      triggerEvent: envelope.triggerEvent,
-      createsCases: false
-    });
+    try {
+      const outcome = await processBookingCreated(payload, correlationId);
+      sendJson(res, 200, {
+        ok: true,
+        received: true,
+        processed: true,
+        duplicate: Boolean(outcome.idempotent),
+        correlationId,
+        triggerEvent: envelope.triggerEvent,
+        createsCases: true,
+        caseCreated: !outcome.idempotent,
+        caseId: outcome.case?.notionId || null,
+        calBookingId: outcome.calBookingId
+      });
+    } catch (error) {
+      const statusCode = error.statusCode || 502;
+      logEvent(statusCode >= 500 ? 'error' : 'warn', 'cal_adapter_failed', {
+        correlationId,
+        triggerEvent: envelope.triggerEvent,
+        statusCode,
+        error: error.message
+      });
+      sendJson(res, statusCode, {
+        ok: false,
+        received: true,
+        processed: false,
+        correlationId,
+        triggerEvent: envelope.triggerEvent,
+        error: error.message
+      });
+    }
     return true;
   }
 

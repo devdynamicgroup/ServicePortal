@@ -57,7 +57,11 @@ const FIELD_ALIASES = {
   campaignOffer: ['Campaign Offer', 'campaignOffer'],
   // M8.2 additive Case → Customer link (do not rename; optional until backfill)
   customerId: ['Customer ID', 'CustomerId', 'customerId'],
-  customerPageId: ['Customer Page ID', 'Customer Notion ID', 'customerPageId']
+  customerPageId: ['Customer Page ID', 'Customer Notion ID', 'customerPageId'],
+  // Phase 4 — Cal.com correlation key (CAL-G02, closed decision). Written once
+  // at create, immutable thereafter. Primary Cal↔Case correlation; exact-match
+  // lookup only, never fuzzy.
+  calBookingId: ['Cal Booking ID', 'calBookingId']
 };
 
 function splitClientName(fullName) {
@@ -260,6 +264,7 @@ function notionPageToJob(page, index) {
     meta: [propertyType, propertyAge, stage || 'Notion'].filter(Boolean).join(' - '),
     notionSource: true,
     campaignOffer,
+    calBookingId: getPropertyValue(properties, FIELD_ALIASES.calBookingId) || '',
     customer: {
       id: getPropertyValue(properties, FIELD_ALIASES.customerId, '') || '',
       pageId: getPropertyValue(properties, FIELD_ALIASES.customerPageId, '') || ''

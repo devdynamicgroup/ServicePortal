@@ -49,7 +49,9 @@ const PROPERTY_DEFINITIONS = [
   { key: 'lastNotificationError', name: 'Last Notification Error', schema: { rich_text: {} } },
   // M8.2 additive Case → Customer link (approved; does not rename existing props)
   { key: 'customerId', name: 'Customer ID', schema: { rich_text: {} } },
-  { key: 'customerPageId', name: 'Customer Page ID', schema: { rich_text: {} } }
+  { key: 'customerPageId', name: 'Customer Page ID', schema: { rich_text: {} } },
+  // Phase 4 — Cal.com correlation key (CAL-G02, closed decision)
+  { key: 'calBookingId', name: 'Cal Booking ID', schema: { rich_text: {} } }
 ];
 
 function selectSchema(key) {

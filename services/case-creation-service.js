@@ -24,7 +24,8 @@ const CUSTOMER_INPUT_FIELDS = Object.freeze([
   'appointmentDate',
   'appointmentStart',
   'appointmentEnd',
-  'campaignOffer'
+  'campaignOffer',
+  'calBookingId'
 ]);
 
 const SYSTEM_GENERATED_FIELDS = Object.freeze([

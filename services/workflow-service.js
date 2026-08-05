@@ -650,6 +650,7 @@ module.exports = {
   WORKFLOW_STATES,
   stateAtLeast,
   canTransition,
+  withCaseLock,
   linkLineUser,
   startCase,
   closeCase,

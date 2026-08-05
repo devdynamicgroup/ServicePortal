@@ -158,6 +158,42 @@ async function findClientByReportToken(token) {
   };
 }
 
+/**
+ * Phase 4 — Cal.com dedupe lookup (CAL-G04, closed design: durable
+ * calBookingId lookup against the live Cases DB, no fuzzy match). Exact-match
+ * only. Returns null if no Case has been created for this calBookingId yet.
+ */
+async function findClientByCalBookingId(calBookingId) {
+  if (!isNotionConfigured()) return null;
+
+  const normalized = String(calBookingId || '').trim();
+  if (!normalized) return null;
+
+  const notion = getNotionClient();
+  const dataSourceId = await resolveDataSourceId();
+  const { properties } = await getDataSourceSchema();
+  const key = findPropertyKey(properties, FIELD_ALIASES.calBookingId);
+  if (!key) return null;
+
+  const type = properties[key]?.type;
+  const filter = type === 'title'
+    ? { property: key, title: { equals: normalized } }
+    : type === 'rich_text'
+      ? { property: key, rich_text: { equals: normalized } }
+      : null;
+  if (!filter) return null;
+
+  const result = await withRetry(() => notion.dataSources.query({
+    data_source_id: dataSourceId,
+    filter,
+    page_size: 1
+  }));
+  const page = result.results?.[0];
+  if (!page) return null;
+
+  return notionPageToJob(page);
+}
+
 /** M6/M7: resolve cases bound to a LINE user id (additive; does not replace token finders). */
 async function findClientsByLineUserId(lineUserId, options = {}) {
   if (!isNotionConfigured()) return [];
@@ -393,6 +429,9 @@ function buildNotionProperties(payload, schemaProperties = {}) {
   // M8.2 additive link fields (migration / future dual-write only)
   setText(FIELD_ALIASES.customerId, payload.customerId);
   setText(FIELD_ALIASES.customerPageId, payload.customerPageId);
+  // Phase 4 — Cal.com correlation key (CAL-G02). Written once at create by
+  // the Cal adapter; no other caller sets this.
+  setText(FIELD_ALIASES.calBookingId, payload.calBookingId);
 
   return properties;
 }
@@ -496,6 +535,7 @@ module.exports = {
   updateClient,
   findClientByFeedbackToken,
   findClientByReportToken,
+  findClientByCalBookingId,
   findClientsByLineUserId,
   findClientsByCustomerId,
   getIntegrationStatus,
