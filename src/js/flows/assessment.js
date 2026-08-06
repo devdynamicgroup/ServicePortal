@@ -187,6 +187,139 @@ function completeSub(checkId, returnScreen) {
   renderAssessList();
 }
 
+/** Essential assessment tasks; Full package also requires pressure + infra. */
+function requiredAssessmentTaskKeys(pkg = S.pkg) {
+  const keys = ['tapphoto', 'visual', 'meter', 'chlorine'];
+  if (pkg === 'full') keys.push('pressure', 'infra');
+  return keys;
+}
+
+/**
+ * Validate assessment completeness before Complete.
+ * On failure: toast only — no redirect, no score publish, no close, no LINE.
+ */
+function validateAssessmentForComplete({ showErrors = true } = {}) {
+  ensureTapData();
+  const required = requiredAssessmentTaskKeys();
+  const missingTasks = [];
+  (S.tapData || []).forEach((tap, index) => {
+    const name = (S.taps && S.taps[index]) || `Tap ${index + 1}`;
+    required.forEach(key => {
+      if (!tap?.tasks?.[key]) missingTasks.push(`${name} · ${key}`);
+    });
+  });
+
+  const readiness = typeof getScoreDataReadiness === 'function'
+    ? getScoreDataReadiness(S.activeJob)
+    : { ready: false, missing: [], present: {} };
+  const readings = typeof resolveScoreReadings === 'function'
+    ? resolveScoreReadings(S.activeJob)
+    : (readiness.present || {});
+  const score = typeof computeScoreFromReadings === 'function'
+    ? computeScoreFromReadings(readings)
+    : null;
+
+  const valid = missingTasks.length === 0
+    && readiness.ready === true
+    && Number.isFinite(Number(score));
+
+  if (!valid && showErrors) {
+    if (missingTasks.length) {
+      showToast(
+        typeof t === 'function' ? t('assess.err.tasks') : 'Complete all required assessment tasks first'
+      );
+    } else if (readiness.ocrBusy) {
+      showToast(
+        S.lang === 'th' ? 'กำลังอ่านค่าจากภาพ กรุณารอสักครู่' : 'Still reading meter image — please wait'
+      );
+    } else {
+      const missing = (readiness.missing || []).join(', ');
+      const base = typeof t === 'function' ? t('assess.err.score') : 'Water Score cannot be calculated yet';
+      showToast(missing ? `${base} (${missing})` : base);
+    }
+  }
+
+  return {
+    valid,
+    missingTasks,
+    missingReadings: readiness.missing || [],
+    score: Number.isFinite(Number(score)) ? Number(score) : null,
+    readiness
+  };
+}
+
+/**
+ * Assessment Complete entry point.
+ * Validates assessment only, then reuses shared production completion
+ * (publishScoreBeforeClose → POST /close → closeCase report + LINE).
+ * Does not mint report tokens or send LINE itself.
+ */
+async function completeAssessment() {
+  // Ignore re-entry while validation → sync → finalize is in flight.
+  if (completeAssessment._inFlight) return;
+
+  if (!S.activeJob) {
+    showToast(S.lang === 'th' ? 'ไม่พบงานที่เปิดอยู่' : 'No active job');
+    return;
+  }
+
+  completeAssessment._inFlight = true;
+  try {
+    if (typeof commitManualCaseIfNeeded === 'function') commitManualCaseIfNeeded();
+    saveActiveJobState?.();
+
+    const check = validateAssessmentForComplete({ showErrors: true });
+    if (!check.valid) {
+      return;
+    }
+
+    const job = S.activeJob;
+
+    if (typeof ensureCaseSyncedToNotion === 'function') {
+      const synced = await ensureCaseSyncedToNotion(job);
+      if (!synced?.ok && !job.notionId) {
+        showToast(
+          S.lang === 'th'
+            ? 'ซิงค์เคสไม่สำเร็จ กรุณา Save Draft แล้วลองใหม่'
+            : 'Could not sync case — Save Draft, then try again'
+        );
+        return;
+      }
+    }
+
+    // Score value only — workflow steps commit after finalize succeeds (below).
+    S.scoreVal = check.score;
+
+    if (typeof finalizeCaseCompletion !== 'function') {
+      showToast(S.lang === 'th' ? 'ปิดงานไม่สำเร็จ' : 'Could not complete assessment');
+      return;
+    }
+
+    try {
+      await finalizeCaseCompletion(job, {
+        buttonSelector: '#s-assess .foot .btn-primary',
+        busyLabel: S.lang === 'th' ? 'กำลังปิดงาน…' : 'Completing…'
+      });
+      // Local workflow commit only after score + close succeeded.
+      // finalize already cleared activeJob; write draft on the closed job record.
+      S.stepsDone = S.stepsDone || {};
+      S.stepsDone.assess = true;
+      S.stepsDone.score = true;
+      if (job.draft) {
+        job.draft.stepsDone = { ...(job.draft.stepsDone || {}), assess: true, score: true };
+      }
+      if (typeof persistJobs === 'function') persistJobs();
+    } catch (error) {
+      console.warn('completeAssessment failed', error);
+      showToast(error?.message || (S.lang === 'th' ? 'ปิดงานไม่สำเร็จ' : 'Could not complete assessment'));
+      // Stay on Assessment — no redirect on score/close failure.
+    }
+  } finally {
+    completeAssessment._inFlight = false;
+  }
+}
+completeAssessment._inFlight = false;
+
 function selSeg(el, group) {
   el.closest('.seg').querySelectorAll('.seg-opt').forEach(o => o.classList.remove('sel'));
   el.classList.add('sel');
@@ -504,6 +637,7 @@ async function detectMeterReadingsFromImage(photoSrc) {
         'Content-Type': 'application/json',
         Accept: 'application/json'
       },
+      credentials: 'same-origin',
       cache: 'no-store',
       body: JSON.stringify({
         image_url: imageUrl,
@@ -610,6 +744,7 @@ async function detectChlorineFromImage(photoSrc) {
         'Content-Type': 'application/json',
         Accept: 'application/json'
       },
+      credentials: 'same-origin',
       cache: 'no-store',
       body: JSON.stringify({
         image_url: imageUrl,
