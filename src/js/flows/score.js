@@ -387,8 +387,12 @@ function canDisplayScoreNumber(readiness, job = S.activeJob) {
 
 function renderScoreStatusBar(wq, { loading = false } = {}) {
   const bar = document.getElementById('score-status-bar');
-  const fill = document.getElementById('score-progress-fill');
   const knob = document.getElementById('score-progress-knob');
+  const segments = [
+    { from: 0, to: 50, el: document.getElementById('score-seg-fill-0') },
+    { from: 50, to: 80, el: document.getElementById('score-seg-fill-1') },
+    { from: 80, to: 100, el: document.getElementById('score-seg-fill-2') }
+  ];
   if (bar) {
     bar.classList.toggle('is-loading', loading);
     bar.setAttribute(
@@ -399,12 +403,17 @@ function renderScoreStatusBar(wq, { loading = false } = {}) {
     );
   }
   if (loading) {
-    if (fill) fill.style.width = '0%';
+    segments.forEach(seg => { if (seg.el) seg.el.style.width = '0%'; });
     if (knob) knob.style.left = '0%';
     return;
   }
   const score = Math.max(0, Math.min(100, Number(wq) || 0));
-  if (fill) fill.style.width = `${score}%`;
+  segments.forEach(seg => {
+    if (!seg.el) return;
+    const span = seg.to - seg.from;
+    const filled = Math.max(0, Math.min(span, score - seg.from));
+    seg.el.style.width = `${(filled / span) * 100}%`;
+  });
   if (knob) knob.style.left = `${score}%`;
 }
 
@@ -1217,6 +1226,7 @@ async function shareScore() {
     const response = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/score`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ score: Number(S.scoreVal) })
     });
     const result = await response.json();
@@ -1245,5 +1255,5 @@ function completeScore() {
   S.stepsDone.score = true;
   saveActiveJobState();
   renderJobSteps();
-  goScreen('s-job');
+  goScreen('s-dash');
 }

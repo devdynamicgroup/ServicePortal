@@ -146,5 +146,5 @@ function completePayment() {
   S.stepsDone.payment = true;
   if (typeof saveActiveJobState === 'function') saveActiveJobState();
   renderJobSteps();
-  goScreen('s-job');
+  goScreen('s-dash');
 }

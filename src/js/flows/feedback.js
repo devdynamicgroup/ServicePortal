@@ -66,6 +66,6 @@ function completeFeedback() {
     }
   }
 
-  if (S.screen === 's-feedback') goScreen('s-job');
+  goScreen('s-dash');
   showToast(typeof t === 'function' ? t('fb.saved') : 'Feedback saved');
 }

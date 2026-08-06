@@ -107,6 +107,7 @@ function completePreassess() {
     fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify(payload)
     }).then(async (response) => {
       const data = await response.json().catch(() => ({}));
@@ -126,7 +127,7 @@ function completePreassess() {
   }
 
   renderJobSteps();
-  goScreen('s-job');
+  goScreen('s-dash');
   if (typeof ensureCaseSyncedToNotion === 'function') {
     ensureCaseSyncedToNotion(S.activeJob).then((synced) => {
       if (synced?.ok && typeof syncJobProfileToNotion === 'function') {

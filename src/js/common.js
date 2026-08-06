@@ -81,6 +81,7 @@ async function completeJob() {
   const missing = missingJobSteps();
   if (missing.length) {
     showToast(S.lang === 'th' ? 'กรุณาทำทุกขั้นตอนให้ครบก่อน' : 'Complete all steps first');
+    goScreen('s-dash');
     return;
   }
 
