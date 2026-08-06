@@ -44,6 +44,13 @@ function planToAuditFields(plan, status, extras = {}) {
   };
 }
 
+function auditExtras(options, extras = {}) {
+  return {
+    triggerSource: options.triggerSource || 'cli',
+    ...extras
+  };
+}
+
 /**
  * Scan Cases and produce dry-run / planned audits (no LINE unless mode=write + flags).
  *
@@ -110,7 +117,7 @@ async function runCareLifecycle(options = {}) {
     if (plan.status === CARE_AUDIT_STATUS.SKIPPED) {
       skipped += 1;
       const recorded = await recordCareAudit(
-        planToAuditFields(plan, CARE_AUDIT_STATUS.SKIPPED),
+        planToAuditFields(plan, CARE_AUDIT_STATUS.SKIPPED, auditExtras(options)),
         { dir, writeNotion: false }
       );
       results.push({
@@ -128,7 +135,7 @@ async function runCareLifecycle(options = {}) {
       dryRun += 1;
       planned += 1;
       const recorded = await recordCareAudit(
-        planToAuditFields(plan, CARE_AUDIT_STATUS.DRY_RUN),
+        planToAuditFields(plan, CARE_AUDIT_STATUS.DRY_RUN, auditExtras(options)),
         { dir, writeNotion: Boolean(options.writeNotion) }
       );
       results.push({
@@ -146,7 +153,7 @@ async function runCareLifecycle(options = {}) {
     // write/send
     planned += 1;
     await recordCareAudit(
-      planToAuditFields(plan, CARE_AUDIT_STATUS.SENDING),
+      planToAuditFields(plan, CARE_AUDIT_STATUS.SENDING, auditExtras(options)),
       { dir, writeNotion: Boolean(options.writeNotion) }
     );
 
@@ -157,9 +164,9 @@ async function runCareLifecycle(options = {}) {
     if (lineResult.ok) {
       sent += 1;
       const recorded = await recordCareAudit(
-        planToAuditFields(plan, CARE_AUDIT_STATUS.SENT, {
+        planToAuditFields(plan, CARE_AUDIT_STATUS.SENT, auditExtras(options, {
           sentAt: new Date().toISOString()
-        }),
+        })),
         { dir, writeNotion: Boolean(options.writeNotion) }
       );
       results.push({
@@ -173,9 +180,9 @@ async function runCareLifecycle(options = {}) {
     } else {
       failed += 1;
       const recorded = await recordCareAudit(
-        planToAuditFields(plan, CARE_AUDIT_STATUS.FAILED, {
+        planToAuditFields(plan, CARE_AUDIT_STATUS.FAILED, auditExtras(options, {
           failureReason: lineResult.error || lineResult.status || 'send_failed'
-        }),
+        })),
         { dir, writeNotion: Boolean(options.writeNotion) }
       );
       results.push({
@@ -217,5 +224,6 @@ async function runCareLifecycle(options = {}) {
 module.exports = {
   runCareLifecycle,
   createRunId,
-  planToAuditFields
+  planToAuditFields,
+  auditExtras
 };

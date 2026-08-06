@@ -154,12 +154,18 @@ This is **OAuth 2 client** credentials for Google Business Profile — not a ser
 |----------|------------|-----------|-------|------------|
 | `CARE_LIFECYCLE_ENABLED` | `services/care-lifecycle/flags.js` | O (default `false`) | O | Keep false until care rollout |
 | `CARE_LIFECYCLE_SEND` | same | O (default `false`) | O | Requires ENABLED for actual LINE push |
+| `CARE_LIFECYCLE_SCHEDULER_ENABLED` | `services/care-lifecycle-scheduler.js` | O (default `false`) | O | In-process interval; no-op unless ENABLED also true |
+| `CARE_LIFECYCLE_SCHEDULER_RUN_ON_START` | same | O (default `false`) | O | If true, first scan ~15s after listen |
+| `CARE_LIFECYCLE_SCAN_INTERVAL_HOURS` | same | O (default `24`) | O | Scheduler cadence |
+| `CARE_LIFECYCLE_SCAN_LIMIT` | same | O | O | Optional cap per scan (empty = all Cases) |
 | `CARE_OUTCOME_TRACKING` | same | O (default `false`) | O | M9.2: write outcome fields back into audit store |
 | `CARE_OUTCOME_REPORT` | same | O (default `false`) | O | M9.2: optional gate for scheduled reports; CLI may still read files |
 | `CARE_REINSPECTION_DAYS` | eligibility | O (default `182`) | O | O |
 | `NOTION_CARE_AUDITS_DATABASE_ID` | optional durable audit | O | O | O (file audit works without it) |
 
 > Care lifecycle is **independent** of `CUSTOMER_DOMAIN_*`. Do not enable SEND in production without dry-run acceptance.
+> Scheduler: when `SCHEDULER_ENABLED` + `ENABLED` and `SEND=false` → dry-run only. Write/send requires `SEND=true` (Checkpoint A first).
+> Ops visibility: `GET /api/ops/health` → `careLifecycle` (flags + scheduler status). CLI still works: `node scripts/run-care-lifecycle.js`.
 > **M9.1 Care rollout:** `docs/M9.1_CARE_RUNBOOK.md` + `docs/M9.1_GO_NO_GO_CHECKLIST.md`; emergency: `docs/M9.1_ROLLBACK_CARD.md`; cadence: `docs/M9.1_OPERATIONS_CADENCE.md`.
 > Gate check (read-only): `node scripts/check-care-rollout-gates.js`
 > CLI: `node scripts/run-care-lifecycle.js scan --event=reinspection_6mo --mode=dry-run`

@@ -85,6 +85,7 @@ const { handleGoogleDriveOAuthRoute } = require('./api/google-drive-oauth-routes
 const { handleOcrProxyRoute } = require('./api/ocr-proxy-routes');
 const { handlePublicRoute } = require('./api/public-routes');
 const { startGoogleReviewScheduler } = require('./services/google-review-scheduler');
+const { startCareLifecycleScheduler } = require('./services/care-lifecycle-scheduler');
 const { getDriveStatus } = require('./services/google-drive');
 const { validateProductionConfig } = require('./services/config-validation');
 const { registerCustomerDomain } = require('./services/customer-domain');
@@ -416,6 +417,7 @@ function listen(nextPort) {
   server.listen(nextPort, bindHost, () => {
     console.log(`Water Motion app running at http://${bindHost}:${nextPort}`);
     startGoogleReviewScheduler();
+    startCareLifecycleScheduler();
   });
 }
 

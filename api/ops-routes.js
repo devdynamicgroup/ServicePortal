@@ -5,6 +5,12 @@ const {
   getCustomerDomainFlags,
   isCustomersDbConfigured
 } = require('../services/customer-domain');
+const {
+  getCareLifecycleFlags,
+  getCareReinspectionDays,
+  isCareAuditsDbConfigured
+} = require('../services/care-lifecycle');
+const { getCareSchedulerStatus } = require('../services/care-lifecycle-scheduler');
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -51,6 +57,25 @@ function customerDomainMeta() {
   };
 }
 
+function careLifecycleMeta() {
+  const flags = getCareLifecycleFlags();
+  let scheduler = null;
+  try {
+    scheduler = getCareSchedulerStatus();
+  } catch {
+    scheduler = { error: 'scheduler_status_unavailable' };
+  }
+  return {
+    enabled: flags.enabled,
+    send: flags.send,
+    outcomeTracking: flags.outcomeTracking,
+    outcomeReport: flags.outcomeReport,
+    reinspectionDays: getCareReinspectionDays(),
+    auditsDbConfigured: isCareAuditsDbConfigured(),
+    scheduler
+  };
+}
+
 function buildHealthPayload() {
   return {
     ok: true,
@@ -65,6 +90,7 @@ function buildHealthPayload() {
       configured: isNotionConfigured()
     },
     customerDomain: customerDomainMeta(),
+    careLifecycle: careLifecycleMeta(),
     retry: {
       enabled: true,
       defaultMaxAttempts: 3
