@@ -184,8 +184,12 @@ const I18N = {
     'photo.noMeter': 'No meter photo attached',
     'photo.added': 'Photo added',
     'photo.tapHint': 'Tap to capture or upload',
-    'photo.uploadFailed': 'Photo saved locally — Drive upload failed',
-    'photo.uploadFailedRetry': 'Upload failed · Tap to retry',
+    'photo.readFailed': 'Unable to read this image.',
+    'photo.backupFailed': 'Photo backup failed.',
+    'photo.backupFailedRetry': 'Backup failed · Tap to retry',
+    /** @deprecated Prefer photo.backupFailed — kept as alias for older call sites */
+    'photo.uploadFailed': 'Photo backup failed.',
+    'photo.uploadFailedRetry': 'Backup failed · Tap to retry',
     'photo.retryUnavailable': 'Nothing to retry — capture again',
     'photo.tooLarge': 'Image is too large to upload (max 15 MB)',
 
@@ -542,8 +546,11 @@ const I18N = {
     'photo.noMeter': 'ยังไม่มีรูปมิเตอร์',
     'photo.added': 'เพิ่มรูปแล้ว',
     'photo.tapHint': 'แตะเพื่อถ่ายหรืออัปโหลด',
-    'photo.uploadFailed': 'บันทึกรูปในเครื่องแล้ว — อัปโหลด Drive ไม่สำเร็จ',
-    'photo.uploadFailedRetry': 'อัปโหลดไม่สำเร็จ · แตะเพื่อลองใหม่',
+    'photo.readFailed': 'ไม่สามารถอ่านรูปนี้ได้',
+    'photo.backupFailed': 'สำรองรูปไม่สำเร็จ',
+    'photo.backupFailedRetry': 'สำรองรูปไม่สำเร็จ · แตะเพื่อลองใหม่',
+    'photo.uploadFailed': 'สำรองรูปไม่สำเร็จ',
+    'photo.uploadFailedRetry': 'สำรองรูปไม่สำเร็จ · แตะเพื่อลองใหม่',
     'photo.retryUnavailable': 'ไม่มีรูปสำหรับลองใหม่ — ถ่ายใหม่',
     'photo.tooLarge': 'รูปใหญ่เกินไป (สูงสุด 15 MB)',
 

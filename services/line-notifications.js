@@ -391,7 +391,14 @@ function buildScoreHistoryFlexMessage(entries = []) {
   };
 }
 
-function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName, scoreCardImageUrl, waterScore }) {
+function buildCaseResultFlexMessage({
+  resultLinkUrl,
+  feedbackUrl,
+  clientName,
+  scoreCardImageUrl,
+  waterScore,
+  resultType
+}) {
   const footerButtons = [
     {
       type: 'button',
@@ -420,13 +427,23 @@ function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName, sc
     });
   }
 
+  const isFree = resultType === 'free_water_check';
+
   const greeting = clientName
     ? `สวัสดีคุณ ${clientName}`
-    : 'ผลการตรวจน้ำพร้อมแล้ว';
+    : (isFree ? 'ผลการตรวจน้ำเบื้องต้นพร้อมแล้ว' : 'ผลการตรวจน้ำพร้อมแล้ว');
 
   const scoreLabel = Number.isFinite(Number(waterScore))
     ? `Water Score ${Math.round(Number(waterScore))}/100`
-    : 'ผลตรวจของคุณพร้อมแล้วครับ';
+    : (isFree ? 'ผลตรวจน้ำเบื้องต้นพร้อมแล้วครับ' : 'ผลตรวจของคุณพร้อมแล้วครับ');
+
+  const bodyDetail = isFree
+    ? 'ดูผลตรวจน้ำเบื้องต้นได้ด้านล่าง หากสนใจแพ็กเกจบริการหรือต้องการคำแนะนำเพิ่มเติม ติดต่อ Water Motion ได้เลยครับ'
+    : 'กดปุ่มด้านล่างเพื่อเปิดดูรายละเอียดผลตรวจ และรีวิวบริการบน Google';
+
+  const footerCaption = isFree
+    ? 'Water Motion · Free Water Check'
+    : 'Water Motion · บริการตรวจคุณภาพน้ำ';
 
   const bubble = {
     type: 'bubble',
@@ -495,7 +512,7 @@ function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName, sc
                 },
                 {
                   type: 'text',
-                  text: 'กดปุ่มด้านล่างเพื่อเปิดดูรายละเอียดผลตรวจ และรีวิวบริการบน Google',
+                  text: bodyDetail,
                   size: 'sm',
                   color: WATER_MOTION_MUTED,
                   wrap: true
@@ -510,7 +527,7 @@ function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName, sc
         },
         {
           type: 'text',
-          text: 'Water Motion · บริการตรวจคุณภาพน้ำ',
+          text: footerCaption,
           size: 'xs',
           color: '#a8a29d',
           align: 'center'
@@ -550,6 +567,13 @@ function buildCaseResultFlexMessage({ resultLinkUrl, feedbackUrl, clientName, sc
   };
 }
 
+function buildCaseResultFlexMessageForType(payload, resultType) {
+  return buildCaseResultFlexMessage({
+    ...payload,
+    resultType: resultType || 'paid_assessment'
+  });
+}
+
 async function sendCaseResultNotification(job, payload) {
   const userId = String(job.line?.userId || '').trim();
   if (!userId) {
@@ -567,6 +591,11 @@ async function sendCaseResultNotification(job, payload) {
     return { ok: false, status: 'failed', messageId: '', error: 'missing_report_url' };
   }
 
+  // Lazy require avoids circular load with line-result-resolver helpers.
+  const { resolveResultType, getAvailableResultForCase } = require('./line-result-resolver');
+  const presented = getAvailableResultForCase(job);
+  const resultType = presented.resultType || resolveResultType(job);
+
   const messagePayload = {
     resultLinkUrl,
     feedbackUrl,
@@ -574,19 +603,27 @@ async function sendCaseResultNotification(job, payload) {
     waterScore: Number(job.result?.waterScore),
     scoreCardImageUrl: reportToken
       ? `${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(reportToken)}?format=landscape`
-      : ''
+      : '',
+    resultType
   };
-  const flexMessage = buildCaseResultFlexMessage(messagePayload);
+  const flexMessage = buildCaseResultFlexMessageForType(messagePayload, resultType);
   const textMessage = buildCaseResultTextMessage(messagePayload);
   const logContext = {
     caseId: payload.caseId || job.id || null,
     notionId: payload.notionId || job.notionId || null,
-    reportUrl: resultLinkUrl
+    reportUrl: resultLinkUrl,
+    resultType
   };
 
   const flexResult = await sendLinePush(userId, [flexMessage], logContext);
   if (flexResult.ok) {
-    return { ...flexResult, format: 'flex', resultLinkUrl, reportToken: String(reportToken || '') };
+    return {
+      ...flexResult,
+      format: 'flex',
+      resultLinkUrl,
+      reportToken: String(reportToken || ''),
+      resultType
+    };
   }
 
   console.warn('[line_close_notify] flex push failed, falling back to text', {
@@ -603,7 +640,8 @@ async function sendCaseResultNotification(job, payload) {
     format: textResult.ok ? 'text' : 'text_failed',
     flexError: flexResult.error || flexResult.status,
     resultLinkUrl,
-    reportToken: String(reportToken || '')
+    reportToken: String(reportToken || ''),
+    resultType
   };
 }
 
@@ -619,6 +657,7 @@ module.exports = {
   buildPreassessmentResultUrl,
   resolveResultLinkUrl,
   buildCaseResultFlexMessage,
+  buildCaseResultFlexMessageForType,
   buildCaseResultTextMessage,
   sendCaseResultNotification,
   OA_POSTBACK,

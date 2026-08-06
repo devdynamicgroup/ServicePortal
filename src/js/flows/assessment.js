@@ -786,16 +786,24 @@ function renderMeterThumbnailRow() {
   section.classList.remove('hidden');
   row.innerHTML = images.map((entry, index) => {
     const src = meterPhotoPreviewSrc(entry.photo);
+    const backupFailed = Boolean(entry.photo && typeof entry.photo === 'object' && entry.photo.uploadError);
+    const backupLabel = backupFailed
+      ? `<span class="meter-thumb-backup-label">${
+        (typeof t === 'function' ? t('photo.backupFailed') : 'Photo backup failed.')
+          .replace(/</g, '&lt;')
+      }</span>`
+      : '';
     const visual = src
       ? `<img src="${src.replace(/"/g, '&quot;')}" alt="Meter image ${index + 1}">`
       : `<span class="meter-thumb-placeholder" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </span>`;
     return `
-      <div class="meter-thumb-wrap">
+      <div class="meter-thumb-wrap${backupFailed ? ' backup-failed' : ''}">
         <button type="button" class="meter-thumb-item" onclick="openMeterImageViewer(${index})" aria-label="View meter image ${index + 1}">
-          <div class="meter-thumb-box">${visual}</div>
+          <div class="meter-thumb-box${backupFailed ? ' upload-failed' : ''}">${visual}</div>
           <div class="meter-thumb-index">${index + 1}</div>
+          ${backupLabel}
         </button>
         <button type="button" class="meter-thumb-delete" onclick="event.stopPropagation(); removeMeterSessionImage(${index})" aria-label="Remove meter image ${index + 1}">×</button>
       </div>
@@ -937,7 +945,12 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
     }
     syncMeterThumbFromSession(tap);
     saveActiveJobState?.();
+    renderAssessList();
     renderMeterThumbnailRow();
+    // Backup-only message — never imply OCR failed (OCR already finished above).
+    showToast(
+      typeof t === 'function' ? t('photo.backupFailed') : 'Photo backup failed.'
+    );
     return latestEntry.photo;
   }
 }
@@ -1330,7 +1343,7 @@ function readImageFile(file, onLoad) {
   const reader = new FileReader();
   reader.onload = () => onLoad(reader.result);
   reader.onerror = () => {
-    showToast(typeof t === 'function' ? t('photo.uploadFailed') : 'Could not read image file');
+    showToast(typeof t === 'function' ? t('photo.readFailed') : 'Unable to read this image.');
   };
   reader.readAsDataURL(file);
 }
@@ -1558,7 +1571,7 @@ function setPhotoUploadUi(previewId, state) {
       });
       box.appendChild(badge);
     }
-    badge.textContent = typeof t === 'function' ? t('photo.uploadFailedRetry') : 'Upload failed · Tap to retry';
+    badge.textContent = typeof t === 'function' ? t('photo.backupFailedRetry') : 'Backup failed · Tap to retry';
     badge.classList.remove('hidden');
   } else if (badge) {
     badge.classList.add('hidden');
@@ -1779,8 +1792,7 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
     setPhotoUploadUi(previewId, 'failed');
     saveActiveJobState?.();
     showToast(
-      error.message
-      || (typeof t === 'function' ? t('photo.uploadFailed') : 'Photo saved locally — Drive upload failed')
+      typeof t === 'function' ? t('photo.backupFailed') : 'Photo backup failed.'
     );
     return failed;
   }
@@ -1886,8 +1898,7 @@ async function uploadSlipPhotoToDrive(dataUrl) {
     setPhotoUploadUi('slip-preview', 'failed');
     saveActiveJobState?.();
     showToast(
-      error.message
-      || (typeof t === 'function' ? t('photo.uploadFailed') : 'Photo saved locally — Drive upload failed')
+      typeof t === 'function' ? t('photo.backupFailed') : 'Photo backup failed.'
     );
     return S.paymentSlipPhoto;
   }

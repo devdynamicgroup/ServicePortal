@@ -5,7 +5,7 @@ const {
   lineSignatureDebug,
   verifyLineSignature,
   sendLineReply,
-  buildCaseResultFlexMessage,
+  buildCaseResultFlexMessageForType,
   OA_POSTBACK,
   withQuickReply,
   buildLinkPromptTextMessage,
@@ -24,6 +24,17 @@ const { newCorrelationId, logLineLifecycle } = require('../services/observabilit
 const {
   resolveLineCustomerCases: resolveLineCustomerCasesDomain
 } = require('../services/customer-domain/line-reader');
+const {
+  recordLineFollow,
+  touchLineContact
+} = require('../services/line-contacts');
+const {
+  getLatestAvailableResultByLineUserId,
+  hasLinkedCasesByLineUserId,
+  WAITING_RESULT_MESSAGE,
+  caseHasAvailableReport,
+  caseSortTimestamp
+} = require('../services/line-result-resolver');
 
 /** M7: shared inbound priority — 1 token, 2 postback, 3 intent, 4 default. */
 function resolveInboundDecision(event) {
@@ -250,18 +261,12 @@ function detectOaIntent(text) {
   return '';
 }
 
-function caseSortTimestamp(job) {
-  return Date.parse(
-    job?.notification?.resultSentAt
-    || job?.workflow?.serviceCompletedAt
-    || job?.workflow?.closedAt
-    || job?.createdTime
-    || 0
-  ) || 0;
+function caseSortTimestampLocal(job) {
+  return caseSortTimestamp(job);
 }
 
 function caseHasReport(job) {
-  return Boolean(String(job?.result?.publicReportToken || '').trim() || String(job?.result?.reportUrl || '').trim());
+  return caseHasAvailableReport(job);
 }
 
 function formatCaseDateLabel(job) {
@@ -293,13 +298,63 @@ async function resolveLineCustomerCases(lineUserId) {
   // Reply shape unchanged: { linked, jobs, withReport, latest }.
   return resolveLineCustomerCasesDomain(lineUserId, {
     caseHasReport,
-    caseSortTimestamp
+    caseSortTimestamp: caseSortTimestampLocal
   });
 }
 
+function touchContactSafe(lineUserId, patch = {}) {
+  try {
+    if (!String(lineUserId || '').trim()) return;
+    touchLineContact(lineUserId, patch);
+  } catch (error) {
+    console.warn('[line_contact] touch failed', {
+      lineUserId: lineUserId || null,
+      error: error?.message || String(error)
+    });
+  }
+}
+
+async function recordFollowSafe(lineUserId) {
+  try {
+    if (!String(lineUserId || '').trim()) return null;
+    const displayName = await fetchLineDisplayName(lineUserId);
+    return recordLineFollow({ lineUserId, lineDisplayName: displayName });
+  } catch (error) {
+    console.warn('[line_contact] follow record failed', {
+      lineUserId: lineUserId || null,
+      error: error?.message || String(error)
+    });
+    return null;
+  }
+}
+
 async function replyViewLatest(event, lineUserId, correlationId) {
-  const resolved = await resolveLineCustomerCases(lineUserId);
-  if (!resolved.linked) {
+  const latest = await getLatestAvailableResultByLineUserId(lineUserId);
+
+  if (latest.resultAvailable && latest.case) {
+    const job = latest.case;
+    const feedbackToken = String(job?.feedback?.token || '').trim();
+    const flex = buildCaseResultFlexMessageForType({
+      resultLinkUrl: latest.resultUrl,
+      feedbackUrl: feedbackToken ? buildFeedbackUrl(feedbackToken) : (job?.feedback?.url || ''),
+      clientName: job?.name || job?.clientName || '',
+      waterScore: job?.result?.waterScore
+    }, latest.resultType);
+    const result = await sendReplyChecked(event.replyToken, [
+      withQuickReply({ type: 'text', text: 'ผลตรวจล่าสุดของคุณครับ' }),
+      flex
+    ], {
+      correlationId,
+      lineUserId,
+      caseId: job?.id || null,
+      eventType: event.type,
+      action: 'view_latest'
+    });
+    return { ...result, caseId: job?.id || null, resultType: latest.resultType };
+  }
+
+  const linked = await hasLinkedCasesByLineUserId(lineUserId);
+  if (!linked) {
     return sendReplyChecked(event.replyToken, [buildLinkPromptTextMessage()], {
       correlationId,
       lineUserId,
@@ -307,37 +362,16 @@ async function replyViewLatest(event, lineUserId, correlationId) {
       action: 'view_latest_need_link'
     });
   }
-  if (!resolved.latest) {
-    return sendReplyChecked(event.replyToken, [withQuickReply({
-      type: 'text',
-      text: 'ยังไม่พบผลตรวจที่พร้อมเปิดได้ เมื่อผลพร้อม ระบบจะส่งให้ทาง LINE อัตโนมัติ'
-    })], {
-      correlationId,
-      lineUserId,
-      eventType: event.type,
-      action: 'view_latest_empty'
-    });
-  }
 
-  const entry = toHistoryEntry(resolved.latest);
-  const feedbackToken = String(resolved.latest?.feedback?.token || '').trim();
-  const flex = buildCaseResultFlexMessage({
-    resultLinkUrl: entry.resultLinkUrl,
-    feedbackUrl: feedbackToken ? buildFeedbackUrl(feedbackToken) : (resolved.latest?.feedback?.url || ''),
-    clientName: entry.clientName,
-    waterScore: entry.waterScore
-  });
-  const result = await sendReplyChecked(event.replyToken, [
-    withQuickReply({ type: 'text', text: 'ผลตรวจล่าสุดของคุณครับ' }),
-    flex
-  ], {
+  return sendReplyChecked(event.replyToken, [withQuickReply({
+    type: 'text',
+    text: WAITING_RESULT_MESSAGE
+  })], {
     correlationId,
     lineUserId,
-    caseId: resolved.latest?.id || null,
     eventType: event.type,
-    action: 'view_latest'
+    action: 'view_latest_waiting'
   });
-  return { ...result, caseId: resolved.latest?.id || null };
 }
 
 async function replyHistory(event, lineUserId, correlationId) {
@@ -422,6 +456,12 @@ async function handleLineEvent(event) {
     extra: { priority: decision.priority, intent: decision.intent || null }
   });
 
+  if (decision.kind === 'follow') {
+    await recordFollowSafe(lineUserId);
+  } else if (lineUserId && decision.kind !== 'ignore') {
+    touchContactSafe(lineUserId);
+  }
+
   if (decision.kind === 'postback_unknown') {
     return replyUnknownPostback(event, lineUserId, correlationId);
   }
@@ -467,13 +507,20 @@ async function handleLineEvent(event) {
       lineUserId,
       await fetchLineDisplayName(lineUserId)
     );
-    const reusableResultMessage = linked.alreadyLinked && linked.resultAvailable
-      ? buildCaseResultFlexMessage({
-        resultLinkUrl: linked.resultLinkUrl,
+    let reusableResultMessage = null;
+    if (linked.alreadyLinked && linked.resultAvailable) {
+      const latest = await getLatestAvailableResultByLineUserId(lineUserId);
+      const resultType = latest.resultAvailable ? latest.resultType : 'paid_assessment';
+      const resultLinkUrl = latest.resultAvailable && latest.resultUrl
+        ? latest.resultUrl
+        : linked.resultLinkUrl;
+      reusableResultMessage = buildCaseResultFlexMessageForType({
+        resultLinkUrl,
         feedbackUrl: linked.feedbackUrl,
-        clientName: linked.clientName
-      })
-      : null;
+        clientName: linked.clientName,
+        waterScore: latest.case?.result?.waterScore
+      }, resultType);
+    }
     const replyText = linked.alreadyLinked
       ? 'บัญชี LINE นี้เชื่อมกับข้อมูลการรับบริการเรียบร้อยแล้ว'
       : linked.reason === 'linked_to_another_user'
