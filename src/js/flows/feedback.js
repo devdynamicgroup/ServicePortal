@@ -57,6 +57,15 @@ function completeFeedback() {
   }
   saveActiveJobState();
   renderJobSteps();
+
+  // Last step done → close case, send results to customer, return to dashboard.
+  if (typeof allJobStepsDone === 'function' && allJobStepsDone()) {
+    if (typeof completeJob === 'function') {
+      completeJob();
+      return;
+    }
+  }
+
   if (S.screen === 's-feedback') goScreen('s-job');
   showToast(typeof t === 'function' ? t('fb.saved') : 'Feedback saved');
 }
