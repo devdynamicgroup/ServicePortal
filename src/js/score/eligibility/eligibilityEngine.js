@@ -96,13 +96,50 @@ function evaluateEligibility({ reportType, readings = {}, sourceMeta = {}, tasks
   const eligible = coverage.missingMeasurements.length === 0
     && coverage.missingInspection.length === 0;
 
-  let reason = null;
-  if (!eligible) {
-    const parts = [];
-    if (coverage.missingInspection.length) parts.push('Inspection incomplete');
-    if (coverage.missingMeasurements.length) parts.push('Missing measurements');
-    reason = parts.join(' · ');
+  // eligibilityState is the machine-readable outcome — logic must branch on
+  // this, never on the human-readable `reason` string below. Invalid data
+  // (evidence.state === 'Invalid') is distinguished from simply-absent data
+  // because it signals a data-quality problem, not just an incomplete report.
+  const hasInvalidRequiredMeasurement = (policy ? policy.requiredMeasurements : [])
+    .some(key => evidence[key]?.state === 'Invalid');
+  const STATE = (typeof EligibilityContract !== 'undefined' && EligibilityContract.STATE)
+    ? EligibilityContract.STATE
+    : {
+      ELIGIBLE: 'ELIGIBLE',
+      READINGS_INCOMPLETE: 'READINGS_INCOMPLETE',
+      INSPECTION_INCOMPLETE: 'INSPECTION_INCOMPLETE',
+      READINGS_AND_INSPECTION_INCOMPLETE: 'READINGS_AND_INSPECTION_INCOMPLETE',
+      INVALID_MEASUREMENTS: 'INVALID_MEASUREMENTS'
+    };
+  let eligibilityState;
+  if (eligible) {
+    eligibilityState = STATE.ELIGIBLE;
+  } else if (hasInvalidRequiredMeasurement) {
+    eligibilityState = STATE.INVALID_MEASUREMENTS;
+  } else if (coverage.missingMeasurements.length && coverage.missingInspection.length) {
+    eligibilityState = STATE.READINGS_AND_INSPECTION_INCOMPLETE;
+  } else if (coverage.missingMeasurements.length) {
+    eligibilityState = STATE.READINGS_INCOMPLETE;
+  } else {
+    eligibilityState = STATE.INSPECTION_INCOMPLETE;
   }
+
+  // Human text is owned by the Presentation formatter (Phase C) — this engine
+  // never authors reason copy itself. `reason` stays populated on the contract
+  // only for backward compatibility with callers reading it as plain text;
+  // it is always derived FROM eligibilityState, never the other way around.
+  // Falls back to the pre-Phase-C wording if Presentation isn't loaded, so
+  // behaviour is identical either way.
+  const reason = eligible
+    ? null
+    : (typeof EligibilityPresentation !== 'undefined' && EligibilityPresentation.reasonFromState
+      ? EligibilityPresentation.reasonFromState(eligibilityState)
+      : (() => {
+        const parts = [];
+        if (coverage.missingInspection.length) parts.push('Inspection incomplete');
+        if (coverage.missingMeasurements.length) parts.push('Missing measurements');
+        return parts.join(' · ');
+      })());
 
   const qualityFlags = [];
   (policy ? policy.requiredMeasurements : []).forEach(key => {
@@ -115,6 +152,7 @@ function evaluateEligibility({ reportType, readings = {}, sourceMeta = {}, tasks
   return Object.freeze({
     reportType: policyKey,
     eligible,
+    eligibilityState,
     measurementCoverage: coverage.measurementCoverage,
     inspectionCoverage: coverage.inspectionCoverage,
     overallCoverage: coverage.overallCoverage,
@@ -125,6 +163,9 @@ function evaluateEligibility({ reportType, readings = {}, sourceMeta = {}, tasks
     calculationMetadata: {
       evaluatedAt: new Date().toISOString(),
       policyKey,
+      eligibilityVersion: (typeof EligibilityContract !== 'undefined' && EligibilityContract.VERSION)
+        ? EligibilityContract.VERSION
+        : 'v1',
       evidence
     }
   });

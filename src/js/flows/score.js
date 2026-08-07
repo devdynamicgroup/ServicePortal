@@ -328,10 +328,12 @@ function renderScoreDisplay() {
   const readiness = getScoreDataReadiness(S.activeJob);
   // Eligibility (measurement coverage + inspection coverage) is now the
   // single source of truth for "can this report show a score?" — Production
-  // and Benchmark engines are never asked to decide this themselves.
-  const eligibility = typeof resolveReportEligibility === 'function'
-    ? resolveReportEligibility(S.activeJob)
-    : null;
+  // and Benchmark engines are never asked to decide this themselves. A
+  // published view still gets a (legacy-tagged) contract rather than none,
+  // so the bypass stays traceable instead of silent.
+  const eligibility = isPublishedScoreView(S.activeJob)
+    ? (typeof EligibilityContract !== 'undefined' ? EligibilityContract.buildLegacy() : null)
+    : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(S.activeJob) : null);
   const showScore = isPublishedScoreView(S.activeJob)
     ? true
     : (eligibility ? eligibility.eligible : canDisplayScoreNumber(readiness, S.activeJob));

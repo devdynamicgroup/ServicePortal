@@ -43,10 +43,13 @@ async function publishScoreBeforeClose(job) {
   // Single source of truth: an already-published job may always be re-saved
   // (backward compatibility — existing published scores must not change or
   // become newly blocked). Anything not yet published must pass Eligibility.
+  // The bypass still produces a (legacy-tagged) contract rather than silently
+  // skipping one, so every publish is traceable to the architecture that
+  // produced it — see calculationMetadata.eligibilityVersion below.
   const alreadyPublished = Number.isFinite(Number(job?.result?.waterScore));
-  const eligibility = (!alreadyPublished && typeof resolveReportEligibility === 'function')
-    ? resolveReportEligibility(job)
-    : null;
+  const eligibility = alreadyPublished
+    ? (typeof EligibilityContract !== 'undefined' ? EligibilityContract.buildLegacy() : null)
+    : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(job) : null);
   if (eligibility && !eligibility.eligible) {
     const error = new Error(
       S.lang === 'th'
@@ -79,7 +82,10 @@ async function publishScoreBeforeClose(job) {
     credentials: 'same-origin',
     body: JSON.stringify({
       score,
-      resultSummary: `Water score ${Math.round(score)}/100`
+      resultSummary: `Water score ${Math.round(score)}/100`,
+      // Traceability metadata only — server may ignore this field entirely
+      // today; it changes no scoring/eligibility decision on either side.
+      eligibilityVersion: eligibility?.calculationMetadata?.eligibilityVersion || 'unknown'
     })
   });
   const payload = await response.json().catch(() => ({}));
@@ -92,7 +98,11 @@ async function publishScoreBeforeClose(job) {
     ...(job.result || {}),
     waterScore: score,
     reportUrl: payload.reportUrl || job.result?.reportUrl || '',
-    publicReportToken: payload.reportToken || job.result?.publicReportToken || ''
+    publicReportToken: payload.reportToken || job.result?.publicReportToken || '',
+    // Which eligibility architecture produced this published score — 'v1' for
+    // a fresh gated publish, 'legacy-bypass' for a re-save of an
+    // already-published job. Client-side only for now (see Phase C report).
+    eligibilityVersion: eligibility?.calculationMetadata?.eligibilityVersion || job.result?.eligibilityVersion || 'unknown'
   };
   return score;
 }
