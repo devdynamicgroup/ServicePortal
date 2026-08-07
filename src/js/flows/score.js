@@ -308,13 +308,33 @@ function renderStandardSelect(context = getScoreEvalContext()) {
  * Renders the on-screen report from comparisonScoreResult.
  * Does not mutate S.scoreVal / currentScoreResult / backend values.
  */
+/**
+ * Backward compatibility: an already-published report (e.g. /r/{token} for
+ * a case that was closed before Eligibility existed, or any already-closed
+ * case) must keep showing its published score exactly as before — the new
+ * eligibility gate only applies to reports that have not been published yet.
+ */
+function isPublishedScoreView(job = S.activeJob) {
+  if (!S.publicScoreView) return false;
+  const published = Number(job?.result?.waterScore ?? job?.draft?.scoreVal);
+  return Number.isFinite(published);
+}
+
 function renderScoreDisplay() {
   const result = activeComparisonResult();
   if (!result) return;
 
   const context = getScoreEvalContext(result);
   const readiness = getScoreDataReadiness(S.activeJob);
-  const showScore = canDisplayScoreNumber(readiness, S.activeJob);
+  // Eligibility (measurement coverage + inspection coverage) is now the
+  // single source of truth for "can this report show a score?" — Production
+  // and Benchmark engines are never asked to decide this themselves.
+  const eligibility = typeof resolveReportEligibility === 'function'
+    ? resolveReportEligibility(S.activeJob)
+    : null;
+  const showScore = isPublishedScoreView(S.activeJob)
+    ? true
+    : (eligibility ? eligibility.eligible : canDisplayScoreNumber(readiness, S.activeJob));
   // Summary number comes from computeScoreFromReadings (fresh), never a cached draft.scoreVal.
   // Selected standard still drives parameter status, recommended ranges, and findings.
   const computedWho = S.currentScoreResult?.computedScore;
@@ -359,22 +379,47 @@ function renderScoreDisplay() {
 
   setScoreHeroLoading(!showScore);
 
+  // Not-eligible presentation text comes only from the Eligibility Contract via
+  // the Presentation formatter — UI never recomputes coverage/reason itself.
+  const eligibilityPresented = (!showScore && eligibility && typeof EligibilityPresentation !== 'undefined')
+    ? EligibilityPresentation.format(eligibility)
+    : null;
+
   if (bandEl) {
-    bandEl.textContent = showScore
-      ? (result.verdict || verdict.label)
-      : (readiness?.ocrBusy ? t('score.readiness.calculatingBadge') : t('score.readiness.waitingBadge'));
+    if (showScore) {
+      bandEl.textContent = result.verdict || verdict.label;
+    } else if (readiness?.ocrBusy) {
+      bandEl.textContent = t('score.readiness.calculatingBadge');
+    } else if (eligibilityPresented) {
+      bandEl.textContent = eligibilityPresented.badgeText;
+    } else {
+      bandEl.textContent = t('score.readiness.waitingBadge');
+    }
     bandEl.style.color = '';
   }
   if (noteEl) {
-    if (!showScore) {
-      noteEl.textContent = readiness?.ocrBusy
-        ? t('score.readiness.processingText')
-        : t('score.readiness.waitingNote')
-          .replace('{filled}', String(readiness?.filledCount ?? 0))
-          .replace('{total}', String(readiness?.totalCount ?? 7));
-    } else {
+    if (showScore) {
       // Prefer engine summary — do not recompute explanations in UI.
       noteEl.textContent = result.summary || scoreSummaryNote(wq, findings);
+    } else if (readiness?.ocrBusy) {
+      noteEl.textContent = t('score.readiness.processingText');
+    } else if (eligibilityPresented && eligibility) {
+      const missingBits = [];
+      if (eligibility.missingMeasurements.length) {
+        missingBits.push(`Missing measurements: ${eligibility.missingMeasurements.join(', ')}`);
+      }
+      if (eligibility.missingInspection.length) {
+        missingBits.push(`Missing inspection: ${eligibility.missingInspection.join(', ')}`);
+      }
+      noteEl.textContent = [
+        eligibilityPresented.coverageSummaryText,
+        eligibilityPresented.reasonText,
+        ...missingBits
+      ].filter(Boolean).join(' — ');
+    } else {
+      noteEl.textContent = t('score.readiness.waitingNote')
+        .replace('{filled}', String(readiness?.filledCount ?? 0))
+        .replace('{total}', String(readiness?.totalCount ?? 7));
     }
   }
 
@@ -1045,7 +1090,21 @@ async function shareScore() {
 
   const job = S.activeJob;
   const caseRef = job?.notionId || job?.id;
-  if (!caseRef || !Number.isFinite(Number(S.scoreVal))) {
+  if (!caseRef) {
+    showToast('Please calculate the Water Score first');
+    return;
+  }
+  // Single source of truth: an already-published report may always be
+  // re-shared; anything not yet published must pass the Eligibility gate.
+  const alreadyPublished = Number.isFinite(Number(job?.result?.waterScore));
+  if (!alreadyPublished) {
+    const eligibility = typeof resolveReportEligibility === 'function' ? resolveReportEligibility(job) : null;
+    if (eligibility && !eligibility.eligible) {
+      showToast(eligibility.reason || 'Report is not eligible for a score yet');
+      return;
+    }
+  }
+  if (!Number.isFinite(Number(S.scoreVal))) {
     showToast('Please calculate the Water Score first');
     return;
   }

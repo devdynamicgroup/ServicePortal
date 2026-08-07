@@ -286,6 +286,12 @@ function reportHtml(job) {
   <script src="/src/js/score/benchmark/usEpa/limits.js?v=${cacheBust}"></script>
   <script src="/src/js/score/benchmark/usEpa/weights.js?v=${cacheBust}"></script>
   <script src="/src/js/score/benchmark/usEpa/score.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/eligibility/evidenceEngine.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/eligibility/coverageEngine.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/eligibility/contract.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/eligibility/eligibilityEngine.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/eligibility/presentation.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/eligibility/reportEligibility.js?v=${cacheBust}"></script>
   <script src="/src/js/flows/score.js?v=${cacheBust}"></script>
   <script src="/src/js/public-report.js?v=${cacheBust}"></script>
 </body>

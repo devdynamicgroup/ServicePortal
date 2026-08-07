@@ -40,8 +40,29 @@ function allJobStepsDone(pkg = S.pkg, stepsDone = S.stepsDone) {
  * Report token may be created here; closeCase() still guarantees token before LINE.
  */
 async function publishScoreBeforeClose(job) {
+  // Single source of truth: an already-published job may always be re-saved
+  // (backward compatibility — existing published scores must not change or
+  // become newly blocked). Anything not yet published must pass Eligibility.
+  const alreadyPublished = Number.isFinite(Number(job?.result?.waterScore));
+  const eligibility = (!alreadyPublished && typeof resolveReportEligibility === 'function')
+    ? resolveReportEligibility(job)
+    : null;
+  if (eligibility && !eligibility.eligible) {
+    const error = new Error(
+      S.lang === 'th'
+        ? `ยังไม่พร้อมให้คะแนน: ${eligibility.reason || 'ข้อมูลไม่ครบ'}`
+        : `Not eligible for a score yet: ${eligibility.reason || 'incomplete report'}`
+    );
+    error.code = 'NOT_ELIGIBLE';
+    error.eligibility = eligibility;
+    throw error;
+  }
   const score = Number(S.scoreVal ?? job?.result?.waterScore ?? job?.draft?.scoreVal);
   if (!Number.isFinite(score)) {
+    // Retained as a defensive fallback only — Eligibility above is the real
+    // gate now. This still catches a score that is somehow non-finite even
+    // though Eligibility passed (e.g. a bug elsewhere), so publish never
+    // silently sends a bad score.
     const error = new Error(S.lang === 'th' ? 'ยังไม่มีคะแนนน้ำ' : 'Water Score is missing');
     error.code = 'SCORE_MISSING';
     throw error;
