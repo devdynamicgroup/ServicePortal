@@ -385,7 +385,7 @@ function canDisplayScoreNumber(readiness, job = S.activeJob) {
   return Boolean(readiness?.ready) && !readiness?.ocrBusy;
 }
 
-function renderScoreStatusBar(wq, { loading = false } = {}) {
+function renderScoreStatusBar(wq, { loading = false, color = '#56d096' } = {}) {
   const bar = document.getElementById('score-status-bar');
   const knob = document.getElementById('score-progress-knob');
   const segments = [
@@ -408,11 +408,13 @@ function renderScoreStatusBar(wq, { loading = false } = {}) {
     return;
   }
   const score = Math.max(0, Math.min(100, Number(wq) || 0));
+  const fillColor = color || '#56d096';
   segments.forEach(seg => {
     if (!seg.el) return;
     const span = seg.to - seg.from;
     const filled = Math.max(0, Math.min(span, score - seg.from));
     seg.el.style.width = `${(filled / span) * 100}%`;
+    seg.el.style.background = fillColor;
   });
   if (knob) knob.style.left = `${score}%`;
 }
@@ -437,11 +439,27 @@ function activeStandardKey() {
   return activeComparisonResult()?.standardKey || S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY;
 }
 
+function orderedStandardsForSelect(readings) {
+  // Thailand first, then other countries by highest comparison score → lowest.
+  const keys = Object.keys(WATER_QUALITY_STANDARDS);
+  const scored = keys.map(key => {
+    const out = computeParamScoresForStandard(readings || {}, key);
+    return { key, score: Number.isFinite(out.score) ? out.score : -1 };
+  });
+  const thai = scored.find(item => item.key === 'thailand');
+  const rest = scored
+    .filter(item => item.key !== 'thailand')
+    .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));
+  return [thai, ...rest].filter(Boolean).map(item => item.key);
+}
+
 function renderStandardSelect(context = getScoreEvalContext()) {
   const selectEl = document.getElementById('score-standard-select');
   if (!selectEl) return;
   const selected = context.selectedStandard;
-  selectEl.innerHTML = SCORE_STANDARD_ORDER.map(key => {
+  const readings = context.readings || resolveScoreReadings(S.activeJob);
+  const order = orderedStandardsForSelect(readings);
+  selectEl.innerHTML = order.map(key => {
     const standard = getWaterQualityStandard(key);
     return `<option value="${key}"${selected === key ? ' selected' : ''}>${t(standard.shortKey)}</option>`;
   }).join('');
@@ -459,18 +477,16 @@ function renderScoreDisplay() {
   const context = getScoreEvalContext(result);
   const readiness = getScoreDataReadiness(S.activeJob);
   const showScore = canDisplayScoreNumber(readiness, S.activeJob);
-  // Summary number comes from computeScoreFromReadings (fresh), never a cached draft.scoreVal.
-  // Selected standard still drives parameter status, recommended ranges, and findings.
+  // Field UI shows the selected-standard comparison score so Benchmark changes
+  // update the hero number. Public report keeps the published production score.
   const computedWho = S.currentScoreResult?.computedScore;
   const comparisonScore = result.score;
   const publishedScore = S.currentScoreResult?.score;
-  // Public report page has no live readings to recompute from — it must fall
-  // back to the already-published score instead of showing NaN.
   const wq = S.publicScoreView && Number.isFinite(publishedScore)
     ? publishedScore
-    : Number.isFinite(computedWho)
-      ? computedWho
-      : (Number.isFinite(comparisonScore) ? comparisonScore : NaN);
+    : Number.isFinite(comparisonScore)
+      ? comparisonScore
+      : (Number.isFinite(computedWho) ? computedWho : NaN);
   console.log('RENDER SCORE DISPLAY', {
     score: wq,
     computedWho,
@@ -482,6 +498,11 @@ function renderScoreDisplay() {
   });
   const findings = result.findings || [];
   const verdict = Number.isFinite(wq) ? customerVerdict(wq) : { tier: 'pending', label: '—', color: '#284dcd' };
+  const barColor = verdict.tier === 'high'
+    ? '#284dcd'
+    : verdict.tier === 'mid'
+      ? '#56d096'
+      : '#f07b7b';
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
   const noteEl = document.getElementById('score-summary-note');
@@ -519,7 +540,10 @@ function renderScoreDisplay() {
     }
   }
 
-  renderScoreStatusBar(showScore ? wq : 0, { loading: !showScore });
+  renderScoreStatusBar(showScore ? wq : 0, {
+    loading: !showScore,
+    color: showScore ? barColor : '#284dcd'
+  });
   if (!S.scoreTapFilter) {
     S.scoreTapFilter = (S.taps?.length || 0) > 1 ? 'all' : (S.taps?.[0] || 'all');
   }
