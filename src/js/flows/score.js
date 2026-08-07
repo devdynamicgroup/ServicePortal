@@ -39,7 +39,8 @@ function animateScoreNumber(el, target) {
 
 /** Benchmark comparison — independent country engines via WaterScoreBenchmarkRegistry. */
 const DEFAULT_SCORE_STANDARD_KEY = 'thailand';
-const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'who', 'eu', 'japan', 'usEpa']);
+/** Thai first, then strictest cleanliness expectations → least strict. */
+const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'japan', 'eu', 'who', 'usEpa']);
 
 function benchmarkRegistry() {
   return (typeof window !== 'undefined' && window.WaterScoreBenchmarkRegistry)
@@ -145,48 +146,6 @@ function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDA
     classifications: scored.classifications || null,
     metadata: scored
   };
-}
-
-/** Render engine-authored explainability — no scoring logic here. */
-function renderBenchmarkExplainability(result) {
-  const list = document.getElementById('score-benchmark-reasons');
-  if (!list) return;
-  if (!result) {
-    list.innerHTML = '';
-    list.hidden = true;
-    return;
-  }
-  const positives = Array.isArray(result?.topPositiveFactors) ? result.topPositiveFactors : [];
-  const negatives = Array.isArray(result?.topNegativeFactors) ? result.topNegativeFactors : [];
-  const reasons = Array.isArray(result?.reasons) ? result.reasons.filter(r => r && r.message) : [];
-  const rows = [];
-  negatives.slice(0, 3).forEach(msg => {
-    rows.push({ sev: 'fail', icon: '❌', message: msg });
-  });
-  // Prefer explicit reason messages when present; otherwise negatives already cover.
-  if (!negatives.length) {
-    reasons.slice(0, 3).forEach(r => {
-      const sev = String(r.severity || 'warning').toLowerCase();
-      rows.push({
-        sev,
-        icon: sev === 'critical' || sev === 'fail' ? '❌' : '⚠',
-        message: r.message
-      });
-    });
-  }
-  positives.slice(0, 3).forEach(msg => {
-    rows.push({ sev: 'pass', icon: '✓', message: msg });
-  });
-  if (!rows.length) {
-    list.innerHTML = '';
-    list.hidden = true;
-    return;
-  }
-  list.hidden = false;
-  list.innerHTML = rows.map(r => {
-    const safe = String(r.message).replace(/</g, '&lt;');
-    return `<li class="score-benchmark-reason is-${r.sev}"><span class="score-benchmark-reason-icon" aria-hidden="true">${r.icon}</span><span>${safe}</span></li>`;
-  }).join('');
 }
 
 const SCORE_BAR_COLORS = Object.freeze({
@@ -327,26 +286,17 @@ function activeStandardKey() {
   return activeComparisonResult()?.standardKey || S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY;
 }
 
-/** Thai first, then other countries by highest comparison score → lowest. */
-function orderedStandardsForSelect(readings) {
-  const keys = (benchmarkRegistry()?.order?.length ? benchmarkRegistry().order : SCORE_STANDARD_ORDER).filter(key => benchmarkRegistry()?.has?.(key));
-  const scored = keys.map(key => {
-    const out = computeParamScoresForStandard(readings || {}, key);
-    return { key, score: Number.isFinite(out.score) ? out.score : -1 };
-  });
-  const thai = scored.find(item => item.key === 'thailand');
-  const rest = scored
-    .filter(item => item.key !== 'thailand')
-    .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));
-  return [thai, ...rest].filter(Boolean).map(item => item.key);
+/** Thai first, then fixed strictness order (not sample score). */
+function orderedStandardsForSelect() {
+  const reg = benchmarkRegistry();
+  return SCORE_STANDARD_ORDER.filter(key => reg?.has?.(key));
 }
 
 function renderStandardSelect(context = getScoreEvalContext()) {
   const selectEl = document.getElementById('score-standard-select');
   if (!selectEl) return;
   const selected = context.selectedStandard;
-  const readings = context.readings || resolveScoreReadings(S.activeJob);
-  const order = orderedStandardsForSelect(readings);
+  const order = orderedStandardsForSelect();
   selectEl.innerHTML = order.map(key => {
     const standard = getWaterQualityStandard(key);
     return `<option value="${key}"${selected === key ? ' selected' : ''}>${t(standard.shortKey)}</option>`;
@@ -422,14 +372,10 @@ function renderScoreDisplay() {
         : t('score.readiness.waitingNote')
           .replace('{filled}', String(readiness?.filledCount ?? 0))
           .replace('{total}', String(readiness?.totalCount ?? 7));
-      renderBenchmarkExplainability(null);
     } else {
-      // Prefer engine summary/reasons — do not recompute explanations in UI.
+      // Prefer engine summary — do not recompute explanations in UI.
       noteEl.textContent = result.summary || scoreSummaryNote(wq, findings);
-      renderBenchmarkExplainability(result);
     }
-  } else {
-    renderBenchmarkExplainability(showScore ? result : null);
   }
 
   renderScoreStatusBar(showScore ? wq : 0, { loading: !showScore });
