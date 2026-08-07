@@ -57,7 +57,7 @@
           </div>
         </div>
 
-        <div class="score-filter-row score-location-row">
+        <div class="score-location-row">
           <div class="score-select-wrap" id="score-room-select-wrap">
             <select class="score-select" id="score-room-select" aria-label="Location"></select>
           </div>
@@ -65,17 +65,6 @@
 
         <p class="score-params-scope" id="score-params-scope" hidden data-i18n="score.paramsOverall">Overall average across taps</p>
         <div class="score-metric-list" id="score-readings-rows"></div>
-
-        <div class="score-photo-carousel" id="score-photo-carousel" hidden>
-          <div class="score-photo-track" id="score-photo-track"></div>
-          <div class="score-photo-dots" id="score-photo-dots"></div>
-        </div>
-        <div class="score-photo-placeholder" id="score-photo-placeholder" hidden>
-          <span class="score-photo-placeholder-icon" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          </span>
-          <span class="score-photo-placeholder-text" id="score-photo-placeholder-text">Photos will appear once captured</span>
-        </div>
 
         <section class="score-improve" id="score-improve-section" hidden>
           <h2 class="score-improve-title">
@@ -91,6 +80,19 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </span>
             <span class="score-all-good-text" id="score-all-good-text">All indicators at international-level quality</span>
+          </div>
+        </section>
+
+        <section class="score-bottom-media" aria-label="Room photos">
+          <div class="score-photo-carousel" id="score-photo-carousel" hidden>
+            <div class="score-photo-track" id="score-photo-track"></div>
+            <div class="score-photo-dots" id="score-photo-dots"></div>
+          </div>
+          <div class="score-photo-placeholder" id="score-photo-placeholder" hidden>
+            <span class="score-photo-placeholder-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </span>
+            <span class="score-photo-placeholder-text" id="score-photo-placeholder-text">Photos will appear once captured</span>
           </div>
         </section>
       </div>

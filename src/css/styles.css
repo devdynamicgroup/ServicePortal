@@ -729,8 +729,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   bottom:0;
   width:0;
   border-radius:999px;
-  background:#56d096;
-  transition:width 1s cubic-bezier(.22,1,.36,1);
+  background:var(--score-bar-fill, #56d096);
+  transition:width 1s cubic-bezier(.22,1,.36,1), background .35s ease;
 }
 .score-progress-knob{
   position:absolute;
@@ -781,23 +781,24 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   border-top:1px solid var(--border);
 }
 .score-benchmark-row .score-benchmark-label{
-  flex-shrink:0;
-  margin:0;
   font-size:13px;
-  font-weight:600;
   color:var(--muted);
+  white-space:nowrap;
+  flex-shrink:0;
 }
 .score-benchmark-row .score-benchmark-label::after{content:':'}
 .score-benchmark-row .score-select{
   flex:1;
   min-width:0;
-  height:40px;
 }
-.score-location-row{margin:0 0 14px}
-.score-improve{margin:18px 0 8px;padding-top:4px;border-top:none}
+.score-location-row{
+  margin:0 0 16px;
+}
+.score-location-row .score-select-wrap{width:100%}
+.score-improve{margin:20px 0 8px;padding-top:4px;border-top:none}
 .score-improve-title{display:flex;align-items:baseline;gap:6px;font-size:14px;font-weight:650;color:var(--text);margin:0 0 10px}
 .score-improve-title span:last-child{color:var(--muted);font-weight:500}
-.score-improve-list{display:flex;flex-direction:column;gap:8px;border:none;border-radius:0;overflow:visible}
+.score-improve-list{display:flex;flex-direction:column;gap:8px;border:none;border-radius:0;overflow:visible;margin-bottom:12px}
 .score-improve-row{
   display:flex;
   align-items:center;
@@ -854,28 +855,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   background:var(--accent-50);
 }
 .score-all-good-text{font-size:13px;font-weight:500;line-height:1.35}
-.score-filter-row{display:flex;gap:10px;margin:0 0 16px;align-items:center}
 .score-select-wrap{flex:1;min-width:0}
 .score-select-wrap.hidden{display:none}
-.score-benchmark-wrap{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  flex:0 1 auto;
-  justify-content:flex-end;
-}
-.score-benchmark-label{
-  font-size:13px;
-  color:var(--muted);
-  white-space:nowrap;
-  flex-shrink:0;
-}
-.score-benchmark-label::after{content:':'}
-.score-benchmark-wrap .score-select{
-  width:auto;
-  min-width:88px;
-  flex:0 0 auto;
-}
 .score-select{
   width:100%;
   appearance:none;
@@ -889,8 +870,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   padding:10px 30px 10px 12px;
   cursor:pointer;
 }
-.score-photo-carousel{margin:18px 0 0}
-.score-photo-placeholder{margin:18px 0 0}
+.score-photo-carousel{margin:12px 0 0}
+.score-bottom-media{margin:8px 0 12px}
 .score-photo-track{
   display:flex;
   overflow-x:auto;
@@ -907,7 +888,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-photo-dot.is-active{background:#78716c}
 .score-photo-placeholder{
   display:flex;align-items:center;gap:12px;
-  margin:0 0 18px;padding:16px 14px;
+  margin:12px 0 0;padding:16px 14px;
   border:1px dashed #d6d3d1;border-radius:14px;
   background:#fafaf9;color:var(--muted)
 }
@@ -942,8 +923,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-metric-value{font-size:14px;font-weight:560;color:var(--text);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 .score-metric-status{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
 .score-dot{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}
-.score-metric-row.is-good .score-metric-status{color:#22c55e}
-.score-metric-row.is-attn .score-metric-status{color:#d9a441}
+.score-metric-row.is-good .score-metric-status{color:#56d096}
+.score-metric-row.is-attn .score-metric-status{color:#f07b7b}
 .score-metric-list.is-loading .score-metric-value,
 .score-metric-list.is-loading .score-metric-status,
 .score-metric-list.is-loading .score-metric-range{
@@ -964,7 +945,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   .score-summary-num{font-size:50px}
   .score-summary-note{font-size:13px;line-height:1.55}
   .score-metric-row{padding:12px 0;gap:8px}
-  .score-filter-row{gap:8px}
+  .score-benchmark-row,.score-location-row{gap:8px}
 }
 @media (max-width:390px){
   .score-report{padding:12px 16px 24px}

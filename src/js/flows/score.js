@@ -10,7 +10,7 @@ function getScoreStyle(wq) {
  *  Bands follow Excel Report summary: ≥80 Excellent, ≥60 Acceptable, else Action. */
 function customerVerdict(wq) {
   if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#284dcd', tier: 'high' };
-  if (wq >= 60) return { label: t('score.verdict.good'), color: '#22c55e', tier: 'mid' };
+  if (wq >= 60) return { label: t('score.verdict.good'), color: '#56d096', tier: 'mid' };
   return { label: t('score.verdict.attention'), color: '#f07b7b', tier: 'low' };
 }
 
@@ -162,9 +162,22 @@ const WATER_QUALITY_STANDARDS = Object.freeze({
   })
 });
 
-const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'who', 'eu', 'usEpa', 'japan']);
-/** UI comparison default — Thai product audience. Production/share score stays WHO. */
+/** Thai first, then stricter / higher international standards descending. */
+const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'who', 'eu', 'japan', 'usEpa']);
 const DEFAULT_SCORE_STANDARD_KEY = 'thailand';
+
+const SCORE_BAR_COLORS = Object.freeze({
+  low: '#f07b7b',
+  mid: '#56d096',
+  high: '#284dcd',
+  pending: '#56d096'
+});
+
+function scoreBarColorForScore(wq) {
+  if (!Number.isFinite(Number(wq))) return SCORE_BAR_COLORS.pending;
+  const verdict = customerVerdict(Number(wq));
+  return SCORE_BAR_COLORS[verdict.tier] || SCORE_BAR_COLORS.pending;
+}
 
 function getWaterQualityStandard(standardKey) {
   return WATER_QUALITY_STANDARDS[standardKey] || WATER_QUALITY_STANDARDS[DEFAULT_SCORE_STANDARD_KEY];
@@ -385,7 +398,7 @@ function canDisplayScoreNumber(readiness, job = S.activeJob) {
   return Boolean(readiness?.ready) && !readiness?.ocrBusy;
 }
 
-function renderScoreStatusBar(wq, { loading = false, color = '#56d096' } = {}) {
+function renderScoreStatusBar(wq, { loading = false } = {}) {
   const bar = document.getElementById('score-status-bar');
   const knob = document.getElementById('score-progress-knob');
   const segments = [
@@ -393,8 +406,10 @@ function renderScoreStatusBar(wq, { loading = false, color = '#56d096' } = {}) {
     { from: 50, to: 80, el: document.getElementById('score-seg-fill-1') },
     { from: 80, to: 100, el: document.getElementById('score-seg-fill-2') }
   ];
+  const fillColor = scoreBarColorForScore(wq);
   if (bar) {
     bar.classList.toggle('is-loading', loading);
+    bar.style.setProperty('--score-bar-fill', fillColor);
     bar.setAttribute(
       'aria-label',
       loading
@@ -408,7 +423,6 @@ function renderScoreStatusBar(wq, { loading = false, color = '#56d096' } = {}) {
     return;
   }
   const score = Math.max(0, Math.min(100, Number(wq) || 0));
-  const fillColor = color || '#56d096';
   segments.forEach(seg => {
     if (!seg.el) return;
     const span = seg.to - seg.from;
@@ -439,9 +453,9 @@ function activeStandardKey() {
   return activeComparisonResult()?.standardKey || S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY;
 }
 
+/** Thai first, then other countries by highest comparison score → lowest. */
 function orderedStandardsForSelect(readings) {
-  // Thailand first, then other countries by highest comparison score → lowest.
-  const keys = Object.keys(WATER_QUALITY_STANDARDS);
+  const keys = SCORE_STANDARD_ORDER.filter(key => WATER_QUALITY_STANDARDS[key]);
   const scored = keys.map(key => {
     const out = computeParamScoresForStandard(readings || {}, key);
     return { key, score: Number.isFinite(out.score) ? out.score : -1 };
@@ -477,11 +491,15 @@ function renderScoreDisplay() {
   const context = getScoreEvalContext(result);
   const readiness = getScoreDataReadiness(S.activeJob);
   const showScore = canDisplayScoreNumber(readiness, S.activeJob);
-  // Field UI shows the selected-standard comparison score so Benchmark changes
-  // update the hero number. Public report keeps the published production score.
+  // Summary number comes from computeScoreFromReadings (fresh), never a cached draft.scoreVal.
+  // Selected standard still drives parameter status, recommended ranges, and findings.
   const computedWho = S.currentScoreResult?.computedScore;
   const comparisonScore = result.score;
   const publishedScore = S.currentScoreResult?.score;
+  // Public report page has no live readings to recompute from — it must fall
+  // back to the already-published score instead of showing NaN.
+  // Display score follows the selected Benchmark so Thai / WHO / EU etc. update the hero.
+  // Production/share score remains WHO via currentScoreResult / computeScoreFromReadings.
   const wq = S.publicScoreView && Number.isFinite(publishedScore)
     ? publishedScore
     : Number.isFinite(comparisonScore)
@@ -498,11 +516,6 @@ function renderScoreDisplay() {
   });
   const findings = result.findings || [];
   const verdict = Number.isFinite(wq) ? customerVerdict(wq) : { tier: 'pending', label: '—', color: '#284dcd' };
-  const barColor = verdict.tier === 'high'
-    ? '#284dcd'
-    : verdict.tier === 'mid'
-      ? '#56d096'
-      : '#f07b7b';
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
   const noteEl = document.getElementById('score-summary-note');
@@ -540,10 +553,7 @@ function renderScoreDisplay() {
     }
   }
 
-  renderScoreStatusBar(showScore ? wq : 0, {
-    loading: !showScore,
-    color: showScore ? barColor : '#284dcd'
-  });
+  renderScoreStatusBar(showScore ? wq : 0, { loading: !showScore });
   if (!S.scoreTapFilter) {
     S.scoreTapFilter = (S.taps?.length || 0) > 1 ? 'all' : (S.taps?.[0] || 'all');
   }
@@ -1033,8 +1043,7 @@ function renderScoreImprove(context = getScoreEvalContext()) {
   const allRows = scoreTapRows(S.scoreTapFilter || 'all', context);
   const rows = allRows.filter(r => paramStatusUiKey(r.st) === 'attn');
   const score = Number(activeComparisonResult()?.score);
-  const computedWho = Number(S.currentScoreResult?.computedScore);
-  const wq = Number.isFinite(computedWho) ? computedWho : (Number.isFinite(score) ? score : 0);
+  const wq = Number.isFinite(score) ? score : 0;
   const verdict = customerVerdict(wq);
 
   if (!rows.length) {
