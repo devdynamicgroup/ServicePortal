@@ -79,7 +79,7 @@
     const cl = Number(readings.chlorine);
     const do_ = Number(readings.do);
     if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
-      return incomplete('US EPA', 'usEpa');
+      return incomplete('US EPA', 'usEpa', { readings, engineVersion: 'v1.0', standardRevision: 'US EPA MCL / SMCL / TT comparison set 2024' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
@@ -139,10 +139,35 @@
     };
     const findings = reasons.map(r => ({ label: r.message, val: String(readings[r.parameter] ?? ''), note: '' }));
 
+    
+    const topPositiveFactors = [];
+    const topNegativeFactors = [];
+    if (pass.ph) topPositiveFactors.push('pH is within US EPA secondary range (6.5–8.5)');
+    if (pass.tds) topPositiveFactors.push('TDS is at or below US EPA SMCL aesthetic guideline (≤ 500 mg/L)');
+    if (pass.chlorine) topPositiveFactors.push('Free chlorine is within US EPA MRDL-style comparison band (0.2–4 mg/L)');
+    if (pass.turbidity) topPositiveFactors.push('Turbidity meets US EPA treatment-technique style target (≤ 1 NTU)');
+    if (pass.do) topPositiveFactors.push('Dissolved oxygen meets EPA comparison minimum (≥ 6 mg/L)');
+    if (pass.orp) topPositiveFactors.push('ORP is inside the operational window used for EPA comparison');
+    reasons.forEach(r => topNegativeFactors.push(r.message));
+
     return wrap({
-      engine: 'US EPA', engineKey: 'usEpa', score, verdict, summary,
-      classifications, reasons, params, statuses, findings
+      engine: 'US EPA',
+      engineKey: 'usEpa',
+      score,
+      verdict,
+      summary,
+      classifications,
+      reasons,
+      topPositiveFactors,
+      topNegativeFactors,
+      params,
+      statuses,
+      findings,
+      readings,
+      engineVersion: 'v1.0',
+      standardRevision: 'US EPA MCL / SMCL / TT comparison set 2024'
     });
+
   }
 
   window.WaterScoreBenchmarkRegistry.register({

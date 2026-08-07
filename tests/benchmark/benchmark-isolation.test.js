@@ -63,7 +63,7 @@ function assert(cond, msg) {
 }
 
 function fingerprint(result) {
-  // Stable isolation fingerprint — exclude object identity, include metadata contract.
+  // Stable isolation fingerprint — exclude volatile trace ids/timestamps.
   return JSON.stringify({
     engine: result.engine,
     engineKey: result.engineKey,
@@ -75,8 +75,13 @@ function fingerprint(result) {
     failedParameters: result.failedParameters,
     criticalFailures: result.criticalFailures,
     reasons: result.reasons,
+    topPositiveFactors: result.topPositiveFactors,
+    topNegativeFactors: result.topNegativeFactors,
     params: result.params,
-    classifications: result.classifications
+    classifications: result.classifications,
+    engineVersion: result.engineVersion,
+    standardRevision: result.standardRevision,
+    inputFingerprint: result.inputFingerprint
   });
 }
 
@@ -220,7 +225,18 @@ console.log('\nTest 6 — Registry independence (dummy engine)');
   }
 }
 
-console.log('\nTest 7 — Metadata contract present on every engine');
+console.log('\nTest 7 — Benchmark scores locked (must not drift)');
+{
+  restoreAll();
+  const expected = { thailand: 100, who: 93, eu: 65, japan: 96, usEpa: 91 };
+  for (const key of KEYS) {
+    const score = reg.calculate(key, SAMPLE).score;
+    assert(score === expected[key], `${key} score locked at ${expected[key]} (got ${score})`);
+  }
+  assert(sandbox.computeScoreFromReadings(SAMPLE) === 93, 'Production locked at 93');
+}
+
+console.log('\nTest 8 — Metadata contract present on every engine');
 {
   restoreAll();
   for (const key of KEYS) {
@@ -234,6 +250,13 @@ console.log('\nTest 7 — Metadata contract present on every engine');
     assert(Array.isArray(out.warningParameters), `${key} has warningParameters`);
     assert(Array.isArray(out.failedParameters), `${key} has failedParameters`);
     assert(Array.isArray(out.criticalFailures), `${key} has criticalFailures`);
+    assert(Array.isArray(out.topPositiveFactors), `${key} has topPositiveFactors`);
+    assert(Array.isArray(out.topNegativeFactors), `${key} has topNegativeFactors`);
+    assert(typeof out.calculationId === 'string' && out.calculationId.startsWith('calc_'), `${key} has calculationId`);
+    assert(typeof out.engineVersion === 'string', `${key} has engineVersion`);
+    assert(typeof out.standardRevision === 'string' && out.standardRevision.length > 0, `${key} has standardRevision`);
+    assert(typeof out.calculatedAt === 'string', `${key} has calculatedAt`);
+    assert(typeof out.inputFingerprint === 'string' && out.inputFingerprint.length === 8, `${key} has inputFingerprint`);
   }
   const eu = reg.calculate('eu', SAMPLE);
   assert(eu.criticalFailures.includes('chlorine') || eu.reasons.some(r => r.parameter === 'chlorine'),

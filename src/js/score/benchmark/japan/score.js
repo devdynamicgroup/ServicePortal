@@ -79,7 +79,7 @@
     const cl = Number(readings.chlorine);
     const do_ = Number(readings.do);
     if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
-      return incomplete('Japan', 'japan');
+      return incomplete('Japan', 'japan', { readings, engineVersion: 'v1.0', standardRevision: 'Japan Drinking Water Standard 2023' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
@@ -139,10 +139,35 @@
     };
     const findings = reasons.map(r => ({ label: r.message, val: String(readings[r.parameter] ?? ''), note: '' }));
 
+    
+    const topPositiveFactors = [];
+    const topNegativeFactors = [];
+    if (pass.ph) topPositiveFactors.push('pH is within Japan national range (5.8–8.6)');
+    if (pass.tds) topPositiveFactors.push('TDS is within Japan comparison ceiling (≤ 500 mg/L)');
+    if (pass.chlorine) topPositiveFactors.push('Free chlorine residual meets Japan recommendation (0.1–1 mg/L)');
+    if (pass.turbidity) topPositiveFactors.push('Turbidity meets Japanese drinking-water recommendation (≤ 2 NTU)');
+    if (pass.do) topPositiveFactors.push('Dissolved oxygen meets Japan comparison minimum (≥ 5 mg/L)');
+    if (pass.orp) topPositiveFactors.push('ORP is inside the operational window used for Japan comparison');
+    reasons.forEach(r => topNegativeFactors.push(r.message));
+
     return wrap({
-      engine: 'Japan', engineKey: 'japan', score, verdict, summary,
-      classifications, reasons, params, statuses, findings
+      engine: 'Japan',
+      engineKey: 'japan',
+      score,
+      verdict,
+      summary,
+      classifications,
+      reasons,
+      topPositiveFactors,
+      topNegativeFactors,
+      params,
+      statuses,
+      findings,
+      readings,
+      engineVersion: 'v1.0',
+      standardRevision: 'Japan Drinking Water Standard 2023'
     });
+
   }
 
   window.WaterScoreBenchmarkRegistry.register({

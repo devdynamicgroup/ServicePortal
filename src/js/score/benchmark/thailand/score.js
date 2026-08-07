@@ -77,7 +77,7 @@
     const orp = Number(readings.orp);
     const cl = Number(readings.chlorine);
     if (![ph, tds, turb, orp, cl].every(Number.isFinite)) {
-      return incomplete('Thailand', 'thailand');
+      return incomplete('Thailand', 'thailand', { readings, engineVersion: 'v1.0', standardRevision: 'Thailand Drinking Water Standard 2024' });
     }
     const params = {
       ph: gradePh(ph),
@@ -153,6 +153,17 @@
       note: ''
     }));
 
+    
+    const topPositiveFactors = [];
+    const topNegativeFactors = [];
+    if (pass.ph) topPositiveFactors.push('pH is within Thailand recommended range (6.5–8.5)');
+    if (pass.tds) topPositiveFactors.push('TDS is within Thailand local acceptability (≤ 1000 mg/L)');
+    if (pass.chlorine) topPositiveFactors.push('Free chlorine residual is within Thailand guidance (0.2–2.0 mg/L)');
+    if (pass.turbidity) topPositiveFactors.push('Turbidity meets Thailand local limit (≤ 5 NTU)');
+    if (pass.orp) topPositiveFactors.push('ORP is inside the operational window used for Thailand comparison');
+    topPositiveFactors.push('Dissolved oxygen is not scored under Thailand local comparison');
+    reasons.forEach(r => topNegativeFactors.push(r.message));
+
     return wrap({
       engine: 'Thailand',
       engineKey: 'thailand',
@@ -161,10 +172,16 @@
       summary,
       classifications,
       reasons,
+      topPositiveFactors,
+      topNegativeFactors,
       params,
       statuses,
-      findings
+      findings,
+      readings,
+      engineVersion: 'v1.0',
+      standardRevision: 'Thailand Drinking Water Standard 2024'
     });
+
   }
 
   window.WaterScoreBenchmarkRegistry.register({

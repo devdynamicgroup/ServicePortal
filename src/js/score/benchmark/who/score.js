@@ -80,7 +80,7 @@
     const fcl = Number(readings.chlorine);
     const do_ = Number(readings.do);
     if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
-      return incomplete('WHO', 'who');
+      return incomplete('WHO', 'who', { readings, engineVersion: 'v1.0', standardRevision: 'WHO Drinking Water Guideline 2025' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), turbidity: gradeTurbidity(turb),
@@ -143,10 +143,35 @@
     };
     const findings = reasons.map(r => ({ label: r.message, val: String(readings[r.parameter] ?? ''), note: '' }));
 
+    
+    const topPositiveFactors = [];
+    const topNegativeFactors = [];
+    if (ideal.ph) topPositiveFactors.push('pH is within WHO recommended range (6.5–8.5)');
+    if (ideal.tds) topPositiveFactors.push('TDS is at or below WHO aesthetic guideline (≤ 500 mg/L)');
+    if (ideal.turbidity) topPositiveFactors.push('Turbidity meets WHO drinking-water guideline (≤ 1 NTU)');
+    if (ideal.orp) topPositiveFactors.push('ORP indicates an effective disinfection / redox window (200–600 mV)');
+    if (ideal.do) topPositiveFactors.push('Dissolved oxygen meets WHO comparison minimum (≥ 6 mg/L)');
+    if (ideal.chlorine) topPositiveFactors.push('Free chlorine is inside WHO residual band (0.2–0.5 mg/L)');
+    reasons.forEach(r => topNegativeFactors.push(r.message));
+
     return wrap({
-      engine: 'WHO', engineKey: 'who', score, verdict, summary,
-      classifications, reasons, params, statuses, findings
+      engine: 'WHO',
+      engineKey: 'who',
+      score,
+      verdict,
+      summary,
+      classifications,
+      reasons,
+      topPositiveFactors,
+      topNegativeFactors,
+      params,
+      statuses,
+      findings,
+      readings,
+      engineVersion: 'v1.0',
+      standardRevision: 'WHO Drinking Water Guideline 2025'
     });
+
   }
 
   window.WaterScoreBenchmarkRegistry.register({

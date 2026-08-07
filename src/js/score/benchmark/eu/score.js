@@ -76,7 +76,7 @@
     const cl = Number(readings.chlorine);
     const do_ = Number(readings.do);
     if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
-      return incomplete('EU', 'eu');
+      return incomplete('EU', 'eu', { readings, engineVersion: 'v1.0', standardRevision: 'EU Drinking Water Directive parametric values 2020/2184' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
@@ -129,10 +129,36 @@
     };
     const findings = reasons.map(r => ({ label: r.message, val: String(readings[r.parameter] ?? ''), note: '' }));
 
+    
+    const topPositiveFactors = [];
+    const topNegativeFactors = [];
+    if (ph >= L.ph.min && ph <= L.ph.max) topPositiveFactors.push('pH is within EU drinking-water range (6.5–9.5)');
+    if (tds <= L.tds.displayMax) topPositiveFactors.push('TDS is within EU indicator threshold used here (≤ 500 mg/L)');
+    if (turb <= L.turbidity.ideal) topPositiveFactors.push('Turbidity meets EU parametric expectation (≤ 1 NTU)');
+    if (do_ >= L.do.min) topPositiveFactors.push('Dissolved oxygen meets EU comparison minimum (≥ 6 mg/L)');
+    if (!chlorineFail) topPositiveFactors.push('Free chlorine is inside EU parametric residual band (0.1–0.5 mg/L)');
+    if (orp >= L.orp.min && orp <= L.orp.max) topPositiveFactors.push('ORP is inside the operational window used for EU comparison');
+    reasons.forEach(r => topNegativeFactors.push(r.message));
+
     return wrap({
-      engine: 'EU', engineKey: 'eu', score, verdict, summary,
-      classifications, reasons, params, statuses, findings, gated: chlorineFail
+      engine: 'EU',
+      engineKey: 'eu',
+      score,
+      verdict,
+      summary,
+      classifications,
+      reasons,
+      topPositiveFactors,
+      topNegativeFactors,
+      params,
+      statuses,
+      findings,
+      readings,
+      engineVersion: 'v1.0',
+      standardRevision: 'EU Drinking Water Directive parametric values 2020/2184',
+      gated: chlorineFail
     });
+
   }
 
   window.WaterScoreBenchmarkRegistry.register({

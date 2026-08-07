@@ -135,16 +135,48 @@ function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDA
     failedParameters: scored.failedParameters || [],
     criticalFailures: scored.criticalFailures || [],
     reasons: Array.isArray(scored.reasons) ? scored.reasons : [],
+    topPositiveFactors: Array.isArray(scored.topPositiveFactors) ? scored.topPositiveFactors : [],
+    topNegativeFactors: Array.isArray(scored.topNegativeFactors) ? scored.topNegativeFactors : [],
+    calculationId: scored.calculationId || null,
+    engineVersion: scored.engineVersion || null,
+    standardRevision: scored.standardRevision || null,
+    calculatedAt: scored.calculatedAt || null,
+    inputFingerprint: scored.inputFingerprint || null,
     classifications: scored.classifications || null,
     metadata: scored
   };
 }
 
-/** Render engine-authored reason lines — no scoring logic here. */
-function renderBenchmarkReasons(reasons) {
+/** Render engine-authored explainability — no scoring logic here. */
+function renderBenchmarkExplainability(result) {
   const list = document.getElementById('score-benchmark-reasons');
   if (!list) return;
-  const rows = Array.isArray(reasons) ? reasons.filter(r => r && r.message) : [];
+  if (!result) {
+    list.innerHTML = '';
+    list.hidden = true;
+    return;
+  }
+  const positives = Array.isArray(result?.topPositiveFactors) ? result.topPositiveFactors : [];
+  const negatives = Array.isArray(result?.topNegativeFactors) ? result.topNegativeFactors : [];
+  const reasons = Array.isArray(result?.reasons) ? result.reasons.filter(r => r && r.message) : [];
+  const rows = [];
+  negatives.slice(0, 3).forEach(msg => {
+    rows.push({ sev: 'fail', icon: '❌', message: msg });
+  });
+  // Prefer explicit reason messages when present; otherwise negatives already cover.
+  if (!negatives.length) {
+    reasons.slice(0, 3).forEach(r => {
+      const sev = String(r.severity || 'warning').toLowerCase();
+      rows.push({
+        sev,
+        icon: sev === 'critical' || sev === 'fail' ? '❌' : '⚠',
+        message: r.message
+      });
+    });
+  }
+  positives.slice(0, 3).forEach(msg => {
+    rows.push({ sev: 'pass', icon: '✓', message: msg });
+  });
   if (!rows.length) {
     list.innerHTML = '';
     list.hidden = true;
@@ -152,10 +184,8 @@ function renderBenchmarkReasons(reasons) {
   }
   list.hidden = false;
   list.innerHTML = rows.map(r => {
-    const sev = String(r.severity || 'warning').toLowerCase();
-    const icon = sev === 'critical' || sev === 'fail' ? '❌' : sev === 'pass' ? '✓' : '⚠';
     const safe = String(r.message).replace(/</g, '&lt;');
-    return `<li class="score-benchmark-reason is-${sev}"><span class="score-benchmark-reason-icon" aria-hidden="true">${icon}</span><span>${safe}</span></li>`;
+    return `<li class="score-benchmark-reason is-${r.sev}"><span class="score-benchmark-reason-icon" aria-hidden="true">${r.icon}</span><span>${safe}</span></li>`;
   }).join('');
 }
 
@@ -392,14 +422,14 @@ function renderScoreDisplay() {
         : t('score.readiness.waitingNote')
           .replace('{filled}', String(readiness?.filledCount ?? 0))
           .replace('{total}', String(readiness?.totalCount ?? 7));
-      renderBenchmarkReasons([]);
+      renderBenchmarkExplainability(null);
     } else {
       // Prefer engine summary/reasons — do not recompute explanations in UI.
       noteEl.textContent = result.summary || scoreSummaryNote(wq, findings);
-      renderBenchmarkReasons(result.reasons || []);
+      renderBenchmarkExplainability(result);
     }
   } else {
-    renderBenchmarkReasons(showScore ? (result.reasons || []) : []);
+    renderBenchmarkExplainability(showScore ? result : null);
   }
 
   renderScoreStatusBar(showScore ? wq : 0, { loading: !showScore });

@@ -1,6 +1,6 @@
 # Benchmark Isolation Test Report
 
-Date: 2026-08-07T07:41:22.557Z
+Date: 2026-08-07T07:56:53.076Z
 Sample: {"ph":7.2,"tds":450,"chlorine":0.8,"turbidity":2.5,"orp":350,"do":6.5,"temp":28}
 Production score: 93
 
@@ -34,6 +34,12 @@ Production score: 93
 - PASS  Test6: eu unchanged after dummy register
 - PASS  Test6: japan unchanged after dummy register
 - PASS  Test6: usEpa unchanged after dummy register
+- PASS  thailand score locked at 100 (got 100)
+- PASS  who score locked at 93 (got 93)
+- PASS  eu score locked at 65 (got 65)
+- PASS  japan score locked at 96 (got 96)
+- PASS  usEpa score locked at 91 (got 91)
+- PASS  Production locked at 93
 - PASS  thailand has engine name
 - PASS  thailand has numeric score
 - PASS  thailand has verdict
@@ -43,6 +49,13 @@ Production score: 93
 - PASS  thailand has warningParameters
 - PASS  thailand has failedParameters
 - PASS  thailand has criticalFailures
+- PASS  thailand has topPositiveFactors
+- PASS  thailand has topNegativeFactors
+- PASS  thailand has calculationId
+- PASS  thailand has engineVersion
+- PASS  thailand has standardRevision
+- PASS  thailand has calculatedAt
+- PASS  thailand has inputFingerprint
 - PASS  who has engine name
 - PASS  who has numeric score
 - PASS  who has verdict
@@ -52,6 +65,13 @@ Production score: 93
 - PASS  who has warningParameters
 - PASS  who has failedParameters
 - PASS  who has criticalFailures
+- PASS  who has topPositiveFactors
+- PASS  who has topNegativeFactors
+- PASS  who has calculationId
+- PASS  who has engineVersion
+- PASS  who has standardRevision
+- PASS  who has calculatedAt
+- PASS  who has inputFingerprint
 - PASS  eu has engine name
 - PASS  eu has numeric score
 - PASS  eu has verdict
@@ -61,6 +81,13 @@ Production score: 93
 - PASS  eu has warningParameters
 - PASS  eu has failedParameters
 - PASS  eu has criticalFailures
+- PASS  eu has topPositiveFactors
+- PASS  eu has topNegativeFactors
+- PASS  eu has calculationId
+- PASS  eu has engineVersion
+- PASS  eu has standardRevision
+- PASS  eu has calculatedAt
+- PASS  eu has inputFingerprint
 - PASS  japan has engine name
 - PASS  japan has numeric score
 - PASS  japan has verdict
@@ -70,6 +97,13 @@ Production score: 93
 - PASS  japan has warningParameters
 - PASS  japan has failedParameters
 - PASS  japan has criticalFailures
+- PASS  japan has topPositiveFactors
+- PASS  japan has topNegativeFactors
+- PASS  japan has calculationId
+- PASS  japan has engineVersion
+- PASS  japan has standardRevision
+- PASS  japan has calculatedAt
+- PASS  japan has inputFingerprint
 - PASS  usEpa has engine name
 - PASS  usEpa has numeric score
 - PASS  usEpa has verdict
@@ -79,9 +113,16 @@ Production score: 93
 - PASS  usEpa has warningParameters
 - PASS  usEpa has failedParameters
 - PASS  usEpa has criticalFailures
+- PASS  usEpa has topPositiveFactors
+- PASS  usEpa has topNegativeFactors
+- PASS  usEpa has calculationId
+- PASS  usEpa has engineVersion
+- PASS  usEpa has standardRevision
+- PASS  usEpa has calculatedAt
+- PASS  usEpa has inputFingerprint
 - PASS  EU metadata flags chlorine for this sample
 
 ## Totals
-75 passed, 0 failed
+116 passed, 0 failed
 
 STATUS: PASS
