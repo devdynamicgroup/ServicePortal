@@ -258,7 +258,7 @@ function evaluateParamStatus(paramName, value, standardKey = DEFAULT_SCORE_STAND
   const lim = getWaterQualityStandard(standardKey).limits;
   const key = paramKey(paramName);
   const n = Number(value);
-  if (!Number.isFinite(n)) return 'good';
+  if (!Number.isFinite(n)) return 'pending';
 
   // Good = inside Min–Max for the selected standard (Excel Pass); else Attention (Fail).
   // Parameters marked unbounded ("ไม่กำหนด") never raise Attention from the standard table.
@@ -353,6 +353,7 @@ function getScoreEvalContext(result = activeComparisonResult()) {
 
 /** UI status: only values inside the selected standard's recommended band are Good. */
 function paramStatusUiKey(status) {
+  if (status === 'pending') return 'pending';
   return status === 'good' ? 'good' : 'attn';
 }
 
@@ -395,7 +396,11 @@ function canDisplayScoreNumber(readiness, job = S.activeJob) {
     const published = Number(job?.result?.waterScore ?? job?.draft?.scoreVal);
     if (Number.isFinite(published)) return true;
   }
-  return Boolean(readiness?.ready) && !readiness?.ocrBusy;
+  // Overall score needs the formula inputs. OCR still running must not hide a ready score
+  // or block opening this screen — pending metrics keep their own loading state.
+  const present = readiness?.present || resolveScoreReadingsPresent(job);
+  const scoreKeys = ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do'];
+  return scoreKeys.every(key => present[key] !== undefined);
 }
 
 function renderScoreStatusBar(wq, { loading = false } = {}) {
@@ -564,14 +569,8 @@ function renderScoreDisplay() {
   renderLocationSelect(context);
   renderScoreReadiness(readiness);
   renderScoreReadings(context);
-  if (showScore) {
-    renderScoreImprove(context);
-  } else {
-    const improve = document.getElementById('score-improve-section');
-    const allGood = document.getElementById('score-all-good');
-    if (improve) improve.hidden = true;
-    if (allGood) allGood.hidden = true;
-  }
+  // Always render improve / all-good from whatever readings are already available.
+  renderScoreImprove(context);
   renderScorePhotos(readiness);
 }
 
@@ -735,7 +734,8 @@ function renderScoreReadiness(readiness) {
     return readiness;
   }
 
-  // Keep refreshing while OCR is still processing so photos/values appear when ready.
+  // Keep refreshing while OCR runs so values from each finished photo appear immediately.
+  // Incomplete-but-idle screens stay viewable with per-metric pending rows (no forever poll).
   if (readiness.ocrBusy && !S._scoreReadyPoll && !S.publicScoreView) {
     S._scoreReadyPoll = setInterval(() => {
       if (S.screen !== 's-score') {
@@ -743,11 +743,11 @@ function renderScoreReadiness(readiness) {
         S._scoreReadyPoll = null;
         return;
       }
+      if (typeof calcAndShowScore === 'function') calcAndShowScore();
       const next = getScoreDataReadiness(S.activeJob);
       if (!next.ocrBusy) {
         clearInterval(S._scoreReadyPoll);
         S._scoreReadyPoll = null;
-        if (typeof calcAndShowScore === 'function') calcAndShowScore();
       }
     }, 1200);
   }
@@ -1000,7 +1000,8 @@ function renderScoreReadings(context = getScoreEvalContext()) {
   const rows = scoreTapRows(S.scoreTapFilter, context);
   const statusLabels = {
     good: t('score.status.good'),
-    attn: t('score.status.attn')
+    attn: t('score.status.attn'),
+    pending: t('score.status.pending')
   };
 
   const countEl = document.getElementById('score-indicator-count');
@@ -1008,19 +1009,19 @@ function renderScoreReadings(context = getScoreEvalContext()) {
     countEl.innerHTML = `${rows.length || 7} <span data-i18n="score.indicators">${t('score.indicators')}</span>`;
   }
 
-  const showScore = canDisplayScoreNumber(getScoreDataReadiness(S.activeJob), S.activeJob);
-  listEl.classList.toggle('is-loading', !showScore);
+  // Show ready metrics immediately; only pending rows shimmer while OCR / input catches up.
+  listEl.classList.remove('is-loading');
   listEl.innerHTML = rows.map(r => {
     const statusKey = paramStatusUiKey(r.st);
-    const statusLabel = statusLabels[statusKey];
-    if (!showScore) {
+    if (statusKey === 'pending') {
       return `<div class="score-metric-row is-pending">
   <span class="score-metric-name">${r.p}</span>
-  <span class="score-metric-range"> </span>
-  <span class="score-metric-value"> </span>
-  <span class="score-metric-status"> </span>
+  <span class="score-metric-range">${r.std}</span>
+  <span class="score-metric-value score-metric-skel">&nbsp;</span>
+  <span class="score-metric-status score-metric-skel"><i class="score-dot" aria-hidden="true"></i>${statusLabels.pending}</span>
 </div>`;
     }
+    const statusLabel = statusLabels[statusKey];
     return `<div class="score-metric-row is-${statusKey}">
   <span class="score-metric-name">${r.p}</span>
   <span class="score-metric-range">${r.std}</span>
@@ -1043,6 +1044,8 @@ function renderScoreImprove(context = getScoreEvalContext()) {
   const allRows = scoreTapRows(S.scoreTapFilter || 'all', context);
   const rows = allRows.filter(r => paramStatusUiKey(r.st) === 'attn');
   const score = Number(activeComparisonResult()?.score);
+  const readiness = getScoreDataReadiness(S.activeJob);
+  const showScore = canDisplayScoreNumber(readiness, S.activeJob);
   const wq = Number.isFinite(score) ? score : 0;
   const verdict = customerVerdict(wq);
 
@@ -1050,7 +1053,8 @@ function renderScoreImprove(context = getScoreEvalContext()) {
     section.hidden = true;
     listEl.replaceChildren();
     if (allGood) {
-      const showPass = verdict.tier === 'high';
+      // Only claim "all good" when the overall score is ready and excellent.
+      const showPass = showScore && verdict.tier === 'high';
       allGood.hidden = !showPass;
       if (allGoodText && showPass) {
         allGoodText.textContent = t('score.allGood').replace('{n}', String(allRows.length || 8));

@@ -1210,6 +1210,11 @@ async function appendMeterSessionPhoto(photoSrc) {
     showToast(typeof t === 'function' ? t('meter.toastNoValues') : 'No values detected. Enter readings manually.');
   }
 
+  // Score screen can be open while OCR finishes — refresh ready values immediately.
+  if (S.screen === 's-score' && typeof calcAndShowScore === 'function') {
+    calcAndShowScore();
+  }
+
   // 4) Drive upload after OCR completes (success or empty) — does not hide OCR outcome.
   console.warn('[OCR FLOW] uploading image', { meterImageId, tapIndex });
   uploadMeterSessionImage(tapIndex, entry.id, imageSrc).catch(error => {
@@ -1286,6 +1291,9 @@ async function processAssessmentPhoto(previewId, photoSrc) {
       showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
     } else {
       showToast(typeof t === 'function' ? t('meter.toastNoValues') : 'No values detected. Enter readings manually.');
+    }
+    if (S.screen === 's-score' && typeof calcAndShowScore === 'function') {
+      calcAndShowScore();
     }
   } finally {
     processAssessmentPhoto._busy = false;
