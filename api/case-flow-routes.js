@@ -22,6 +22,7 @@ const {
 const { fingerprint, withIdempotency, wasReplayed } = require('../services/idempotency-store');
 const { newCorrelationId, logEvent } = require('../services/observability');
 const { publicBaseUrl } = require('../services/url-builder');
+const { assertAppAuth } = require('../services/app-auth');
 
 const BOOKING_IDEMPOTENCY_TTL_MS = 30 * 1000;
 
@@ -266,6 +267,24 @@ function reportHtml(job) {
   <script src="/src/js/state.js?v=${cacheBust}"></script>
   <script src="/src/js/i18n.js?v=${cacheBust}"></script>
   <script src="/src/js/common.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/util/clamp.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/production/computeProductionScore.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/registry.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/thailand/limits.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/thailand/weights.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/thailand/score.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/who/limits.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/who/weights.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/who/score.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/eu/limits.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/eu/weights.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/eu/score.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/japan/limits.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/japan/weights.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/japan/score.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/usEpa/limits.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/usEpa/weights.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/benchmark/usEpa/score.js?v=${cacheBust}"></script>
   <script src="/src/js/flows/score.js?v=${cacheBust}"></script>
   <script src="/src/js/public-report.js?v=${cacheBust}"></script>
 </body>
@@ -525,6 +544,7 @@ function customerFeedbackHtml(feedback) {
 async function handleCaseFlowRoute(req, res, urlPath) {
   const scoreMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/score$/);
   if (scoreMatch && req.method === 'POST') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const result = await publishCaseScore(decodeURIComponent(scoreMatch[1]), await readJson(req));
       sendJson(res, 200, result);
@@ -535,6 +555,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/cases' && req.method === 'POST') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const body = await readJson(req);
       const idempotencyKey = bookingIdempotencyKey(req, body);
@@ -560,6 +581,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
 
   const startMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/start$/);
   if (startMatch && req.method === 'POST') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const result = await startCase(decodeURIComponent(startMatch[1]), await readJson(req));
       sendJson(res, 200, result);
@@ -600,6 +622,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
 
   const closeMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/close$/);
   if (closeMatch && req.method === 'POST') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const result = await closeCase(decodeURIComponent(closeMatch[1]), await readJson(req));
       sendJson(res, 200, result);
@@ -611,6 +634,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
 
   const cancelMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/cancel$/);
   if (cancelMatch && req.method === 'POST') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const result = await cancelAppointment(decodeURIComponent(cancelMatch[1]));
       sendJson(res, 200, result);
@@ -633,6 +657,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
 
   const sendResultMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/send-result$/);
   if (sendResultMatch && req.method === 'POST') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const result = await sendCaseResult(decodeURIComponent(sendResultMatch[1]), await readJson(req));
       sendJson(res, 200, result);
@@ -643,6 +668,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/cases/repair-notifications' && req.method === 'POST') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const body = await readJson(req);
       const caseId = body.caseId || body.id;
@@ -659,6 +685,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/debug/client-feedback' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       sendJson(res, 200, { ok: true, feedback: await getClientFeedbackStatus() });
     } catch (error) {
@@ -668,6 +695,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/debug/client-feedback/sync-schema' && req.method === 'POST') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const result = await ensureClientFeedbackSchema();
       sendJson(res, 200, { ok: true, created: result.created, dataSourceId: result.dataSourceId });

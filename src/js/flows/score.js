@@ -37,134 +37,91 @@ function animateScoreNumber(el, target) {
   requestAnimationFrame(step);
 }
 
-/**
- * Drinking-water limit sets for Standard Comparison simulation.
- * WHO mirrors the production DWQI formula in computeScoreFromReadings().
- * Other keys are comparison-only and must never overwrite saved waterScore.
- */
-const WATER_QUALITY_STANDARDS = Object.freeze({
-  who: Object.freeze({
-    key: 'who',
-    labelKey: 'score.refStandard.who',
-    shortKey: 'score.refStandard.short.who',
-    display: Object.freeze({
-      ph: '6.5 - 8.5',
-      tds: '<= 500 mg/L',
-      chlorine: '0.2 - 0.5 mg/L',
-      turbidity: '<= 1 NTU',
-      orp: '200 - 600 mV',
-      do: '>= 6 mg/L',
-      temp: '<= 30°C'
-    }),
-    limits: Object.freeze({
-      ph: { min: 6.5, max: 8.5, fairMin: 6, fairMax: 9, poorMin: 5.5, poorMax: 9.5 },
-      tds: { ideal: 300, fair: 600, poor: 1000, displayMax: 500 },
-      chlorine: { idealMin: 0.2, idealMax: 0.5, fair: 1, poor: 2 },
-      turbidity: { ideal: 1, fair: 5, poor: 10 },
-      orp: { min: 200, max: 600 },
-      do: { min: 6 },
-      temp: { max: 30 }
-    })
-  }),
-  thailand: Object.freeze({
-    key: 'thailand',
-    labelKey: 'score.refStandard.thailand',
-    shortKey: 'score.refStandard.short.thailand',
-    // Min/Max aligned to Water Quality Report.xlsx → Reference (Pass/Fail only).
-    // Production Water Score still uses computeScoreFromReadings() (DWQI).
-    display: Object.freeze({
-      ph: '6.5 - 8.5',
-      tds: '<= 1000 mg/L',
-      chlorine: '0.2 - 2.0 mg/L',
-      turbidity: '<= 5 NTU',
-      orp: '200 - 600 mV',
-      do: 'Not specified',
-      temp: 'Not specified'
-    }),
-    limits: Object.freeze({
-      ph: { min: 6.5, max: 8.5, fairMin: 6, fairMax: 9, poorMin: 5.5, poorMax: 9.5 },
-      tds: { ideal: 500, fair: 1000, poor: 1500, displayMax: 1000 },
-      chlorine: { idealMin: 0.2, idealMax: 2.0, fair: 3, poor: 4 },
-      turbidity: { ideal: 5, fair: 8, poor: 12 },
-      orp: { min: 200, max: 600 },
-      do: { unbounded: true },
-      temp: { unbounded: true, displayMax: 30 }
-    })
-  }),
-  eu: Object.freeze({
-    key: 'eu',
-    labelKey: 'score.refStandard.eu',
-    shortKey: 'score.refStandard.short.eu',
-    display: Object.freeze({
-      ph: '6.5 - 9.5',
-      tds: '<= 500 mg/L',
-      chlorine: '<= 0.5 mg/L',
-      turbidity: '<= 1 NTU',
-      orp: '200 - 600 mV',
-      do: '>= 6 mg/L',
-      temp: '<= 25°C'
-    }),
-    limits: Object.freeze({
-      ph: { min: 6.5, max: 9.5, fairMin: 6, fairMax: 10, poorMin: 5.5, poorMax: 10.5 },
-      tds: { ideal: 300, fair: 500, poor: 1000, displayMax: 500 },
-      chlorine: { idealMin: 0.1, idealMax: 0.5, fair: 0.8, poor: 1.5 },
-      turbidity: { ideal: 1, fair: 4, poor: 8 },
-      orp: { min: 200, max: 600 },
-      do: { min: 6 },
-      temp: { max: 25 }
-    })
-  }),
-  usEpa: Object.freeze({
-    key: 'usEpa',
-    labelKey: 'score.refStandard.usEpa',
-    shortKey: 'score.refStandard.short.usEpa',
-    display: Object.freeze({
-      ph: '6.5 - 8.5',
-      tds: '<= 500 mg/L',
-      chlorine: '<= 4 mg/L',
-      turbidity: '<= 1 NTU',
-      orp: '200 - 600 mV',
-      do: '>= 6 mg/L',
-      temp: '<= 30°C'
-    }),
-    limits: Object.freeze({
-      ph: { min: 6.5, max: 8.5, fairMin: 6, fairMax: 9, poorMin: 5.5, poorMax: 9.5 },
-      tds: { ideal: 300, fair: 500, poor: 1000, displayMax: 500 },
-      chlorine: { idealMin: 0.2, idealMax: 4, fair: 4, poor: 5 },
-      turbidity: { ideal: 1, fair: 5, poor: 10 },
-      orp: { min: 200, max: 600 },
-      do: { min: 6 },
-      temp: { max: 30 }
-    })
-  }),
-  japan: Object.freeze({
-    key: 'japan',
-    labelKey: 'score.refStandard.japan',
-    shortKey: 'score.refStandard.short.japan',
-    display: Object.freeze({
-      ph: '5.8 - 8.6',
-      tds: '<= 500 mg/L',
-      chlorine: '<= 1 mg/L',
-      turbidity: '<= 2 NTU',
-      orp: '200 - 600 mV',
-      do: '>= 5 mg/L',
-      temp: '<= 30°C'
-    }),
-    limits: Object.freeze({
-      ph: { min: 5.8, max: 8.6, fairMin: 5.5, fairMax: 9, poorMin: 5, poorMax: 9.5 },
-      tds: { ideal: 300, fair: 500, poor: 1000, displayMax: 500 },
-      chlorine: { idealMin: 0.1, idealMax: 1, fair: 1.5, poor: 2 },
-      turbidity: { ideal: 2, fair: 5, poor: 10 },
-      orp: { min: 200, max: 600 },
-      do: { min: 5 },
-      temp: { max: 30 }
-    })
-  })
-});
-
-/** Thai first, then stricter / higher international standards descending. */
-const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'who', 'eu', 'japan', 'usEpa']);
+/** Benchmark comparison — independent country engines via WaterScoreBenchmarkRegistry. */
 const DEFAULT_SCORE_STANDARD_KEY = 'thailand';
+const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'who', 'eu', 'japan', 'usEpa']);
+
+function benchmarkRegistry() {
+  return (typeof window !== 'undefined' && window.WaterScoreBenchmarkRegistry)
+    ? window.WaterScoreBenchmarkRegistry
+    : (typeof WaterScoreBenchmarkRegistry !== 'undefined' ? WaterScoreBenchmarkRegistry : null);
+}
+
+/** Adapter so existing UI can read display/label metadata from engines. */
+function getWaterQualityStandard(standardKey) {
+  const reg = benchmarkRegistry();
+  const engine = reg?.get?.(standardKey) || reg?.get?.(DEFAULT_SCORE_STANDARD_KEY);
+  if (!engine) {
+    return {
+      key: DEFAULT_SCORE_STANDARD_KEY,
+      labelKey: 'score.refStandard.thailand',
+      shortKey: 'score.refStandard.short.thailand',
+      display: {},
+      limits: {}
+    };
+  }
+  return {
+    key: engine.key,
+    labelKey: engine.labelKey,
+    shortKey: engine.shortKey,
+    display: engine.display || {},
+    limits: engine.limits || {}
+  };
+}
+
+function clampScore(n, lo = 0, hi = 100) {
+  return typeof scoreClamp === 'function' ? scoreClamp(n, lo, hi) : Math.max(lo, Math.min(hi, n));
+}
+
+/** Comparison only — delegates to the selected country's engine (never production). */
+function computeParamScoresForStandard(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
+  const reg = benchmarkRegistry();
+  const key = reg?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
+  const out = reg.calculate(key, readings || {});
+  return { score: out.score, params: out.params };
+}
+
+function evaluateParamStatus(paramName, value, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
+  const key = paramKey(paramName);
+  const reg = benchmarkRegistry();
+  const engine = reg?.get?.(standardKey) || reg?.get?.(DEFAULT_SCORE_STANDARD_KEY);
+  if (engine?.evaluateStatus) return engine.evaluateStatus(key, value);
+  return Number.isFinite(Number(value)) ? 'good' : 'pending';
+}
+
+function buildScoreFindings(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
+  const reg = benchmarkRegistry();
+  const key = reg?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
+  const out = reg.calculate(key, readings || {});
+  return (out.findings || []).map(f => ({
+    label: f.label || (f.labelKey && typeof t === 'function' ? t(f.labelKey) : (f.labelKey || '')),
+    val: f.val,
+    note: f.note || ''
+  }));
+}
+
+/** Comparison-only result. Never write this to job.result / API. */
+function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
+  const reg = benchmarkRegistry();
+  const key = reg?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
+  const standard = getWaterQualityStandard(key);
+  const scored = reg.calculate(key, readings || {});
+  const score = Number.isFinite(scored.score) ? scored.score : null;
+  return {
+    standardKey: key,
+    standard,
+    readings: { ...readings },
+    score,
+    paramScores: scored.params,
+    findings: (scored.findings || []).map(f => ({
+      label: f.label || (f.labelKey && typeof t === 'function' ? t(f.labelKey) : (f.labelKey || '')),
+      val: f.val,
+      note: f.note || ''
+    })),
+    verdict: score == null ? null : customerVerdict(score),
+    statuses: scored.statuses || null
+  };
+}
 
 const SCORE_BAR_COLORS = Object.freeze({
   low: '#f07b7b',
@@ -179,167 +136,13 @@ function scoreBarColorForScore(wq) {
   return SCORE_BAR_COLORS[verdict.tier] || SCORE_BAR_COLORS.pending;
 }
 
-function getWaterQualityStandard(standardKey) {
-  return WATER_QUALITY_STANDARDS[standardKey] || WATER_QUALITY_STANDARDS[DEFAULT_SCORE_STANDARD_KEY];
-}
-
-function clampScore(n, lo = 0, hi = 100) {
-  return Math.max(lo, Math.min(hi, n));
-}
-
-function scorePhAgainstLimits(ph, lim) {
-  if (ph >= lim.min && ph <= lim.max) return 100;
-  if (ph >= lim.fairMin && ph <= lim.fairMax) return 70;
-  if (ph >= lim.poorMin && ph <= lim.poorMax) return 40;
-  return 15;
-}
-
-function scoreTdsAgainstLimits(tds, lim) {
-  if (tds <= lim.ideal) return 100;
-  if (tds <= lim.fair) return 100 - (tds - lim.ideal) / (lim.fair - lim.ideal) * 20;
-  if (tds <= lim.poor) return 80 - (tds - lim.fair) / (lim.poor - lim.fair) * 30;
-  return clampScore(50 - (tds - lim.poor) / 30);
-}
-
-function scoreTurbidityAgainstLimits(turb, lim) {
-  if (turb <= lim.ideal) return 100;
-  if (turb <= lim.fair) return 100 - (turb - lim.ideal) / (lim.fair - lim.ideal) * 30;
-  if (turb <= lim.poor) return 70 - (turb - lim.fair) / (lim.poor - lim.fair) * 40;
-  return clampScore(30 - (turb - lim.poor) * 3);
-}
-
-function scoreOrpAgainstLimits(orp, lim) {
-  if (orp >= lim.min && orp <= lim.max) return 100;
-  if (orp < lim.min) return clampScore(orp / lim.min * 100);
-  return clampScore(100 - (orp - lim.max) / 10);
-}
-
-function scoreChlorineAgainstLimits(fcl, lim) {
-  // WHO production ladder: ideal band → fair → poor → critical (low residual uses fair tier).
-  if (fcl >= lim.idealMin && fcl <= lim.idealMax) return 100;
-  if (fcl <= lim.fair) return 80;
-  if (fcl <= lim.poor) return 50;
-  return 25;
-}
-
-function scoreDoAgainstLimits(doValue, lim) {
-  // Excel "ไม่กำหนด" — no Pass/Fail ceiling; comparison treats any reading as full credit.
-  if (lim.unbounded) return 100;
-  if (doValue >= lim.min) return 100;
-  return clampScore(doValue / lim.min * 100);
-}
-
-/** Parameter sub-scores + weighted overall for a selected standard. */
-function computeParamScoresForStandard(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
-  const lim = getWaterQualityStandard(standardKey).limits;
-  const ph = Number(readings.ph);
-  const tds = Number(readings.tds);
-  const turb = Number(readings.turbidity);
-  const orp = Number(readings.orp);
-  const fcl = Number(readings.chlorine);
-  const do_ = Number(readings.do);
-  // Never invent demo/placeholder values — incomplete readings skip scoring.
-  if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
-    return { score: null, params: null };
-  }
-  const params = {
-    ph: scorePhAgainstLimits(ph, lim.ph),
-    tds: scoreTdsAgainstLimits(tds, lim.tds),
-    turbidity: scoreTurbidityAgainstLimits(turb, lim.turbidity),
-    orp: scoreOrpAgainstLimits(orp, lim.orp),
-    chlorine: scoreChlorineAgainstLimits(fcl, lim.chlorine),
-    do: scoreDoAgainstLimits(do_, lim.do)
-  };
-  const score = Math.round((params.ph + params.tds + params.turbidity + params.orp + params.chlorine + params.do) / 6);
-  return { score, params };
-}
-
-function evaluateParamStatus(paramName, value, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
-  const lim = getWaterQualityStandard(standardKey).limits;
-  const key = paramKey(paramName);
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 'pending';
-
-  // Good = inside Min–Max for the selected standard (Excel Pass); else Attention (Fail).
-  // Parameters marked unbounded ("ไม่กำหนด") never raise Attention from the standard table.
-  if (key === 'ph') {
-    return n >= lim.ph.min && n <= lim.ph.max ? 'good' : 'attn';
-  }
-  if (key === 'tds') {
-    return n <= lim.tds.displayMax ? 'good' : 'attn';
-  }
-  if (key === 'chlorine') {
-    return n >= lim.chlorine.idealMin && n <= lim.chlorine.idealMax ? 'good' : 'attn';
-  }
-  if (key === 'turbidity') {
-    return n <= lim.turbidity.ideal ? 'good' : 'attn';
-  }
-  if (key === 'orp') {
-    return n >= lim.orp.min && n <= lim.orp.max ? 'good' : 'attn';
-  }
-  if (key === 'do') {
-    if (lim.do.unbounded) return 'good';
-    return n >= lim.do.min ? 'good' : 'attn';
-  }
-  if (key === 'temp') {
-    if (lim.temp.unbounded) return 'good';
-    return n <= lim.temp.max ? 'good' : 'attn';
-  }
-  return 'good';
-}
-
-function buildScoreFindings(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
-  const lim = getWaterQualityStandard(standardKey).limits;
-  const ph = Number(readings.ph);
-  const fcl = Number(readings.chlorine);
-  const turb = Number(readings.turbidity);
-  const tds = Number(readings.tds);
-  const findings = [];
-  if (Number.isFinite(fcl) && fcl > lim.chlorine.idealMax) {
-    findings.push({ label: t('score.concern.highChlorine'), val: fcl + ' mg/L', note: t('score.note.highChlorine') });
-  }
-  // Turbidity Pass ceiling = ideal (Excel Max), not the softer fair ladder tier.
-  if (Number.isFinite(turb) && turb > lim.turbidity.ideal) {
-    findings.push({ label: t('score.concern.highTurbidity'), val: turb + ' NTU', note: t('score.note.highTurbidity') });
-  }
-  if (Number.isFinite(fcl) && fcl < lim.chlorine.idealMin) {
-    findings.push({ label: t('score.concern.lowChlorine'), val: fcl + ' mg/L', note: t('score.note.lowChlorine') });
-  }
-  if (Number.isFinite(ph) && (ph < lim.ph.min || ph > lim.ph.max)) {
-    findings.push({ label: t('score.concern.phRange'), val: String(ph), note: t('score.note.phRange') });
-  }
-  if (Number.isFinite(tds) && tds > lim.tds.displayMax) {
-    findings.push({ label: t('score.concern.highTds'), val: tds + ' mg/L', note: t('score.note.highTds') });
-  }
-  return findings;
-}
-
-/** Comparison-only result. Never write this to job.result / API. */
-function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
-  const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
-  const standard = getWaterQualityStandard(key);
-  const scored = computeParamScoresForStandard(readings, key);
-  const score = Number.isFinite(scored.score) ? scored.score : null;
-  // Always recalculate display score from the selected standard (simulation only).
-  // Production/share score stays on S.scoreVal / currentScoreResult.
-  return {
-    standardKey: key,
-    standard,
-    readings: { ...readings },
-    score,
-    paramScores: scored.params,
-    findings: buildScoreFindings(readings, key),
-    verdict: score == null ? null : customerVerdict(score)
-  };
-}
-
 /**
  * Single evaluation context for the whole report view.
  * Room Analysis + Parameter Analysis must both use this — never hardcoded limits.
  */
 function getScoreEvalContext(result = activeComparisonResult()) {
   const standardKey = result?.standardKey
-    || (WATER_QUALITY_STANDARDS[S.scoreStandardKey] ? S.scoreStandardKey : DEFAULT_SCORE_STANDARD_KEY);
+    || (benchmarkRegistry()?.has?.(S.scoreStandardKey) ? S.scoreStandardKey : DEFAULT_SCORE_STANDARD_KEY);
   const standard = result?.standard || getWaterQualityStandard(standardKey);
   const readings = result?.readings || S.scoreBaseReadings || S.currentScoreResult?.readings || {};
   return {
@@ -460,7 +263,7 @@ function activeStandardKey() {
 
 /** Thai first, then other countries by highest comparison score → lowest. */
 function orderedStandardsForSelect(readings) {
-  const keys = SCORE_STANDARD_ORDER.filter(key => WATER_QUALITY_STANDARDS[key]);
+  const keys = (benchmarkRegistry()?.order?.length ? benchmarkRegistry().order : SCORE_STANDARD_ORDER).filter(key => benchmarkRegistry()?.has?.(key));
   const scored = keys.map(key => {
     const out = computeParamScoresForStandard(readings || {}, key);
     return { key, score: Number.isFinite(out.score) ? out.score : -1 };
@@ -576,7 +379,7 @@ function renderScoreDisplay() {
 
 /** Switch comparison standard — recalculates statuses from the same resolved readings. */
 function setScoreReferenceStandard(standardKey) {
-  const key = WATER_QUALITY_STANDARDS[standardKey] ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
+  const key = benchmarkRegistry()?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const readings = resolveScoreReadings(S.activeJob);
   const computedScore = computeScoreFromReadings(readings);
 
@@ -770,32 +573,6 @@ function readingsFromJob(job) {
   return resolveScoreReadings(job);
 }
 
-function computeScoreFromReadings(readings) {
-  // Production / saved score — original WHO (DWQI) formula. Unchanged for share/API.
-  // Missing keys stay missing — do not substitute demo/example numbers.
-  const ph = Number(readings.ph);
-  const tds = Number(readings.tds);
-  const turb = Number(readings.turbidity);
-  const orp = Number(readings.orp);
-  const fcl = Number(readings.chlorine);
-  const do_ = Number(readings.do);
-  console.log('PARAMETER VALUES', { ph, tds, turbidity: turb, orp, chlorine: fcl, do: do_ });
-  if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
-    console.log('FINAL SCORE skipped — incomplete readings');
-    return null;
-  }
-  const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
-  const pHs = ph >= 6.5 && ph <= 8.5 ? 100 : ph >= 6 && ph <= 9 ? 70 : ph >= 5.5 && ph <= 9.5 ? 40 : 15;
-  const tdss = tds <= 300 ? 100 : tds <= 600 ? 100 - (tds - 300) / 300 * 20 : tds <= 1000 ? 80 - (tds - 600) / 400 * 30 : clamp(50 - (tds - 1000) / 30);
-  const turbs = turb <= 1 ? 100 : turb <= 5 ? 100 - (turb - 1) / 4 * 30 : turb <= 10 ? 70 - (turb - 5) / 5 * 40 : clamp(30 - (turb - 10) * 3);
-  const orps = orp >= 200 && orp <= 600 ? 100 : orp < 200 ? clamp(orp / 200 * 100) : clamp(100 - (orp - 600) / 10);
-  const cls = fcl >= 0.2 && fcl <= 0.5 ? 100 : fcl <= 1 ? 80 : fcl <= 2 ? 50 : 25;
-  const dos = do_ >= 6 ? 100 : clamp(do_ / 6 * 100);
-  const score = Math.round((pHs + tdss + turbs + orps + cls + dos) / 6);
-  console.log('FINAL SCORE', score, { pHs, tdss, turbs, orps, cls, dos });
-  return score;
-}
-
 /**
  * Single Water Score renderer used by both the field app and /r/{token}.
  * publicView only changes chrome (handled by caller); display path is identical.
@@ -832,7 +609,7 @@ function renderWaterScore(job, options = {}) {
     source: publicView && Number.isFinite(published) ? 'published' : 'computed',
     computedScore
   };
-  if (!S.scoreStandardKey || !WATER_QUALITY_STANDARDS[S.scoreStandardKey]) {
+  if (!S.scoreStandardKey || !benchmarkRegistry()?.has?.(S.scoreStandardKey)) {
     S.scoreStandardKey = DEFAULT_SCORE_STANDARD_KEY;
   }
   S.comparisonScoreResult = buildComparisonScoreResult(readings, S.scoreStandardKey);
