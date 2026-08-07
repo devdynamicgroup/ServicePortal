@@ -268,6 +268,7 @@ function reportHtml(job) {
   <script src="/src/js/i18n.js?v=${cacheBust}"></script>
   <script src="/src/js/common.js?v=${cacheBust}"></script>
   <script src="/src/js/score/util/clamp.js?v=${cacheBust}"></script>
+  <script src="/src/js/score/util/benchmarkMetadata.js?v=${cacheBust}"></script>
   <script src="/src/js/score/production/computeProductionScore.js?v=${cacheBust}"></script>
   <script src="/src/js/score/benchmark/registry.js?v=${cacheBust}"></script>
   <script src="/src/js/score/benchmark/thailand/limits.js?v=${cacheBust}"></script>

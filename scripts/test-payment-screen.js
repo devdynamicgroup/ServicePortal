@@ -39,6 +39,7 @@ const scripts = [
   'src/js/flows/preassessment.js',
   'src/js/flows/assessment.js',
   'src/js/score/util/clamp.js',
+  'src/js/score/util/benchmarkMetadata.js',
   'src/js/score/production/computeProductionScore.js',
   'src/js/score/benchmark/registry.js',
   'src/js/score/benchmark/thailand/limits.js',

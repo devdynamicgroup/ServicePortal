@@ -100,27 +100,63 @@ function buildScoreFindings(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) 
   }));
 }
 
-/** Comparison-only result. Never write this to job.result / API. */
+/** Comparison-only result. Never write this to job.result / API.
+ *  Metadata (verdict/summary/reasons) comes from the country engine — UI must not invent it.
+ */
 function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
   const reg = benchmarkRegistry();
   const key = reg?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const standard = getWaterQualityStandard(key);
   const scored = reg.calculate(key, readings || {});
   const score = Number.isFinite(scored.score) ? scored.score : null;
+  const findings = (scored.findings || []).map(f => ({
+    label: f.label || (f.labelKey && typeof t === 'function' ? t(f.labelKey) : (f.labelKey || '')),
+    val: f.val,
+    note: f.note || ''
+  }));
+  // Prefer engine-authored verdict; fall back only if an engine omitted metadata.
+  const engineVerdict = scored.verdict || null;
+  const fallbackVerdict = score == null ? null : customerVerdict(score);
   return {
     standardKey: key,
     standard,
     readings: { ...readings },
     score,
     paramScores: scored.params,
-    findings: (scored.findings || []).map(f => ({
-      label: f.label || (f.labelKey && typeof t === 'function' ? t(f.labelKey) : (f.labelKey || '')),
-      val: f.val,
-      note: f.note || ''
-    })),
-    verdict: score == null ? null : customerVerdict(score),
-    statuses: scored.statuses || null
+    findings,
+    statuses: scored.statuses || null,
+    engine: scored.engine || key,
+    engineKey: scored.engineKey || key,
+    verdict: engineVerdict || fallbackVerdict?.label || null,
+    verdictTier: fallbackVerdict?.tier || null,
+    summary: scored.summary || null,
+    passedParameters: scored.passedParameters || [],
+    warningParameters: scored.warningParameters || [],
+    failedParameters: scored.failedParameters || [],
+    criticalFailures: scored.criticalFailures || [],
+    reasons: Array.isArray(scored.reasons) ? scored.reasons : [],
+    classifications: scored.classifications || null,
+    metadata: scored
   };
+}
+
+/** Render engine-authored reason lines — no scoring logic here. */
+function renderBenchmarkReasons(reasons) {
+  const list = document.getElementById('score-benchmark-reasons');
+  if (!list) return;
+  const rows = Array.isArray(reasons) ? reasons.filter(r => r && r.message) : [];
+  if (!rows.length) {
+    list.innerHTML = '';
+    list.hidden = true;
+    return;
+  }
+  list.hidden = false;
+  list.innerHTML = rows.map(r => {
+    const sev = String(r.severity || 'warning').toLowerCase();
+    const icon = sev === 'critical' || sev === 'fail' ? '❌' : sev === 'pass' ? '✓' : '⚠';
+    const safe = String(r.message).replace(/</g, '&lt;');
+    return `<li class="score-benchmark-reason is-${sev}"><span class="score-benchmark-reason-icon" aria-hidden="true">${icon}</span><span>${safe}</span></li>`;
+  }).join('');
 }
 
 const SCORE_BAR_COLORS = Object.freeze({
@@ -345,7 +381,7 @@ function renderScoreDisplay() {
 
   if (bandEl) {
     bandEl.textContent = showScore
-      ? verdict.label
+      ? (result.verdict || verdict.label)
       : (readiness?.ocrBusy ? t('score.readiness.calculatingBadge') : t('score.readiness.waitingBadge'));
     bandEl.style.color = '';
   }
@@ -356,9 +392,14 @@ function renderScoreDisplay() {
         : t('score.readiness.waitingNote')
           .replace('{filled}', String(readiness?.filledCount ?? 0))
           .replace('{total}', String(readiness?.totalCount ?? 7));
+      renderBenchmarkReasons([]);
     } else {
-      noteEl.textContent = scoreSummaryNote(wq, findings);
+      // Prefer engine summary/reasons — do not recompute explanations in UI.
+      noteEl.textContent = result.summary || scoreSummaryNote(wq, findings);
+      renderBenchmarkReasons(result.reasons || []);
     }
+  } else {
+    renderBenchmarkReasons(showScore ? (result.reasons || []) : []);
   }
 
   renderScoreStatusBar(showScore ? wq : 0, { loading: !showScore });

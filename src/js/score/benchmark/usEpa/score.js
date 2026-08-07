@@ -1,11 +1,14 @@
 ﻿/**
  * US EPA benchmark engine — MCL/SMCL/TT-aware comparison index.
- * Wide chlorine band; steep turbidity treatment-technique style penalty.
+ * Owns EPA-specific metadata explanations.
  */
 (function registerUsEpaBenchmarkEngine() {
   const L = window.UsEpaBenchmarkLimits;
   const W = window.UsEpaBenchmarkWeights;
   const clamp = typeof scoreClamp === 'function' ? scoreClamp : (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
+  const wrap = typeof finalizeBenchmarkMetadata === 'function' ? finalizeBenchmarkMetadata : (x) => x;
+  const incomplete = typeof incompleteBenchmarkMetadata === 'function'
+    ? incompleteBenchmarkMetadata : () => ({ score: null });
 
   function gradePh(ph) {
     if (ph >= L.ph.min && ph <= L.ph.max) return 100;
@@ -39,6 +42,22 @@
     return clamp(doValue / L.do.min * 100);
   }
 
+  function classify(grade, pass, criticalish) {
+    if (pass) return 'PASS';
+    if (criticalish) return grade < 50 ? 'CRITICAL' : 'FAIL';
+    if (grade >= 75) return 'WARNING';
+    if (grade >= 45) return 'FAIL';
+    return 'CRITICAL';
+  }
+
+  function verdictFrom(score) {
+    if (score >= 80) return 'Excellent';
+    if (score >= 70) return 'Good';
+    if (score >= 60) return 'Acceptable';
+    if (score >= 40) return 'Attention';
+    return 'Poor';
+  }
+
   function statusOf(param, value) {
     const n = Number(value);
     if (!Number.isFinite(n)) return 'pending';
@@ -52,20 +71,6 @@
     return 'good';
   }
 
-  function findingsFrom(readings) {
-    const out = [];
-    const ph = Number(readings.ph);
-    const tds = Number(readings.tds);
-    const cl = Number(readings.chlorine);
-    const turb = Number(readings.turbidity);
-    if (Number.isFinite(cl) && cl > L.chlorine.max) out.push({ labelKey: 'score.concern.highChlorine', val: cl + ' mg/L' });
-    if (Number.isFinite(cl) && cl < L.chlorine.min) out.push({ labelKey: 'score.concern.lowChlorine', val: cl + ' mg/L' });
-    if (Number.isFinite(turb) && turb > L.turbidity.ttIdeal) out.push({ labelKey: 'score.concern.highTurbidity', val: turb + ' NTU' });
-    if (Number.isFinite(ph) && (ph < L.ph.min || ph > L.ph.max)) out.push({ labelKey: 'score.concern.phRange', val: String(ph) });
-    if (Number.isFinite(tds) && tds > L.tds.smcl) out.push({ labelKey: 'score.concern.highTds', val: tds + ' mg/L' });
-    return out;
-  }
-
   function calculate(readings) {
     const ph = Number(readings.ph);
     const tds = Number(readings.tds);
@@ -74,7 +79,7 @@
     const cl = Number(readings.chlorine);
     const do_ = Number(readings.do);
     if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
-      return { score: null, params: null, findings: [], statuses: {} };
+      return incomplete('US EPA', 'usEpa');
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
@@ -83,12 +88,61 @@
     let num = 0; let den = 0;
     Object.keys(W).forEach(key => { num += params[key] * W[key]; den += W[key]; });
     const score = Math.round(num / den);
+
+    const pass = {
+      ph: ph >= L.ph.min && ph <= L.ph.max,
+      tds: tds <= L.tds.smcl,
+      chlorine: cl >= L.chlorine.min && cl <= L.chlorine.max,
+      turbidity: turb <= L.turbidity.ttIdeal,
+      orp: orp >= L.orp.min && orp <= L.orp.max,
+      do: do_ >= L.do.min,
+      temp: !Number.isFinite(Number(readings.temp)) || Number(readings.temp) <= L.temp.max
+    };
+    const classifications = {
+      ph: classify(params.ph, pass.ph, false),
+      tds: classify(params.tds, pass.tds, false),
+      chlorine: classify(params.chlorine, pass.chlorine, false),
+      turbidity: classify(params.turbidity, pass.turbidity, true),
+      orp: classify(params.orp, pass.orp, false),
+      do: classify(params.do, pass.do, false),
+      temp: pass.temp ? 'PASS' : 'WARNING'
+    };
+
+    const reasons = [];
+    if (!pass.turbidity) {
+      reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds US EPA treatment-technique style target used here (≤ 1 NTU).' });
+    }
+    if (!pass.tds) {
+      reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds US EPA secondary (SMCL) aesthetic guideline (≤ 500 mg/L).' });
+    }
+    if (!pass.chlorine && cl > L.chlorine.max) {
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine exceeds US EPA MRDL-style upper comparison (≤ 4 mg/L).' });
+    } else if (!pass.chlorine && cl < L.chlorine.min) {
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below the operational residual floor used for EPA comparison (≥ 0.2 mg/L).' });
+    }
+    if (!pass.ph) {
+      reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside US EPA secondary range (6.5–8.5).' });
+    }
+    if (!pass.do) {
+      reasons.push({ parameter: 'do', severity: classifications.do.toLowerCase(), message: 'Dissolved oxygen is below EPA comparison minimum (≥ 6 mg/L).' });
+    }
+
+    const verdict = verdictFrom(score);
+    let summary = 'Meets US EPA comparison expectations for this reading set.';
+    if (!reasons.length && verdict === 'Excellent') summary = 'Strong alignment with US EPA MCL/SMCL/TT-style comparison targets.';
+    else if (reasons.length) summary = 'One or more US EPA comparison expectations need attention.';
+
     const statuses = {
       ph: statusOf('ph', ph), tds: statusOf('tds', tds), chlorine: statusOf('chlorine', cl),
       turbidity: statusOf('turbidity', turb), orp: statusOf('orp', orp), do: statusOf('do', do_),
       temp: statusOf('temp', readings.temp)
     };
-    return { score, params, findings: findingsFrom(readings), statuses };
+    const findings = reasons.map(r => ({ label: r.message, val: String(readings[r.parameter] ?? ''), note: '' }));
+
+    return wrap({
+      engine: 'US EPA', engineKey: 'usEpa', score, verdict, summary,
+      classifications, reasons, params, statuses, findings
+    });
   }
 
   window.WaterScoreBenchmarkRegistry.register({

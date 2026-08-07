@@ -1,12 +1,16 @@
 ﻿/**
  * Thailand benchmark engine — local acceptability philosophy.
  * Soft Pass/Fail index. DO and Temp are not scored.
- * Independent of WHO/EU/Japan/EPA engines.
+ * Owns Thailand-specific metadata explanations.
  */
 (function registerThailandBenchmarkEngine() {
   const L = window.ThailandBenchmarkLimits;
   const W = window.ThailandBenchmarkWeights;
   const clamp = typeof scoreClamp === 'function' ? scoreClamp : (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
+  const wrap = typeof finalizeBenchmarkMetadata === 'function' ? finalizeBenchmarkMetadata : (x) => x;
+  const incomplete = typeof incompleteBenchmarkMetadata === 'function'
+    ? incompleteBenchmarkMetadata
+    : () => ({ score: null });
 
   function gradePh(ph) {
     if (ph >= L.ph.min && ph <= L.ph.max) return 100;
@@ -38,6 +42,22 @@
     return clamp(100 - (orp - L.orp.max) / 10);
   }
 
+  function classify(grade, inPass) {
+    if (inPass && grade >= 95) return 'PASS';
+    if (inPass) return 'PASS';
+    if (grade >= 70) return 'WARNING';
+    if (grade >= 40) return 'FAIL';
+    return 'CRITICAL';
+  }
+
+  function verdictFrom(score) {
+    if (score >= 90) return 'Excellent';
+    if (score >= 75) return 'Good';
+    if (score >= 60) return 'Acceptable';
+    if (score >= 40) return 'Attention';
+    return 'Poor';
+  }
+
   function statusOf(param, value) {
     const n = Number(value);
     if (!Number.isFinite(n)) return 'pending';
@@ -50,20 +70,6 @@
     return 'good';
   }
 
-  function findingsFrom(readings) {
-    const out = [];
-    const ph = Number(readings.ph);
-    const tds = Number(readings.tds);
-    const cl = Number(readings.chlorine);
-    const turb = Number(readings.turbidity);
-    if (Number.isFinite(cl) && cl > L.chlorine.max) out.push({ labelKey: 'score.concern.highChlorine', val: cl + ' mg/L' });
-    if (Number.isFinite(cl) && cl < L.chlorine.min) out.push({ labelKey: 'score.concern.lowChlorine', val: cl + ' mg/L' });
-    if (Number.isFinite(turb) && turb > L.turbidity.passMax) out.push({ labelKey: 'score.concern.highTurbidity', val: turb + ' NTU' });
-    if (Number.isFinite(ph) && (ph < L.ph.min || ph > L.ph.max)) out.push({ labelKey: 'score.concern.phRange', val: String(ph) });
-    if (Number.isFinite(tds) && tds > L.tds.passMax) out.push({ labelKey: 'score.concern.highTds', val: tds + ' mg/L' });
-    return out;
-  }
-
   function calculate(readings) {
     const ph = Number(readings.ph);
     const tds = Number(readings.tds);
@@ -71,7 +77,7 @@
     const orp = Number(readings.orp);
     const cl = Number(readings.chlorine);
     if (![ph, tds, turb, orp, cl].every(Number.isFinite)) {
-      return { score: null, params: null, findings: [], statuses: {} };
+      return incomplete('Thailand', 'thailand');
     }
     const params = {
       ph: gradePh(ph),
@@ -88,6 +94,49 @@
       den += W[key];
     });
     const score = den > 0 ? Math.round(num / den) : null;
+
+    const pass = {
+      ph: ph >= L.ph.min && ph <= L.ph.max,
+      tds: tds <= L.tds.passMax,
+      chlorine: cl >= L.chlorine.min && cl <= L.chlorine.max,
+      turbidity: turb <= L.turbidity.passMax,
+      orp: orp >= L.orp.min && orp <= L.orp.max
+    };
+    const classifications = {
+      ph: classify(params.ph, pass.ph),
+      tds: classify(params.tds, pass.tds),
+      chlorine: classify(params.chlorine, pass.chlorine),
+      turbidity: classify(params.turbidity, pass.turbidity),
+      orp: classify(params.orp, pass.orp),
+      do: 'PASS',
+      temp: 'PASS'
+    };
+
+    const reasons = [];
+    if (!pass.chlorine && cl > L.chlorine.max) {
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is above Thailand drinking-water residual guidance (0.2–2.0 mg/L).' });
+    } else if (!pass.chlorine && cl < L.chlorine.min) {
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below Thailand residual guidance — disinfection may be insufficient.' });
+    }
+    if (!pass.turbidity) {
+      reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds Thailand local acceptability limit (≤ 5 NTU).' });
+    }
+    if (!pass.tds) {
+      reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds Thailand reference ceiling (≤ 1000 mg/L).' });
+    }
+    if (!pass.ph) {
+      reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside Thailand recommended band (6.5–8.5).' });
+    }
+    if (!pass.orp) {
+      reasons.push({ parameter: 'orp', severity: classifications.orp.toLowerCase(), message: 'ORP is outside the operational window used for Thailand comparison (200–600 mV).' });
+    }
+
+    const verdict = verdictFrom(score);
+    let summary = 'Meets Thailand local drinking-water acceptability for scored indicators.';
+    if (verdict === 'Excellent') summary = 'Strong match to Thailand local drinking-water acceptability.';
+    else if (reasons.length) summary = 'Some indicators need attention against Thailand local guidance.';
+    else if (verdict === 'Poor' || verdict === 'Attention') summary = 'Below Thailand local acceptability for one or more scored indicators.';
+
     const statuses = {
       ph: statusOf('ph', ph),
       tds: statusOf('tds', tds),
@@ -97,7 +146,25 @@
       do: statusOf('do', readings.do),
       temp: statusOf('temp', readings.temp)
     };
-    return { score, params, findings: findingsFrom(readings), statuses };
+
+    const findings = reasons.map(r => ({
+      label: r.message,
+      val: String(readings[r.parameter] ?? ''),
+      note: ''
+    }));
+
+    return wrap({
+      engine: 'Thailand',
+      engineKey: 'thailand',
+      score,
+      verdict,
+      summary,
+      classifications,
+      reasons,
+      params,
+      statuses,
+      findings
+    });
   }
 
   window.WaterScoreBenchmarkRegistry.register({

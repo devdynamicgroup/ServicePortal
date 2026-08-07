@@ -1115,3 +1115,11 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 
 /* ─── Section titles ─────────────────────────────── */
 .section-title{font-size:17px;font-weight:600;margin-bottom:12px}
+
+.score-benchmark-reasons{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.score-benchmark-reasons[hidden]{display:none!important}
+.score-benchmark-reason{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.4;color:var(--muted)}
+.score-benchmark-reason-icon{flex-shrink:0;width:14px;text-align:center}
+.score-benchmark-reason.is-critical,.score-benchmark-reason.is-fail{color:#b91c1c}
+.score-benchmark-reason.is-warning{color:#b45309}
+.score-benchmark-reason.is-pass{color:#15803d}

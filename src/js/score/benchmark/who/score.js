@@ -1,11 +1,14 @@
 ﻿/**
  * WHO benchmark engine — WHO guideline proximity / DWQI-style index.
- * Owns its own copy of WHO ladders (does not call production computeScoreFromReadings).
+ * Owns WHO-specific metadata explanations (does not call production).
  */
 (function registerWhoBenchmarkEngine() {
   const L = window.WhoBenchmarkLimits;
   const W = window.WhoBenchmarkWeights;
   const clamp = typeof scoreClamp === 'function' ? scoreClamp : (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
+  const wrap = typeof finalizeBenchmarkMetadata === 'function' ? finalizeBenchmarkMetadata : (x) => x;
+  const incomplete = typeof incompleteBenchmarkMetadata === 'function'
+    ? incompleteBenchmarkMetadata : () => ({ score: null });
 
   function gradePh(ph) {
     if (ph >= L.ph.min && ph <= L.ph.max) return 100;
@@ -41,6 +44,21 @@
     return clamp(doValue / L.do.min * 100);
   }
 
+  function classify(grade, inIdeal) {
+    if (inIdeal) return 'PASS';
+    if (grade >= 80) return 'WARNING';
+    if (grade >= 50) return 'FAIL';
+    return 'CRITICAL';
+  }
+
+  function verdictFrom(score) {
+    if (score >= 80) return 'Excellent';
+    if (score >= 70) return 'Good';
+    if (score >= 60) return 'Acceptable';
+    if (score >= 40) return 'Attention';
+    return 'Poor';
+  }
+
   function statusOf(param, value) {
     const n = Number(value);
     if (!Number.isFinite(n)) return 'pending';
@@ -54,20 +72,6 @@
     return 'good';
   }
 
-  function findingsFrom(readings) {
-    const out = [];
-    const ph = Number(readings.ph);
-    const tds = Number(readings.tds);
-    const fcl = Number(readings.chlorine);
-    const turb = Number(readings.turbidity);
-    if (Number.isFinite(fcl) && fcl > L.chlorine.idealMax) out.push({ labelKey: 'score.concern.highChlorine', val: fcl + ' mg/L' });
-    if (Number.isFinite(fcl) && fcl < L.chlorine.idealMin) out.push({ labelKey: 'score.concern.lowChlorine', val: fcl + ' mg/L' });
-    if (Number.isFinite(turb) && turb > L.turbidity.ideal) out.push({ labelKey: 'score.concern.highTurbidity', val: turb + ' NTU' });
-    if (Number.isFinite(ph) && (ph < L.ph.min || ph > L.ph.max)) out.push({ labelKey: 'score.concern.phRange', val: String(ph) });
-    if (Number.isFinite(tds) && tds > L.tds.displayMax) out.push({ labelKey: 'score.concern.highTds', val: tds + ' mg/L' });
-    return out;
-  }
-
   function calculate(readings) {
     const ph = Number(readings.ph);
     const tds = Number(readings.tds);
@@ -76,28 +80,73 @@
     const fcl = Number(readings.chlorine);
     const do_ = Number(readings.do);
     if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
-      return { score: null, params: null, findings: [], statuses: {} };
+      return incomplete('WHO', 'who');
     }
     const params = {
-      ph: gradePh(ph),
-      tds: gradeTds(tds),
-      turbidity: gradeTurbidity(turb),
-      orp: gradeOrp(orp),
-      chlorine: gradeChlorine(fcl),
-      do: gradeDo(do_)
+      ph: gradePh(ph), tds: gradeTds(tds), turbidity: gradeTurbidity(turb),
+      orp: gradeOrp(orp), chlorine: gradeChlorine(fcl), do: gradeDo(do_)
     };
     let num = 0; let den = 0;
-    Object.keys(W).forEach(key => {
-      num += params[key] * W[key];
-      den += W[key];
-    });
+    Object.keys(W).forEach(key => { num += params[key] * W[key]; den += W[key]; });
     const score = Math.round(num / den);
+
+    const ideal = {
+      ph: ph >= L.ph.min && ph <= L.ph.max,
+      tds: tds <= L.tds.displayMax,
+      chlorine: fcl >= L.chlorine.idealMin && fcl <= L.chlorine.idealMax,
+      turbidity: turb <= L.turbidity.ideal,
+      orp: orp >= L.orp.min && orp <= L.orp.max,
+      do: do_ >= L.do.min,
+      temp: !Number.isFinite(Number(readings.temp)) || Number(readings.temp) <= L.temp.max
+    };
+    const classifications = {
+      ph: classify(params.ph, ideal.ph),
+      tds: classify(params.tds, ideal.tds),
+      chlorine: classify(params.chlorine, ideal.chlorine),
+      turbidity: classify(params.turbidity, ideal.turbidity),
+      orp: classify(params.orp, ideal.orp),
+      do: classify(params.do, ideal.do),
+      temp: ideal.temp ? 'PASS' : 'WARNING'
+    };
+
+    const reasons = [];
+    if (!ideal.chlorine && fcl > L.chlorine.idealMax) {
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine exceeds WHO guideline residual band (0.2–0.5 mg/L).' });
+    } else if (!ideal.chlorine && fcl < L.chlorine.idealMin) {
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below WHO recommended residual for drinking water.' });
+    }
+    if (!ideal.turbidity) {
+      reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds WHO drinking-water guideline (≤ 1 NTU).' });
+    }
+    if (!ideal.tds) {
+      reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds WHO aesthetic guideline (≤ 500 mg/L).' });
+    }
+    if (!ideal.ph) {
+      reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside WHO recommended range (6.5–8.5).' });
+    }
+    if (!ideal.do) {
+      reasons.push({ parameter: 'do', severity: classifications.do.toLowerCase(), message: 'Dissolved oxygen is below WHO comparison minimum (≥ 6 mg/L).' });
+    }
+    if (!ideal.orp) {
+      reasons.push({ parameter: 'orp', severity: classifications.orp.toLowerCase(), message: 'ORP is outside the WHO comparison operational window (200–600 mV).' });
+    }
+
+    const verdict = verdictFrom(score);
+    let summary = 'Meets WHO drinking water recommendations.';
+    if (reasons.length) summary = 'Does not fully meet WHO drinking-water guideline proximity for all indicators.';
+    if (verdict === 'Excellent' && !reasons.length) summary = 'Aligns closely with WHO drinking-water guideline targets.';
+
     const statuses = {
       ph: statusOf('ph', ph), tds: statusOf('tds', tds), chlorine: statusOf('chlorine', fcl),
       turbidity: statusOf('turbidity', turb), orp: statusOf('orp', orp), do: statusOf('do', do_),
       temp: statusOf('temp', readings.temp)
     };
-    return { score, params, findings: findingsFrom(readings), statuses };
+    const findings = reasons.map(r => ({ label: r.message, val: String(readings[r.parameter] ?? ''), note: '' }));
+
+    return wrap({
+      engine: 'WHO', engineKey: 'who', score, verdict, summary,
+      classifications, reasons, params, statuses, findings
+    });
   }
 
   window.WaterScoreBenchmarkRegistry.register({

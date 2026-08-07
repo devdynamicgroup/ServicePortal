@@ -10,6 +10,7 @@ const vm = require('vm');
 const root = path.join(__dirname, '..');
 const files = [
   'src/js/score/util/clamp.js',
+  'src/js/score/util/benchmarkMetadata.js',
   'src/js/score/production/computeProductionScore.js',
   'src/js/score/benchmark/registry.js',
   'src/js/score/benchmark/thailand/limits.js',
@@ -96,3 +97,4 @@ console.log('PR3 score.js standardMeasurement source');
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
+

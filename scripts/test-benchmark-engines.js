@@ -9,6 +9,7 @@ const vm = require('vm');
 const root = path.join(__dirname, '..');
 const files = [
   'src/js/score/util/clamp.js',
+  'src/js/score/util/benchmarkMetadata.js',
   'src/js/score/production/computeProductionScore.js',
   'src/js/score/benchmark/registry.js',
   'src/js/score/benchmark/thailand/limits.js',
@@ -129,3 +130,4 @@ fs.writeFileSync(path.join(root, 'docs/BENCHMARK_ENGINE_COMPARISON_SAMPLE.md'), 
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
+
