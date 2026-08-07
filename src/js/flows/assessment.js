@@ -922,6 +922,7 @@ function renderMeterThumbnailRow() {
   row.innerHTML = images.map((entry, index) => {
     const src = meterPhotoPreviewSrc(entry.photo);
     const backupFailed = Boolean(entry.photo && typeof entry.photo === 'object' && entry.photo.uploadError);
+    const ocrPending = entry.ocrStatus === 'pending';
     const backupLabel = backupFailed
       ? `<span class="meter-thumb-backup-label">${
         (typeof t === 'function' ? t('photo.backupFailed') : 'Photo backup failed.')
@@ -933,10 +934,15 @@ function renderMeterThumbnailRow() {
       : `<span class="meter-thumb-placeholder" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </span>`;
+    const ocrBadge = ocrPending
+      ? `<span class="meter-thumb-ocr" aria-label="${typeof t === 'function' ? t('meter.processingTitle') : 'Reading image...'}">
+          <svg class="meter-thumb-ocr-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a9 9 0 1 1-9 9"/></svg>
+        </span>`
+      : '';
     return `
-      <div class="meter-thumb-wrap${backupFailed ? ' backup-failed' : ''}">
+      <div class="meter-thumb-wrap${backupFailed ? ' backup-failed' : ''}${ocrPending ? ' is-ocr-pending' : ''}">
         <button type="button" class="meter-thumb-item" onclick="openMeterImageViewer(${index})" aria-label="View meter image ${index + 1}">
-          <div class="meter-thumb-box${backupFailed ? ' upload-failed' : ''}">${visual}</div>
+          <div class="meter-thumb-box${backupFailed ? ' upload-failed' : ''}${ocrPending ? ' is-ocr-pending' : ''}">${visual}${ocrBadge}</div>
           <div class="meter-thumb-index">${index + 1}</div>
           ${backupLabel}
         </button>
@@ -1091,35 +1097,31 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
 }
 
 /**
- * One meter capture: save → OCR → merge/write fields → Drive upload.
- * OCR always runs when imageSrc exists. Drive upload does not skip or replace OCR.
+ * Land a meter capture in the thumbnail strip immediately and free the camera box.
+ * OCR runs later via the serial queue — never block the next shot.
  */
-async function appendMeterSessionPhoto(photoSrc) {
+function stageMeterSessionPhoto(photoSrc) {
   const imageSrc = typeof photoSrc === 'string'
     ? photoSrc
     : resolveCaptureDataUrl(photoSrc);
 
   if (!imageSrc) {
-    console.warn('[OCR FLOW] missing imageSrc — aborting (no silent continue)', {
+    console.warn('[OCR FLOW] missing imageSrc — aborting stage', {
       photoSrcType: typeof photoSrc,
       hasPhotoSrc: Boolean(photoSrc)
     });
     return null;
   }
 
-  const tapIndex = S.activeTap;
   const tap = getActiveTapRecord();
   const images = ensureMeterImages(tap);
-  const meterImageId = newMeterImageId();
-  const readingsBefore = { ...(tap.meterReadings || {}) };
-
-  // 1) Save meterImages entry first (detected filled after OCR).
   const entry = {
-    id: meterImageId,
+    id: newMeterImageId(),
     photo: imageSrc,
     uploadedAt: new Date().toISOString(),
     sessionId: getAssessmentSessionId(),
-    detected: {}
+    detected: {},
+    ocrStatus: 'pending'
   };
   images.push(entry);
   syncMeterThumbFromSession(tap);
@@ -1127,10 +1129,37 @@ async function appendMeterSessionPhoto(photoSrc) {
   renderMeterThumbnailRow();
   resetMeterCapturePreview();
   renderAssessList();
+  return entry;
+}
 
+/**
+ * OCR + merge + Drive upload for an already-staged meter image.
+ * Does not re-add the photo to the strip (staging already did that).
+ */
+async function processMeterSessionOcr(entryId) {
+  const tapIndex = S.activeTap;
+  const tap = getActiveTapRecord();
+  const images = ensureMeterImages(tap);
+  const entry = images.find(img => img && img.id === entryId);
+  if (!entry) {
+    console.warn('[OCR FLOW] staged entry missing', { entryId });
+    return null;
+  }
+
+  const imageSrc = typeof entry.photo === 'string'
+    ? entry.photo
+    : resolveCaptureDataUrl(entry.photo);
+  if (!imageSrc) {
+    entry.ocrStatus = 'failed';
+    renderMeterThumbnailRow();
+    return null;
+  }
+
+  const readingsBefore = { ...(tap.meterReadings || {}) };
+  entry.ocrStatus = 'pending';
+  renderMeterThumbnailRow();
   showToast(typeof t === 'function' ? t('meter.processingTitle') : 'Reading image...');
 
-  // 2) Always run OCR for this image (never skip because Drive/busy).
   let detected = {};
   let ocrRawMeasurement = {};
   let ocrMetadata = {};
@@ -1138,7 +1167,7 @@ async function appendMeterSessionPhoto(photoSrc) {
   console.warn('[OCR FLOW] starting detection', {
     imageLength: imageSrc.length,
     imageType: typeof imageSrc === 'string' ? imageSrc.slice(0, 40) : typeof imageSrc,
-    meterImageId
+    meterImageId: entry.id
   });
   try {
     const ocrResult = await detectMeterReadingsFromImage(imageSrc);
@@ -1149,7 +1178,7 @@ async function appendMeterSessionPhoto(photoSrc) {
       ? ocrResult.rawMeasurement
       : {};
     ocrMetadata = buildMeasurementMetadata(ocrResult?.metadata || {}, {
-      image: meterImageId,
+      image: entry.id,
       timestamp: entry.uploadedAt,
       source: ocrResult?.metadata?.source || 'ocr'
     });
@@ -1159,28 +1188,33 @@ async function appendMeterSessionPhoto(photoSrc) {
       detected = {};
       ocrRawMeasurement = {};
       ocrMetadata = buildMeasurementMetadata({}, {
-        image: meterImageId,
+        image: entry.id,
         timestamp: entry.uploadedAt,
         source: 'ocr'
       });
       console.warn('[OCR FLOW] detection unavailable', {
-        meterImageId,
+        meterImageId: entry.id,
         code: error.code,
         message: error.message
       });
     } else {
+      entry.ocrStatus = 'failed';
+      renderMeterThumbnailRow();
       throw error;
     }
   }
-  console.warn('[OCR FLOW] detected result', { meterImageId, detected, ocrUnavailable });
+  console.warn('[OCR FLOW] detected result', { meterImageId: entry.id, detected, ocrUnavailable });
 
-  // 3) Merge + write form fields from OCR result only (no mock/fallback values).
-  // Legacy meterReadings path unchanged — Score still consumes this in PR2.
+  // Entry may have been deleted while OCR was in flight.
+  if (!ensureMeterImages(tap).some(img => img && img.id === entry.id)) {
+    console.warn('[OCR FLOW] entry removed before merge', { entryId: entry.id });
+    return null;
+  }
+
   entry.detected = detected;
-  // Always keep per-image metadata for the OCR attempt (even when Raw is empty).
   entry.metadata = { ...(entry.metadata || {}), ...ocrMetadata };
+  entry.ocrStatus = ocrUnavailable ? 'unavailable' : 'done';
   tap.meterReadings = mergeMeterReadings(tap.meterReadings, detected);
-  // PR2: store Raw + Standard + metadata without changing form/Score behavior.
   storeRawAndStandardMeasurements(tap, {
     rawMeasurement: ocrRawMeasurement,
     metadata: ocrMetadata,
@@ -1210,17 +1244,25 @@ async function appendMeterSessionPhoto(photoSrc) {
     showToast(typeof t === 'function' ? t('meter.toastNoValues') : 'No values detected. Enter readings manually.');
   }
 
-  // Score screen can be open while OCR finishes — refresh ready values immediately.
   if (S.screen === 's-score' && typeof calcAndShowScore === 'function') {
     calcAndShowScore();
   }
 
-  // 4) Drive upload after OCR completes (success or empty) — does not hide OCR outcome.
-  console.warn('[OCR FLOW] uploading image', { meterImageId, tapIndex });
+  console.warn('[OCR FLOW] uploading image', { meterImageId: entry.id, tapIndex });
   uploadMeterSessionImage(tapIndex, entry.id, imageSrc).catch(error => {
     console.warn('Meter session upload failed', error);
   });
   return entry;
+}
+
+/**
+ * One meter capture: stage into thumbnails immediately, then OCR → merge → Drive.
+ * Prefer MeterReadingCapture.processPhoto so multiple shots queue without blocking the camera box.
+ */
+async function appendMeterSessionPhoto(photoSrc) {
+  const entry = stageMeterSessionPhoto(photoSrc);
+  if (!entry) return null;
+  return processMeterSessionOcr(entry.id);
 }
 
 const CHLORINE_READING_FIELDS = {
@@ -1384,7 +1426,7 @@ function persistMeterReadings() {
 
 window.MeterReadingCapture = {
   _processing: false,
-  /** Serial queue so image 2/3 still get OCR while image 1 is in flight. */
+  /** Serial OCR queue of staged entry ids — photos already appear in the thumb strip. */
   _queue: [],
 
   init() {
@@ -1393,11 +1435,8 @@ window.MeterReadingCapture = {
     writeMeterReadingFields(tap.meterReadings || {});
     this.bindFieldPersistence();
     renderMeterThumbnailRow();
-    if (tap.photos?.meter) {
-      setPhotoPreview('meter-photo-preview', tap.photos.meter, { silent: true, skipUpload: true });
-    } else {
-      resetMeterCapturePreview();
-    }
+    // Camera box stays empty for the next shot; history lives in the thumb strip.
+    resetMeterCapturePreview();
   },
 
   bindFieldPersistence() {
@@ -1431,9 +1470,15 @@ window.MeterReadingCapture = {
       return;
     }
 
-    this._queue.push(imageSrc);
+    // Stage into the thumbnail strip immediately so the camera box is free
+    // for the next capture — OCR continues serially in the background.
+    const entry = stageMeterSessionPhoto(imageSrc);
+    if (!entry) return;
+
+    this._queue.push(entry.id);
     if (this._processing) {
       console.warn('[OCR FLOW] queued for OCR after current image', {
+        entryId: entry.id,
         queueLength: this._queue.length
       });
       return;
@@ -1447,8 +1492,8 @@ window.MeterReadingCapture = {
     this._processing = true;
     try {
       while (this._queue.length) {
-        const nextSrc = this._queue.shift();
-        await appendMeterSessionPhoto(nextSrc);
+        const entryId = this._queue.shift();
+        await processMeterSessionOcr(entryId);
       }
     } catch (error) {
       console.error(error);
@@ -2187,6 +2232,27 @@ function setPhotoPreview(previewId, src, options = {}) {
   if (!img) return;
   console.debug('[photo] setPhotoPreview', previewId, typeof src === 'string' ? src.slice(0,40) : src && src.previewUrl ? src.previewUrl.slice(0,40) : Object.keys(src || {}));
 
+  const isMeterSession = previewId === 'meter-photo-preview';
+  const dataUrl = typeof src === 'string' && src.startsWith('data:') ? src : resolveCaptureDataUrl(src);
+
+  // Meter captures go straight into the thumbnail strip — never park in the camera box,
+  // or a second shot would replace the first instead of appending below.
+  if (isMeterSession && !options.silent) {
+    const ocrSource = dataUrl || (typeof src === 'string' ? src : '');
+    if (ocrSource && window.MeterReadingCapture?.processPhoto) {
+      console.warn('[OCR] setPhotoPreview → processPhoto (stage immediately)', {
+        previewId,
+        ocrSourceLen: typeof ocrSource === 'string' ? ocrSource.length : null
+      });
+      MeterReadingCapture.processPhoto(ocrSource);
+    } else if (!ocrSource) {
+      console.warn('[OCR] setPhotoPreview meter path skipped — missing image source');
+    } else {
+      console.warn('[OCR] setPhotoPreview meter path skipped — MeterReadingCapture missing');
+    }
+    return;
+  }
+
   const isMeta = typeof DrivePhoto !== 'undefined' && DrivePhoto.isMeta(src);
   const displaySrc = typeof DrivePhoto !== 'undefined'
     ? DrivePhoto.previewSrc(src)
@@ -2222,8 +2288,6 @@ function setPhotoPreview(previewId, src, options = {}) {
 
   const taskKey = PHOTO_ID_TASKS[previewId];
   const skipUpload = Boolean(options.skipUpload || options.silent);
-  const dataUrl = typeof src === 'string' && src.startsWith('data:') ? src : resolveCaptureDataUrl(src);
-  const isMeterSession = previewId === 'meter-photo-preview';
 
   if (taskKey && !isMeterSession) {
     ensureTapData();
@@ -2258,31 +2322,14 @@ function setPhotoPreview(previewId, src, options = {}) {
     );
   }
 
-  // OCR still runs on the local data URL (not Drive download).
-  const ocrSource = dataUrl || (typeof src === 'string' ? src : '');
-  if (!options.silent && ocrSource) {
-    if (isMeterSession && window.MeterReadingCapture?.processPhoto) {
-      // TEMP debug — remove after OCR fill investigation
-      console.warn('[OCR] setPhotoPreview → processPhoto', {
-        previewId,
-        silent: Boolean(options.silent),
-        ocrSourceLen: typeof ocrSource === 'string' ? ocrSource.length : null
-      });
-      MeterReadingCapture.processPhoto(ocrSource);
-    } else if (isMeterSession) {
-      console.warn('[OCR] setPhotoPreview meter path skipped — MeterReadingCapture missing');
-    } else if (previewId === 'cl-photo-preview') {
+  if (!options.silent && previewId === 'cl-photo-preview') {
+    const ocrSource = dataUrl || (typeof src === 'string' ? src : '');
+    if (ocrSource) {
       processAssessmentPhoto('cl-photo-preview', ocrSource).catch(error => {
         console.error(error);
         showToast(typeof t === 'function' ? t('meter.toastError') : 'Could not read image');
       });
     }
-  } else if (isMeterSession) {
-    console.warn('[OCR] setPhotoPreview did not start OCR', {
-      silent: Boolean(options.silent),
-      hasOcrSource: Boolean(ocrSource),
-      skipUpload: Boolean(options.skipUpload)
-    });
   }
 
   if (!skipUpload && dataUrl && taskKey && !isMeterSession) {
