@@ -147,6 +147,14 @@ async function finalizeCaseCompletion(job, options = {}) {
       showToast(S.lang === 'th' ? 'ปิดเคสแล้ว' : 'Job complete');
     }
 
+    if (typeof OperatorNotificationBridge?.emitFromCloseResult === 'function') {
+      try {
+        await OperatorNotificationBridge.emitFromCloseResult(job, payload);
+      } catch (error) {
+        console.warn('[notifications] close bridge failed', error);
+      }
+    }
+
     persistJobs();
     S.activeJob = null;
     if (typeof renderCalendar === 'function') renderCalendar();

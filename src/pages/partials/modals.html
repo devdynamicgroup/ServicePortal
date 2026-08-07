@@ -54,18 +54,24 @@
   </div>
 </div>
 
-<!-- Notifications -->
+<!-- Operator Notification Center -->
 <div id="notif-overlay" class="modal-overlay hidden" onclick="closeNotifModal()">
-  <div class="modal-sheet" onclick="event.stopPropagation()">
+  <div class="modal-sheet notif-sheet" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
-    <div class="modal-title" data-i18n="notif.title">Notifications</div>
+    <div class="modal-title-row">
+      <div class="modal-title" data-i18n="notif.title">Notifications</div>
+      <div class="notif-toolbar">
+        <button class="notif-tool-btn" type="button" onclick="markAllNotificationsRead()" data-i18n="notif.markAllRead">Mark all read</button>
+        <button class="notif-tool-btn" type="button" onclick="clearReadNotifications()" data-i18n="notif.clearRead">Clear read</button>
+      </div>
+    </div>
     <div class="notif-filter" id="notif-filter">
       <button class="notif-filter-btn sel" type="button" data-type="all" onclick="setNotifFilter('all')" data-i18n="notif.all">All</button>
+      <button class="notif-filter-btn" type="button" data-type="unread" onclick="setNotifFilter('unread')" data-i18n="notif.unread">Unread</button>
       <button class="notif-filter-btn" type="button" data-type="schedule" onclick="setNotifFilter('schedule')" data-i18n="notif.schedule">Schedule</button>
       <button class="notif-filter-btn" type="button" data-type="service" onclick="setNotifFilter('service')" data-i18n="notif.service">Service</button>
-      <button class="notif-filter-btn" type="button" data-type="billing" onclick="setNotifFilter('billing')" data-i18n="notif.billing">Billing</button>
     </div>
-    <div id="notif-list"></div>
+    <div id="notif-list" class="notif-list"></div>
   </div>
 </div>
 

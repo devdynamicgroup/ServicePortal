@@ -15,6 +15,10 @@ function openJob(id) {
   goScreen('s-job');
   pushCaseOpenToNotion(S.activeJob).then(result => {
     if (!result?.ok) return;
+    if (result.deferred) return;
+    if (typeof OperatorNotificationBridge?.emitCaseAssigned === 'function') {
+      OperatorNotificationBridge.emitCaseAssigned(S.activeJob);
+    }
     if (S.activeJob && String(S.activeJob.id) === String(id)) {
       updateJobHeader(S.activeJob);
       renderCalendar();

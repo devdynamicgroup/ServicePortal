@@ -315,6 +315,7 @@ async function createManualCaseInNotion(job = S.activeJob) {
     const response = await fetch('/api/cases', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({
         skipMap: true,
         startOnSite: true,
@@ -335,6 +336,9 @@ async function createManualCaseInNotion(job = S.activeJob) {
     if (payload.case) mergeApiCaseIntoJob(job, payload.case);
     delete job.manualPending;
     persistJobs();
+    if (typeof OperatorNotificationBridge?.emitCaseCreatedFromJob === 'function') {
+      OperatorNotificationBridge.emitCaseCreatedFromJob(job);
+    }
     return { ok: true, case: job };
   } catch (error) {
     console.warn('[createManualCaseInNotion] error', error);
@@ -365,6 +369,7 @@ async function pushCaseOpenToNotion(job = S.activeJob) {
     const response = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: '{}'
     });
     const payload = await response.json().catch(() => ({}));
@@ -595,6 +600,7 @@ async function syncJobProfileToNotion(job = S.activeJob) {
     const response = await fetch(`/api/cases/${encodeURIComponent(job.notionId)}/preassessment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({
         fields: { ...fields },
         msConcerns: draft?.msConcerns || [],
@@ -627,7 +633,7 @@ function isJobCancelled(job) {
 
 async function loadJobsFromApi() {
   try {
-    const response = await fetch('/api/clients', { cache: 'no-store' });
+    const response = await fetch('/api/clients', { cache: 'no-store', credentials: 'same-origin' });
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok || payload.ok === false) {
@@ -711,6 +717,11 @@ async function loadJobsFromApi() {
       count: visibleJobs.length,
       dates: visibleJobs.map(j => ({ name: j.name, date: j.date || '(none)', day: j.day })).slice(0, 5)
     });
+    if (typeof OperatorNotificationBridge?.syncFromJobs === 'function') {
+      OperatorNotificationBridge.syncFromJobs(JOBS);
+    } else if (typeof OperatorNotificationObserver?.syncFromJobs === 'function') {
+      OperatorNotificationObserver.syncFromJobs(JOBS);
+    }
     return true;
   } catch (error) {
     console.warn('[Service Portal] GET /api/clients error', error);

@@ -27,6 +27,9 @@ async function initApp() {
     if (typeof openPublicPreassessmentIfRequested === 'function' && openPublicPreassessmentIfRequested()) return;
     if (typeof restoreLoginSession === 'function') await restoreLoginSession();
     if (typeof initDriveUploadQueue === 'function') initDriveUploadQueue();
+    if (typeof OperatorNotifications?.init === 'function') {
+      await OperatorNotifications.init();
+    }
   } catch (error) {
     document.getElementById('app').innerHTML = '<div class="content"><div class="card">Unable to load app pages. Please run this app through a local web server.</div></div>';
     console.error(error);
