@@ -235,12 +235,109 @@ console.log('\nCASE_MUST_SURVIVE_BROWSER_RELOAD — Notion list replaces JOBS');
     assert(sandbox.S.activeJob.id === TARGET.id, 'score result does not change case id');
   }
 
-  console.log('\nExplicit cancel clears durable ref only');
+    console.log('\nExplicit cancel clears durable ref only');
   {
     sandbox.persistActiveCaseRef(targetJob());
     assert(sandbox.readActiveCaseRef()?.notionId === TARGET.notionId, 'ref present before clear');
     sandbox.clearActiveCaseRef();
     assert(sandbox.readActiveCaseRef() === null, 'CASE_DISAPPEARS_ONLY_AFTER_EXPLICIT clear/cancel path');
+  }
+
+    console.log('\nCASE_CREATED_IS_PERSISTED — createDurablePortalCase');
+  {
+    store.clear();
+    sandbox.JOBS.length = 0;
+    sandbox.S.activeJob = null;
+    sandbox.clearActiveCaseRef();
+    let postCount = 0;
+    const durableNotionId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    const durableCompact = durableNotionId.replace(/-/g, '');
+    sandbox.fetch = async (url, opts = {}) => {
+      const u = String(url);
+      const isCreatePost = opts.method === 'POST' && (u === '/api/cases' || u.endsWith('/api/cases'));
+      if (isCreatePost) {
+        postCount += 1;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ok: true,
+            case: {
+              id: durableCompact,
+              notionId: durableNotionId,
+              name: 'New Client',
+              date: '2026-08-10',
+              status: 'new',
+              createdTime: '2026-08-10T07:00:00.000Z',
+              notionSource: true
+            }
+          })
+        };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    };
+
+    const created = await sandbox.createDurablePortalCase({
+      name: 'New Client',
+      date: '2026-08-10',
+      day: 0,
+      status: 'new',
+      meta: 'Calendar + durable'
+    });
+    assert(created.ok === true, 'CALENDAR_PLUS / portal create returns ok');
+    assert(created.case?.notionId === durableNotionId, 'CREATED_CASE_HAS_DURABLE_IDENTITY notionId');
+    assert(created.case?.id === durableCompact, 'CREATED_CASE_HAS_DURABLE_IDENTITY caseId');
+    assert(sandbox.JOBS.some(j => j.notionId === durableNotionId), 'JOBS contains durable Case only after success');
+    assert(postCount === 1, 'NO_DUPLICATE_CASE_CREATED — single POST');
+
+    // Second call with same job object after identity assigned is idempotent.
+    const again = await sandbox.createManualCaseInNotion(created.case);
+    assert(again.idempotent === true && postCount === 1, 'NO_DUPLICATE_CASE_CREATED — idempotent retry');
+
+    // Reload / API rehydration finds the same Case.
+    sandbox.S.activeJob = null;
+    sandbox.JOBS.length = 0;
+    sandbox.persistActiveCaseRef(created.case);
+    sandbox.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        jobs: [{
+          id: durableCompact,
+          notionId: durableNotionId,
+          name: 'New Client',
+          date: '2026-08-10',
+          status: 'new',
+          createdTime: '2026-08-10T07:00:00.000Z',
+          draft: { fields: {}, tapData: [] }
+        }]
+      })
+    });
+    await sandbox.loadJobsFromApi();
+    assert(sandbox.JOBS.some(j => j.notionId === durableNotionId), 'CREATED_CASE_SURVIVES_API_REHYDRATION');
+    assert(sandbox.S.activeJob?.notionId === durableNotionId, 'CREATED_CASE_SURVIVES_RELOAD via active ref');
+  }
+
+  console.log('\nFAILED persistence must not invent durable Case');
+  {
+    store.clear();
+    sandbox.JOBS.length = 0;
+    sandbox.clearActiveCaseRef();
+    sandbox.fetch = async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({ ok: false, error: 'notion_down' })
+    });
+    const failedCreate = await sandbox.createDurablePortalCase({
+      name: 'Should Fail',
+      date: '2026-08-10',
+      status: 'new'
+    });
+    assert(failedCreate.ok === false, 'failure returns ok=false');
+    assert(failedCreate.case === null, 'failure does not return Case');
+    assert(sandbox.JOBS.length === 0, 'JOBS empty when create persistence fails');
+    assert(sandbox.readActiveCaseRef() === null, 'no active ref on failed create');
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

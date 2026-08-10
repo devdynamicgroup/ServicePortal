@@ -507,49 +507,122 @@ async function createManualCaseInNotion(job = S.activeJob) {
   if (!job?.manual) return { ok: false, reason: 'not_manual' };
   if (job.notionId) return { ok: true, case: job, idempotent: true };
 
+  // Prevent double-submit from creating two Notion pages for one user action.
+  if (job._durableCreateInFlight) return job._durableCreateInFlight;
+
   const draft = getJobDraft(job);
   const fields = draft?.fields || {};
   const fullName = [fields['ci-fname'], fields['ci-lname']].filter(Boolean).join(' ').trim()
     || String(job.name || '').trim()
     || 'New Client';
 
-  try {
-    const response = await fetch('/api/cases', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({
-        skipMap: true,
-        startOnSite: true,
-        fullName,
-        address: fields['ci-addr'] || job.addr || '',
-        appointmentDate: job.date || '',
-        appointmentStart: job.timeStart || '',
-        appointmentEnd: job.timeEnd || '',
-        packageHistory: draft?.pkg || job.pkg || 'essential',
-        serviceStartedAt: job.startedAt || new Date().toISOString()
-      })
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.ok === false) {
-      console.warn('[createManualCaseInNotion] create failed', payload.error || response.status);
-      return { ok: false, error: payload.error || 'create_failed' };
+  job._durableCreateInFlight = (async () => {
+    try {
+      const response = await fetch('/api/cases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          skipMap: true,
+          startOnSite: true,
+          fullName,
+          address: fields['ci-addr'] || job.addr || '',
+          appointmentDate: job.date || '',
+          appointmentStart: job.timeStart || '',
+          appointmentEnd: job.timeEnd || '',
+          packageHistory: draft?.pkg || job.pkg || 'essential',
+          serviceStartedAt: job.startedAt || new Date().toISOString()
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok === false) {
+        console.warn('[createManualCaseInNotion] create failed', payload.error || response.status);
+        return { ok: false, error: payload.error || 'create_failed' };
+      }
+      if (!payload.case?.notionId && !payload.case?.id) {
+        console.warn('[createManualCaseInNotion] create returned no durable identity');
+        return { ok: false, error: 'missing_durable_identity' };
+      }
+      if (payload.case) mergeApiCaseIntoJob(job, payload.case);
+      if (!job.notionId) {
+        return { ok: false, error: 'missing_notion_id' };
+      }
+      delete job.manualPending;
+      persistJobs();
+      persistActiveCaseRef(job);
+      if (typeof OperatorNotificationBridge?.emitCaseCreatedFromJob === 'function') {
+        OperatorNotificationBridge.emitCaseCreatedFromJob(job);
+      }
+      return { ok: true, case: job };
+    } catch (error) {
+      console.warn('[createManualCaseInNotion] error', error);
+      return { ok: false, error: error.message || 'network_error' };
+    } finally {
+      delete job._durableCreateInFlight;
     }
-    if (payload.case) mergeApiCaseIntoJob(job, payload.case);
-    delete job.manualPending;
-    persistJobs();
-    persistActiveCaseRef(job);
-    if (typeof OperatorNotificationBridge?.emitCaseCreatedFromJob === 'function') {
-      OperatorNotificationBridge.emitCaseCreatedFromJob(job);
-    }
-    return { ok: true, case: job };
-  } catch (error) {
-    console.warn('[createManualCaseInNotion] error', error);
-    return { ok: false, error: error.message || 'network_error' };
-  }
+  })();
+
+  return job._durableCreateInFlight;
 }
 
-/** Ensure a local manual case exists in Notion (Save Draft / complete paths only). */
+function nextPortalCaseLocalId() {
+  return JOBS.reduce((m, j) => {
+    const legacy = Number(j.legacyNumericId);
+    const numeric = Number(j.id);
+    const candidate = Number.isFinite(legacy) ? legacy : (Number.isFinite(numeric) ? numeric : 0);
+    return Math.max(m, candidate);
+  }, 1000) + 1;
+}
+
+/**
+ * Single durable Case creation contract for portal entry points.
+ * Local state is updated only after Notion returns a durable identity.
+ * Failed persistence must not leave a "successfully created" Case in JOBS.
+ */
+async function createDurablePortalCase(seed = {}) {
+  const now = new Date();
+  const localId = seed.id != null ? seed.id : nextPortalCaseLocalId();
+  const job = {
+    id: localId,
+    name: seed.name || `New Client ${localId}`,
+    addr: seed.addr || 'Address to confirm',
+    timeStart: seed.timeStart || '',
+    timeEnd: seed.timeEnd || '',
+    day: seed.day != null ? seed.day : ((now.getDay() + 6) % 7),
+    date: seed.date || '',
+    pkg: seed.pkg || 'essential',
+    status: seed.status || 'new',
+    startedAt: seed.startedAt || null,
+    manual: true,
+    manualPending: true,
+    meta: seed.meta || 'Portal case'
+  };
+  ensureJobDraft(job);
+  if (seed.draftFields && job.draft) {
+    job.draft.fields = { ...(job.draft.fields || {}), ...seed.draftFields };
+  }
+
+  const synced = await createManualCaseInNotion(job);
+  if (!synced?.ok || !job.notionId) {
+    return {
+      ok: false,
+      error: synced?.error || synced?.reason || 'create_failed',
+      case: null
+    };
+  }
+
+  const already = JOBS.some(existing =>
+    String(existing.id) === String(job.id)
+    || String(existing.notionId || '') === String(job.notionId)
+    || String(existing.id) === String(job.notionId).replace(/-/g, '')
+  );
+  if (!already) JOBS.push(job);
+  persistJobs();
+  persistActiveCaseRef(job);
+  return { ok: true, case: job };
+}
+
+/** Ensure a local manual case exists in Notion (retry path if create-time sync failed). */
 async function ensureCaseSyncedToNotion(job = S.activeJob) {
   if (!job) return { ok: false, reason: 'no_job' };
   if (job.notionId) return { ok: true, case: job };
@@ -561,9 +634,9 @@ async function pushCaseOpenToNotion(job = S.activeJob) {
   if (!job) return { ok: false, reason: 'no_job' };
 
   try {
-    // Manual Create stays local until Save Draft — do not POST /api/cases on open.
+    // Unsynced manual shells must not open via /start — createDurablePortalCase owns create.
     if (job.manual && !job.notionId) {
-      return { ok: true, deferred: true };
+      return { ok: false, deferred: true, reason: 'not_durable' };
     }
 
     const caseRef = job.notionId || job.id;
@@ -582,6 +655,7 @@ async function pushCaseOpenToNotion(job = S.activeJob) {
     }
     if (payload.case) mergeApiCaseIntoJob(job, payload.case);
     persistJobs();
+    persistActiveCaseRef(job);
     return { ok: true, case: job };
   } catch (error) {
     console.warn('[pushCaseOpenToNotion] error', error);

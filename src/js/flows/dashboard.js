@@ -85,52 +85,33 @@ function setupDashboardClickDelegation() {
 
 setupDashboardClickDelegation();
 
-function addCaseForSelectedDay() {
+async function addCaseForSelectedDay() {
   const dayIndex = S.selDay;
   const d = new Date(weekBase);
   d.setDate(weekBase.getDate() + dayIndex);
   const iso = formatDate(d);
   const sameDayJobs = jobsOnDate(iso);
-  const maxId = JOBS.reduce((m, j) => {
-    const legacy = Number(j.legacyNumericId);
-    const numeric = Number(j.id);
-    const candidate = Number.isFinite(legacy) ? legacy : (Number.isFinite(numeric) ? numeric : 0);
-    return Math.max(m, candidate);
-  }, 1000);
   const hour = Math.min(17, 9 + sameDayJobs.length);
   const endHour = Math.min(18, hour + 1);
-  const job = {
-    id: maxId + 1,
-    name: `New Client ${maxId + 1}`,
-    addr: 'Address to confirm',
+  if (typeof createDurablePortalCase !== 'function') {
+    showToast(S.lang === 'th' ? 'สร้างเคสไม่สำเร็จ' : 'Could not create case');
+    return;
+  }
+  const result = await createDurablePortalCase({
+    name: 'New Client',
     timeStart: `${String(hour).padStart(2, '0')}:00`,
     timeEnd: `${String(endHour).padStart(2, '0')}:00`,
     day: dayIndex,
     date: iso,
-    pkg: 'essential',
     status: 'new',
-    manual: true,
-    manualPending: true,
     meta: `Case ${sameDayJobs.length + 1} for this day - Owner present`
-  };
-  JOBS.push(job);
-  ensureJobDraft(job);
-  persistJobs();
-  if (typeof OperatorNotificationBridge?.emitCaseCreatedFromJob === 'function') {
-    OperatorNotificationBridge.emitCaseCreatedFromJob(job);
+  });
+  if (!result?.ok || !result.case?.notionId) {
+    showToast(S.lang === 'th'
+      ? 'สร้างเคสไม่สำเร็จ — ยังไม่ได้บันทึกบนเซิร์ฟเวอร์'
+      : 'Case was not created — server persistence failed');
+    return;
   }
-  // Durable identity: persist to Notion immediately so reload/deploy cannot erase the Case.
-  Promise.resolve()
-    .then(() => (typeof createManualCaseInNotion === 'function' ? createManualCaseInNotion(job) : { ok: false }))
-    .then((synced) => {
-      if (synced?.ok && typeof persistActiveCaseRef === 'function') persistActiveCaseRef(job);
-      if (!synced?.ok) {
-        showToast(S.lang === 'th'
-          ? 'สร้างเคสแล้ว แต่ยังซิงค์เซิร์ฟเวอร์ไม่สำเร็จ — กด Save Draft เพื่อลองใหม่'
-          : 'Case created locally — server sync failed; use Save Draft to retry');
-      }
-      renderCalendar();
-    });
   renderCalendar();
   showToast(`Added case for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
 }
@@ -146,67 +127,51 @@ function discardUnsavedManualCases() {
   }
 }
 
-// Ad-hoc case created by staff on-site (no scheduled Notion appointment).
-// Opens Start assessment (job hub), stores start timestamp, and persists to
-// Notion immediately so reload/deploy cannot erase a successfully created Case.
-function createManualCase() {
+// Ad-hoc case created by staff on-site. Durable Notion identity is required
+// before the Case is treated as created / opened.
+async function createManualCase() {
   discardUnsavedManualCases();
   const now = new Date();
   const iso = formatDate(now);
-  const maxId = JOBS.reduce((m, j) => {
-    const legacy = Number(j.legacyNumericId);
-    const numeric = Number(j.id);
-    const candidate = Number.isFinite(legacy) ? legacy : (Number.isFinite(numeric) ? numeric : 0);
-    return Math.max(m, candidate);
-  }, 1000);
   const fmtTime = d => {
     const h = d.getHours() % 12 || 12;
     return `${h}:${String(d.getMinutes()).padStart(2, '0')}${d.getHours() >= 12 ? 'PM' : 'AM'}`;
   };
   const end = new Date(now.getTime() + 60 * 60 * 1000);
-  const job = {
-    id: maxId + 1,
-    name: `New Client ${maxId + 1}`,
-    addr: 'Address to confirm',
+  if (typeof createDurablePortalCase !== 'function') {
+    showToast(S.lang === 'th' ? 'สร้างเคสไม่สำเร็จ' : 'Could not create case');
+    return;
+  }
+  const result = await createDurablePortalCase({
+    name: 'New Client',
     timeStart: fmtTime(now),
     timeEnd: fmtTime(end),
     day: (now.getDay() + 6) % 7,
     date: iso,
-    pkg: 'essential',
     status: 'in_progress',
     startedAt: now.toISOString(),
-    manual: true,
-    manualPending: true,
     meta: 'Manual case · started on-site'
-  };
-  JOBS.push(job);
-  ensureJobDraft(job);
+  });
+  if (!result?.ok || !result.case?.notionId) {
+    showToast(S.lang === 'th'
+      ? 'สร้างเคสไม่สำเร็จ — ยังไม่ได้บันทึกบนเซิร์ฟเวอร์'
+      : 'Case was not created — server persistence failed');
+    return;
+  }
   weekBase = getMonday(now);
-  S.selDay = job.day;
-  openJob(job.id);
-  Promise.resolve()
-    .then(() => (typeof createManualCaseInNotion === 'function' ? createManualCaseInNotion(job) : { ok: false }))
-    .then((synced) => {
-      if (synced?.ok && typeof persistActiveCaseRef === 'function') persistActiveCaseRef(job);
-      if (!synced?.ok) {
-        showToast(S.lang === 'th'
-          ? 'สร้างเคสแล้ว แต่ยังซิงค์เซิร์ฟเวอร์ไม่สำเร็จ — กด Save Draft เพื่อลองใหม่'
-          : 'Case created locally — server sync failed; use Save Draft to retry');
-      }
-      if (typeof renderCalendar === 'function') renderCalendar();
-    });
+  S.selDay = result.case.day;
+  openJob(result.case.id);
 }
 
 function commitManualCaseIfNeeded(job = S.activeJob) {
   if (!job?.manualPending) return false;
+  // Never clear pending unless durable identity exists.
+  if (!job.notionId) return false;
   delete job.manualPending;
-  if (typeof OperatorNotificationBridge?.emitCaseCreatedFromJob === 'function') {
-    OperatorNotificationBridge.emitCaseCreatedFromJob(job);
-  }
   return true;
 }
 
-function addNextDayAppt() {
+async function addNextDayAppt() {
   let dayIndex = S.selDay + 1;
   if (dayIndex > 6) {
     weekBase.setDate(weekBase.getDate() + 7);
@@ -215,46 +180,29 @@ function addNextDayAppt() {
   S.selDay = dayIndex;
   const d = new Date(weekBase);
   d.setDate(weekBase.getDate() + dayIndex);
-  const maxId = JOBS.reduce((m, j) => {
-    const legacy = Number(j.legacyNumericId);
-    const numeric = Number(j.id);
-    const candidate = Number.isFinite(legacy) ? legacy : (Number.isFinite(numeric) ? numeric : 0);
-    return Math.max(m, candidate);
-  }, 1000);
-  const job = {
-    id: maxId + 1,
-    name: `New Client ${maxId + 1}`,
-    addr: 'Address to confirm',
+  if (typeof createDurablePortalCase !== 'function') {
+    showToast(S.lang === 'th' ? 'สร้างเคสไม่สำเร็จ' : 'Could not create case');
+    return;
+  }
+  const result = await createDurablePortalCase({
+    name: 'New Client',
     timeStart: '9:00AM',
     timeEnd: '10:00AM',
     day: dayIndex,
     date: formatDate(d),
-    pkg: 'essential',
     status: 'new',
-    manual: true,
-    manualPending: true,
     meta: 'New appointment - Owner present'
-  };
-  JOBS.push(job);
-  ensureJobDraft(job);
-  persistJobs();
-  if (typeof OperatorNotificationBridge?.emitCaseCreatedFromJob === 'function') {
-    OperatorNotificationBridge.emitCaseCreatedFromJob(job);
+  });
+  if (!result?.ok || !result.case?.notionId) {
+    showToast(S.lang === 'th'
+      ? 'สร้างเคสไม่สำเร็จ — ยังไม่ได้บันทึกบนเซิร์ฟเวอร์'
+      : 'Case was not created — server persistence failed');
+    return;
   }
-  Promise.resolve()
-    .then(() => (typeof createManualCaseInNotion === 'function' ? createManualCaseInNotion(job) : { ok: false }))
-    .then((synced) => {
-      if (synced?.ok && typeof persistActiveCaseRef === 'function') persistActiveCaseRef(job);
-      if (!synced?.ok) {
-        showToast(S.lang === 'th'
-          ? 'สร้างเคสแล้ว แต่ยังซิงค์เซิร์ฟเวอร์ไม่สำเร็จ — กด Save Draft เพื่อลองใหม่'
-          : 'Case created locally — server sync failed; use Save Draft to retry');
-      }
-      renderCalendar();
-    });
   renderCalendar();
   showToast(`Added for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
 }
+
 function renderCalendar() {
   const DOW = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
   const today = new Date(); today.setHours(0,0,0,0);
