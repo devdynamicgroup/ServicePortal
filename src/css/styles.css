@@ -793,6 +793,15 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   margin:0;
   font-weight:400;
 }
+.score-hero-source{
+  margin:6px 0 0;
+  font-size:12px;
+  font-weight:650;
+  letter-spacing:.02em;
+  color:var(--muted);
+  text-transform:none;
+}
+.score-hero-source[hidden]{display:none!important}
 .score-benchmark-row{
   display:flex;
   align-items:center;

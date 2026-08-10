@@ -368,6 +368,7 @@ function renderScoreDisplay() {
   const bandEl = document.getElementById('score-summary-band');
   const noteEl = document.getElementById('score-summary-note');
   const standardEl = document.getElementById('score-standard-label');
+  const heroSourceEl = document.getElementById('score-hero-source');
 
   if (hero) {
     hero.className = 'score-report score-live';
@@ -379,6 +380,22 @@ function renderScoreDisplay() {
   }
   if (standardEl) {
     standardEl.textContent = t(context.standard.labelKey);
+  }
+  // Clarify that the large hero number is the selected Benchmark comparison
+  // (or the published Production score on public report) — not a merged score.
+  if (heroSourceEl) {
+    if (showScore) {
+      if (S.publicScoreView) {
+        heroSourceEl.textContent = t('score.hero.published');
+      } else {
+        const name = t(context.standard.shortKey || context.standard.labelKey);
+        heroSourceEl.textContent = t('score.hero.benchmark').replace('{name}', name);
+      }
+      heroSourceEl.hidden = false;
+    } else {
+      heroSourceEl.textContent = '';
+      heroSourceEl.hidden = true;
+    }
   }
 
   setScoreHeroLoading(!showScore);

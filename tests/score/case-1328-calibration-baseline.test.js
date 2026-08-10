@@ -1,0 +1,100 @@
+/**
+ * Case 13.28 + locked-score baseline (no formula changes).
+ * Run: node tests/score/case-1328-calibration-baseline.test.js
+ */
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const root = path.join(__dirname, '../..');
+const files = [
+  'src/js/score/util/clamp.js',
+  'src/js/score/util/benchmarkMetadata.js',
+  'src/js/score/production/computeProductionScore.js',
+  'src/js/score/benchmark/registry.js',
+  'src/js/score/benchmark/thailand/limits.js',
+  'src/js/score/benchmark/thailand/weights.js',
+  'src/js/score/benchmark/thailand/score.js',
+  'src/js/score/benchmark/who/limits.js',
+  'src/js/score/benchmark/who/weights.js',
+  'src/js/score/benchmark/who/score.js',
+  'src/js/score/benchmark/eu/limits.js',
+  'src/js/score/benchmark/eu/weights.js',
+  'src/js/score/benchmark/eu/score.js',
+  'src/js/score/benchmark/japan/limits.js',
+  'src/js/score/benchmark/japan/weights.js',
+  'src/js/score/benchmark/japan/score.js',
+  'src/js/score/benchmark/usEpa/limits.js',
+  'src/js/score/benchmark/usEpa/weights.js',
+  'src/js/score/benchmark/usEpa/score.js',
+  'src/js/score/eligibility/evidenceEngine.js',
+  'src/js/score/eligibility/coverageEngine.js',
+  'src/js/score/eligibility/contract.js',
+  'src/js/score/eligibility/eligibilityEngine.js',
+  'src/js/score/eligibility/presentation.js'
+];
+
+const sandbox = { console };
+sandbox.globalThis = sandbox;
+sandbox.window = sandbox;
+vm.createContext(sandbox);
+for (const rel of files) {
+  vm.runInContext(fs.readFileSync(path.join(root, rel), 'utf8'), sandbox, { filename: rel });
+}
+
+let passed = 0;
+let failed = 0;
+function assert(cond, msg) {
+  if (cond) { passed += 1; console.log(`  ok  ${msg}`); }
+  else { failed += 1; console.error(`  FAIL  ${msg}`); }
+}
+
+const LOCKED = { ph: 7.2, tds: 450, chlorine: 0.8, turbidity: 2.5, orp: 350, do: 6.5, temp: 28 };
+const CASE_1328 = {
+  ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06
+  // Total Chlorine intentionally absent
+};
+
+console.log('\nLocked sample (formula freeze)');
+{
+  assert(sandbox.computeScoreFromReadings(LOCKED) === 93, 'Production locked = 93');
+  const expected = { thailand: 100, who: 93, eu: 65, japan: 96, usEpa: 91 };
+  for (const [key, score] of Object.entries(expected)) {
+    assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, LOCKED).score === score,
+      `${key} locked = ${score}`);
+  }
+}
+
+console.log('\nCase 13.28 expected scores (current formula = source of truth)');
+{
+  assert(sandbox.computeScoreFromReadings(CASE_1328) === 100, 'Production Case 13.28 = 100');
+  const expected = { thailand: 100, who: 100, eu: 100, japan: 100, usEpa: 100 };
+  for (const [key, score] of Object.entries(expected)) {
+    const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, CASE_1328);
+    assert(result.score === score, `${key} Case 13.28 = ${score}`);
+  }
+  assert(!('totalChlorine' in CASE_1328), 'Total Chlorine not invented in fixture');
+}
+
+console.log('\nEligibility separation still holds for Case 13.28');
+{
+  const elig = sandbox.EligibilityEngine.evaluate({
+    reportType: 'production',
+    readings: CASE_1328,
+    tasks: {}
+  });
+  assert(elig.canCalculateScore === true, 'canCalculateScore = true');
+  assert(elig.canPublishReport === false, 'canPublishReport = false');
+  assert(elig.eligible === false, 'eligible aliases publish gate');
+}
+
+console.log('\nBoundary still reduces Production score');
+{
+  assert(sandbox.computeScoreFromReadings({ ...CASE_1328, ph: 9.5 }) < 100, 'pH out of ideal reduces Production');
+  assert(sandbox.computeScoreFromReadings({ ...CASE_1328, chlorine: 0.8 }) < 100, 'Cl 0.8 reduces Production');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', { ...CASE_1328, chlorine: 0.8 }).score === 100,
+    'Thai still 100 at Cl 0.8 (wider acceptability band — expected)');
+}
+
+console.log(`\n${passed} passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);
