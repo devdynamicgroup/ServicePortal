@@ -7,6 +7,7 @@ function openJob(id) {
   if (!S.activeJob) return;
   if (S.activeJob.status !== 'done') S.activeJob.status = 'in_progress';
   persistJobs();
+  if (typeof persistActiveCaseRef === 'function') persistActiveCaseRef(S.activeJob);
   loadJobState(S.activeJob);
   updateJobHeader(S.activeJob);
   renderJobSteps();
@@ -16,6 +17,7 @@ function openJob(id) {
   pushCaseOpenToNotion(S.activeJob).then(result => {
     if (!result?.ok) return;
     if (result.deferred) return;
+    if (typeof persistActiveCaseRef === 'function') persistActiveCaseRef(S.activeJob);
     if (typeof OperatorNotificationBridge?.emitCaseAssigned === 'function') {
       OperatorNotificationBridge.emitCaseAssigned(S.activeJob);
     }

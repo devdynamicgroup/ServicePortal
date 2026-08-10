@@ -99,7 +99,7 @@ function addCaseForSelectedDay() {
   }, 1000);
   const hour = Math.min(17, 9 + sameDayJobs.length);
   const endHour = Math.min(18, hour + 1);
-  JOBS.push({
+  const job = {
     id: maxId + 1,
     name: `New Client ${maxId + 1}`,
     addr: 'Address to confirm',
@@ -109,14 +109,28 @@ function addCaseForSelectedDay() {
     date: iso,
     pkg: 'essential',
     status: 'new',
+    manual: true,
+    manualPending: true,
     meta: `Case ${sameDayJobs.length + 1} for this day - Owner present`
-  });
-  ensureJobDraft(JOBS[JOBS.length - 1]);
+  };
+  JOBS.push(job);
+  ensureJobDraft(job);
   persistJobs();
-  const newJob = JOBS[JOBS.length - 1];
   if (typeof OperatorNotificationBridge?.emitCaseCreatedFromJob === 'function') {
-    OperatorNotificationBridge.emitCaseCreatedFromJob(newJob);
+    OperatorNotificationBridge.emitCaseCreatedFromJob(job);
   }
+  // Durable identity: persist to Notion immediately so reload/deploy cannot erase the Case.
+  Promise.resolve()
+    .then(() => (typeof createManualCaseInNotion === 'function' ? createManualCaseInNotion(job) : { ok: false }))
+    .then((synced) => {
+      if (synced?.ok && typeof persistActiveCaseRef === 'function') persistActiveCaseRef(job);
+      if (!synced?.ok) {
+        showToast(S.lang === 'th'
+          ? 'สร้างเคสแล้ว แต่ยังซิงค์เซิร์ฟเวอร์ไม่สำเร็จ — กด Save Draft เพื่อลองใหม่'
+          : 'Case created locally — server sync failed; use Save Draft to retry');
+      }
+      renderCalendar();
+    });
   renderCalendar();
   showToast(`Added case for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
 }
@@ -133,8 +147,8 @@ function discardUnsavedManualCases() {
 }
 
 // Ad-hoc case created by staff on-site (no scheduled Notion appointment).
-// Opens Start assessment (job hub), stores start timestamp, and only shows a
-// dashboard card after Save Draft.
+// Opens Start assessment (job hub), stores start timestamp, and persists to
+// Notion immediately so reload/deploy cannot erase a successfully created Case.
 function createManualCase() {
   discardUnsavedManualCases();
   const now = new Date();
@@ -170,6 +184,17 @@ function createManualCase() {
   weekBase = getMonday(now);
   S.selDay = job.day;
   openJob(job.id);
+  Promise.resolve()
+    .then(() => (typeof createManualCaseInNotion === 'function' ? createManualCaseInNotion(job) : { ok: false }))
+    .then((synced) => {
+      if (synced?.ok && typeof persistActiveCaseRef === 'function') persistActiveCaseRef(job);
+      if (!synced?.ok) {
+        showToast(S.lang === 'th'
+          ? 'สร้างเคสแล้ว แต่ยังซิงค์เซิร์ฟเวอร์ไม่สำเร็จ — กด Save Draft เพื่อลองใหม่'
+          : 'Case created locally — server sync failed; use Save Draft to retry');
+      }
+      if (typeof renderCalendar === 'function') renderCalendar();
+    });
 }
 
 function commitManualCaseIfNeeded(job = S.activeJob) {
@@ -196,7 +221,7 @@ function addNextDayAppt() {
     const candidate = Number.isFinite(legacy) ? legacy : (Number.isFinite(numeric) ? numeric : 0);
     return Math.max(m, candidate);
   }, 1000);
-  JOBS.push({
+  const job = {
     id: maxId + 1,
     name: `New Client ${maxId + 1}`,
     addr: 'Address to confirm',
@@ -206,14 +231,27 @@ function addNextDayAppt() {
     date: formatDate(d),
     pkg: 'essential',
     status: 'new',
+    manual: true,
+    manualPending: true,
     meta: 'New appointment - Owner present'
-  });
-  ensureJobDraft(JOBS[JOBS.length - 1]);
+  };
+  JOBS.push(job);
+  ensureJobDraft(job);
   persistJobs();
-  const newJob = JOBS[JOBS.length - 1];
   if (typeof OperatorNotificationBridge?.emitCaseCreatedFromJob === 'function') {
-    OperatorNotificationBridge.emitCaseCreatedFromJob(newJob);
+    OperatorNotificationBridge.emitCaseCreatedFromJob(job);
   }
+  Promise.resolve()
+    .then(() => (typeof createManualCaseInNotion === 'function' ? createManualCaseInNotion(job) : { ok: false }))
+    .then((synced) => {
+      if (synced?.ok && typeof persistActiveCaseRef === 'function') persistActiveCaseRef(job);
+      if (!synced?.ok) {
+        showToast(S.lang === 'th'
+          ? 'สร้างเคสแล้ว แต่ยังซิงค์เซิร์ฟเวอร์ไม่สำเร็จ — กด Save Draft เพื่อลองใหม่'
+          : 'Case created locally — server sync failed; use Save Draft to retry');
+      }
+      renderCalendar();
+    });
   renderCalendar();
   showToast(`Added for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
 }
@@ -382,6 +420,7 @@ async function cancelCase(id = S.activeJob?.id) {
   if (job.workflow) job.workflow.status = 'cancelled';
   else job.workflow = { status: 'cancelled' };
   if (S.activeJob && String(S.activeJob.id) === String(id)) S.activeJob = null;
+  if (typeof clearActiveCaseRef === 'function') clearActiveCaseRef();
   // Keep the Notion row, but drop it from the local dashboard list immediately.
   for (let i = JOBS.length - 1; i >= 0; i--) {
     if (String(JOBS[i].id) === String(id)
@@ -427,6 +466,7 @@ function closeSignoutModal(){ document.getElementById('signout-overlay').classLi
 function confirmSignout(){
   closeSignoutModal();
   S.activeJob = null;
+  if (typeof clearActiveCaseRef === 'function') clearActiveCaseRef();
   if (typeof clearAppSession === 'function') clearAppSession();
   else localStorage.removeItem('wm-session');
   goScreen('s-login');

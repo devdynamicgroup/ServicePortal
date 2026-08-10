@@ -8,6 +8,84 @@ const JOB_FIELD_IDS = [
 
 const DEFAULT_TAPS = ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest'];
 
+/** Durable pointer to the Case the operator was working on (survives reload). */
+const ACTIVE_CASE_REF_KEY = 'wm-active-case-ref';
+
+function persistActiveCaseRef(job) {
+  if (!job) return;
+  const ref = {
+    id: job.id != null ? String(job.id) : null,
+    notionId: job.notionId ? String(job.notionId) : null,
+    date: job.date || null
+  };
+  if (!ref.id && !ref.notionId) return;
+  try {
+    localStorage.setItem(ACTIVE_CASE_REF_KEY, JSON.stringify(ref));
+  } catch (error) {
+    console.warn('[Service Portal] could not persist active case ref', error);
+  }
+}
+
+function clearActiveCaseRef() {
+  try {
+    localStorage.removeItem(ACTIVE_CASE_REF_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function readActiveCaseRef() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_CASE_REF_KEY);
+    if (!raw) return null;
+    const ref = JSON.parse(raw);
+    if (!ref || (typeof ref !== 'object')) return null;
+    if (!ref.id && !ref.notionId) return null;
+    return ref;
+  } catch {
+    return null;
+  }
+}
+
+function findJobByCaseRef(ref, jobs = JOBS) {
+  if (!ref || !Array.isArray(jobs)) return null;
+  const refId = ref.id != null ? String(ref.id) : '';
+  const refNotion = ref.notionId != null ? String(ref.notionId) : '';
+  const refCompact = refNotion.replace(/-/g, '');
+  return jobs.find(job =>
+    (refId && String(job.id) === refId)
+    || (refNotion && String(job.notionId || '') === refNotion)
+    || (refCompact && String(job.id) === refCompact)
+  ) || null;
+}
+
+/** Focus dashboard calendar on the Case date without changing HTML/CSS. */
+function focusCalendarOnJobDate(job) {
+  const iso = String(job?.date || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!iso) return;
+  if (typeof getMonday !== 'function') return;
+  const picked = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  if (Number.isNaN(picked.getTime())) return;
+  if (typeof weekBase !== 'undefined') {
+    weekBase = getMonday(picked);
+  }
+  S.selDay = (picked.getDay() + 6) % 7;
+}
+
+/**
+ * After Notion/list reload, restore the operator's Case from durable identity.
+ * Does not create Cases. Returns the restored job or null.
+ */
+function restoreActiveCaseFromPersistence() {
+  const ref = readActiveCaseRef();
+  if (!ref) return null;
+  const job = findJobByCaseRef(ref, JOBS);
+  if (!job) return null;
+  S.activeJob = job;
+  focusCalendarOnJobDate(job);
+  return job;
+}
+
 function defaultJobDraft(job) {
   return {
     pkg: job?.pkg || 'essential',
@@ -79,24 +157,26 @@ function writeMsValues(wrapId, values) {
 }
 
 function syncJobMetaFromDraft(job, draft) {
-  const fname = (draft.fields['ci-fname'] || '').trim();
-  const lname = (draft.fields['ci-lname'] || '').trim();
+  if (!job || !draft) return;
+  const fields = draft.fields || {};
+  const fname = (fields['ci-fname'] || '').trim();
+  const lname = (fields['ci-lname'] || '').trim();
   if (fname && lname) job.name = `${fname} ${lname.charAt(0).toUpperCase()}.`;
   else if (fname) job.name = fname;
   else if (lname) job.name = `${lname.charAt(0).toUpperCase()}.`;
 
-  const addr = (draft.fields['ci-addr'] || '').trim();
+  const addr = (fields['ci-addr'] || '').trim();
   if (addr) job.addr = addr;
 
   job.pkg = draft.pkg;
 
-  const proptype = draft.fields['ci-proptype'];
-  const propage = draft.fields['ci-propage'];
+  const proptype = fields['ci-proptype'];
+  const propage = fields['ci-propage'];
   const ownerLabel = draft.owner === 'yes' ? 'Owner–present' : 'Owner–away';
   const parts = [proptype, propage, ownerLabel].filter(p => p && p !== 'Please select');
   if (parts.length) job.meta = parts.join(' · ');
 
-  const contact = (draft.fields['ci-contact'] || '').trim();
+  const contact = (fields['ci-contact'] || '').trim();
   if (contact && draft.owner !== 'yes') job.contact = contact;
   else delete job.contact;
 
@@ -458,6 +538,7 @@ async function createManualCaseInNotion(job = S.activeJob) {
     if (payload.case) mergeApiCaseIntoJob(job, payload.case);
     delete job.manualPending;
     persistJobs();
+    persistActiveCaseRef(job);
     if (typeof OperatorNotificationBridge?.emitCaseCreatedFromJob === 'function') {
       OperatorNotificationBridge.emitCaseCreatedFromJob(job);
     }
@@ -698,6 +779,32 @@ function collectLocalJobDrafts() {
   return drafts;
 }
 
+/**
+ * Local Cases that were shown on the dashboard but never received a Notion id
+ * (legacy calendar "+" adds). Keep them across Notion refresh so reload/deploy
+ * does not erase business data that only lived in wm-jobs.
+ * Abandoned manualPending drafts (never saved) are intentionally excluded —
+ * discardUnsavedManualCases owns that path.
+ */
+function collectLocalOnlyUnsyncedJobs() {
+  const out = [];
+  try {
+    const raw = localStorage.getItem('wm-jobs');
+    if (!raw) return out;
+    const saved = JSON.parse(raw);
+    if (!Array.isArray(saved)) return out;
+    saved.forEach(job => {
+      if (!job || isJobCancelled(job)) return;
+      if (job.notionId || job.notionSource) return;
+      if (job.manualPending) return;
+      out.push(job);
+    });
+  } catch {
+    /* ignore */
+  }
+  return out;
+}
+
 function findPreservedDraft(job, draftMap) {
   if (!job || !draftMap?.size) return null;
   for (const key of jobDraftLookupKeys(job)) {
@@ -792,6 +899,15 @@ async function loadJobsFromApi() {
       && !isJobCancelled(job)
       && (!job.manualPending || job.notionId)
     );
+    // Cold boot: JOBS is empty, but localStorage may still hold calendar-created
+    // Cases that never reached Notion. Preserve those so reload does not erase them.
+    collectLocalOnlyUnsyncedJobs().forEach(job => {
+      const already = preservedManualJobs.some(existing =>
+        String(existing.id) === String(job.id)
+        || (job.notionId && String(existing.notionId || '') === String(job.notionId))
+      );
+      if (!already) preservedManualJobs.push(job);
+    });
     const locallyInProgress = new Set(
       JOBS
         .filter(job => job.status === 'in_progress')
@@ -834,8 +950,16 @@ async function loadJobsFromApi() {
         || (activeNotionId && String(job.notionId || '') === activeNotionId)
         || (activeNotionId && String(job.id) === activeNotionId.replace(/-/g, ''))
       );
-      if (refreshed) S.activeJob = refreshed;
-      else if (S.activeJob && isJobCancelled(S.activeJob)) S.activeJob = null;
+      if (refreshed) {
+        S.activeJob = refreshed;
+        persistActiveCaseRef(refreshed);
+      } else if (S.activeJob && isJobCancelled(S.activeJob)) {
+        S.activeJob = null;
+        clearActiveCaseRef();
+      }
+    } else {
+      // Cold reload / deploy: session memory is empty — restore from durable ref.
+      restoreActiveCaseFromPersistence();
     }
     persistJobs();
     setDataSource('notion', {

@@ -3,7 +3,7 @@ async function saveDraft() {
     if (typeof commitManualCaseIfNeeded === 'function') commitManualCaseIfNeeded();
     saveActiveJobState();
     persistJobs();
-    // Create Notion row only after Save Draft (manual cases stay local until then).
+    // Create Notion row on Save Draft if create-time sync had not succeeded yet.
     if (typeof ensureCaseSyncedToNotion === 'function') {
       const synced = await ensureCaseSyncedToNotion(S.activeJob);
       if (!synced?.ok && S.activeJob?.manual && !S.activeJob?.notionId) {
@@ -193,6 +193,7 @@ async function finalizeCaseCompletion(job, options = {}) {
 
     persistJobs();
     S.activeJob = null;
+    if (typeof clearActiveCaseRef === 'function') clearActiveCaseRef();
     if (typeof renderCalendar === 'function') renderCalendar();
     else if (typeof renderJobs === 'function') renderJobs();
     goScreen('s-dash');
