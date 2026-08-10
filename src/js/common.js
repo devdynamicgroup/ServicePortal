@@ -10,6 +10,9 @@ async function saveDraft() {
         showToast(S.lang === 'th' ? 'บันทึกร่างแล้ว แต่ยังซิงค์ Notion ไม่สำเร็จ' : 'Draft saved, but Notion sync failed');
       }
     }
+    if (typeof syncJobAssessmentToNotion === 'function' && S.activeJob?.notionId) {
+      await syncJobAssessmentToNotion(S.activeJob);
+    }
     if (typeof renderCalendar === 'function') renderCalendar();
     else if (typeof renderJobs === 'function') renderJobs();
   }

@@ -131,8 +131,126 @@ function saveActiveJobState() {
   draft.msMembers = readMsValues('ms-members');
   draft.msConcerns = readMsValues('ms-concerns');
 
+  // Mark local measurement persistence before any network sync.
+  if (typeof AssessmentSnapshot !== 'undefined' && AssessmentSnapshot.draftHasMeasurements(draft)) {
+    if (draft.assessmentSyncStatus !== 'SYNCING') {
+      draft.assessmentSyncStatus = 'LOCAL_SAVED';
+    }
+  }
+
   syncJobMetaFromDraft(S.activeJob, draft);
   persistJobs();
+  scheduleAssessmentSync(S.activeJob);
+}
+
+function buildAssessmentSnapshot(job = S.activeJob) {
+  if (typeof AssessmentSnapshot === 'undefined' || !AssessmentSnapshot?.buildSnapshot) {
+    throw new Error('AssessmentSnapshot module is not loaded');
+  }
+  const draft = getJobDraft(job);
+  const nextRevision = Math.max(1, (Number(draft.assessmentRevision) || 0) + 1);
+  return AssessmentSnapshot.buildSnapshot({
+    taps: draft.taps || S.taps || [],
+    tapData: draft.tapData || S.tapData || [],
+    revision: nextRevision,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+let _assessmentSyncTimer = null;
+let _assessmentSyncQueue = Promise.resolve();
+let _assessmentSyncSeq = 0;
+
+function scheduleAssessmentSync(job = S.activeJob) {
+  if (!job?.notionId || job.manualPending) return;
+  const draft = getJobDraft(job);
+  if (typeof AssessmentSnapshot === 'undefined' || !AssessmentSnapshot.draftHasMeasurements(draft)) {
+    return;
+  }
+  clearTimeout(_assessmentSyncTimer);
+  _assessmentSyncTimer = setTimeout(() => {
+    syncJobAssessmentToNotion(job).catch(() => {});
+  }, 700);
+}
+
+/**
+ * Sync measurement snapshot to Notion Case.
+ * Local data is never rolled back on failure.
+ */
+async function syncJobAssessmentToNotion(job = S.activeJob) {
+  if (!job?.notionId || job.manualPending) {
+    return { ok: false, reason: 'not_ready' };
+  }
+  if (typeof AssessmentSnapshot === 'undefined') {
+    return { ok: false, reason: 'module_missing' };
+  }
+
+  const draft = getJobDraft(job);
+  if (!AssessmentSnapshot.draftHasMeasurements(draft)) {
+    return { ok: false, reason: 'no_measurements' };
+  }
+
+  const seq = ++_assessmentSyncSeq;
+  draft.assessmentSyncStatus = 'SYNCING';
+  persistJobs();
+
+  const run = async () => {
+    // Drop superseded queued syncs.
+    if (seq !== _assessmentSyncSeq) {
+      return { ok: false, reason: 'superseded' };
+    }
+
+    let snapshot;
+    try {
+      snapshot = buildAssessmentSnapshot(job);
+    } catch (error) {
+      draft.assessmentSyncStatus = 'SYNC_FAILED';
+      draft.assessmentSyncError = error.message || 'build_failed';
+      persistJobs();
+      return { ok: false, error: draft.assessmentSyncError };
+    }
+
+    try {
+      const response = await fetch(`/api/cases/${encodeURIComponent(job.notionId)}/assessment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ snapshot })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (seq !== _assessmentSyncSeq) {
+        return { ok: false, reason: 'superseded' };
+      }
+      if (!response.ok || payload.ok === false) {
+        draft.assessmentSyncStatus = 'SYNC_FAILED';
+        draft.assessmentSyncError = payload.error || `http_${response.status}`;
+        persistJobs();
+        return { ok: false, error: draft.assessmentSyncError, status: response.status };
+      }
+
+      const saved = payload.snapshot || snapshot;
+      draft.assessmentRevision = Number(saved.revision) || snapshot.revision;
+      draft.assessmentUpdatedAt = saved.updatedAt || snapshot.updatedAt;
+      draft.assessmentSyncStatus = 'SYNCED';
+      draft.assessmentSyncError = null;
+      persistJobs();
+
+      if (payload.case && typeof mergeApiCaseIntoJob === 'function') {
+        // Preserve local draft measurements; only refresh Notion metadata.
+        mergeApiCaseIntoJob(job, payload.case);
+      }
+      return { ok: true, skipped: Boolean(payload.skipped), snapshot: saved };
+    } catch (error) {
+      draft.assessmentSyncStatus = 'SYNC_FAILED';
+      draft.assessmentSyncError = error.message || 'network_error';
+      persistJobs();
+      console.warn('[syncJobAssessmentToNotion] failed', error);
+      return { ok: false, error: draft.assessmentSyncError };
+    }
+  };
+
+  _assessmentSyncQueue = _assessmentSyncQueue.then(run, run);
+  return _assessmentSyncQueue;
 }
 
 function restoreSlipPreview() {
@@ -285,9 +403,13 @@ function persistJobs() {
 function mergeApiCaseIntoJob(localJob, apiCase) {
   if (!localJob || !apiCase) return localJob;
   const preservedDraft = localJob.draft || getJobDraft(localJob);
+  const remoteDraft = apiCase.draft || null;
+  const mergedDraft = (typeof AssessmentSnapshot !== 'undefined' && AssessmentSnapshot.preferDraft)
+    ? (AssessmentSnapshot.preferDraft(preservedDraft, remoteDraft) || preservedDraft)
+    : preservedDraft;
   const keepInProgress = localJob.status === 'in_progress';
   Object.assign(localJob, apiCase, {
-    draft: preservedDraft,
+    draft: mergedDraft,
     status: keepInProgress ? 'in_progress' : (apiCase.status || localJob.status),
     manual: localJob.manual,
     startedAt: localJob.startedAt || apiCase.workflow?.serviceStartedAt || null
@@ -297,7 +419,7 @@ function mergeApiCaseIntoJob(localJob, apiCase) {
     localJob.notionSource = true;
     delete localJob.manualPending;
   }
-  syncJobMetaFromDraft(localJob, preservedDraft);
+  syncJobMetaFromDraft(localJob, mergedDraft);
   return localJob;
 }
 
@@ -686,11 +808,14 @@ async function loadJobsFromApi() {
         next.status = 'in_progress';
       }
       const localDraft = findPreservedDraft(job, preservedDrafts);
-      if (localDraft) {
-        next.draft = localDraft;
-        // Keep dashboard name/address from the latest local preassessment draft.
-        // Otherwise Notion's create-time "New Client …" briefly overwrites the saved name.
-        syncJobMetaFromDraft(next, localDraft);
+      if (localDraft || job.draft) {
+        const preferred = (typeof AssessmentSnapshot !== 'undefined' && AssessmentSnapshot.preferDraft)
+          ? AssessmentSnapshot.preferDraft(localDraft, job.draft)
+          : (localDraft || job.draft);
+        if (preferred) {
+          next.draft = preferred;
+          syncJobMetaFromDraft(next, preferred);
+        }
       }
       return next;
     });

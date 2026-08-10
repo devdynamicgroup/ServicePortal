@@ -38,6 +38,9 @@ function goScreen(id) {
       if (typeof syncJobProfileToNotion === 'function' && S.activeJob?.notionId) {
         await syncJobProfileToNotion(S.activeJob);
       }
+      if (typeof syncJobAssessmentToNotion === 'function' && S.activeJob?.notionId) {
+        await syncJobAssessmentToNotion(S.activeJob);
+      }
       if (typeof loadJobsFromApi === 'function') await loadJobsFromApi();
       if (typeof renderCalendar === 'function') renderCalendar();
       else if (typeof renderJobs === 'function') renderJobs();

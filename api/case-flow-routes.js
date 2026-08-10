@@ -16,6 +16,9 @@ const {
   submitCaseFeedback
 } = require('../services/case-flow');
 const {
+  submitCaseAssessment
+} = require('../services/assessment-persistence-service');
+const {
   getClientFeedbackStatus,
   ensureClientFeedbackSchema
 } = require('../services/client-feedback');
@@ -554,6 +557,21 @@ async function handleCaseFlowRoute(req, res, urlPath) {
     if (!assertAppAuth(req, res)) return true;
     try {
       const result = await publishCaseScore(decodeURIComponent(scoreMatch[1]), await readJson(req));
+      sendJson(res, 200, result);
+    } catch (error) {
+      sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
+    }
+    return true;
+  }
+
+  const assessmentMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/assessment$/);
+  if (assessmentMatch && req.method === 'POST') {
+    if (!assertAppAuth(req, res)) return true;
+    try {
+      const result = await submitCaseAssessment(
+        decodeURIComponent(assessmentMatch[1]),
+        await readJson(req)
+      );
       sendJson(res, 200, result);
     } catch (error) {
       sendJson(res, error.statusCode || 502, { ok: false, error: error.message });

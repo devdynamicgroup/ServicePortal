@@ -1,4 +1,5 @@
 const { getPropertyValue } = require('./props');
+const AssessmentSnapshot = require('../../src/js/assessment-snapshot');
 
 const FIELD_ALIASES = {
   fullName: ['Full Name', 'Name', 'Client Name', 'fullName'],
@@ -61,8 +62,25 @@ const FIELD_ALIASES = {
   // Phase 4 — Cal.com correlation key (CAL-G02, closed decision). Written once
   // at create, immutable thereafter. Primary Cal↔Case correlation; exact-match
   // lookup only, never fuzzy.
-  calBookingId: ['Cal Booking ID', 'calBookingId']
+  calBookingId: ['Cal Booking ID', 'calBookingId'],
+  // Measurement / assessment persistence (Case-level JSON in rich_text).
+  assessmentSnapshot: ['Assessment Snapshot', 'assessmentSnapshot']
 };
+
+/** Read Assessment Snapshot rich_text without inserting spaces between segments. */
+function readAssessmentSnapshotText(properties) {
+  if (!properties) return '';
+  const key = Object.keys(properties).find(name => {
+    const normalized = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    return normalized === 'assessmentsnapshot';
+  });
+  if (!key) return '';
+  const prop = properties[key];
+  if (!prop || prop.type !== 'rich_text') {
+    return String(getPropertyValue(properties, FIELD_ALIASES.assessmentSnapshot) || '');
+  }
+  return AssessmentSnapshot.joinRichTextSegments(prop.rich_text || []);
+}
 
 function splitClientName(fullName) {
   const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
@@ -337,6 +355,16 @@ function notionPageToJob(page, index) {
   };
   job.draft.msConcerns = concern ? [concern] : [];
   job.draft.pkg = pkg;
+
+  // Reconstruct measurement state from Assessment Snapshot when present.
+  // Missing / invalid / empty snapshot → leave empty default tapData (no invented values).
+  const snapshotRaw = readAssessmentSnapshotText(properties);
+  const snapshot = AssessmentSnapshot.parseSnapshot(snapshotRaw);
+  if (snapshot) {
+    AssessmentSnapshot.applySnapshotToDraft(job.draft, snapshot);
+    job.draft.assessmentSnapshotRaw = snapshotRaw;
+    job.draft.assessmentSyncStatus = 'SYNCED';
+  }
 
   // Temporary debug: confirm Created 1 is being used as the appointment date.
   if (process.env.NOTION_DEBUG_DATES !== 'off') {

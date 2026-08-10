@@ -7,6 +7,7 @@ const {
 const { findPropertyKey, getPropertyValue } = require('./props');
 const { FIELD_ALIASES, notionPageToJob } = require('./mapper');
 const { withRetry } = require('../retry');
+const AssessmentSnapshot = require('../../src/js/assessment-snapshot');
 
 const CASE_FLOW_REQUIREMENTS = {
   line: [
@@ -375,6 +376,17 @@ function buildNotionProperties(payload, schemaProperties = {}) {
     if (!key || schemaProperties[key]?.type !== 'date') return;
     properties[key] = { date: { start: String(value) } };
   };
+  const setAssessmentSnapshot = (aliases, value) => {
+    if (value === undefined || value === null || value === '') return;
+    const key = findPropertyKey(schemaProperties, aliases);
+    if (!key) return;
+    const type = schemaProperties[key]?.type;
+    if (type !== 'rich_text') return;
+    const text = String(value);
+    const chunks = AssessmentSnapshot.chunkRichText(text);
+    if (!chunks.length) return;
+    properties[key] = { rich_text: chunks };
+  };
 
   setText(FIELD_ALIASES.fullName, payload.fullName);
   setText(FIELD_ALIASES.address, payload.address);
@@ -432,6 +444,8 @@ function buildNotionProperties(payload, schemaProperties = {}) {
   // Phase 4 — Cal.com correlation key (CAL-G02). Written once at create by
   // the Cal adapter; no other caller sets this.
   setText(FIELD_ALIASES.calBookingId, payload.calBookingId);
+  // Assessment measurement snapshot (JSON). Uses chunked rich_text when long.
+  setAssessmentSnapshot(FIELD_ALIASES.assessmentSnapshot, payload.assessmentSnapshot);
 
   return properties;
 }
