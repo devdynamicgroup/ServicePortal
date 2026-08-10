@@ -78,7 +78,7 @@ const coveragePartial = sandbox.CoverageEngine.calculateCoverage({
 assert(coveragePartial.missingMeasurements.length === 4 && coveragePartial.missingInspection.length === 3,
   'Coverage Engine correctly enumerates missing measurements AND missing inspection tasks independently');
 
-// 3) Eligibility Engine: the documented "Score=96, Coverage partial, Eligible=false" case.
+// 3) Eligibility Engine: numeric score calculable while publish blocked by inspection.
 const eligibilityBlocked = sandbox.EligibilityEngine.evaluate({
   reportType: 'production',
   readings: { ph: 7.2, tds: 450, orp: 300, do: 6, chlorine: 0.5, turbidity: 2 }, // full measurements
@@ -86,8 +86,10 @@ const eligibilityBlocked = sandbox.EligibilityEngine.evaluate({
 });
 assert(eligibilityBlocked.measurementCoverage === 100, 'Full measurements -> measurementCoverage 100');
 assert(eligibilityBlocked.inspectionCoverage === 75, 'One of four required tasks incomplete -> inspectionCoverage 75');
-assert(eligibilityBlocked.eligible === false, 'Eligible is false even though measurements are 100% complete');
-assert(eligibilityBlocked.reason === 'Inspection incomplete', 'Reason correctly attributes the block to inspection, not measurements');
+assert(eligibilityBlocked.canCalculateScore === true, 'canCalculateScore is true with full numeric inputs');
+assert(eligibilityBlocked.canPublishReport === false, 'canPublishReport is false when inspection is incomplete');
+assert(eligibilityBlocked.eligible === false, 'eligible alias follows canPublishReport (false)');
+assert(eligibilityBlocked.reason === 'Inspection incomplete', 'Reason correctly attributes the publish block to inspection, not measurements');
 assert(sandbox.EligibilityContract.isValid(eligibilityBlocked), 'Result conforms to the documented Eligibility Contract shape');
 
 const eligibilityOk = sandbox.EligibilityEngine.evaluate({
@@ -95,8 +97,9 @@ const eligibilityOk = sandbox.EligibilityEngine.evaluate({
   readings: { ph: 7.2, tds: 450, orp: 300, do: 6, chlorine: 0.5, turbidity: 2 },
   tasks: { tapphoto: true, meter: true, visual: true, chlorine: true }
 });
-assert(eligibilityOk.eligible === true && eligibilityOk.reason === null,
-  'Eligible is true and reason is null when both dimensions are fully covered');
+assert(eligibilityOk.canCalculateScore === true && eligibilityOk.canPublishReport === true
+  && eligibilityOk.eligible === true && eligibilityOk.reason === null,
+  'Both gates true and reason null when measurements + inspection are fully covered');
 
 // 4) Registry is open for extension — a new report type never requires touching this engine's code.
 sandbox.EligibilityPolicyRegistry.register({
@@ -109,8 +112,10 @@ assert(sandbox.EligibilityPolicyRegistry.has('industrial'), 'New report-type pol
 
 // 5) Presentation is a pure formatter of the contract, nothing else.
 const presented = sandbox.EligibilityPresentation.format(eligibilityBlocked);
-assert(presented.badgeText === 'Not Eligible' && presented.reasonText === 'Inspection incomplete',
-  'Presentation formats exactly what the contract says, without recomputing anything');
+assert(presented.badgeText === 'Score ready' && presented.reasonText === 'Inspection incomplete',
+  'Presentation shows Score ready when calculable but not publishable, without recomputing anything');
+assert(presented.scoreReady === true && presented.publishReady === false,
+  'Presentation exposes scoreReady / publishReady from the contract flags');
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

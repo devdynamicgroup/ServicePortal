@@ -57,17 +57,32 @@ function formatEligibilityContract(contract) {
       badgeText: 'Unknown',
       badgeTone: 'neutral',
       reasonText: '',
-      coverageSummaryText: ''
+      coverageSummaryText: '',
+      scoreReady: false,
+      publishReady: false
     });
   }
 
-  const badgeText = contract.eligible ? 'Eligible' : 'Not Eligible';
-  const badgeTone = contract.eligible ? 'good' : 'attn';
-  // Reason text is always derived from eligibilityState here — never read
-  // contract.reason directly for display logic, even though EligibilityEngine
-  // also populates contract.reason (via this same function) for backward
-  // compatibility with callers that read .reason as plain text.
-  const reasonText = contract.eligible ? '' : (reasonFromState(contract.eligibilityState) || contract.reason || 'Not eligible');
+  const canCalculate = Boolean(contract.canCalculateScore);
+  const canPublish = Boolean(contract.canPublishReport ?? contract.eligible);
+  // Score-ready takes presentation priority: numeric score is available even
+  // when official publish is blocked by incomplete inspection.
+  let badgeText;
+  let badgeTone;
+  if (canPublish) {
+    badgeText = 'Eligible';
+    badgeTone = 'good';
+  } else if (canCalculate) {
+    badgeText = 'Score ready';
+    badgeTone = 'mid';
+  } else {
+    badgeText = 'Not Eligible';
+    badgeTone = 'attn';
+  }
+
+  const reasonText = canPublish
+    ? ''
+    : (reasonFromState(contract.eligibilityState) || contract.reason || (canCalculate ? 'Inspection incomplete' : 'Not eligible'));
   const coverageSummaryText = `Measurement ${contract.measurementCoverage}% · `
     + `Inspection ${contract.inspectionCoverage}% · `
     + `Overall ${contract.overallCoverage}%`;
@@ -76,7 +91,9 @@ function formatEligibilityContract(contract) {
     badgeText,
     badgeTone,
     reasonText,
-    coverageSummaryText
+    coverageSummaryText,
+    scoreReady: canCalculate,
+    publishReady: canPublish
   });
 }
 

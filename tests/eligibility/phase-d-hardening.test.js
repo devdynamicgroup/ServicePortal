@@ -58,27 +58,29 @@ const FULL_TASKS = { tapphoto: true, meter: true, visual: true, chlorine: true }
 const COUNTRY_KEYS = ['thailand', 'who', 'eu', 'japan', 'usEpa'];
 const LOCKED_SCORES = { thailand: 100, who: 93, eu: 65, japan: 96, usEpa: 91 };
 
-console.log('\nCase 1 — Complete assessment: eligible, coverage 100, score calculated');
+console.log('\nCase 1 — Complete assessment: canCalculateScore + canPublishReport, coverage 100, score calculated');
 {
   const sandbox = makeSandbox();
   const contract = sandbox.EligibilityEngine.evaluate({ reportType: 'production', readings: FULL_READINGS, tasks: FULL_TASKS });
-  assert(contract.eligible === true, 'eligible is true');
+  assert(contract.canCalculateScore === true && contract.canPublishReport === true, 'both gates true');
+  assert(contract.eligible === true, 'eligible alias is true');
   assert(contract.measurementCoverage === 100 && contract.inspectionCoverage === 100 && contract.overallCoverage === 100, 'all coverage dimensions 100%');
   assert(sandbox.computeScoreFromReadings(FULL_READINGS) === 93, 'production score still computes (93) — score engine untouched');
 }
 
-console.log('\nCase 2 — Missing chlorine: not eligible, listed, contract carries no score field at all');
+console.log('\nCase 2 — Missing chlorine: canCalculateScore false, listed, contract carries no score field at all');
 {
   const sandbox = makeSandbox();
   const readings = { ...FULL_READINGS };
   delete readings.chlorine;
   const contract = sandbox.EligibilityEngine.evaluate({ reportType: 'production', readings, tasks: FULL_TASKS });
-  assert(contract.eligible === false, 'eligible is false');
+  assert(contract.canCalculateScore === false, 'canCalculateScore is false');
+  assert(contract.eligible === false, 'eligible alias is false');
   assert(contract.missingMeasurements.includes('chlorine'), 'chlorine listed as missing');
   assert(!('score' in contract), 'Eligibility Contract never embeds a score field — Score and Eligibility stay fully separate concepts, never merged into one object');
 }
 
-console.log('\nCase 3 — Missing visual inspection (original bug scenario): full measurements, incomplete inspection');
+console.log('\nCase 3 — Missing visual inspection: score calculable, publish blocked');
 {
   const sandbox = makeSandbox();
   const contract = sandbox.EligibilityEngine.evaluate({
@@ -86,12 +88,12 @@ console.log('\nCase 3 — Missing visual inspection (original bug scenario): ful
   });
   assert(contract.measurementCoverage === 100, 'measurementCoverage is 100 (all 6 numeric values present)');
   assert(contract.inspectionCoverage < 100, 'inspectionCoverage is below 100');
-  assert(contract.eligible === false, 'eligible is false despite a perfect measurement set');
+  assert(contract.canCalculateScore === true, 'canCalculateScore is true — Water Score must be visible');
+  assert(contract.canPublishReport === false, 'canPublishReport is false despite a perfect measurement set');
+  assert(contract.eligible === false, 'eligible alias follows canPublishReport');
   assert(contract.reason === 'Inspection incomplete', 'reason correctly says inspection incomplete, not missing measurements');
-  // The exact bug this whole project exists to fix: a perfect production
-  // score must still be able to coexist with eligible === false.
   assert(sandbox.computeScoreFromReadings(FULL_READINGS) === 93, 'the numeric score is still fully computable from these readings...');
-  assert(contract.eligible === false, '...yet the report is correctly still not eligible to be shown/published as complete');
+  assert(contract.canPublishReport === false, '...yet official publish/complete remains blocked');
 }
 
 console.log('\nCase 4 — Bad measured value (present, out of range): eligible, score < 100');
@@ -184,7 +186,8 @@ console.log('\nCase 7 — Published legacy report: not newly blocked, legacy sta
 {
   const sandbox = makeSandbox();
   const legacy = sandbox.EligibilityContract.buildLegacy();
-  assert(legacy.eligible === true, 'legacy bypass is eligible (never newly blocked)');
+  assert(legacy.canCalculateScore === true && legacy.canPublishReport === true && legacy.eligible === true,
+    'legacy bypass opens both gates (never newly blocked)');
   assert(legacy.eligibilityState === sandbox.EligibilityContract.STATE.LEGACY_REPORT, 'legacy status is explicitly traceable via eligibilityState');
   assert(legacy.calculationMetadata.eligibilityVersion === 'legacy-bypass', 'legacy status is explicitly traceable via a distinct eligibilityVersion');
 }

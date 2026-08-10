@@ -141,7 +141,8 @@ console.log('\nAlready-published bypass produces a traceable LEGACY_REPORT contr
 {
   const sandbox = makeSandbox();
   const legacy = sandbox.EligibilityContract.buildLegacy();
-  assert(legacy.eligible === true, 'legacy bypass contract is eligible (matches pre-Phase-C bypass behaviour)');
+  assert(legacy.canCalculateScore === true && legacy.canPublishReport === true && legacy.eligible === true,
+    'legacy bypass contract opens both gates (matches pre-Phase-C bypass behaviour)');
   assert(legacy.eligibilityState === sandbox.EligibilityContract.STATE.LEGACY_REPORT, 'legacy bypass is tagged LEGACY_REPORT');
   assert(legacy.calculationMetadata.eligibilityVersion === 'legacy-bypass', 'legacy bypass is tagged with a distinct version string, never confused with a fresh v1 evaluation');
   assert(sandbox.EligibilityContract.isValid(legacy), 'legacy contract still conforms to the same Eligibility Contract shape');

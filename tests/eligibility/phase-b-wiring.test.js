@@ -6,13 +6,13 @@
  * flows/score.js + common.js) in one sandbox, exactly like
  * tests/benchmark/benchmark-isolation.test.js, and proves:
  *
- *  Case 1 — everything complete -> eligible, score shown
- *  Case 2 — measurements complete, visual task incomplete -> not eligible, coverage 75%
- *  Case 3 — missing chlorine -> not eligible, chlorine listed as missing
- *  Case 4 — missing pH -> not eligible
+ *  Case 1 — everything complete -> canCalculateScore + canPublishReport, score shown
+ *  Case 2 — measurements complete, visual incomplete -> canCalculateScore true, publish false
+ *  Case 3 — missing chlorine -> canCalculateScore false, chlorine listed as missing
+ *  Case 4 — missing pH -> canCalculateScore false
  *  Case 5 — production score identical before/after integration (locked at 93)
  *  Case 6 — benchmark outputs identical when eligible (locked scores, byte-identical metadata)
- *  Plus: publish gate never reaches the network when not eligible; already-published
+ *  Plus: publish gate never reaches the network when canPublishReport is false; already-published
  *  jobs are never newly blocked (backward compatibility).
  */
 const fs = require('fs');
@@ -82,7 +82,7 @@ function assert(cond, msg) {
 
 const FULL_READINGS = { ph: 7.2, tds: 450, chlorine: 0.8, turbidity: 2.5, orp: 350, do: 6.5, temp: 28 };
 
-console.log('\nCase 1 — everything complete -> eligible, score shown');
+console.log('\nCase 1 — everything complete -> canCalculateScore + canPublishReport, score shown');
 {
   const sandbox = makeSandbox();
   sandbox.S.tapData = [{
@@ -92,14 +92,16 @@ console.log('\nCase 1 — everything complete -> eligible, score shown');
   }];
   const job = { draft: { tapData: sandbox.S.tapData } };
   const result = sandbox.resolveReportEligibility(job);
-  assert(result.eligible === true, 'eligible is true');
+  assert(result.canCalculateScore === true, 'canCalculateScore is true');
+  assert(result.canPublishReport === true, 'canPublishReport is true');
+  assert(result.eligible === true, 'eligible alias is true');
   assert(result.reason === null, 'reason is null');
   assert(result.measurementCoverage === 100 && result.inspectionCoverage === 100, 'both coverage dimensions 100%');
   assert(result.missingMeasurements.length === 0, 'no missing measurements with a full reading set');
   assert(sandbox.EligibilityContract.isValid(result), 'result conforms to the Eligibility Contract');
 }
 
-console.log('\nCase 2 — measurements complete, visual task incomplete -> not eligible, coverage 75%');
+console.log('\nCase 2 — measurements complete, visual incomplete -> score calculable, publish blocked');
 {
   const sandbox = makeSandbox();
   sandbox.S.tapData = [{
@@ -109,15 +111,17 @@ console.log('\nCase 2 — measurements complete, visual task incomplete -> not e
   }];
   const job = { draft: { tapData: sandbox.S.tapData } };
   const result = sandbox.resolveReportEligibility(job);
-  assert(result.eligible === false, 'eligible is false');
+  assert(result.canCalculateScore === true, 'canCalculateScore is true (score must be visible)');
+  assert(result.canPublishReport === false, 'canPublishReport is false');
+  assert(result.eligible === false, 'eligible alias follows canPublishReport');
   assert(result.measurementCoverage === 100, 'measurementCoverage still 100% (measurements are fine)');
   assert(result.inspectionCoverage === 75, 'inspectionCoverage is 75% (1 of 4 tasks incomplete)');
   assert(result.missingInspection.includes('visual'), 'visual listed as missing inspection');
   assert(result.missingMeasurements.length === 0, 'no measurements are missing');
-  assert(result.reason === 'Inspection incomplete', 'reason correctly attributes the block to inspection only');
+  assert(result.reason === 'Inspection incomplete', 'reason correctly attributes the publish block to inspection only');
 }
 
-console.log('\nCase 3 — missing chlorine -> not eligible, chlorine listed as missing');
+console.log('\nCase 3 — missing chlorine -> canCalculateScore false, chlorine listed as missing');
 {
   const sandbox = makeSandbox();
   const readings = { ...FULL_READINGS };
@@ -129,12 +133,13 @@ console.log('\nCase 3 — missing chlorine -> not eligible, chlorine listed as m
   }];
   const job = { draft: { tapData: sandbox.S.tapData } };
   const result = sandbox.resolveReportEligibility(job);
-  assert(result.eligible === false, 'eligible is false');
+  assert(result.canCalculateScore === false, 'canCalculateScore is false');
+  assert(result.canPublishReport === false, 'canPublishReport is false');
   assert(result.missingMeasurements.includes('chlorine'), 'chlorine listed as a missing measurement');
   assert(result.reason.includes('Missing measurements'), 'reason mentions missing measurements');
 }
 
-console.log('\nCase 4 — missing pH -> not eligible');
+console.log('\nCase 4 — missing pH -> canCalculateScore false');
 {
   const sandbox = makeSandbox();
   const readings = { ...FULL_READINGS };
@@ -146,7 +151,7 @@ console.log('\nCase 4 — missing pH -> not eligible');
   }];
   const job = { draft: { tapData: sandbox.S.tapData } };
   const result = sandbox.resolveReportEligibility(job);
-  assert(result.eligible === false, 'eligible is false');
+  assert(result.canCalculateScore === false, 'canCalculateScore is false');
   assert(result.missingMeasurements.includes('ph'), 'ph listed as a missing measurement');
 }
 
@@ -167,7 +172,7 @@ console.log('\nCase 6 — benchmark outputs byte-identical when eligible (locked
   }
 }
 
-console.log('\nPublish gate — never reaches the network when not eligible; retained SCORE_MISSING fallback still works');
+console.log('\nPublish gate — never reaches the network when canPublishReport is false; legacy published path still works');
 {
   const sandbox = makeSandbox();
   sandbox.S.tapData = [{
@@ -183,7 +188,10 @@ console.log('\nPublish gate — never reaches the network when not eligible; ret
     err => { threw = err; }
   ).then(() => {
     assert(threw && threw.code === 'NOT_ELIGIBLE', 'publishScoreBeforeClose throws NOT_ELIGIBLE before ever calling fetch');
-    assert(threw && threw.eligibility && threw.eligibility.eligible === false, 'thrown error carries the Eligibility Contract for the caller to read');
+    assert(threw && threw.eligibility && threw.eligibility.canPublishReport === false,
+      'thrown error carries canPublishReport=false');
+    assert(threw && threw.eligibility && threw.eligibility.canCalculateScore === true,
+      'thrown error still reports canCalculateScore=true (score was calculable)');
 
     // Backward compatibility: an already-published job's score is a fixed
     // number regardless of current live coverage — must not be newly blocked.

@@ -5,7 +5,10 @@
  *
  * @typedef {object} EligibilityContract
  * @property {string} reportType
- * @property {boolean} eligible
+ * @property {boolean} canCalculateScore - numeric Production inputs present+valid
+ * @property {boolean} canPublishReport - measurements + required inspection complete
+ * @property {boolean} eligible - alias of canPublishReport (official-report gate;
+ *   kept for backward-compatible callers; Score UI must use canCalculateScore)
  * @property {string} eligibilityState - machine-readable, see ELIGIBILITY_STATE. Logic
  *   (anything a program branches on) must read this, never `reason`.
  * @property {number} measurementCoverage - 0-100, owned exclusively by CoverageEngine
@@ -20,6 +23,7 @@
  *
  * Design rules (do not violate when extending):
  *   Score !== Coverage. Coverage !== Eligibility. Eligibility !== Inspection Complete.
+ *   canCalculateScore !== canPublishReport.
  *   State (machine) !== Reason (human). These are independent concepts and must
  *   stay independently readable from this one contract, never re-derived by a consumer.
  */
@@ -27,7 +31,7 @@
 /** Bump when the eligibility decision logic itself changes shape/semantics —
  *  stamped onto every contract via calculationMetadata.eligibilityVersion so a
  *  published report can always be traced back to the architecture that produced it. */
-const ELIGIBILITY_ARCHITECTURE_VERSION = 'v1';
+const ELIGIBILITY_ARCHITECTURE_VERSION = 'v1.1';
 
 /** Machine-readable outcome. Consumers must branch on this, never on `reason` text. */
 const ELIGIBILITY_STATE = Object.freeze({
@@ -43,6 +47,8 @@ const ELIGIBILITY_STATE = Object.freeze({
 
 const ELIGIBILITY_CONTRACT_KEYS = Object.freeze([
   'reportType',
+  'canCalculateScore',
+  'canPublishReport',
   'eligible',
   'eligibilityState',
   'measurementCoverage',
@@ -59,6 +65,8 @@ const ELIGIBILITY_CONTRACT_KEYS = Object.freeze([
 function isValidEligibilityContract(contract) {
   if (!contract || typeof contract !== 'object') return false;
   if (typeof contract.reportType !== 'string') return false;
+  if (typeof contract.canCalculateScore !== 'boolean') return false;
+  if (typeof contract.canPublishReport !== 'boolean') return false;
   if (typeof contract.eligible !== 'boolean') return false;
   if (!Object.values(ELIGIBILITY_STATE).includes(contract.eligibilityState)) return false;
   if (!Number.isFinite(contract.measurementCoverage)) return false;
@@ -84,6 +92,8 @@ function isValidEligibilityContract(contract) {
 function buildLegacyEligibilityContract(reportType = 'production') {
   return Object.freeze({
     reportType,
+    canCalculateScore: true,
+    canPublishReport: true,
     eligible: true,
     eligibilityState: ELIGIBILITY_STATE.LEGACY_REPORT,
     measurementCoverage: 100,

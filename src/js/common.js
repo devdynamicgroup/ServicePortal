@@ -50,11 +50,13 @@ async function publishScoreBeforeClose(job) {
   const eligibility = alreadyPublished
     ? (typeof EligibilityContract !== 'undefined' ? EligibilityContract.buildLegacy() : null)
     : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(job) : null);
-  if (eligibility && !eligibility.eligible) {
+  // Official close/publish requires canPublishReport (measurements + inspection).
+  // Score display uses canCalculateScore separately — do not collapse them here.
+  if (eligibility && !eligibility.canPublishReport) {
     const error = new Error(
       S.lang === 'th'
-        ? `ยังไม่พร้อมให้คะแนน: ${eligibility.reason || 'ข้อมูลไม่ครบ'}`
-        : `Not eligible for a score yet: ${eligibility.reason || 'incomplete report'}`
+        ? `ยังไม่พร้อมปิดเคส: ${eligibility.reason || 'ข้อมูลไม่ครบ'}`
+        : `Not eligible to publish yet: ${eligibility.reason || 'incomplete report'}`
     );
     error.code = 'NOT_ELIGIBLE';
     error.eligibility = eligibility;

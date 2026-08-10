@@ -110,15 +110,27 @@ function evaluateEligibility({ reportType, readings = {}, sourceMeta = {}, tasks
     requiredTasks: policy ? policy.requiredTasks : []
   });
 
-  const eligible = coverage.missingMeasurements.length === 0
-    && coverage.missingInspection.length === 0;
-
-  // eligibilityState is the machine-readable outcome — logic must branch on
-  // this, never on the human-readable `reason` string below. Invalid data
-  // (evidence.state === 'Invalid') is distinguished from simply-absent data
-  // because it signals a data-quality problem, not just an incomplete report.
+  // Invalid data (evidence.state === 'Invalid') is distinguished from simply-absent
+  // data because it signals a data-quality problem, not just an incomplete report.
   const hasInvalidRequiredMeasurement = (policy ? policy.requiredMeasurements : [])
     .some(key => evidence[key]?.state === 'Invalid');
+
+  // NUMERIC SCORE GATE — measurements only. Photos / visual / odor / colour
+  // never block canCalculateScore. Total Chlorine is not a formula input.
+  const canCalculateScore = coverage.missingMeasurements.length === 0
+    && !hasInvalidRequiredMeasurement;
+
+  // OFFICIAL REPORT GATE — measurements + required inspection tasks for the
+  // active policy. Stricter than score calculation by design.
+  const canPublishReport = canCalculateScore
+    && coverage.missingInspection.length === 0;
+
+  // Backward-compatible alias: "eligible" historically meant "full report OK".
+  // Score UI must NOT use this for showScore — use canCalculateScore instead.
+  const eligible = canPublishReport;
+
+  // eligibilityState is the machine-readable outcome — logic must branch on
+  // this, never on the human-readable `reason` string below.
   const STATE = (typeof EligibilityContract !== 'undefined' && EligibilityContract.STATE)
     ? EligibilityContract.STATE
     : {
@@ -129,7 +141,7 @@ function evaluateEligibility({ reportType, readings = {}, sourceMeta = {}, tasks
       INVALID_MEASUREMENTS: 'INVALID_MEASUREMENTS'
     };
   let eligibilityState;
-  if (eligible) {
+  if (canPublishReport) {
     eligibilityState = STATE.ELIGIBLE;
   } else if (hasInvalidRequiredMeasurement) {
     eligibilityState = STATE.INVALID_MEASUREMENTS;
@@ -145,9 +157,9 @@ function evaluateEligibility({ reportType, readings = {}, sourceMeta = {}, tasks
   // never authors reason copy itself. `reason` stays populated on the contract
   // only for backward compatibility with callers reading it as plain text;
   // it is always derived FROM eligibilityState, never the other way around.
-  // Falls back to the pre-Phase-C wording if Presentation isn't loaded, so
-  // behaviour is identical either way.
-  const reason = eligible
+  // When score can be calculated but inspection is incomplete, reason still
+  // describes the publish gap (Inspection incomplete) without blocking score.
+  const reason = canPublishReport
     ? null
     : (typeof EligibilityPresentation !== 'undefined' && EligibilityPresentation.reasonFromState
       ? EligibilityPresentation.reasonFromState(eligibilityState)
@@ -168,6 +180,8 @@ function evaluateEligibility({ reportType, readings = {}, sourceMeta = {}, tasks
 
   return Object.freeze({
     reportType: policyKey,
+    canCalculateScore,
+    canPublishReport,
     eligible,
     eligibilityState,
     measurementCoverage: coverage.measurementCoverage,
@@ -182,7 +196,7 @@ function evaluateEligibility({ reportType, readings = {}, sourceMeta = {}, tasks
       policyKey,
       eligibilityVersion: (typeof EligibilityContract !== 'undefined' && EligibilityContract.VERSION)
         ? EligibilityContract.VERSION
-        : 'v1',
+        : 'v1.1',
       evidence
     }
   });

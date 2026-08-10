@@ -31,8 +31,9 @@ function buildReportTaskCompletion(job) {
 
 /**
  * Resolve the Eligibility Contract for a job. This is the ONLY function
- * downstream code (UI, publish, public report) should call to answer
- * "can this report produce a score?" — never re-derive it locally.
+ * downstream code (UI, publish, public report) should call. Consumers must
+ * read canCalculateScore for Score visibility and canPublishReport for
+ * Complete/Publish — never re-derive either decision locally.
  */
 function resolveReportEligibility(job, reportType = 'production') {
   const activeJob = job || (typeof S !== 'undefined' ? S.activeJob : null);

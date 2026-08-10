@@ -326,17 +326,19 @@ function renderScoreDisplay() {
 
   const context = getScoreEvalContext(result);
   const readiness = getScoreDataReadiness(S.activeJob);
-  // Eligibility (measurement coverage + inspection coverage) is now the
-  // single source of truth for "can this report show a score?" — Production
-  // and Benchmark engines are never asked to decide this themselves. A
-  // published view still gets a (legacy-tagged) contract rather than none,
+  // Eligibility contract is the single source of truth for completeness.
+  // Score visibility uses canCalculateScore (numeric inputs only).
+  // Official publish/close uses canPublishReport (measurements + inspection).
+  // A published view still gets a (legacy-tagged) contract rather than none,
   // so the bypass stays traceable instead of silent.
   const eligibility = isPublishedScoreView(S.activeJob)
     ? (typeof EligibilityContract !== 'undefined' ? EligibilityContract.buildLegacy() : null)
     : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(S.activeJob) : null);
   const showScore = isPublishedScoreView(S.activeJob)
     ? true
-    : (eligibility ? eligibility.eligible : canDisplayScoreNumber(readiness, S.activeJob));
+    : (eligibility
+      ? Boolean(eligibility.canCalculateScore)
+      : canDisplayScoreNumber(readiness, S.activeJob));
   // Summary number comes from computeScoreFromReadings (fresh), never a cached draft.scoreVal.
   // Selected standard still drives parameter status, recommended ranges, and findings.
   const computedWho = S.currentScoreResult?.computedScore;
@@ -381,9 +383,9 @@ function renderScoreDisplay() {
 
   setScoreHeroLoading(!showScore);
 
-  // Not-eligible presentation text comes only from the Eligibility Contract via
-  // the Presentation formatter — UI never recomputes coverage/reason itself.
-  const eligibilityPresented = (!showScore && eligibility && typeof EligibilityPresentation !== 'undefined')
+  // Presentation text comes only from the Eligibility Contract via the
+  // Presentation formatter — UI never recomputes coverage/reason itself.
+  const eligibilityPresented = (eligibility && typeof EligibilityPresentation !== 'undefined')
     ? EligibilityPresentation.format(eligibility)
     : null;
 
@@ -402,7 +404,18 @@ function renderScoreDisplay() {
   if (noteEl) {
     if (showScore) {
       // Prefer engine summary — do not recompute explanations in UI.
-      noteEl.textContent = result.summary || scoreSummaryNote(wq, findings);
+      const summary = result.summary || scoreSummaryNote(wq, findings);
+      // Score can display while inspection is still incomplete — surface that
+      // as a secondary note without hiding the numeric Water Score.
+      if (eligibility && eligibility.canCalculateScore && !eligibility.canPublishReport && eligibilityPresented) {
+        noteEl.textContent = [
+          summary,
+          eligibilityPresented.coverageSummaryText,
+          eligibilityPresented.reasonText
+        ].filter(Boolean).join(' — ');
+      } else {
+        noteEl.textContent = summary;
+      }
     } else if (readiness?.ocrBusy) {
       noteEl.textContent = t('score.readiness.processingText');
     } else if (eligibilityPresented && eligibility) {
@@ -886,7 +899,14 @@ function renderScoreImprove(context = getScoreEvalContext()) {
   const rows = allRows.filter(r => paramStatusUiKey(r.st) === 'attn');
   const score = Number(activeComparisonResult()?.score);
   const readiness = getScoreDataReadiness(S.activeJob);
-  const showScore = canDisplayScoreNumber(readiness, S.activeJob);
+  const eligibility = (!isPublishedScoreView(S.activeJob) && typeof resolveReportEligibility === 'function')
+    ? resolveReportEligibility(S.activeJob)
+    : null;
+  const showScore = isPublishedScoreView(S.activeJob)
+    ? true
+    : (eligibility
+      ? Boolean(eligibility.canCalculateScore)
+      : canDisplayScoreNumber(readiness, S.activeJob));
   const wq = Number.isFinite(score) ? score : 0;
   const verdict = customerVerdict(wq);
 
@@ -1097,11 +1117,13 @@ async function shareScore() {
     return;
   }
   // Single source of truth: an already-published report may always be
-  // re-shared; anything not yet published must pass the Eligibility gate.
+  // re-shared; anything not yet published needs calculable numeric score.
+  // Share publishes the Water Score card — gated by canCalculateScore, not
+  // full inspection completion (canPublishReport).
   const alreadyPublished = Number.isFinite(Number(job?.result?.waterScore));
   if (!alreadyPublished) {
     const eligibility = typeof resolveReportEligibility === 'function' ? resolveReportEligibility(job) : null;
-    if (eligibility && !eligibility.eligible) {
+    if (eligibility && !eligibility.canCalculateScore) {
       showToast(eligibility.reason || 'Report is not eligible for a score yet');
       return;
     }
