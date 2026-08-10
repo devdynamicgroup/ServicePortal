@@ -110,6 +110,20 @@ console.log('\nCountry differentiation on locked sample (standards differ)');
   assert(th === 100 && who === 93, 'TH/WHO differentiation preserved');
 }
 
+console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
+{
+  // Same-result is EXPECTED for A/B: measurements sit in both national plateaus.
+  assert(bench('thailand', CASE_A) === bench('japan', CASE_A), 'Case A TH===JP (plateau overlap)');
+  assert(bench('thailand', CASE_B) === bench('japan', CASE_B), 'Case B TH===JP (plateau overlap)');
+  // Differentiation: inside TH pass windows, outside JP stricter TDS/turb/Cl.
+  const DIFF = { ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28 };
+  const th = bench('thailand', DIFF);
+  const jp = bench('japan', DIFF);
+  console.log('  DIFF TH/JP', th, jp);
+  assert(th === 100, `DIFF Thailand = 100 (got ${th})`);
+  assert(jp !== th, `DIFF Japan ${jp} !== Thailand ${th}`);
+}
+
 console.log('\nSensitivity ordering (calibration fixtures)');
 {
   const scores = {
