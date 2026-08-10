@@ -396,12 +396,21 @@ async function publishCaseScore(caseId, payload = {}) {
     throw error;
   }
 
+  // Optional — a malformed/absent value never blocks the publish, since
+  // score is the only required field of this contract. Unrecognized values
+  // are dropped rather than persisted, so Notion never gets a bogus status.
+  const VALID_COMPLIANCE_STATUSES = ['PASS', 'WARNING', 'FAIL'];
+  const complianceStatus = VALID_COMPLIANCE_STATUSES.includes(payload.complianceStatus)
+    ? payload.complianceStatus
+    : undefined;
+
   return withCaseLock(initial.notionId, async () => {
     const job = await getClient(initial.notionId);
     const reportToken = job.result?.publicReportToken || newToken('rpt');
     const reportUrl = buildReportUrl(reportToken);
     const updated = await updateClient(job.notionId, {
       latestWaterScore: Math.round(score),
+      complianceStatus,
       resultSummary: payload.resultSummary || `Water score ${Math.round(score)}/100`,
       reportUrl,
       publicReportToken: reportToken
@@ -410,6 +419,7 @@ async function publishCaseScore(caseId, payload = {}) {
       ok: true,
       caseId: updated.id,
       score: updated.result?.waterScore,
+      complianceStatus: updated.result?.complianceStatus,
       reportToken,
       reportUrl
     };

@@ -414,6 +414,9 @@ function buildNotionProperties(payload, schemaProperties = {}) {
   setDate(FIELD_ALIASES.closedAt, payload.closedAt);
   setText(FIELD_ALIASES.completedBy, payload.completedBy);
   setNumber(FIELD_ALIASES.latestWaterScore, payload.latestWaterScore);
+  // Additive/optional — no-ops until a "Compliance Status" select column
+  // exists in the live Notion schema (setSelect already guards on that).
+  setSelect(FIELD_ALIASES.complianceStatus, payload.complianceStatus);
   setText(FIELD_ALIASES.resultSummary, payload.resultSummary);
   setText(FIELD_ALIASES.recommendations, payload.recommendations);
   setText(FIELD_ALIASES.reportUrl, payload.reportUrl);
@@ -554,5 +557,8 @@ module.exports = {
   findClientsByCustomerId,
   getIntegrationStatus,
   getCaseFlowDatasetStatus,
-  CASE_FLOW_REQUIREMENTS
+  CASE_FLOW_REQUIREMENTS,
+  // Exposed for direct unit testing of the write-side field mapping (pure
+  // function — no network access). Not otherwise used outside this module.
+  buildNotionProperties
 };

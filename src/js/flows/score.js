@@ -499,7 +499,8 @@ function setScoreReferenceStandard(standardKey) {
     engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v3'),
     paramScores: detail?.params || null,
     complianceStatus: detail?.compliance?.status || null,
-    compliance: detail?.compliance || null
+    compliance: detail?.compliance || null,
+    validation: S.lastReadingsValidation || null
   };
   S.comparisonScoreResult = buildComparisonScoreResult(readings, key);
   S.scoreParamOpen = null;
@@ -669,11 +670,33 @@ function renderScoreReadiness(readiness) {
 /**
  * Resolve readings for scoring from entered/OCR values only.
  * Empty inputs and HTML placeholders are never treated as measurements.
+ *
+ * Also runs the canonical MeasurementValidator gate: values that are
+ * non-numeric-coercible (already mostly excluded by numOrUndefined above)
+ * or physically implausible (e.g. DO far beyond sensor range) are stripped
+ * here so every downstream engine (Quality V3, benchmark registry) sees the
+ * same "missing" field instead of a silently-corrupted number. The frozen
+ * scoring engines are not modified — this only changes what reaches them.
  */
 function resolveScoreReadings(job) {
-  const readings = resolveScoreReadingsPresent(job);
+  const present = resolveScoreReadingsPresent(job);
+  const validation = (typeof MeasurementValidator !== 'undefined')
+    ? MeasurementValidator.validateMeasurements(present)
+    : null;
 
-  console.log('INPUT READINGS', { readings });
+  let readings = present;
+  if (validation) {
+    readings = { ...present };
+    MeasurementValidator.SCORED_KEYS.forEach(key => {
+      const state = validation.fields[key]?.state;
+      if (state === MeasurementValidator.STATE.IMPLAUSIBLE || state === MeasurementValidator.STATE.INVALID_TYPE) {
+        delete readings[key];
+      }
+    });
+  }
+  S.lastReadingsValidation = validation;
+
+  console.log('INPUT READINGS', { readings, validation });
 
   return readings;
 }
@@ -716,6 +739,10 @@ function renderWaterScore(job, options = {}) {
   S.scoreVal = productionScore;
   // Cache only real entered/OCR values — never demo fill-ins.
   S.scoreBaseReadings = { ...readings };
+  // A published/shared report must not lose its safety channel: prefer the
+  // persisted compliance status (set at publish time) over a recompute from
+  // whatever readings happen to still be reconstructable on the public page.
+  const persistedCompliance = publicView ? (job?.result?.complianceStatus || null) : null;
   S.currentScoreResult = {
     score: productionScore,
     standardKey: 'quality-v3',
@@ -724,8 +751,9 @@ function renderWaterScore(job, options = {}) {
     computedScore,
     engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v3'),
     paramScores: detail?.params || null,
-    complianceStatus: detail?.compliance?.status || null,
-    compliance: detail?.compliance || null
+    complianceStatus: persistedCompliance || detail?.compliance?.status || null,
+    compliance: detail?.compliance || null,
+    validation: S.lastReadingsValidation || null
   };
   if (!S.scoreStandardKey || !benchmarkRegistry()?.has?.(S.scoreStandardKey)) {
     S.scoreStandardKey = DEFAULT_SCORE_STANDARD_KEY;
@@ -1183,7 +1211,7 @@ async function shareScore() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ score: Number(S.scoreVal) })
+      body: JSON.stringify({ score: Number(S.scoreVal), complianceStatus: S.currentScoreResult?.complianceStatus || null })
     });
     const result = await response.json();
     if (!response.ok || !result.reportUrl) throw new Error(result.error || 'Could not publish score');

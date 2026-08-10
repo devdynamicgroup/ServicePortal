@@ -26,6 +26,7 @@ const FIELD_ALIASES = {
   closedAt: ['Closed At', 'closedAt'],
   completedBy: ['Completed By', 'completedBy'],
   latestWaterScore: ['Latest Water Score', 'Water Score', 'latestWaterScore'],
+  complianceStatus: ['Compliance Status', 'complianceStatus'],
   resultSummary: ['Result Summary', 'resultSummary'],
   recommendations: ['Recommendations', 'recommendations'],
   reportUrl: ['Report URL', 'Report Url', 'reportUrl'],
@@ -303,6 +304,7 @@ function notionPageToJob(page, index) {
     },
     result: {
       waterScore: latestWaterScore,
+      complianceStatus: getPropertyValue(properties, FIELD_ALIASES.complianceStatus) || null,
       summary: getPropertyValue(properties, FIELD_ALIASES.resultSummary) || '',
       recommendations: getPropertyValue(properties, FIELD_ALIASES.recommendations) || '',
       reportUrl: getPropertyValue(properties, FIELD_ALIASES.reportUrl) || '',

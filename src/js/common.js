@@ -90,7 +90,8 @@ async function publishScoreBeforeClose(job) {
       resultSummary: `Water score ${Math.round(score)}/100`,
       // Traceability metadata only — server may ignore this field entirely
       // today; it changes no scoring/eligibility decision on either side.
-      eligibilityVersion: eligibility?.calculationMetadata?.eligibilityVersion || 'unknown'
+      eligibilityVersion: eligibility?.calculationMetadata?.eligibilityVersion || 'unknown',
+      complianceStatus: S.currentScoreResult?.complianceStatus || null
     })
   });
   const payload = await response.json().catch(() => ({}));

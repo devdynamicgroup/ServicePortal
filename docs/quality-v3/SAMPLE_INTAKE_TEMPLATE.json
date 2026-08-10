@@ -1,0 +1,27 @@
+{
+  "_instructions": "Copy this file, fill in every field you actually have, leave the rest as null. Do NOT fabricate a value to fill a gap. Run scripts/quality-v3/evidenceRegistry.js's validateIntakeCandidate() against it before proposing it for registry inclusion. See docs/quality-v3/EVIDENCE_ACQUISITION_PROTOCOL.md.",
+  "sample_id": "REPLACE-WITH-UNIQUE-ID",
+  "source_type": "REAL",
+  "source_context": "e.g. field measurement during a Service Portal assessment visit",
+  "measurement_timestamp": null,
+  "country_context": null,
+  "measurements": {
+    "ph": null,
+    "tds": null,
+    "turbidity": null,
+    "orp": null,
+    "chlorine": null,
+    "do": null,
+    "temp": null
+  },
+  "reference_result": null,
+  "technician_assessment": null,
+  "customer_assessment": null,
+  "regulatory_status": null,
+  "outcome_label": null,
+  "used_for_calibration": false,
+  "used_for_validation": false,
+  "used_for_holdout": false,
+  "partition": "UNASSIGNED",
+  "notes": ""
+}

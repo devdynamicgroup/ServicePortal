@@ -1,0 +1,76 @@
+{
+  "$schema_note": "Machine-readable evidence registry for Quality V3. See docs/quality-v3/README.md for field definitions and the partition rule. This file is data, not code — it must never be imported by any scoring engine. Missing outcome information is recorded as null, never inferred.",
+  "registry_version": "1.0.0",
+  "samples": [
+    {
+      "sample_id": "CASE-1328",
+      "source_type": "REAL",
+      "source_context": "Field measurement observed on the live Score UI during Service Portal use, prior to and during Quality V2/V3 development",
+      "measurement_timestamp": "2026-08-07T06:33:00.000Z",
+      "country_context": "Thailand",
+      "measurements": {
+        "ph": 7.79,
+        "tds": 92,
+        "turbidity": 0.12,
+        "orp": 434.1,
+        "chlorine": 0.3,
+        "do": 6.34,
+        "temp": 28.06
+      },
+      "reference_result": null,
+      "technician_assessment": null,
+      "customer_assessment": null,
+      "regulatory_status": null,
+      "outcome_label": null,
+      "used_for_calibration": true,
+      "used_for_validation": false,
+      "used_for_holdout": false,
+      "partition": "CALIBRATION",
+      "notes": "See docs/quality-v3/CASE_1328_RECLASSIFICATION.md for the full provenance argument. Summary: this sample predates Quality V2, and the V2 formula plus its test assertions were introduced/rewritten in the same commit that references it (git commit d261a780, 2026-08-10). Quality V3 followed 33 minutes later in commit 33968d9b, further shaping curves with this sample as the only real reference point. Because the model and the test expectations around this sample were authored together, this sample cannot be treated as independent evidence of anything — it is calibration/reference data only, permanently, for this model version (quality-v3.0)."
+    },
+    {
+      "sample_id": "SYNTHETIC-CASE-B",
+      "source_type": "SYNTHETIC",
+      "source_context": "Hand-authored fixture in tests/score/quality-v2-calibration.test.js, commented 'Calibration fixtures — not field measurements'",
+      "measurement_timestamp": null,
+      "country_context": null,
+      "measurements": {
+        "ph": 7.9,
+        "tds": 155,
+        "turbidity": 0.6,
+        "orp": 507,
+        "chlorine": 0.5,
+        "do": 5.2,
+        "temp": 31.0
+      },
+      "reference_result": null,
+      "technician_assessment": null,
+      "customer_assessment": null,
+      "regulatory_status": null,
+      "outcome_label": null,
+      "used_for_calibration": false,
+      "used_for_validation": false,
+      "used_for_holdout": false,
+      "partition": "REGRESSION_ONLY",
+      "notes": "Author-invented fixture used only to check that the formula orders Case B below Case A (monotonicity/regression check). Never observed in the field. Must never be counted toward real-world calibration, validation, or holdout evidence."
+    },
+    {
+      "sample_id": "SYNTHETIC-LADDER-FIXTURES",
+      "source_type": "SYNTHETIC",
+      "source_context": "Hand-authored ladder in tests/score/quality-v2-calibration.test.js (NEAR_IDEAL / VERY_GOOD / GOOD / ACCEPTABLE / BORDERLINE / POOR / CRITICAL) and .tmp_probe/*.js diagnostic scripts (ALL_IDEAL / ALL_GOOD / ALL_WARNING / ALL_POOR / ALL_CRITICAL)",
+      "measurement_timestamp": null,
+      "country_context": null,
+      "measurements": null,
+      "reference_result": null,
+      "technician_assessment": null,
+      "customer_assessment": null,
+      "regulatory_status": null,
+      "outcome_label": null,
+      "used_for_calibration": false,
+      "used_for_validation": false,
+      "used_for_holdout": false,
+      "partition": "REGRESSION_ONLY",
+      "notes": "Represents a whole family of hand-picked synthetic profiles used to check ordering/boundary/continuity behavior of the frozen formula. Grouped as one registry entry for brevity; individual profiles live only in the test/diagnostic files. Never field evidence."
+    }
+  ]
+}
