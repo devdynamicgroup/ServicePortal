@@ -22,6 +22,7 @@ const files = [
   'src/js/score/util/clamp.js',
   'src/js/score/util/benchmarkMetadata.js',
   'src/js/score/production/computeProductionScore.js',
+  'src/js/score/production/computeQualityScoreV2.js',
   'src/js/score/benchmark/registry.js',
   'src/js/score/benchmark/thailand/limits.js',
   'src/js/score/benchmark/thailand/weights.js',
@@ -170,7 +171,8 @@ console.log('\nCoverage values on the contract are exactly what CoverageEngine c
 console.log('\nZero drift: production + benchmark scores unchanged with Phase C loaded');
 {
   const sandbox = makeSandbox();
-  assert(sandbox.computeScoreFromReadings(FULL_READINGS) === 93, 'production score still locked at 93');
+  assert(sandbox.computeLegacyDwqiScore(FULL_READINGS) === 93, 'legacy DWQI still locked at 93');
+  assert(Number.isFinite(sandbox.computeScoreFromReadings(FULL_READINGS)), 'Quality V2 computes finite score');
   const expected = { thailand: 100, who: 93, eu: 65, japan: 96, usEpa: 91 };
   for (const key of Object.keys(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS).score === expected[key],

@@ -339,24 +339,24 @@ function renderScoreDisplay() {
     : (eligibility
       ? Boolean(eligibility.canCalculateScore)
       : canDisplayScoreNumber(readiness, S.activeJob));
-  // Summary number comes from computeScoreFromReadings (fresh), never a cached draft.scoreVal.
-  // Selected standard still drives parameter status, recommended ranges, and findings.
+  // Summary number is Quality Score V2 (near-ideal model), never the selected
+  // Benchmark comparison. Benchmark remains comparison-only (findings/status).
   const computedWho = S.currentScoreResult?.computedScore;
   const comparisonScore = result.score;
   const publishedScore = S.currentScoreResult?.score;
   // Public report page has no live readings to recompute from — it must fall
   // back to the already-published score instead of showing NaN.
-  // Display score follows the selected Benchmark so Thai / WHO / EU etc. update the hero.
-  // Production/share score remains WHO via currentScoreResult / computeScoreFromReadings.
+  // Field hero shows Quality Score so Thailand Benchmark 100 ≠ "perfect water".
   const wq = S.publicScoreView && Number.isFinite(publishedScore)
     ? publishedScore
-    : Number.isFinite(comparisonScore)
-      ? comparisonScore
-      : (Number.isFinite(computedWho) ? computedWho : NaN);
+    : Number.isFinite(computedWho)
+      ? computedWho
+      : (Number.isFinite(publishedScore) ? publishedScore : NaN);
   console.log('RENDER SCORE DISPLAY', {
     score: wq,
-    computedWho,
+    qualityScore: computedWho,
     comparisonScore,
+    compliance: S.currentScoreResult?.complianceStatus || null,
     standard: result.standardKey,
     readings: result.readings,
     readiness,
@@ -381,15 +381,13 @@ function renderScoreDisplay() {
   if (standardEl) {
     standardEl.textContent = t(context.standard.labelKey);
   }
-  // Clarify that the large hero number is the selected Benchmark comparison
-  // (or the published Production score on public report) — not a merged score.
+  // Hero number = Quality Score (or published Quality). Benchmark is labeled separately.
   if (heroSourceEl) {
     if (showScore) {
       if (S.publicScoreView) {
         heroSourceEl.textContent = t('score.hero.published');
       } else {
-        const name = t(context.standard.shortKey || context.standard.labelKey);
-        heroSourceEl.textContent = t('score.hero.benchmark').replace('{name}', name);
+        heroSourceEl.textContent = t('score.hero.quality');
       }
       heroSourceEl.hidden = false;
     } else {
@@ -408,7 +406,8 @@ function renderScoreDisplay() {
 
   if (bandEl) {
     if (showScore) {
-      bandEl.textContent = result.verdict || verdict.label;
+      // Quality verdict drives the hero badge. Benchmark verdict stays in comparison panels.
+      bandEl.textContent = verdict.label;
     } else if (readiness?.ocrBusy) {
       bandEl.textContent = t('score.readiness.calculatingBadge');
     } else if (eligibilityPresented) {
@@ -465,6 +464,9 @@ function setScoreReferenceStandard(standardKey) {
   const key = benchmarkRegistry()?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const readings = resolveScoreReadings(S.activeJob);
   const computedScore = computeScoreFromReadings(readings);
+  const detail = typeof computeQualityScoreDetail === 'function'
+    ? computeQualityScoreDetail(readings)
+    : null;
 
   S.scoreStandardKey = key;
   S.scoreBaseReadings = readings;
@@ -474,15 +476,21 @@ function setScoreReferenceStandard(standardKey) {
     score: computedScore,
     computedScore,
     readings: { ...readings },
-    source: 'computed'
+    source: 'computed',
+    standardKey: 'quality-v2',
+    engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v2'),
+    paramScores: detail?.params || null,
+    complianceStatus: detail?.compliance?.status || null,
+    compliance: detail?.compliance || null
   };
   S.comparisonScoreResult = buildComparisonScoreResult(readings, key);
   S.scoreParamOpen = null;
   console.log('STANDARD SWITCH', {
     key,
     readings,
-    computedWho: computedScore,
-    comparisonScore: S.comparisonScoreResult.score
+    qualityScore: computedScore,
+    comparisonScore: S.comparisonScoreResult.score,
+    compliance: S.currentScoreResult.complianceStatus
   });
   renderScoreDisplay();
 }
@@ -660,8 +668,8 @@ function readingsFromJob(job) {
  * Single Water Score renderer used by both the field app and /r/{token}.
  * publicView only changes chrome (handled by caller); display path is identical.
  *
- * currentScoreResult  → production / published score (share + backend)
- * comparisonScoreResult → selected-standard simulation (UI only)
+ * currentScoreResult  → Quality Score V2 (share + backend publish)
+ * comparisonScoreResult → selected-standard simulation (comparison only)
  */
 function renderWaterScore(job, options = {}) {
   const publicView = Boolean(options.publicView);
@@ -670,7 +678,12 @@ function renderWaterScore(job, options = {}) {
   const readings = resolveScoreReadings(job);
 
   const published = Number(job?.result?.waterScore ?? draft.scoreVal);
-  const computedScore = computeScoreFromReadings(readings);
+  const detail = typeof computeQualityScoreDetail === 'function'
+    ? computeQualityScoreDetail(readings)
+    : null;
+  const computedScore = detail && Number.isFinite(detail.score)
+    ? detail.score
+    : computeScoreFromReadings(readings);
   // Public report may show the published score; field app always uses the fresh calculation.
   const productionScore = publicView && Number.isFinite(published)
     ? Math.max(0, Math.min(100, Math.round(published)))
@@ -681,16 +694,20 @@ function renderWaterScore(job, options = {}) {
     : (S.taps?.length ? [...S.taps] : ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest']);
 
   if (job) S.activeJob = job;
-  // Saved / shareable score stays on the WHO production path.
+  // Saved / shareable score stays on the Quality V2 path.
   S.scoreVal = productionScore;
   // Cache only real entered/OCR values — never demo fill-ins.
   S.scoreBaseReadings = { ...readings };
   S.currentScoreResult = {
     score: productionScore,
-    standardKey: 'who',
+    standardKey: 'quality-v2',
     readings: { ...readings },
     source: publicView && Number.isFinite(published) ? 'published' : 'computed',
-    computedScore
+    computedScore,
+    engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v2'),
+    paramScores: detail?.params || null,
+    complianceStatus: detail?.compliance?.status || null,
+    compliance: detail?.compliance || null
   };
   if (!S.scoreStandardKey || !benchmarkRegistry()?.has?.(S.scoreStandardKey)) {
     S.scoreStandardKey = DEFAULT_SCORE_STANDARD_KEY;
@@ -700,6 +717,7 @@ function renderWaterScore(job, options = {}) {
     productionScore,
     computedScore,
     comparisonScore: S.comparisonScoreResult?.score,
+    compliance: S.currentScoreResult.complianceStatus,
     standard: S.scoreStandardKey,
     published: Number.isFinite(published) ? published : null
   });

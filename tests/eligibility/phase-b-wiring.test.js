@@ -24,6 +24,7 @@ const files = [
   'src/js/score/util/clamp.js',
   'src/js/score/util/benchmarkMetadata.js',
   'src/js/score/production/computeProductionScore.js',
+  'src/js/score/production/computeQualityScoreV2.js',
   'src/js/score/benchmark/registry.js',
   'src/js/score/benchmark/thailand/limits.js',
   'src/js/score/benchmark/thailand/weights.js',
@@ -158,8 +159,10 @@ console.log('\nCase 4 — missing pH -> canCalculateScore false');
 console.log('\nCase 5 — production score identical before/after integration (locked)');
 {
   const sandbox = makeSandbox();
-  assert(sandbox.computeScoreFromReadings(FULL_READINGS) === 93,
-    'computeScoreFromReadings still returns the exact same locked value (93) after Phase B wiring');
+  assert(sandbox.computeLegacyDwqiScore(FULL_READINGS) === 93,
+    'computeLegacyDwqiScore still returns the exact same locked value (93) after Phase B wiring');
+  assert(Number.isFinite(sandbox.computeScoreFromReadings(FULL_READINGS)),
+    'Quality V2 still computes a finite score from full readings');
 }
 
 console.log('\nCase 6 — benchmark outputs byte-identical when eligible (locked)');

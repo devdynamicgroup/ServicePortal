@@ -10,6 +10,7 @@ const files = [
   'src/js/score/util/clamp.js',
   'src/js/score/util/benchmarkMetadata.js',
   'src/js/score/production/computeProductionScore.js',
+  'src/js/score/production/computeQualityScoreV2.js',
   'src/js/score/benchmark/registry.js',
   'src/js/score/benchmark/thailand/limits.js',
   'src/js/score/benchmark/thailand/weights.js',
@@ -40,7 +41,7 @@ const sample = {
   ph: 7.2, tds: 450, chlorine: 0.8, turbidity: 2.5, orp: 350, do: 6.5, temp: 28
 };
 
-const production = sandbox.computeScoreFromReadings(sample);
+const production = sandbox.computeLegacyDwqiScore(sample);
 const examples = {};
 for (const key of ['thailand', 'who', 'eu', 'japan', 'usEpa']) {
   examples[key] = sandbox.WaterScoreBenchmarkRegistry.calculate(key, sample);
@@ -54,7 +55,8 @@ const md = [
   JSON.stringify(sample, null, 2),
   '```',
   '',
-  `Production WHO/DWQI (unchanged): **${production}**`,
+  `Legacy DWQI (frozen reference): **${production}**`,
+  `Quality V2: **${sandbox.computeScoreFromReadings(sample)}**`,
   '',
   '## Score lock',
   '',

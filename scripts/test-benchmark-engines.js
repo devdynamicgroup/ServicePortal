@@ -11,6 +11,7 @@ const files = [
   'src/js/score/util/clamp.js',
   'src/js/score/util/benchmarkMetadata.js',
   'src/js/score/production/computeProductionScore.js',
+  'src/js/score/production/computeQualityScoreV2.js',
   'src/js/score/benchmark/registry.js',
   'src/js/score/benchmark/thailand/limits.js',
   'src/js/score/benchmark/thailand/weights.js',
@@ -63,9 +64,10 @@ const sample = {
   temp: 28
 };
 
-console.log('\n1) Production score frozen (golden sample)');
-const production = sandbox.computeScoreFromReadings(sample);
-assert(production === 93, `production score === 93 (got ${production})`);
+console.log('\n1) Legacy DWQI score frozen (golden sample)');
+const production = sandbox.computeLegacyDwqiScore(sample);
+assert(production === 93, `legacy DWQI score === 93 (got ${production})`);
+assert(Number.isFinite(sandbox.computeScoreFromReadings(sample)), 'Quality V2 also computes');
 
 console.log('\n2) Engines registered independently');
 const reg = sandbox.WaterScoreBenchmarkRegistry;
@@ -81,14 +83,14 @@ assert(scores.thailand !== scores.eu, 'Thailand !== EU');
 assert(scores.who !== scores.eu, 'WHO !== EU');
 assert(Math.max(...Object.values(scores)) - Math.min(...Object.values(scores)) >= 15, 'spread across engines >= 15 points');
 
-console.log('\n4) WHO engine matches production for this product sample');
-assert(scores.who === production, `WHO engine (${scores.who}) matches production (${production})`);
+console.log('\n4) WHO engine matches legacy DWQI for this product sample');
+assert(scores.who === production, `WHO engine (${scores.who}) matches legacy DWQI (${production})`);
 
-console.log('\n5) Production path not coupled to benchmark registry math');
-const before = sandbox.computeScoreFromReadings(sample);
+console.log('\n5) Legacy DWQI path not coupled to benchmark registry math');
+const before = sandbox.computeLegacyDwqiScore(sample);
 reg.calculate('eu', sample);
-const after = sandbox.computeScoreFromReadings(sample);
-assert(before === after && after === 93, 'production unchanged after benchmark calculate');
+const after = sandbox.computeLegacyDwqiScore(sample);
+assert(before === after && after === 93, 'legacy DWQI unchanged after benchmark calculate');
 
 console.log('\n6) Orchestrator delegates comparison');
 const cmp = sandbox.buildComparisonScoreResult(sample, 'eu');

@@ -12,6 +12,7 @@ const files = [
   'src/js/score/util/clamp.js',
   'src/js/score/util/benchmarkMetadata.js',
   'src/js/score/production/computeProductionScore.js',
+  'src/js/score/production/computeQualityScoreV2.js',
   'src/js/score/benchmark/registry.js',
   'src/js/score/benchmark/thailand/limits.js',
   'src/js/score/benchmark/thailand/weights.js',
@@ -65,7 +66,8 @@ console.log('\nCase 1 — Complete assessment: canCalculateScore + canPublishRep
   assert(contract.canCalculateScore === true && contract.canPublishReport === true, 'both gates true');
   assert(contract.eligible === true, 'eligible alias is true');
   assert(contract.measurementCoverage === 100 && contract.inspectionCoverage === 100 && contract.overallCoverage === 100, 'all coverage dimensions 100%');
-  assert(sandbox.computeScoreFromReadings(FULL_READINGS) === 93, 'production score still computes (93) — score engine untouched');
+  assert(sandbox.computeLegacyDwqiScore(FULL_READINGS) === 93, 'legacy DWQI still computes (93) — formula frozen');
+  assert(Number.isFinite(sandbox.computeScoreFromReadings(FULL_READINGS)), 'Quality V2 computes from these readings');
 }
 
 console.log('\nCase 2 — Missing chlorine: canCalculateScore false, listed, contract carries no score field at all');
@@ -92,7 +94,8 @@ console.log('\nCase 3 — Missing visual inspection: score calculable, publish b
   assert(contract.canPublishReport === false, 'canPublishReport is false despite a perfect measurement set');
   assert(contract.eligible === false, 'eligible alias follows canPublishReport');
   assert(contract.reason === 'Inspection incomplete', 'reason correctly says inspection incomplete, not missing measurements');
-  assert(sandbox.computeScoreFromReadings(FULL_READINGS) === 93, 'the numeric score is still fully computable from these readings...');
+  assert(sandbox.computeLegacyDwqiScore(FULL_READINGS) === 93, 'legacy DWQI fully computable from these readings...');
+  assert(Number.isFinite(sandbox.computeScoreFromReadings(FULL_READINGS)), 'Quality V2 fully computable from these readings...');
   assert(contract.canPublishReport === false, '...yet official publish/complete remains blocked');
 }
 
@@ -135,8 +138,12 @@ console.log('\nCase H — Temp independence: Production Score identical with/wit
   delete readingsNoTemp.temp;
   const withTempScore = sandbox.computeScoreFromReadings(FULL_READINGS);
   const withoutTempScore = sandbox.computeScoreFromReadings(readingsNoTemp);
-  assert(withTempScore === 93 && withoutTempScore === 93,
-    `Production Score identical with (${withTempScore}) and without (${withoutTempScore}) Temp present`);
+  const legacyWith = sandbox.computeLegacyDwqiScore(FULL_READINGS);
+  const legacyWithout = sandbox.computeLegacyDwqiScore(readingsNoTemp);
+  assert(legacyWith === 93 && legacyWithout === 93,
+    `Legacy DWQI identical with (${legacyWith}) and without (${legacyWithout}) Temp present`);
+  assert(withTempScore === withoutTempScore && Number.isFinite(withTempScore),
+    `Quality V2 identical with (${withTempScore}) and without (${withoutTempScore}) Temp present`);
 }
 
 console.log('\nCase 5 — Missing Temp: never silently becomes PASS (the confirmed bug, now fixed)');
@@ -199,7 +206,8 @@ console.log('\nCase 8 — Country benchmark isolation: all locked scores unchang
     const score = sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS).score;
     assert(score === LOCKED_SCORES[key], `${key} still locked at ${LOCKED_SCORES[key]} (got ${score})`);
   }
-  assert(sandbox.computeScoreFromReadings(FULL_READINGS) === 93, 'Production still locked at 93');
+  assert(sandbox.computeLegacyDwqiScore(FULL_READINGS) === 93, 'Legacy DWQI still locked at 93');
+  assert(Number.isFinite(sandbox.computeScoreFromReadings(FULL_READINGS)), 'Quality V2 still computable');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

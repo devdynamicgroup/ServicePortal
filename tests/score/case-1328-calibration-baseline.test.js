@@ -1,5 +1,6 @@
 /**
- * Case 13.28 + locked-score baseline (no formula changes).
+ * Case 13.28 + locked-score baseline after Quality V2.
+ * Legacy DWQI remains frozen; active computeScoreFromReadings = Quality V2.
  * Run: node tests/score/case-1328-calibration-baseline.test.js
  */
 const fs = require('fs');
@@ -11,6 +12,7 @@ const files = [
   'src/js/score/util/clamp.js',
   'src/js/score/util/benchmarkMetadata.js',
   'src/js/score/production/computeProductionScore.js',
+  'src/js/score/production/computeQualityScoreV2.js',
   'src/js/score/benchmark/registry.js',
   'src/js/score/benchmark/thailand/limits.js',
   'src/js/score/benchmark/thailand/weights.js',
@@ -52,12 +54,11 @@ function assert(cond, msg) {
 const LOCKED = { ph: 7.2, tds: 450, chlorine: 0.8, turbidity: 2.5, orp: 350, do: 6.5, temp: 28 };
 const CASE_1328 = {
   ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06
-  // Total Chlorine intentionally absent
 };
 
-console.log('\nLocked sample (formula freeze)');
+console.log('\nLocked sample (legacy DWQI freeze)');
 {
-  assert(sandbox.computeScoreFromReadings(LOCKED) === 93, 'Production locked = 93');
+  assert(sandbox.computeLegacyDwqiScore(LOCKED) === 93, 'Legacy DWQI locked = 93');
   const expected = { thailand: 100, who: 93, eu: 65, japan: 96, usEpa: 91 };
   for (const [key, score] of Object.entries(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, LOCKED).score === score,
@@ -65,9 +66,11 @@ console.log('\nLocked sample (formula freeze)');
   }
 }
 
-console.log('\nCase 13.28 expected scores (current formula = source of truth)');
+console.log('\nCase 13.28 — Quality V2 + benchmarks');
 {
-  assert(sandbox.computeScoreFromReadings(CASE_1328) === 100, 'Production Case 13.28 = 100');
+  assert(sandbox.computeLegacyDwqiScore(CASE_1328) === 100, 'Legacy DWQI Case 13.28 = 100');
+  const quality = sandbox.computeScoreFromReadings(CASE_1328);
+  assert(Number.isFinite(quality) && quality < 100, `Quality V2 Case 13.28 < 100 (got ${quality})`);
   const expected = { thailand: 100, who: 100, eu: 100, japan: 100, usEpa: 100 };
   for (const [key, score] of Object.entries(expected)) {
     const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, CASE_1328);
@@ -88,10 +91,11 @@ console.log('\nEligibility separation still holds for Case 13.28');
   assert(elig.eligible === false, 'eligible aliases publish gate');
 }
 
-console.log('\nBoundary still reduces Production score');
+console.log('\nBoundary still reduces Quality V2 score');
 {
-  assert(sandbox.computeScoreFromReadings({ ...CASE_1328, ph: 9.5 }) < 100, 'pH out of ideal reduces Production');
-  assert(sandbox.computeScoreFromReadings({ ...CASE_1328, chlorine: 0.8 }) < 100, 'Cl 0.8 reduces Production');
+  const base = sandbox.computeScoreFromReadings(CASE_1328);
+  assert(sandbox.computeScoreFromReadings({ ...CASE_1328, ph: 9.5 }) < base, 'pH out of band reduces Quality');
+  assert(sandbox.computeScoreFromReadings({ ...CASE_1328, chlorine: 0.8 }) < base, 'Cl 0.8 reduces Quality');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', { ...CASE_1328, chlorine: 0.8 }).score === 100,
     'Thai still 100 at Cl 0.8 (wider acceptability band — expected)');
 }

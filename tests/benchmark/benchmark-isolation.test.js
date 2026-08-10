@@ -14,6 +14,7 @@ const files = [
   'src/js/score/util/clamp.js',
   'src/js/score/util/benchmarkMetadata.js',
   'src/js/score/production/computeProductionScore.js',
+  'src/js/score/production/computeQualityScoreV2.js',
   'src/js/score/benchmark/registry.js',
   'src/js/score/benchmark/thailand/limits.js',
   'src/js/score/benchmark/thailand/weights.js',
@@ -110,7 +111,7 @@ for (const key of KEYS) originals[key] = cloneEngine(reg.get(key));
 
 console.log('\n=== Baseline fingerprints ===');
 const baseline = snapshotAll(reg);
-const productionBefore = sandbox.computeScoreFromReadings(SAMPLE);
+const productionBefore = sandbox.computeLegacyDwqiScore(SAMPLE);
 console.log('Production before:', productionBefore);
 KEYS.forEach(k => console.log(`  ${k}: score=${JSON.parse(baseline[k]).score}`));
 
@@ -193,11 +194,11 @@ console.log('\nTest 4 — Modify EPA calculate (simulates scoring change)');
 console.log('\nTest 5 — Production regression (byte-identical)');
 {
   restoreAll();
-  const before = sandbox.computeScoreFromReadings(SAMPLE);
+  const before = sandbox.computeLegacyDwqiScore(SAMPLE);
   for (const key of KEYS) reg.calculate(key, SAMPLE);
-  const after = sandbox.computeScoreFromReadings(SAMPLE);
-  assert(before === productionBefore && after === productionBefore, `Production remains ${productionBefore}`);
-  assert(before === after, 'Production unchanged by benchmark execution');
+  const after = sandbox.computeLegacyDwqiScore(SAMPLE);
+  assert(before === productionBefore && after === productionBefore, `Legacy DWQI remains ${productionBefore}`);
+  assert(before === after, 'Legacy DWQI unchanged by benchmark execution');
 }
 
 console.log('\nTest 6 — Registry independence (dummy engine)');
@@ -233,7 +234,8 @@ console.log('\nTest 7 — Benchmark scores locked (must not drift)');
     const score = reg.calculate(key, SAMPLE).score;
     assert(score === expected[key], `${key} score locked at ${expected[key]} (got ${score})`);
   }
-  assert(sandbox.computeScoreFromReadings(SAMPLE) === 93, 'Production locked at 93');
+  assert(sandbox.computeLegacyDwqiScore(SAMPLE) === 93, 'Legacy DWQI locked at 93');
+  assert(Number.isFinite(sandbox.computeScoreFromReadings(SAMPLE)), 'Quality V2 computes finite score');
 }
 
 console.log('\nTest 8 — Metadata contract present on every engine');

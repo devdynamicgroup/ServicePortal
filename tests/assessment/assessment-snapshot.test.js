@@ -186,6 +186,7 @@ console.log('\nCase 13.28 snapshot + score regression via production engine');
   for (const rel of [
     'src/js/score/util/clamp.js',
     'src/js/score/production/computeProductionScore.js',
+    'src/js/score/production/computeQualityScoreV2.js',
     'src/js/score/eligibility/evidenceEngine.js',
     'src/js/score/eligibility/coverageEngine.js',
     'src/js/score/eligibility/contract.js',
@@ -195,7 +196,8 @@ console.log('\nCase 13.28 snapshot + score regression via production engine');
     vm.runInContext(fs.readFileSync(path.join(root, rel), 'utf8'), sandbox, { filename: rel });
   }
   const score = sandbox.computeScoreFromReadings(readings);
-  assert(score === 100, `Case 13.28 production score = 100 (got ${score})`);
+  assert(Number.isFinite(score) && score < 100, `Case 13.28 Quality V2 < 100 (got ${score})`);
+  assert(sandbox.computeLegacyDwqiScore(readings) === 100, 'Case 13.28 legacy DWQI still 100');
   const elig = sandbox.EligibilityEngine.evaluate({
     reportType: 'production',
     readings,

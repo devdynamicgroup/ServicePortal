@@ -1,20 +1,24 @@
 ﻿/**
- * Production / Share Water Score — WHO (DWQI) formula.
- * FROZEN: do not alter behaviour. Benchmark engines must not call this for
- * country-specific comparison logic (WHO benchmark owns its own copy).
+ * Legacy Production / Share Water Score — WHO (DWQI) formula.
+ *
+ * FROZEN REFERENCE: do not alter this curve. Benchmark engines must not call
+ * this for country-specific comparison logic (WHO benchmark owns its own copy).
+ *
+ * Active published/share Water Quality Score is Quality V2
+ * (`computeQualityScoreV2.js` → `computeScoreFromReadings`).
  *
  * Missing keys stay missing — do not substitute demo/example numbers.
  */
-function computeScoreFromReadings(readings) {
+function computeLegacyDwqiScore(readings) {
   const ph = Number(readings.ph);
   const tds = Number(readings.tds);
   const turb = Number(readings.turbidity);
   const orp = Number(readings.orp);
   const fcl = Number(readings.chlorine);
   const do_ = Number(readings.do);
-  console.log('PARAMETER VALUES', { ph, tds, turbidity: turb, orp, chlorine: fcl, do: do_ });
+  console.log('LEGACY DWQI PARAMETER VALUES', { ph, tds, turbidity: turb, orp, chlorine: fcl, do: do_ });
   if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
-    console.log('FINAL SCORE skipped — incomplete readings');
+    console.log('LEGACY DWQI SCORE skipped — incomplete readings');
     return null;
   }
   const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
@@ -25,6 +29,13 @@ function computeScoreFromReadings(readings) {
   const cls = fcl >= 0.2 && fcl <= 0.5 ? 100 : fcl <= 1 ? 80 : fcl <= 2 ? 50 : 25;
   const dos = do_ >= 6 ? 100 : clamp(do_ / 6 * 100);
   const score = Math.round((pHs + tdss + turbs + orps + cls + dos) / 6);
-  console.log('FINAL SCORE', score, { pHs, tdss, turbs, orps, cls, dos });
+  console.log('LEGACY DWQI SCORE', score, { pHs, tdss, turbs, orps, cls, dos });
   return score;
+}
+
+if (typeof window !== 'undefined') {
+  window.computeLegacyDwqiScore = computeLegacyDwqiScore;
+}
+if (typeof globalThis !== 'undefined') {
+  globalThis.computeLegacyDwqiScore = computeLegacyDwqiScore;
 }
