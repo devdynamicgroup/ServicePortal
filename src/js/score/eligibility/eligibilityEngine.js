@@ -62,6 +62,23 @@
     requiredMeasurements: ['ph', 'tds'],
     requiredTasks: []
   });
+  // Registered so the policy layer CAN represent Full-package task
+  // requirements (proves the registry is structurally capable of it — see
+  // assessment.js's LEGACY COMPATIBILITY GATE comment for why
+  // validateAssessmentForComplete() does not use this yet: that gate also
+  // requires `temp` to be present via getScoreDataReadiness()'s 7-key check,
+  // while this policy intentionally does not require temp (matching
+  // canDisplayScoreNumber()'s 6-key list and every benchmark engine's
+  // scoring formula, none of which use temp). Switching the legacy gate to
+  // this policy today would silently stop blocking Complete on a missing
+  // temp reading — a real behaviour change, not a safe migration — so it is
+  // deliberately not wired in.
+  global.EligibilityPolicyRegistry.register({
+    key: 'productionFull',
+    label: 'Production Report (Full Package)',
+    requiredMeasurements: ['ph', 'tds', 'orp', 'do', 'chlorine', 'turbidity'],
+    requiredTasks: ['tapphoto', 'meter', 'visual', 'chlorine', 'pressure', 'infra']
+  });
 })(typeof globalThis !== 'undefined' ? globalThis : window);
 
 /**

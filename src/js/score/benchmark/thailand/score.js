@@ -108,8 +108,13 @@
       chlorine: classify(params.chlorine, pass.chlorine),
       turbidity: classify(params.turbidity, pass.turbidity),
       orp: classify(params.orp, pass.orp),
-      do: 'PASS',
-      temp: 'PASS'
+      // Not Measured must never read as PASS. Thailand does not score do/temp
+      // at all (zero weight — see weights.js), so this only affects the
+      // classification/metadata bucket, never the score. Previously these
+      // were hardcoded 'PASS' even when never measured — fixed to reflect
+      // actual presence instead.
+      do: Number.isFinite(Number(readings.do)) ? 'PASS' : 'NOT_MEASURED',
+      temp: Number.isFinite(Number(readings.temp)) ? 'PASS' : 'NOT_MEASURED'
     };
 
     const reasons = [];

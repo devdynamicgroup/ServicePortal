@@ -97,7 +97,10 @@
       turbidity: turb <= L.turbidity.ideal,
       orp: orp >= L.orp.min && orp <= L.orp.max,
       do: do_ >= L.do.min,
-      temp: !Number.isFinite(Number(readings.temp)) || Number(readings.temp) <= L.temp.max
+      // Not Measured must never read as PASS. temp is not part of the WHO
+      // scoring formula (zero weight — see weights.js), so this only affects
+      // the classification/metadata bucket, never the score.
+      temp: Number.isFinite(Number(readings.temp)) && Number(readings.temp) <= L.temp.max
     };
     const classifications = {
       ph: classify(params.ph, ideal.ph),
@@ -106,7 +109,7 @@
       turbidity: classify(params.turbidity, ideal.turbidity),
       orp: classify(params.orp, ideal.orp),
       do: classify(params.do, ideal.do),
-      temp: ideal.temp ? 'PASS' : 'WARNING'
+      temp: !Number.isFinite(Number(readings.temp)) ? 'NOT_MEASURED' : (ideal.temp ? 'PASS' : 'WARNING')
     };
 
     const reasons = [];

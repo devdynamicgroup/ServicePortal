@@ -196,24 +196,37 @@ function requiredAssessmentTaskKeys(pkg = S.pkg) {
 
 /**
  * ============================================================================
- * LEGACY COMPATIBILITY GATE (Phase C note — do not treat this as the source
- * of truth for eligibility; it is not).
+ * PACKAGE VALIDATION GATE — legacy compatibility only (Phase D note).
+ *
+ * This is NOT a second Water Score eligibility implementation. Do not treat
+ * it as a source of truth for eligibility; it is not.
  *
  * EligibilityEngine.evaluate() (src/js/score/eligibility/eligibilityEngine.js)
- * is now the primary authority for "can this report produce a score?" and is
+ * is the one and only authority for "can this report produce a score?" and is
  * wired into renderScoreDisplay(), shareScore(), and publishScoreBeforeClose().
  * This function is a SEPARATE, older gate that still runs on the Assessment
- * screen's own "Complete" button, kept only because its required-task set is
- * package-tier-specific (Full package also requires pressure + infra, which
- * the current Eligibility policy registry does not model) — folding it into
- * Eligibility without a package-aware policy would change which taps block
- * completion for Full-package jobs, which is out of scope for an
- * architecture cleanup.
+ * screen's own "Complete" button. It exists only to enforce Full-package's
+ * extra pressure + infra tasks — a package-tier concern, not a scoring
+ * concern.
+ *
+ * A package-aware Eligibility policy already exists for this
+ * (EligibilityPolicyRegistry key 'productionFull', in eligibilityEngine.js)
+ * and proves the policy layer CAN represent Full-package requirements. It is
+ * deliberately NOT wired in here yet: this legacy gate also requires `temp`
+ * to be present (via getScoreDataReadiness()'s 7-key check), while every
+ * Eligibility policy intentionally excludes temp (it carries zero weight in
+ * every benchmark engine's formula and is excluded from
+ * canDisplayScoreNumber()'s key list). Switching this gate to
+ * resolveReportEligibility('productionFull') today would silently stop
+ * blocking Complete on a missing temp reading — a real behaviour change, not
+ * a safe migration — so it stays separate until that discrepancy is
+ * resolved as a deliberate product decision.
  *
  * Retained temporarily for that package-specific behaviour only. Planned
- * removal: once a package-aware Eligibility policy exists, replace this
- * function's body with a call to resolveReportEligibility() and delete the
- * duplicated missingTasks/readiness logic below.
+ * removal: once the temp-requirement discrepancy above is resolved, replace
+ * this function's body with a call to
+ * resolveReportEligibility(job, S.pkg === 'full' ? 'productionFull' : 'production')
+ * and delete the duplicated missingTasks/readiness logic below.
  * ============================================================================
  * Validate assessment completeness before Complete.
  * On failure: toast only — no redirect, no score publish, no close, no LINE.

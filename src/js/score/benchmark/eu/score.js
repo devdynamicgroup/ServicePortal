@@ -95,7 +95,12 @@
       turbidity: turb <= L.turbidity.ideal ? 'PASS' : (turb <= L.turbidity.hardFail ? 'FAIL' : 'CRITICAL'),
       orp: (orp >= L.orp.min && orp <= L.orp.max) ? 'PASS' : 'WARNING',
       do: do_ >= L.do.min ? 'PASS' : 'FAIL',
-      temp: !Number.isFinite(Number(readings.temp)) || Number(readings.temp) <= L.temp.max ? 'PASS' : 'WARNING'
+      // Not Measured must never read as PASS. temp is not part of the EU
+      // scoring formula (zero weight — see weights.js), so this only affects
+      // the classification/metadata bucket, never the score.
+      temp: !Number.isFinite(Number(readings.temp))
+        ? 'NOT_MEASURED'
+        : (Number(readings.temp) <= L.temp.max ? 'PASS' : 'WARNING')
     };
 
     const reasons = [];

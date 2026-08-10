@@ -96,7 +96,10 @@
       turbidity: turb <= L.turbidity.ideal,
       orp: orp >= L.orp.min && orp <= L.orp.max,
       do: do_ >= L.do.min,
-      temp: !Number.isFinite(Number(readings.temp)) || Number(readings.temp) <= L.temp.max
+      // Not Measured must never read as PASS. temp is not part of the Japan
+      // scoring formula (zero weight — see weights.js), so this only affects
+      // the classification/metadata bucket, never the score.
+      temp: Number.isFinite(Number(readings.temp)) && Number(readings.temp) <= L.temp.max
     };
     const classifications = {
       ph: classify(params.ph, pass.ph),
@@ -105,7 +108,7 @@
       turbidity: classify(params.turbidity, pass.turbidity),
       orp: classify(params.orp, pass.orp),
       do: classify(params.do, pass.do),
-      temp: pass.temp ? 'PASS' : 'WARNING'
+      temp: !Number.isFinite(Number(readings.temp)) ? 'NOT_MEASURED' : (pass.temp ? 'PASS' : 'WARNING')
     };
 
     const reasons = [];
