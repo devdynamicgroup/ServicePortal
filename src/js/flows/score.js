@@ -403,35 +403,24 @@ function renderScoreDisplay() {
   }
   if (noteEl) {
     if (showScore) {
-      // Prefer engine summary — do not recompute explanations in UI.
-      const summary = result.summary || scoreSummaryNote(wq, findings);
-      // Score can display while inspection is still incomplete — surface that
-      // as a secondary note without hiding the numeric Water Score.
-      if (eligibility && eligibility.canCalculateScore && !eligibility.canPublishReport && eligibilityPresented) {
-        noteEl.textContent = [
-          summary,
-          eligibilityPresented.coverageSummaryText,
-          eligibilityPresented.reasonText
-        ].filter(Boolean).join(' — ');
-      } else {
-        noteEl.textContent = summary;
-      }
+      // Score card shows the numeric result only — do not append benchmark
+      // prose, measurement/inspection coverage, or "Inspection incomplete".
+      noteEl.textContent = '';
+      noteEl.hidden = true;
     } else if (readiness?.ocrBusy) {
+      noteEl.hidden = false;
       noteEl.textContent = t('score.readiness.processingText');
     } else if (eligibilityPresented && eligibility) {
+      noteEl.hidden = false;
       const missingBits = [];
       if (eligibility.missingMeasurements.length) {
         missingBits.push(`Missing measurements: ${eligibility.missingMeasurements.join(', ')}`);
       }
-      if (eligibility.missingInspection.length) {
-        missingBits.push(`Missing inspection: ${eligibility.missingInspection.join(', ')}`);
-      }
-      noteEl.textContent = [
-        eligibilityPresented.coverageSummaryText,
-        eligibilityPresented.reasonText,
-        ...missingBits
-      ].filter(Boolean).join(' — ');
+      noteEl.textContent = missingBits.length
+        ? missingBits.join(' — ')
+        : (eligibilityPresented.reasonText || t('score.readiness.waitingBadge'));
     } else {
+      noteEl.hidden = false;
       noteEl.textContent = t('score.readiness.waitingNote')
         .replace('{filled}', String(readiness?.filledCount ?? 0))
         .replace('{total}', String(readiness?.totalCount ?? 7));
