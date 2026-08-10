@@ -16,6 +16,15 @@
 | M9.5 Care Steady State & Optimization | **Package implemented** — handbook + metrics/CDR/incident ops; **no SEND** |
 | M9.6 Track A | Launch checklist + evidence pack ready; Checkpoint A **unsigned**; **flags OFF** |
 | Architecture verification | **Complete** — `docs/verification/` (analysis only; no SEND) |
+| Cal.com → Case bridge | **Architecture review only** — `docs/CALCOM_CASE_BRIDGE_ARCHITECTURE_REVIEW.md` (no code / no deploy) |
+| Cal.com integration readiness | **Design closed** — see DDR below (was Verdict B) |
+| Cal.com Design Decision Record | **CLOSED / READY FOR IMPLEMENTATION** — `docs/CALCOM_BOOKING_INTEGRATION_DESIGN_DECISION_RECORD.md` (no code yet) |
+| Cal.com Implementation Gate | **B — READY WITH CONDITIONS** — `docs/CALCOM_IMPLEMENTATION_GATE.md` (CAL-G01…G05 open; no code) |
+| Cal.com Blocker Resolution | **B retained** — `docs/CALCOM_BLOCKER_RESOLUTION.md` (G02/G04/G05 closed; G01/G03 need Cal/Product) |
+| Cal.com Phase 0 | **Receive-only webhook** — `POST /api/cal/webhook` (no createCase / no Notion write) |
+| Cal.com Implementation Handoff | **READY TO RECEIVE INPUT** — `docs/CALCOM_IMPLEMENTATION_HANDOFF.md` (waiting external inputs for PR-1) |
+| Cal.com Phase 1 Impl Review | **BLOCKED** — `docs/CALCOM_PHASE1_IMPLEMENTATION_REVIEW.md` (no WM Cal payload in workspace) |
+| Cal.com Payload Validation | **BLOCKED** — `docs/CALCOM_PAYLOAD_VALIDATION.md` (claimed attachment not received) |
 
 ## Runtime
 
@@ -47,6 +56,7 @@ Docs: `docs/M9.5_CARE_STEADY_STATE_HANDBOOK.md` · `docs/M9.5_CARE_METRICS_OWNER
 
 ## References
 
+- `docs/CALCOM_CASE_BRIDGE_ARCHITECTURE_REVIEW.md` — public booking gap (Cal.com) → proposed Case bridge
 - `docs/M9.0_IMPLEMENTATION_PLAN.md`
 - `docs/M9.1_ARCHITECTURE_REVIEW.md`
 - `docs/M9.1_IMPLEMENTATION_PLAN.md`

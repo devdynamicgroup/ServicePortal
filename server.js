@@ -92,7 +92,8 @@ const { registerCustomerDomain } = require('./services/customer-domain');
 const {
   authenticateCredentials,
   createSessionToken,
-  sessionCookieHeader
+  sessionCookieHeader,
+  requireAppAuth
 } = require('./services/app-auth');
 
 // M8.1: register Customer Domain infrastructure (flags default OFF — no behavior change).
@@ -240,12 +241,32 @@ async function handleApiRequest(req, res) {
         'Cache-Control': 'no-store',
         'Set-Cookie': sessionCookieHeader(token)
       });
-      res.end(JSON.stringify({ user, token }));
+      // Cookie-only session: do not return bearer token for frontend persistence.
+      res.end(JSON.stringify({ ok: true, user }));
       return true;
     } catch {
       send(res, 400, JSON.stringify({ error: 'Invalid login request' }), 'application/json; charset=utf-8');
       return true;
     }
+  }
+
+  if (urlPath === '/api/auth/me' && req.method === 'GET') {
+    try {
+      const user = requireAppAuth(req);
+      send(res, 200, JSON.stringify({ ok: true, user }), 'application/json; charset=utf-8');
+    } catch (error) {
+      send(
+        res,
+        error.statusCode || 401,
+        JSON.stringify({
+          ok: false,
+          error: error.message || 'Authentication required',
+          code: error.code || 'UNAUTHENTICATED'
+        }),
+        'application/json; charset=utf-8'
+      );
+    }
+    return true;
   }
 
   if (urlPath === '/api/auth/logout' && req.method === 'POST') {

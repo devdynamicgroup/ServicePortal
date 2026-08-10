@@ -1,6 +1,6 @@
 # Benchmark Isolation Test Report
 
-Date: 2026-08-07T07:56:53.076Z
+Date: 2026-08-10T08:29:26.911Z
 Sample: {"ph":7.2,"tds":450,"chlorine":0.8,"turbidity":2.5,"orp":350,"do":6.5,"temp":28}
 Production score: 93
 
@@ -26,8 +26,8 @@ Production score: 93
 - PASS  Test4: who fingerprint unchanged
 - PASS  Test4: eu fingerprint unchanged
 - PASS  Test4: japan fingerprint unchanged
-- PASS  Production remains 93
-- PASS  Production unchanged by benchmark execution
+- PASS  Legacy DWQI remains 93
+- PASS  Legacy DWQI unchanged by benchmark execution
 - PASS  dummy engine registered
 - PASS  Test6: thailand unchanged after dummy register
 - PASS  Test6: who unchanged after dummy register
@@ -39,7 +39,8 @@ Production score: 93
 - PASS  eu score locked at 65 (got 65)
 - PASS  japan score locked at 96 (got 96)
 - PASS  usEpa score locked at 91 (got 91)
-- PASS  Production locked at 93
+- PASS  Legacy DWQI locked at 93
+- PASS  Quality V2 computes finite score
 - PASS  thailand has engine name
 - PASS  thailand has numeric score
 - PASS  thailand has verdict
@@ -123,6 +124,6 @@ Production score: 93
 - PASS  EU metadata flags chlorine for this sample
 
 ## Totals
-116 passed, 0 failed
+117 passed, 0 failed
 
 STATUS: PASS

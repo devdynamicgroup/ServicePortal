@@ -30,7 +30,7 @@ try {
   getConfiguredFolderIds = () => ({ main: null, data: null });
   MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 }
-const { requireAppAuth } = require('../services/app-auth');
+const { assertAppAuth } = require('../services/app-auth');
 const { appendDriveUploadAudit } = require('../services/drive-audit');
 const { persistDriveUploadToNotion } = require('../services/drive-notion');
 
@@ -44,20 +44,6 @@ function sendJson(res, status, payload) {
     'Cache-Control': 'no-store'
   });
   res.end(JSON.stringify(payload));
-}
-
-/** @returns {object|null} authenticated user, or null after writing 401/403 */
-function assertDriveAppAuth(req, res) {
-  try {
-    return requireAppAuth(req);
-  } catch (error) {
-    sendJson(res, error.statusCode || 401, {
-      ok: false,
-      error: error.message || 'Authentication required',
-      code: error.code || 'UNAUTHENTICATED'
-    });
-    return null;
-  }
 }
 
 function readBodyBuffer(req, maxBytes = MAX_JSON_UPLOAD_BODY_BYTES) {
@@ -119,7 +105,7 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/drive/images' && req.method === 'GET') {
-    if (!assertDriveAppAuth(req, res)) return true;
+    if (!assertAppAuth(req, res)) return true;
     try {
       const params = new URL(req.url, 'http://localhost').searchParams;
       const result = await listImages({
@@ -140,7 +126,7 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/drive/images' && req.method === 'POST') {
-    const user = assertDriveAppAuth(req, res);
+    const user = assertAppAuth(req, res);
     if (!user) return true;
     let purpose = null;
     let folder = null;
@@ -302,7 +288,7 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
     const action = match[2] || null;
 
     if (action === 'content' && req.method === 'GET') {
-      if (!assertDriveAppAuth(req, res)) return true;
+      if (!assertAppAuth(req, res)) return true;
       try {
         const { buffer, contentType } = await downloadImageContent(fileId);
         res.writeHead(200, {
@@ -322,7 +308,7 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
     }
 
     if (!action && req.method === 'GET') {
-      if (!assertDriveAppAuth(req, res)) return true;
+      if (!assertAppAuth(req, res)) return true;
       try {
         const file = await getImage(fileId);
         sendJson(res, 200, { ok: true, file });
@@ -337,7 +323,7 @@ async function handleGoogleDriveRoute(req, res, urlPath) {
     }
 
     if (!action && req.method === 'DELETE') {
-      if (!assertDriveAppAuth(req, res)) return true;
+      if (!assertAppAuth(req, res)) return true;
       try {
         const result = await deleteImage(fileId);
         sendJson(res, 200, { ok: true, ...result });

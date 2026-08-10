@@ -3,22 +3,10 @@ const crypto = require('crypto');
 const SESSION_COOKIE = 'wm_session';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-const defaultUsers = [
-  { username: 'kittichai', password: 'password', name: 'Kittichai T.', role: 'Water Quality Specialist' },
-  { username: 'admin', password: 'admin123', name: 'Admin', role: 'Operations' }
+/** Development-only users — never used unless AUTH_ALLOW_DEV_USERS=true and not production. */
+const DEV_ONLY_USERS = [
+  { username: 'dev', password: 'dev', name: 'Local Dev', role: 'Development' }
 ];
-
-function getAuthUsers() {
-  try {
-    const parsed = JSON.parse(process.env.AUTH_USERS_JSON || '[]');
-    if (Array.isArray(parsed) && parsed.length) return parsed;
-  } catch (error) {
-    console.warn('Invalid AUTH_USERS_JSON', error.message);
-  }
-  return defaultUsers;
-}
-
-const DEV_SESSION_SECRET_FALLBACK = 'wm-dev-auth-session-secret';
 
 function isProductionRuntime() {
   const nodeEnv = String(process.env.NODE_ENV || '').toLowerCase();
@@ -27,6 +15,76 @@ function isProductionRuntime() {
   if (process.env.RENDER || process.env.RENDER_SERVICE_ID) return true;
   return false;
 }
+
+function failAuthStartup(message) {
+  console.error(`\n[FATAL] ${message}\n`);
+  process.exit(1);
+}
+
+function isAuthAllowDevUsers() {
+  return String(process.env.AUTH_ALLOW_DEV_USERS || '').trim().toLowerCase() === 'true';
+}
+
+/**
+ * Resolve login users once at startup.
+ * Production / default: AUTH_USERS_JSON required (non-empty array).
+ * Local only: AUTH_ALLOW_DEV_USERS=true permits DEV_ONLY_USERS (never in production).
+ */
+function loadAuthUsersOrExit() {
+  if (isProductionRuntime() && isAuthAllowDevUsers()) {
+    failAuthStartup(
+      'AUTH_ALLOW_DEV_USERS must not be enabled in production.\n'
+      + '  Fix: unset AUTH_ALLOW_DEV_USERS and set AUTH_USERS_JSON in the host environment.'
+    );
+  }
+
+  const raw = String(process.env.AUTH_USERS_JSON || '').trim();
+  if (raw) {
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      failAuthStartup(
+        `AUTH_USERS_JSON is invalid JSON (${error.message}).\n`
+        + '  Expected a JSON array like '
+        + '[{"username":"admin","password":"<strong>","name":"Admin","role":"Operations"}]'
+      );
+    }
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      failAuthStartup(
+        'AUTH_USERS_JSON must be a non-empty JSON array of users with username and password.'
+      );
+    }
+    const invalid = parsed.find(
+      item => !item || !String(item.username || '').trim() || !String(item.password || '')
+    );
+    if (invalid) {
+      failAuthStartup(
+        'AUTH_USERS_JSON entries must each include non-empty username and password.'
+      );
+    }
+    return parsed;
+  }
+
+  if (!isProductionRuntime() && isAuthAllowDevUsers()) {
+    console.warn(
+      '[auth] WARNING: AUTH_ALLOW_DEV_USERS=true — using development-only login users.\n'
+      + '  Do not enable this flag on Render / production. Prefer AUTH_USERS_JSON.'
+    );
+    return DEV_ONLY_USERS;
+  }
+
+  failAuthStartup(
+    'AUTH_USERS_JSON is required and the server refused to start.\n'
+    + '  Fix: set AUTH_USERS_JSON to a JSON array of portal users, e.g.\n'
+    + '  AUTH_USERS_JSON=[{"username":"admin","password":"<strong>","name":"Admin","role":"Operations"}]\n'
+    + '  Local development only: set AUTH_ALLOW_DEV_USERS=true (never in production).'
+  );
+}
+
+const AUTH_USERS = loadAuthUsersOrExit();
+
+const DEV_SESSION_SECRET_FALLBACK = 'wm-dev-auth-session-secret';
 
 function failMissingSessionSecret(message) {
   console.error(`\n[FATAL] ${message}\n`);
@@ -96,6 +154,10 @@ function publicUser(user) {
     name: user.name || user.username,
     role: user.role || 'Field Specialist'
   };
+}
+
+function getAuthUsers() {
+  return AUTH_USERS;
 }
 
 function findAuthUser(username) {
@@ -209,6 +271,28 @@ function requireAppAuth(req) {
   return publicUser(user);
 }
 
+/**
+ * Route helper: require auth or write a JSON 401/403 and return null.
+ * @returns {object|null} public user, or null after writing the error response
+ */
+function assertAppAuth(req, res) {
+  try {
+    return requireAppAuth(req);
+  } catch (error) {
+    const status = error.statusCode || 401;
+    res.writeHead(status, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store'
+    });
+    res.end(JSON.stringify({
+      ok: false,
+      error: error.message || 'Authentication required',
+      code: error.code || 'UNAUTHENTICATED'
+    }));
+    return null;
+  }
+}
+
 function sessionCookieHeader(token, { clear = false } = {}) {
   const secure = String(process.env.PUBLIC_BASE_URL || '').startsWith('https');
   const parts = [
@@ -234,7 +318,9 @@ module.exports = {
   createSessionToken,
   verifySessionToken,
   requireAppAuth,
+  assertAppAuth,
   sessionCookieHeader,
   publicUser,
-  extractSessionToken
+  extractSessionToken,
+  isProductionRuntime
 };

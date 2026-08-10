@@ -69,7 +69,7 @@ async function handleGoogleDriveOAuthRoute(req, res, urlPath) {
       const refresh = tokens.refreshToken || getRefreshToken();
       const hasRefresh = Boolean(refresh);
       if (hasRefresh) {
-        console.log('[google-drive] refresh token obtained:', refresh);
+        console.log('[google-drive] OAuth success — refresh token saved (value not logged).');
       } else {
         console.warn('[google-drive] refresh token not returned; reauthorize with prompt=consent and revoke previous grant if needed');
       }
@@ -83,16 +83,13 @@ async function handleGoogleDriveOAuthRoute(req, res, urlPath) {
 <style>
   body{font-family:system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 16px;line-height:1.45}
   code,pre{background:#f4f4f5;padding:2px 6px;border-radius:4px}
-  pre{padding:12px;overflow:auto;white-space:pre-wrap;word-break:break-all}
   .ok{color:#166534}.warn{color:#9a3412}
 </style></head><body>
   <h1 class="${hasRefresh ? 'ok' : 'warn'}">Google Drive ${hasRefresh ? 'connected' : 'partially connected'}</h1>
-  <p>Access token received. ${hasRefresh
-    ? 'A refresh token was saved for this server process and logged to the console.'
+  <p>OAuth success. ${hasRefresh
+    ? 'Refresh token stored on the server. Set or confirm <code>GOOGLE_REFRESH_TOKEN</code> in Render from your secure setup notes — it is not shown here.'
     : 'No new refresh token was returned — revoke prior access in Google Account and authorize again with consent.'}</p>
-  ${hasRefresh ? `<p>Copy this value into Render env <code>GOOGLE_REFRESH_TOKEN</code> (shown once in local setup):</p>
-  <pre>${escapeHtml(refresh)}</pre>
-  <p>Also persisted at <code>${escapeHtml(TOKEN_STORE_PATH)}</code> when the filesystem is writable.</p>` : ''}
+  ${hasRefresh ? `<p>Persisted at <code>${escapeHtml(TOKEN_STORE_PATH)}</code> when the filesystem is writable.</p>` : ''}
   <p>Redirecting to <a href="${escapeHtml(redirectHome)}">home</a> in 3 seconds...</p>
   <script>setTimeout(function(){ window.location = '${escapeHtml(redirectHome)}'; }, 3000);</script>
 </body></html>`

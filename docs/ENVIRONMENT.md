@@ -53,7 +53,8 @@ Legend: **R** = required, **O** = optional, **—** = not needed for that mode.
 |----------|------------|-----------|-------|------------|
 | `AUTH_SESSION_SECRET` | `services/app-auth.js` (login token HMAC) | **R in prod** | O (warned fallback if empty) | **R — server exits if missing** |
 | `SESSION_SECRET` | Alias of `AUTH_SESSION_SECRET` | O | O | Prefer `AUTH_SESSION_SECRET` |
-| `AUTH_USERS_JSON` | `services/app-auth.js` | O (built-in demo users) | O | Recommended |
+| `AUTH_USERS_JSON` | `services/app-auth.js` | **R** (server exits if missing) | **R** or `AUTH_ALLOW_DEV_USERS=true` | **R** |
+| `AUTH_ALLOW_DEV_USERS` | `services/app-auth.js` | Forbidden in prod | O (`true` → local `dev`/`dev` only) | Must be unset |
 
 Generate: `openssl rand -hex 32`
 

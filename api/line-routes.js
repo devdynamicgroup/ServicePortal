@@ -6,6 +6,7 @@ const {
   verifyLineSignature,
   sendLineReply,
   buildCaseResultFlexMessageForType,
+  buildViewLatestResultReply,
   OA_POSTBACK,
   withQuickReply,
   buildLinkPromptTextMessage,
@@ -333,17 +334,12 @@ async function replyViewLatest(event, lineUserId, correlationId) {
 
   if (latest.resultAvailable && latest.case) {
     const job = latest.case;
-    const feedbackToken = String(job?.feedback?.token || '').trim();
-    const flex = buildCaseResultFlexMessageForType({
-      resultLinkUrl: latest.resultUrl,
-      feedbackUrl: feedbackToken ? buildFeedbackUrl(feedbackToken) : (job?.feedback?.url || ''),
-      clientName: job?.name || job?.clientName || '',
-      waterScore: job?.result?.waterScore
-    }, latest.resultType);
-    const result = await sendReplyChecked(event.replyToken, [
-      withQuickReply({ type: 'text', text: 'ผลตรวจล่าสุดของคุณครับ' }),
-      flex
-    ], {
+    // UX-only latest reply: confirm + open report. Score only on /r/{token}.
+    // History stays on replyHistory(). Lookup remains exact lineUserId only.
+    const messages = buildViewLatestResultReply({
+      resultLinkUrl: latest.resultUrl
+    });
+    const result = await sendReplyChecked(event.replyToken, messages, {
       correlationId,
       lineUserId,
       caseId: job?.id || null,

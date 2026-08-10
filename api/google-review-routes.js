@@ -16,6 +16,7 @@ const {
   getNotionFeedbackDebug,
   getBusinessDebugStatus
 } = require('../services/google-reviews');
+const { assertAppAuth } = require('../services/app-auth');
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -31,6 +32,7 @@ function readQuery(req) {
 
 async function handleGoogleBusinessRoute(req, res, urlPath) {
   if (urlPath === '/api/debug/env' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     sendJson(res, 200, {
       cwd: process.cwd(),
       envFile: require('path').resolve('.env'),
@@ -44,6 +46,7 @@ async function handleGoogleBusinessRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/google-business/auth-url' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       console.log(req.url);
       console.log('OAuth config', {
@@ -65,16 +68,22 @@ async function handleGoogleBusinessRoute(req, res, urlPath) {
       console.log(req.url);
       const params = readQuery(req);
       const code = params.get('code');
-      console.log({ code });
       const tokens = await exchangeCode(code);
+      const hasRefresh = Boolean(tokens.refreshToken);
+      if (hasRefresh) {
+        console.log('[google-business] OAuth success — refresh token received (not logged). Save GOOGLE_BUSINESS_REFRESH_TOKEN in environment.');
+      } else {
+        console.warn('[google-business] OAuth success — no refresh token returned; reauthorize with prompt=consent if needed.');
+      }
       sendJson(res, 200, {
         ok: true,
-        message: 'OAuth exchange succeeded. Save GOOGLE_BUSINESS_REFRESH_TOKEN in environment.',
+        message: hasRefresh
+          ? 'OAuth success. Refresh token received server-side and is not returned in this response. Set GOOGLE_BUSINESS_REFRESH_TOKEN via a secure offline setup path.'
+          : 'OAuth exchange succeeded but no refresh token was returned. Revoke prior grant and retry with consent.',
         hasAccessToken: Boolean(tokens.accessToken),
-        hasRefreshToken: Boolean(tokens.refreshToken),
+        hasRefreshToken: hasRefresh,
         expiresIn: tokens.expiresIn,
-        scope: tokens.scope,
-        refreshToken: tokens.refreshToken || null
+        scope: tokens.scope
       });
     } catch (error) {
       sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
@@ -83,6 +92,7 @@ async function handleGoogleBusinessRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/google-business/accounts' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const accounts = await listAccounts();
       sendJson(res, 200, { ok: true, count: accounts.length, accounts });
@@ -94,6 +104,7 @@ async function handleGoogleBusinessRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/google-business/locations' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const params = readQuery(req);
       const accountId = params.get('accountId') || process.env.GOOGLE_BUSINESS_ACCOUNT_ID;
@@ -107,6 +118,7 @@ async function handleGoogleBusinessRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/google-business/reviews' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const params = readQuery(req);
       const result = await listReviews({
@@ -125,6 +137,7 @@ async function handleGoogleBusinessRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/debug/business' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const payload = await getBusinessDebugStatus();
       sendJson(res, 200, payload);
@@ -148,6 +161,7 @@ async function handleGoogleReviewRoute(req, res, urlPath) {
   if (await handleGoogleBusinessRoute(req, res, urlPath)) return true;
 
   if (urlPath === '/api/google-reviews/status' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     sendJson(res, 200, {
       ok: true,
       integration: getGoogleReviewIntegrationStatus()
@@ -156,6 +170,7 @@ async function handleGoogleReviewRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/google-reviews/sync' && req.method === 'POST') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const result = await syncReviewsToNotion();
       sendJson(res, 200, { ok: true, ...result });
@@ -171,6 +186,7 @@ async function handleGoogleReviewRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/debug/notion' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const payload = await getNotionFeedbackDebug();
       sendJson(res, 200, payload);

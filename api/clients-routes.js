@@ -3,6 +3,7 @@ const {
   getIntegrationStatus,
   getCaseFlowDatasetStatus
 } = require('../services/notion/clients');
+const { assertAppAuth } = require('../services/app-auth');
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -14,6 +15,7 @@ function sendJson(res, status, payload) {
 
 async function handleClientsRoute(req, res, urlPath) {
   if (urlPath === '/api/debug/dataset' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     try {
       const dataset = await getCaseFlowDatasetStatus();
       sendJson(res, dataset.configured ? 200 : 503, {
@@ -43,6 +45,7 @@ async function handleClientsRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/clients' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     const status = getIntegrationStatus();
     if (!status.configured) {
       sendJson(res, 503, {
@@ -73,6 +76,7 @@ async function handleClientsRoute(req, res, urlPath) {
   }
 
   if (urlPath === '/api/debug/clients' && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
     const status = getIntegrationStatus();
     if (!status.configured) {
       sendJson(res, 200, {

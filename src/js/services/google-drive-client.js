@@ -549,12 +549,7 @@ function currentCustomerFolderId() {
 
 function currentUsername() {
   if (typeof S !== 'undefined' && S.user?.username) return S.user.username;
-  try {
-    const session = JSON.parse(localStorage.getItem('wm-session') || '{}');
-    return session.user?.username || null;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 function estimateDataUrlBytes(dataUrl) {
@@ -573,18 +568,19 @@ function driveClientError(message, code, status) {
 }
 
 function getDriveAuthHeaders() {
+  // Cookie-only session (HttpOnly wm_session). Do not read bearer from localStorage.
   if (typeof getAppAuthHeaders === 'function') return getAppAuthHeaders();
-  try {
-    const session = JSON.parse(localStorage.getItem('wm-session') || '{}');
-    return session.token ? { Authorization: `Bearer ${session.token}` } : {};
-  } catch {
-    return {};
-  }
+  return {};
 }
 
-function mapUploadHttpError(status, serverMessage) {
+function mapUploadHttpError(status, serverMessage, serverCode) {
   const msg = String(serverMessage || '').trim();
   if (status === 401) {
+    // Expired/invalid app session — clear it and send the user back to login,
+    // same as a manual sign-out, instead of surfacing a raw auth error.
+    if (serverCode === 'UNAUTHENTICATED' && typeof handleSessionExpired === 'function') {
+      handleSessionExpired('Your session has expired. Please sign in again to continue.');
+    }
     if (/authentication required|expired session|invalid or expired|sign in/i.test(msg)) {
       return driveClientError(msg || 'Please sign in again to upload photos.', 'APP_AUTH_REQUIRED', status);
     }
@@ -685,7 +681,7 @@ async function fetchDriveContentObjectUrl(fileId) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw mapUploadHttpError(response.status, data.error);
+    throw mapUploadHttpError(response.status, data.error, data.code);
   }
   const blob = await response.blob();
   const objectUrl = URL.createObjectURL(blob);
@@ -902,7 +898,7 @@ async function uploadDriveImage({
     console.log('[drive-client] upload response', { url: requestUrl, status: response.status, ok: response.ok, body: data });
   } catch (e) { /* ignore */ }
   if (!response.ok || !data.ok || !data.file?.id) {
-    throw mapUploadHttpError(response.status, data.error);
+    throw mapUploadHttpError(response.status, data.error, data.code);
   }
 
   // Cache customer folder id on the active job for subsequent uploads this session.

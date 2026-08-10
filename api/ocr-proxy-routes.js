@@ -5,6 +5,7 @@
  */
 
 const { readMeter } = require('../services/ocrClient');
+const { assertAppAuth } = require('../services/app-auth');
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -51,6 +52,8 @@ async function handleOcrProxyRoute(req, res, urlPath) {
     });
     return true;
   }
+
+  if (!assertAppAuth(req, res)) return true;
 
   let payload = {};
   try {

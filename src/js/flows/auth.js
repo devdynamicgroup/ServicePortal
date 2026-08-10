@@ -5,7 +5,7 @@ let authConfig = {
 
 async function loadAuthConfig() {
   try {
-    const response = await fetch('/api/auth-config', { cache: 'no-store' });
+    const response = await fetch('/api/auth-config', { cache: 'no-store', credentials: 'same-origin' });
     if (!response.ok) return;
     authConfig = { ...authConfig, ...(await response.json()) };
   } catch (error) {
@@ -25,17 +25,11 @@ function setLoginMessage(message = '', type = 'error') {
   box.classList.toggle('login-msg-success', type === 'success');
 }
 
-function updateLoggedInUser(user, token) {
+function updateLoggedInUser(user) {
   S.user = user;
-  const session = { user };
-  if (token) session.token = token;
-  else {
-    try {
-      const existing = JSON.parse(localStorage.getItem('wm-session') || '{}');
-      if (existing.token) session.token = existing.token;
-    } catch { /* ignore */ }
-  }
-  localStorage.setItem('wm-session', JSON.stringify(session));
+  try {
+    localStorage.removeItem('wm-session');
+  } catch { /* ignore */ }
   const nameEl = document.querySelector('.dash-user-name');
   const roleEl = document.querySelector('.dash-user-role');
   const avatar = document.querySelector('.dash-avatar');
@@ -64,7 +58,7 @@ async function doLogin() {
     if (!response.ok) throw new Error(data.error || 'Username or password is incorrect');
 
     setLoginMessage('');
-    updateLoggedInUser(data.user, data.token);
+    updateLoggedInUser(data.user);
     goScreen('s-dash');
   } catch (error) {
     setLoginMessage(error.message || 'Could not sign in');
@@ -81,18 +75,23 @@ async function forgotPassword() {
   showToast(contact || t('login.forgotIt'));
 }
 
+/**
+ * Restore session from HttpOnly cookie via GET /api/auth/me.
+ * Does not use localStorage bearer tokens.
+ */
 async function restoreLoginSession() {
   try {
-    const raw = localStorage.getItem('wm-session');
-    if (!raw) return false;
-    const session = JSON.parse(raw);
-    if (!session.user) return false;
-    // Sessions created before server tokens need a fresh sign-in for Drive uploads.
-    if (!session.token) {
+    try {
       localStorage.removeItem('wm-session');
-      return false;
-    }
-    updateLoggedInUser(session.user, session.token);
+    } catch { /* ignore */ }
+    const response = await fetch('/api/auth/me', {
+      credentials: 'same-origin',
+      cache: 'no-store'
+    });
+    if (!response.ok) return false;
+    const data = await response.json().catch(() => ({}));
+    if (!data.user) return false;
+    updateLoggedInUser(data.user);
     goScreen('s-dash');
     return true;
   } catch {
@@ -100,22 +99,19 @@ async function restoreLoginSession() {
   }
 }
 
+/** Cookie-only auth — no Authorization bearer from localStorage. */
 function getAppSessionToken() {
-  try {
-    const session = JSON.parse(localStorage.getItem('wm-session') || '{}');
-    return session.token || '';
-  } catch {
-    return '';
-  }
+  return '';
 }
 
 function getAppAuthHeaders() {
-  const token = getAppSessionToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return {};
 }
 
 async function clearAppSession() {
-  localStorage.removeItem('wm-session');
+  try {
+    localStorage.removeItem('wm-session');
+  } catch { /* ignore */ }
   S.user = null;
   try {
     await fetch('/api/auth/logout', {
@@ -126,4 +122,15 @@ async function clearAppSession() {
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * A previously-valid session (e.g. the 7-day token) was rejected by the
+ * server as expired/invalid. Same effect as a manual sign-out, but
+ * triggered by the server response instead of the user tapping Sign Out.
+ */
+function handleSessionExpired(message) {
+  clearAppSession();
+  goScreen('s-login');
+  setLoginMessage(message || 'Your session has expired. Please sign in again.');
 }

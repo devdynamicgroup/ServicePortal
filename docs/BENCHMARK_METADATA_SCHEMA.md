@@ -1,46 +1,31 @@
-# Benchmark Metadata Schema (final)
+# Benchmark Metadata Schema
 
-Every `engine.calculate(readings)` returns:
+Every `engine.calculate(readings)` MUST return:
 
 ```ts
 {
-  // Core
-  engine: string;
-  engineKey: string;
+  engine: string;              // "WHO" | "Thailand" | ...
+  engineKey: string;           // registry key
   score: number | null;
   verdict: "Excellent" | "Good" | "Acceptable" | "Attention" | "Poor";
-  summary: string;
-
-  // Classification
+  summary: string;             // engine-authored one-liner
   passedParameters: string[];
   warningParameters: string[];
   failedParameters: string[];
   criticalFailures: string[];
+  reasons: Array<{
+    parameter: string;
+    severity: "pass" | "warning" | "fail" | "critical";
+    message: string;           // engine-specific wording
+  }>;
   classifications?: Record<string, "PASS" | "WARNING" | "FAIL" | "CRITICAL">;
-  reasons: Array<{ parameter: string; severity: string; message: string }>;
-
-  // Explainability (engine-authored)
-  topPositiveFactors: string[];  // why score stayed high
-  topNegativeFactors: string[];  // what reduced the score
-
-  // Traceability
-  calculationId: string;         // calc_YYYYMMDD_######
-  engineVersion: string;         // e.g. v1.0
-  standardRevision: string;      // human-readable standard reference
-  calculatedAt: string;          // ISO timestamp
-  inputFingerprint: string;      // 8-char hash of normalized measurements only
-
-  // Optional UI helpers
-  params?: Record<string, number> | null;
-  statuses?: Record<string, string>;
+  params?: Record<string, number> | null;  // sub-scores (optional for UI bars)
+  statuses?: Record<string, string>;       // legacy good/attn for metric rows
   findings?: Array<{ label: string; val: string; note?: string }>;
-  gated?: boolean;
 }
 ```
 
-## Rules
-
-- Explainability and trace fields are authored **inside** each country engine (via finalize helpers for envelope/fingerprint only).
-- UI / Dashboard / PDF / LINE / Mobile / AI **consume** metadata — never recompute explanations.
-- `inputFingerprint` covers only normalized `ph,tds,chlorine,turbidity,orp,do,temp` — never customer identity, case id, or timestamps.
-- Production `computeScoreFromReadings()` does **not** emit this contract.
+Rules:
+- Metadata is produced **inside** each country engine.
+- UI / reports / LINE / PDF must **consume**, never recompute, explanations.
+- Production `computeScoreFromReadings` is out of scope and must not emit this contract.

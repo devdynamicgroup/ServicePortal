@@ -273,6 +273,88 @@ function withQuickReply(message, items = buildOaQuickReplyItems()) {
   };
 }
 
+/**
+ * OA "view latest" reply only — confirm + open report CTA.
+ * No Water Score preview (score lives on /r/{token} report page).
+ * No history list/count (history stays on replyHistory / menu).
+ * Does not replace closeCase push templates (buildCaseResultFlexMessage).
+ */
+function buildViewLatestResultReply({ resultLinkUrl } = {}) {
+  const reportUrl = String(resultLinkUrl || '').trim();
+
+  // Keep menu actions except history — history remains via "ประวัติ" intent / rich menu.
+  const quickReplyItems = buildOaQuickReplyItems().filter(
+    (item) => item?.action?.data !== OA_POSTBACK.HISTORY
+  );
+
+  const textMessage = withQuickReply(
+    { type: 'text', text: 'ผลตรวจน้ำของคุณพร้อมแล้วครับ' },
+    quickReplyItems
+  );
+
+  if (!reportUrl) {
+    return [textMessage];
+  }
+
+  const flexMessage = {
+    type: 'flex',
+    altText: 'ผลตรวจน้ำของคุณพร้อมแล้วครับ',
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: 'WATER MOTION',
+            size: 'xs',
+            color: '#64748b',
+            weight: 'bold'
+          },
+          {
+            type: 'text',
+            text: 'ผลตรวจน้ำของคุณพร้อมแล้วครับ',
+            weight: 'bold',
+            size: 'md',
+            color: '#0f172a',
+            wrap: true
+          },
+          {
+            type: 'text',
+            text: 'กดปุ่มด้านล่างเพื่อดูรายละเอียดผลตรวจ',
+            size: 'sm',
+            color: '#475569',
+            wrap: true
+          }
+        ]
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: WATER_MOTION_BLUE,
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: 'ดูผลตรวจ',
+              uri: reportUrl
+            }
+          }
+        ]
+      }
+    }
+  };
+
+  return [textMessage, flexMessage];
+}
+
 function buildLinkPromptTextMessage() {
   return withQuickReply({
     type: 'text',
@@ -659,6 +741,7 @@ module.exports = {
   buildCaseResultFlexMessage,
   buildCaseResultFlexMessageForType,
   buildCaseResultTextMessage,
+  buildViewLatestResultReply,
   sendCaseResultNotification,
   OA_POSTBACK,
   resolveLineBookingUrl,
