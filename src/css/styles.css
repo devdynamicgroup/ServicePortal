@@ -802,6 +802,17 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   text-transform:none;
 }
 .score-hero-source[hidden]{display:none!important}
+.score-compliance-line{
+  margin:4px 0 0;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.01em;
+  color:var(--muted);
+}
+.score-compliance-line[data-status="PASS"]{color:#2e9b6f}
+.score-compliance-line[data-status="WARNING"]{color:#c48a3a}
+.score-compliance-line[data-status="FAIL"]{color:#f07b7b}
+.score-compliance-line[hidden]{display:none!important}
 .score-benchmark-row{
   display:flex;
   align-items:center;

@@ -395,6 +395,24 @@ function renderScoreDisplay() {
       heroSourceEl.hidden = true;
     }
   }
+  const complianceEl = document.getElementById('score-compliance-line');
+  if (complianceEl) {
+    const status = S.currentScoreResult?.complianceStatus;
+    if (showScore && status) {
+      const statusKey = status === 'PASS'
+        ? 'score.compliance.pass'
+        : status === 'WARNING'
+          ? 'score.compliance.warning'
+          : 'score.compliance.fail';
+      complianceEl.textContent = t('score.compliance.label').replace('{status}', t(statusKey));
+      complianceEl.hidden = false;
+      complianceEl.dataset.status = status;
+    } else {
+      complianceEl.textContent = '';
+      complianceEl.hidden = true;
+      delete complianceEl.dataset.status;
+    }
+  }
 
   setScoreHeroLoading(!showScore);
 

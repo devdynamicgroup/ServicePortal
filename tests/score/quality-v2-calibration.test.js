@@ -155,6 +155,34 @@ console.log('\nMissing / incomplete');
     'legacy locked sample still 93');
 }
 
+console.log('\nBenchmark isolation — Quality unchanged across engines');
+{
+  const qA = q(CASE_A);
+  for (const key of ['thailand', 'who', 'eu', 'japan', 'usEpa']) {
+    const b = bench(key, CASE_A);
+    assert(q(CASE_A) === qA, `Quality stable after ${key} calculate (${qA})`);
+    assert(Number.isFinite(b), `${key} benchmark still computes`);
+  }
+  assert(qA !== bench('thailand', CASE_A) || qA < 100,
+    'Quality is not forced to match Thailand 100 as Product Quality');
+}
+
+console.log('\nTDS sensitivity');
+{
+  const base = { ...NEAR_IDEAL };
+  const s50 = q({ ...base, tds: 50 });
+  const s200 = q({ ...base, tds: 200 });
+  const s400 = q({ ...base, tds: 400 });
+  assert(s50 >= s200 && s200 > s400, `TDS gradient ${s50} >= ${s200} > ${s400}`);
+}
+
+console.log('\nDO barely-compliant is not near-ideal');
+{
+  const barely = q({ ...NEAR_IDEAL, do: 6.05 });
+  const idealDo = q({ ...NEAR_IDEAL, do: 7.6 });
+  assert(barely < idealDo && barely < 100, `DO 6.05 quality ${barely} < near-ideal DO ${idealDo}`);
+}
+
 console.log('\nNo double-count fields scored');
 {
   const d = detail(NEAR_IDEAL);
