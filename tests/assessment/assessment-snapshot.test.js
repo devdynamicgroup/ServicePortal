@@ -196,7 +196,7 @@ console.log('\nCase 13.28 snapshot + score regression via production engine');
     vm.runInContext(fs.readFileSync(path.join(root, rel), 'utf8'), sandbox, { filename: rel });
   }
   const score = sandbox.computeScoreFromReadings(readings);
-  assert(Number.isFinite(score) && score < 100, `Case 13.28 Quality V2 < 100 (got ${score})`);
+  assert(Number.isFinite(score) && score < 100, `Case 13.28 Quality V3 < 100 (got ${score})`);
   assert(sandbox.computeLegacyDwqiScore(readings) === 100, 'Case 13.28 legacy DWQI still 100');
   const elig = sandbox.EligibilityEngine.evaluate({
     reportType: 'production',

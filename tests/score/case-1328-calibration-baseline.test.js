@@ -70,7 +70,10 @@ console.log('\nCase 13.28 — Quality V2 + benchmarks');
 {
   assert(sandbox.computeLegacyDwqiScore(CASE_1328) === 100, 'Legacy DWQI Case 13.28 = 100');
   const quality = sandbox.computeScoreFromReadings(CASE_1328);
-  assert(Number.isFinite(quality) && quality < 100, `Quality V2 Case 13.28 < 100 (got ${quality})`);
+  assert(Number.isFinite(quality) && quality < 100, `Quality V3 Case 13.28 < 100 (got ${quality})`);
+  assert(quality <= 94, `Quality V3 Case 13.28 not overfit (got ${quality})`);
+  assert(quality < 96, `Quality V3 below prior V2 Case A band (got ${quality})`);
+  assert(sandbox.QUALITY_SCORE_ENGINE_VERSION === 'quality-v3.0', 'engine version quality-v3.0');
   const expected = { thailand: 100, who: 100, eu: 100, japan: 100, usEpa: 100 };
   for (const [key, score] of Object.entries(expected)) {
     const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, CASE_1328);

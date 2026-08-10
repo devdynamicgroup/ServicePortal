@@ -305,6 +305,57 @@ function renderStandardSelect(context = getScoreEvalContext()) {
 }
 
 /**
+ * Side-by-side country/reference benchmarks for the same readings.
+ * Does not mutate Quality Score / S.scoreVal.
+ */
+function buildAllBenchmarkComparisons(readings) {
+  const reg = benchmarkRegistry();
+  if (!reg) return [];
+  return orderedStandardsForSelect().map((key) => {
+    const standard = getWaterQualityStandard(key);
+    const result = buildComparisonScoreResult(readings, key);
+    return {
+      key,
+      label: t(standard.shortKey),
+      fullLabel: t(standard.labelKey),
+      score: Number.isFinite(result?.score) ? result.score : null,
+      verdict: result?.verdict || null,
+      selected: key === (S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY)
+    };
+  });
+}
+
+function renderBenchmarkComparisonPanel(showScore, readings) {
+  const panel = document.getElementById('score-benchmark-comparison');
+  const list = document.getElementById('score-benchmark-comparison-list');
+  const note = document.getElementById('score-benchmark-note');
+  if (!panel || !list) return;
+
+  if (!showScore || !readings) {
+    panel.hidden = true;
+    list.innerHTML = '';
+    if (note) note.hidden = true;
+    S.benchmarkComparisonRows = null;
+    return;
+  }
+
+  const rows = buildAllBenchmarkComparisons(readings);
+  S.benchmarkComparisonRows = rows;
+  list.innerHTML = rows.map((row) => {
+    const scoreText = Number.isFinite(row.score) ? String(row.score) : '—';
+    const selectedMark = row.selected
+      ? `<span class="score-benchmark-pill">${t('score.benchmark.selected')}</span>`
+      : '';
+    return `<li class="score-benchmark-comparison-item${row.selected ? ' is-selected' : ''}" data-benchmark="${row.key}">
+      <span class="score-benchmark-comparison-name">${row.label}${selectedMark}</span>
+      <span class="score-benchmark-comparison-score">${scoreText}</span>
+    </li>`;
+  }).join('');
+  panel.hidden = false;
+  if (note) note.hidden = false;
+}
+
+/**
  * Renders the on-screen report from comparisonScoreResult.
  * Does not mutate S.scoreVal / currentScoreResult / backend values.
  */
@@ -475,6 +526,7 @@ function renderScoreDisplay() {
   // Always render improve / all-good from whatever readings are already available.
   renderScoreImprove(context);
   renderScorePhotos(readiness);
+  renderBenchmarkComparisonPanel(showScore, result.readings || S.scoreBaseReadings);
 }
 
 /** Switch comparison standard — recalculates statuses from the same resolved readings. */
@@ -495,8 +547,8 @@ function setScoreReferenceStandard(standardKey) {
     computedScore,
     readings: { ...readings },
     source: 'computed',
-    standardKey: 'quality-v2',
-    engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v2'),
+    standardKey: 'quality-v3',
+    engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v3'),
     paramScores: detail?.params || null,
     complianceStatus: detail?.compliance?.status || null,
     compliance: detail?.compliance || null
@@ -718,11 +770,11 @@ function renderWaterScore(job, options = {}) {
   S.scoreBaseReadings = { ...readings };
   S.currentScoreResult = {
     score: productionScore,
-    standardKey: 'quality-v2',
+    standardKey: 'quality-v3',
     readings: { ...readings },
     source: publicView && Number.isFinite(published) ? 'published' : 'computed',
     computedScore,
-    engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v2'),
+    engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v3'),
     paramScores: detail?.params || null,
     complianceStatus: detail?.compliance?.status || null,
     compliance: detail?.compliance || null
