@@ -105,6 +105,38 @@ console.log('\nCase 4 — Bad measured value (present, out of range): eligible, 
   assert(Number.isFinite(score) && score < 93, `score correctly drops from the bad pH (got ${score}) — Eligibility did not artificially lower it, the formula did`);
 }
 
+console.log('\nCase F — Real measured values retain their existing classification (PASS not broken)');
+{
+  const sandbox = makeSandbox();
+  // Each engine has its own temp.max (EU is stricter at 25 vs 30 elsewhere) —
+  // use a value comfortably within every engine's own limit so this proves
+  // "present + in-range still PASSes", not an accidental threshold trip.
+  const inRangeReadings = { ...FULL_READINGS, temp: 20 };
+  for (const key of COUNTRY_KEYS) {
+    const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, inRangeReadings);
+    assert(result.classifications.temp === 'PASS', `${key}: a present, in-range temp (20) still classifies PASS (got '${result.classifications.temp}')`);
+  }
+  const thaiResult = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', inRangeReadings);
+  assert(thaiResult.classifications.do === 'PASS', `Thailand: a present do value still classifies PASS (got '${thaiResult.classifications.do}')`);
+
+  // Also confirm the pre-existing EU-specific stricter threshold (25°C) is
+  // untouched by this fix — a present-but-out-of-range temp must still WARN,
+  // never NOT_MEASURED (NOT_MEASURED is exclusively for absent data).
+  const euOutOfRange = sandbox.WaterScoreBenchmarkRegistry.calculate('eu', { ...FULL_READINGS, temp: 28 });
+  assert(euOutOfRange.classifications.temp === 'WARNING', `EU: a present but out-of-range temp (28 > 25 max) still WARNs, unaffected by this fix (got '${euOutOfRange.classifications.temp}')`);
+}
+
+console.log('\nCase H — Temp independence: Production Score identical with/without Temp');
+{
+  const sandbox = makeSandbox();
+  const readingsNoTemp = { ...FULL_READINGS };
+  delete readingsNoTemp.temp;
+  const withTempScore = sandbox.computeScoreFromReadings(FULL_READINGS);
+  const withoutTempScore = sandbox.computeScoreFromReadings(readingsNoTemp);
+  assert(withTempScore === 93 && withoutTempScore === 93,
+    `Production Score identical with (${withTempScore}) and without (${withoutTempScore}) Temp present`);
+}
+
 console.log('\nCase 5 — Missing Temp: never silently becomes PASS (the confirmed bug, now fixed)');
 {
   const sandbox = makeSandbox();
