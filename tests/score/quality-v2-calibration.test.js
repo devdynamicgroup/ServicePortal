@@ -165,8 +165,18 @@ console.log('\nMonotonicity — pH / chlorine two-sided');
   const center = q({ ...base, ph: 7.2, chlorine: 0.3 });
   assert(q({ ...base, ph: 6.5 }) < q({ ...base, ph: 7.0 }), 'pH 6.5 < 7.0');
   assert(q({ ...base, ph: 8.5 }) < q({ ...base, ph: 7.8 }), 'pH 8.5 < 7.8');
-  assert(q({ ...base, chlorine: 0.2 }) < center, 'Cl 0.2 < ideal');
-  assert(q({ ...base, chlorine: 0.5 }) < center, 'Cl 0.5 < ideal');
+  // Chlorine 0.2-0.5 mg/L is WHO's cited floor-to-target band (0.2 = minimum
+  // at point of delivery, 0.5 = target after contact time) and is flat by
+  // design, not a distance-from-0.3 curve — see gradeChlorine() and
+  // docs/quality-v3/UNRESOLVED_DECISIONS.md §1. 0.3 is not a more "ideal"
+  // point than 0.2 or 0.5 within this band; asserting otherwise (as this test
+  // did before the chlorine evidence review) encoded an unevidenced
+  // assumption. Assert flatness inside the band and decline just outside it
+  // instead.
+  assert(q({ ...base, chlorine: 0.2 }) === center, 'Cl 0.2 === ideal (flat WHO band, not a distance curve)');
+  assert(q({ ...base, chlorine: 0.5 }) === center, 'Cl 0.5 === ideal (flat WHO band, not a distance curve)');
+  assert(q({ ...base, chlorine: 0.15 }) < center, 'Cl 0.15 < center (below WHO floor, declining)');
+  assert(q({ ...base, chlorine: 0.6 }) < center, 'Cl 0.6 < center (above WHO target band, declining)');
 }
 
 console.log('\nPASS ≠ 100');

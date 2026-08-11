@@ -21,9 +21,17 @@
  * - pH center 7.2 = midpoint of common 6.5–8.5 acceptability band.
  * - TDS Near-Ideal ≤80 aligns under Japan complementary residue preference (30–200)
  *   and well below EPA SMCL 500 / former Prod ≤300 Quality plateau.
- * - Turbidity Near-Ideal ≤0.08: stricter than former ≤1 plateau and under EU plant
- *   operational ref 0.3 NTU (ops ≠ Ideal).
- * - Free Cl center 0.30 = midpoint of former Prod residual 0.2–0.5; Near-Ideal narrowed.
+ * - Turbidity Near-Ideal ≤0.10 NTU: WHO Guidelines for Drinking-water Quality
+ *   states turbidity should ideally be below 0.1 NTU for effective disinfection
+ *   (changed from ≤0.08; see docs/quality-v3/REALITY_FIRST_IMPLEMENTATION_REPORT.md).
+ * - Free Cl: flat 100 across WHO's cited floor-to-target band (0.2-0.5 mg/L),
+ *   continuous ramp below 0.2. Replaces a prior two-branch curve whose
+ *   unchecked overlap produced an undocumented +18pt cliff at 0.08 mg/L — see
+ *   docs/quality-v3/EVIDENCE_BASED_SCORING_AUDIT.md §6. The >0.5 mg/L shape is
+ *   an INTERIM placeholder (reused pre-existing 46-at-1.0/28-at-2.0/floor-8
+ *   anchors, not evidence-derived for this range) pending a product decision
+ *   on what Quality V3 measures — see docs/quality-v3/UNRESOLVED_DECISIONS.md §1
+ *   and the full rationale in gradeChlorine() below. Do not read >0.5 mg/L as approved.
  * - ORP center 400 = midpoint of former operational 200–600 (no external Ideal); NI |Δ|≤25.
  * - DO Near-Ideal ≥8.0; ≥6.0 is Compliance floor (~68), not exceptional.
  *
@@ -64,8 +72,11 @@
   }
 
   function gradeTurbidity(turb) {
-    if (turb <= 0.08) return 100;
-    if (turb <= 0.2) return lerp(turb, 0.08, 100, 0.2, 88);
+    // Near-Ideal 0.10 NTU (WHO: "ideally <0.1 NTU for effective disinfection",
+    // Guidelines for Drinking-water Quality, turbidity fact sheet). Changed
+    // from 0.08 — see docs/quality-v3/REALITY_FIRST_IMPLEMENTATION_REPORT.md.
+    if (turb <= 0.1) return 100;
+    if (turb <= 0.2) return lerp(turb, 0.1, 100, 0.2, 88);
     if (turb <= 0.5) return lerp(turb, 0.2, 88, 0.5, 74);
     if (turb <= 1.0) return lerp(turb, 0.5, 74, 1.0, 60);
     if (turb <= 3.0) return lerp(turb, 1.0, 60, 3.0, 40);
@@ -74,14 +85,30 @@
   }
 
   function gradeChlorine(fcl) {
-    const ideal = 0.3;
-    const d = Math.abs(fcl - ideal);
-    if (d <= 0.025) return 100;
-    if (d <= 0.08) return lerp(d, 0.025, 100, 0.08, 88);
-    if (d <= 0.15) return lerp(d, 0.08, 88, 0.15, 74);
-    if (d <= 0.22) return lerp(d, 0.15, 74, 0.22, 64);
-    if (fcl < 0.1) return clamp(lerp(fcl, 0, 18, 0.1, 58), 8, 58);
-    if (fcl <= 1.0) return lerp(Math.max(fcl, 0.52), 0.52, 64, 1.0, 46);
+    // Flat 100 across WHO's cited floor-to-target band (0.2-0.5 mg/L: 0.2 =
+    // minimum at point of delivery, 0.5 = target after contact time for
+    // effective disinfection) and a continuous ramp below 0.2 toward the
+    // under-disinfection floor. This removes the prior two-branch collision
+    // (a distance-from-0.3 branch plus a separate raw-value branch below 0.1)
+    // that produced an undocumented +18pt cliff at 0.08 mg/L — see
+    // docs/quality-v3/EVIDENCE_BASED_SCORING_AUDIT.md §6. NEITHER of these two
+    // pieces is in dispute.
+    //
+    // INTERIM, NOT FINAL: the shape above 0.5 mg/L is unresolved. WHO's 0.5-1.0
+    // mg/L range is an outbreak-context allowance and its 5.0 mg/L figure is a
+    // health-based (safety) ceiling, not a quality target — using either as a
+    // "quality curve anchor" requires first deciding what Quality V3 is meant
+    // to measure (open since docs/quality-v3/UNRESOLVED_DECISIONS.md §1; see
+    // the chlorine-specific decision table in this thread's history). Pending
+    // that decision, this segment is re-anchored to the same 46-at-1.0 /
+    // 28-at-2.0 / floor-8 values already shipped in production before any
+    // change in this review series (docs/quality-v3/CANDIDATE_SCORING_TABLE.md
+    // predecessor curve) — reused rather than re-derived, and continuous with
+    // the now-uncontested flat band, but explicitly NOT an evidence-backed
+    // choice for this range. Do not read this segment as approved.
+    if (fcl >= 0.2 && fcl <= 0.5) return 100;
+    if (fcl < 0.2) return clamp(lerp(fcl, 0, 5, 0.2, 100), 2, 100);
+    if (fcl <= 1.0) return lerp(fcl, 0.5, 100, 1.0, 46);
     if (fcl <= 2.0) return lerp(fcl, 1.0, 46, 2.0, 28);
     return clamp(28 - (fcl - 2) * 8, 8, 28);
   }
