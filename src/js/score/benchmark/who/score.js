@@ -101,8 +101,10 @@
       // Not Measured must never read as PASS. temp is not part of the WHO
       // scoring formula (zero weight — see weights.js), so this only affects
       // the classification/metadata bucket, never the score.
-      temp: Number.isFinite(Number(readings.temp)) && Number(readings.temp) <= L.temp.max
+      // Use toFin — Number(null)===0 must not become a measured temp.
+      temp: Number.isFinite(toFin(readings.temp)) && toFin(readings.temp) <= L.temp.max
     };
+    const tempVal = toFin(readings.temp);
     const classifications = {
       ph: classify(params.ph, ideal.ph),
       tds: classify(params.tds, ideal.tds),
@@ -110,7 +112,7 @@
       turbidity: classify(params.turbidity, ideal.turbidity),
       orp: classify(params.orp, ideal.orp),
       do: classify(params.do, ideal.do),
-      temp: !Number.isFinite(Number(readings.temp)) ? 'NOT_MEASURED' : (ideal.temp ? 'PASS' : 'WARNING')
+      temp: !Number.isFinite(tempVal) ? 'NOT_MEASURED' : (ideal.temp ? 'PASS' : 'WARNING')
     };
 
     const reasons = [];

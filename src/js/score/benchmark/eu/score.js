@@ -99,9 +99,10 @@
       // Not Measured must never read as PASS. temp is not part of the EU
       // scoring formula (zero weight — see weights.js), so this only affects
       // the classification/metadata bucket, never the score.
-      temp: !Number.isFinite(Number(readings.temp))
+      // Use toFin — Number(null)===0 must not become a measured temp.
+      temp: !Number.isFinite(toFin(readings.temp))
         ? 'NOT_MEASURED'
-        : (Number(readings.temp) <= L.temp.max ? 'PASS' : 'WARNING')
+        : (toFin(readings.temp) <= L.temp.max ? 'PASS' : 'WARNING')
     };
 
     const reasons = [];

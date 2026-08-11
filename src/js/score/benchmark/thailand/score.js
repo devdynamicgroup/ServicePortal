@@ -59,14 +59,22 @@
   }
 
   function statusOf(param, value) {
-    const n = Number(value);
+    // PD-003: DO/Temp are excluded from Thailand scoring — never "good"/PASS.
+    if (param === 'do' || param === 'temp') return 'pending';
+    const toFin = typeof toFiniteReading === 'function'
+      ? toFiniteReading
+      : (v) => {
+        if (v === null || v === undefined || v === '' || v === false) return NaN;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : NaN;
+      };
+    const n = toFin(value);
     if (!Number.isFinite(n)) return 'pending';
     if (param === 'ph') return n >= L.ph.min && n <= L.ph.max ? 'good' : 'attn';
     if (param === 'tds') return n <= L.tds.passMax ? 'good' : 'attn';
     if (param === 'chlorine') return n >= L.chlorine.min && n <= L.chlorine.max ? 'good' : 'attn';
     if (param === 'turbidity') return n <= L.turbidity.passMax ? 'good' : 'attn';
     if (param === 'orp') return n >= L.orp.min && n <= L.orp.max ? 'good' : 'attn';
-    if (param === 'do' || param === 'temp') return 'good';
     return 'good';
   }
 
@@ -109,13 +117,11 @@
       chlorine: classify(params.chlorine, pass.chlorine),
       turbidity: classify(params.turbidity, pass.turbidity),
       orp: classify(params.orp, pass.orp),
-      // Not Measured must never read as PASS. Thailand does not score do/temp
-      // at all (zero weight — see weights.js), so this only affects the
-      // classification/metadata bucket, never the score. Previously these
-      // were hardcoded 'PASS' even when never measured — fixed to reflect
-      // actual presence instead.
-      do: Number.isFinite(Number(readings.do)) ? 'PASS' : 'NOT_MEASURED',
-      temp: Number.isFinite(Number(readings.temp)) ? 'PASS' : 'NOT_MEASURED'
+      // PD-003: DO/Temp are excluded by project design. They must never classify
+      // as PASS/GOOD merely because a value exists (or because Number(null)===0).
+      // NOT_EVALUATED = engine does not score this parameter.
+      do: 'NOT_EVALUATED',
+      temp: 'NOT_EVALUATED'
     };
 
     const reasons = [];

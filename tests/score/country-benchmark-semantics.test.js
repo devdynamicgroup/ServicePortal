@@ -174,5 +174,21 @@ console.log('\nModel integrity — engines untouched numerically');
   }
 }
 
+console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, never PASS');
+{
+  const th = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', BASELINE.readings);
+  assert(th.score === 100, 'TH baseline score unchanged at 100');
+  assert(th.classifications.do === 'NOT_EVALUATED', `TH measured DO → NOT_EVALUATED (got ${th.classifications.do})`);
+  assert(th.classifications.temp === 'NOT_EVALUATED', `TH measured temp → NOT_EVALUATED (got ${th.classifications.temp})`);
+  assert(th.statuses.do !== 'good', 'TH DO status is not good');
+  assert(!(th.passedParameters || []).includes('do'), 'TH DO not in passedParameters');
+  assert(!(th.passedParameters || []).includes('temp'), 'TH temp not in passedParameters');
+
+  const thNullDo = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', { ...BASELINE.readings, do: null, temp: null });
+  assert(thNullDo.score === 100, 'TH score unchanged with null DO/temp');
+  assert(thNullDo.classifications.do === 'NOT_EVALUATED', 'TH null DO → NOT_EVALUATED (not PASS via Number(null)===0)');
+  assert(thNullDo.classifications.temp === 'NOT_EVALUATED', 'TH null temp → NOT_EVALUATED');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

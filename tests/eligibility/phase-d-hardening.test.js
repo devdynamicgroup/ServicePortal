@@ -117,13 +117,13 @@ console.log('\nCase F — Real measured values retain their existing classificat
   // use a value comfortably within every engine's own limit so this proves
   // "present + in-range still PASSes", not an accidental threshold trip.
   const inRangeReadings = { ...FULL_READINGS, temp: 20 };
-  for (const key of COUNTRY_KEYS) {
+  const thaiResult = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', inRangeReadings);
+  assert(thaiResult.classifications.do === 'NOT_EVALUATED', `Thailand: present do is NOT_EVALUATED (excluded by PD-003), never PASS (got '${thaiResult.classifications.do}')`);
+  assert(thaiResult.classifications.temp === 'NOT_EVALUATED', `Thailand: present temp is NOT_EVALUATED (excluded), never PASS (got '${thaiResult.classifications.temp}')`);
+  for (const key of COUNTRY_KEYS.filter((k) => k !== 'thailand')) {
     const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, inRangeReadings);
     assert(result.classifications.temp === 'PASS', `${key}: a present, in-range temp (20) still classifies PASS (got '${result.classifications.temp}')`);
   }
-  const thaiResult = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', inRangeReadings);
-  assert(thaiResult.classifications.do === 'PASS', `Thailand: a present do value still classifies PASS (got '${thaiResult.classifications.do}')`);
-
   // Also confirm the pre-existing EU-specific stricter threshold (25°C) is
   // untouched by this fix — a present-but-out-of-range temp must still WARN,
   // never NOT_MEASURED (NOT_MEASURED is exclusively for absent data).
@@ -156,16 +156,22 @@ console.log('\nCase 5 — Missing Temp: never silently becomes PASS (the confirm
     const withTemp = sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS);
     const withoutTemp = sandbox.WaterScoreBenchmarkRegistry.calculate(key, readingsNoTemp);
     assert(withoutTemp.classifications.temp !== 'PASS', `${key}: missing temp is never classified PASS (got '${withoutTemp.classifications.temp}')`);
-    assert(withoutTemp.classifications.temp === 'NOT_MEASURED', `${key}: missing temp is explicitly NOT_MEASURED`);
+    if (key === 'thailand') {
+      assert(withoutTemp.classifications.temp === 'NOT_EVALUATED', 'Thailand: temp is NOT_EVALUATED (excluded), whether measured or missing');
+    } else {
+      assert(withoutTemp.classifications.temp === 'NOT_MEASURED', `${key}: missing temp is explicitly NOT_MEASURED`);
+    }
     assert(withoutTemp.score === withTemp.score, `${key}: score is identical with/without temp (temp carries zero weight) — got ${withoutTemp.score} vs ${withTemp.score}`);
   }
-  // Thailand additionally had `do` hardcoded to 'PASS' regardless of presence.
+  // Thailand DO: excluded by PD-003 — NEVER PASS; always NOT_EVALUATED
   const thaiWithDo = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', FULL_READINGS);
   const readingsNoDo = { ...FULL_READINGS };
   delete readingsNoDo.do;
   const thaiNoDo = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', readingsNoDo);
-  assert(thaiNoDo.classifications.do === 'NOT_MEASURED', 'Thailand: missing do is NOT_MEASURED, not the old hardcoded PASS');
+  assert(thaiWithDo.classifications.do === 'NOT_EVALUATED', 'Thailand: measured do is NOT_EVALUATED, never PASS');
+  assert(thaiNoDo.classifications.do === 'NOT_EVALUATED', 'Thailand: missing do is NOT_EVALUATED (excluded), not PASS');
   assert(thaiNoDo.score === thaiWithDo.score, 'Thailand: score unaffected by do presence (Thailand does not score do)');
+  assert(!(thaiWithDo.passedParameters || []).includes('do'), 'Thailand: do must not appear in passedParameters');
 }
 
 console.log('\nCase 6 — Explicit zero is Measured, never confused with missing');

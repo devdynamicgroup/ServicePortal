@@ -917,13 +917,20 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   const stdLabel = (text) => (text === 'Not specified' ? t('score.std.notSpecified') : text);
   const fmt = (n, digits, suffix = '') => (Number.isFinite(n) ? n.toFixed(digits) + suffix : '—');
   const fmtInt = (n, suffix = '') => (Number.isFinite(n) ? Math.round(n) + suffix : '—');
-  const ph = Number(readings.ph);
-  const tds = Number(readings.tds);
-  const chlorine = Number(readings.chlorine);
-  const turbidity = Number(readings.turbidity);
-  const orp = Number(readings.orp);
-  const doVal = Number(readings.do);
-  const temp = Number(readings.temp);
+  const toFin = typeof toFiniteReading === 'function'
+    ? toFiniteReading
+    : (v) => {
+      if (v === null || v === undefined || v === '' || v === false) return NaN;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : NaN;
+    };
+  const ph = toFin(readings.ph);
+  const tds = toFin(readings.tds);
+  const chlorine = toFin(readings.chlorine);
+  const turbidity = toFin(readings.turbidity);
+  const orp = toFin(readings.orp);
+  const doVal = toFin(readings.do);
+  const temp = toFin(readings.temp);
   return [
     { p: 'pH', r: fmt(ph, 1), std: stdLabel(display.ph), st: evaluateParamStatus('ph', ph, standardKey) },
     { p: 'TDS', r: fmtInt(tds, ' mg/L'), std: stdLabel(display.tds), st: evaluateParamStatus('tds', tds, standardKey) },

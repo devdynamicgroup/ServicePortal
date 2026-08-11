@@ -10,12 +10,19 @@
  * Missing keys stay missing — do not substitute demo/example numbers.
  */
 function computeLegacyDwqiScore(readings) {
-  const ph = Number(readings.ph);
-  const tds = Number(readings.tds);
-  const turb = Number(readings.turbidity);
-  const orp = Number(readings.orp);
-  const fcl = Number(readings.chlorine);
-  const do_ = Number(readings.do);
+  const toFin = typeof toFiniteReading === 'function'
+    ? toFiniteReading
+    : (v) => {
+      if (v === null || v === undefined || v === '' || v === false) return NaN;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : NaN;
+    };
+  const ph = toFin(readings.ph);
+  const tds = toFin(readings.tds);
+  const turb = toFin(readings.turbidity);
+  const orp = toFin(readings.orp);
+  const fcl = toFin(readings.chlorine);
+  const do_ = toFin(readings.do);
   console.log('LEGACY DWQI PARAMETER VALUES', { ph, tds, turbidity: turb, orp, chlorine: fcl, do: do_ });
   if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
     console.log('LEGACY DWQI SCORE skipped — incomplete readings');

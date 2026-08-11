@@ -100,8 +100,10 @@
       // Not Measured must never read as PASS. temp is not part of the US EPA
       // scoring formula (zero weight — see weights.js), so this only affects
       // the classification/metadata bucket, never the score.
-      temp: Number.isFinite(Number(readings.temp)) && Number(readings.temp) <= L.temp.max
+      // Use toFin — Number(null)===0 must not become a measured temp.
+      temp: Number.isFinite(toFin(readings.temp)) && toFin(readings.temp) <= L.temp.max
     };
+    const tempVal = toFin(readings.temp);
     const classifications = {
       ph: classify(params.ph, pass.ph, false),
       tds: classify(params.tds, pass.tds, false),
@@ -109,7 +111,7 @@
       turbidity: classify(params.turbidity, pass.turbidity, true),
       orp: classify(params.orp, pass.orp, false),
       do: classify(params.do, pass.do, false),
-      temp: !Number.isFinite(Number(readings.temp)) ? 'NOT_MEASURED' : (pass.temp ? 'PASS' : 'WARNING')
+      temp: !Number.isFinite(tempVal) ? 'NOT_MEASURED' : (pass.temp ? 'PASS' : 'WARNING')
     };
 
     const reasons = [];
