@@ -73,24 +73,39 @@ function bench(key, readings) {
   return sandbox.WaterScoreBenchmarkRegistry.calculate(key, readings);
 }
 
-console.log('\nGovernance — PD-005 / PD-001 DECIDED A; PD-002/003/004 OPEN pending PO');
+console.log('\nGovernance — all five PDs DECIDED A');
 {
   assert(/PD-005[\s\S]*?\*\*Status:\*\* DECIDED/.test(decisionDoc), 'PD-005 Status DECIDED');
   assert(/PD-001[\s\S]*?\*\*Status:\*\* DECIDED/.test(decisionDoc), 'PD-001 Status DECIDED');
   assert(decisionDoc.includes('FORBID MAGNITUDE RANKING'), 'PD-005 Decision A recorded');
   assert(decisionDoc.includes('PASS-BAND') || decisionDoc.includes('pass-band'), 'PD-001 Decision A recorded');
-  assert(decisionDoc.includes('User instruction / Product Owner instruction'), 'Approver is instruction record (not invented person name)');
+
+  const pd002decisions = ['KEEP AS EXPLICIT PROJECT HARD GATE', 'UNSUPPORTED ANCHOR'];
+  const pd003decisions = ['KEEP DO EXCLUDED AS PROJECT DESIGN'];
+  const pd004decisions = ['KEEP AS SHARED OPERATIONAL / PROJECT BAND'];
 
   for (const id of ['002', '003', '004']) {
     const block = decisionDoc.match(new RegExp(`## PD-${id}:[\\s\\S]*?(?=\\n## |$)`));
     assert(block, `PD-${id} record exists`);
     const text = block[0];
-    assert(/\*\*Status:\*\* OPEN/.test(text), `PD-${id} Status OPEN`);
-    assert(/\*\*Decision:\*\* —/.test(text), `PD-${id} Decision unset`);
+    assert(/\*\*Status:\*\* DECIDED/.test(text), `PD-${id} Status DECIDED`);
     assert(/\*\*Recommendation:\*\* A/.test(text), `PD-${id} Recommendation A`);
-    assert(/\*\*PO Approval:\*\* PENDING/.test(text), `PD-${id} PO Approval PENDING`);
-    assert(!/\*\*Status:\*\* DECIDED/.test(text), `PD-${id} must not be DECIDED`);
+    assert(/\*\*PO Approval:\*\* APPROVED/.test(text), `PD-${id} PO Approval APPROVED`);
+    assert(/\*\*Approved by:\*\* Product Owner/.test(text), `PD-${id} Approved by Product Owner`);
+    assert(/\*\*Date:\*\* 2026-08-11/.test(text), `PD-${id} Date recorded`);
   }
+
+  const pd002block = decisionDoc.match(/## PD-002:[\s\S]*?(?=\n## |$)/)[0];
+  for (const phrase of pd002decisions) assert(pd002block.includes(phrase), `PD-002 contains "${phrase}"`);
+  assert(pd002block.includes('NOT an EU Directive score'), 'PD-002 preserves EU non-regulatory claim');
+
+  const pd003block = decisionDoc.match(/## PD-003:[\s\S]*?(?=\n## |$)/)[0];
+  for (const phrase of pd003decisions) assert(pd003block.includes(phrase), `PD-003 contains "${phrase}"`);
+  assert(pd003block.includes('NOT prove that Thai law'), 'PD-003 preserves conservative legal wording');
+
+  const pd004block = decisionDoc.match(/## PD-004:[\s\S]*?(?=\n## |$)/)[0];
+  for (const phrase of pd004decisions) assert(pd004block.includes(phrase), `PD-004 contains "${phrase}"`);
+  assert(pd004block.includes('NOT five independent national'), 'PD-004 preserves shared-band framing');
 }
 
 console.log('\nBaseline replay — scoring math frozen');

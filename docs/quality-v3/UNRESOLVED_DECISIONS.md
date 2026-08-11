@@ -51,8 +51,7 @@ Semantics:       Clarified (Country Benchmark = country-specific
                  NOT official regulatory score, NOT cross-country ranking)
 Model:           FROZEN
 Score:           FROZEN
-Evidence tracks: OPEN — workshop records prepared; PO approval pending
-                 (PD-002 / PD-003 / PD-004)
+Evidence tracks: DECIDED A — all five PDs approved (PD-001–PD-005)
 ```
 
 **Synthetic baseline (construction output only — NOT a calibration target):**
@@ -73,8 +72,7 @@ HEAD: Quality V3=76 · TH=100 · JP=100 · WHO=95 · EU=65 · EPA=99
 
 1. **PD-005** — Cross-country ranking policy — **DECIDED A**
 2. **PD-001** — Verdict semantics for comparison score — **DECIDED A**
-3. **PD-002 / PD-003 / PD-004** — Workshop prepared; **OPEN** pending PO sign-off
-   (recommended **A** each; recommendation ≠ approval)
+3. **PD-002 / PD-003 / PD-004** — **DECIDED A** (Product Owner, 2026-08-11)
 
 **Verified root-cause position (summary):** Pipeline/arithmetic are **not** the
 problem. Issues are semantic / construction (different engine semantics,
@@ -318,13 +316,13 @@ ranking; PD-001 ensures a single-engine view does not overclaim quality.
 
 ## PD-002: EU chlorine hard-gate anchor
 
-- **Status:** OPEN
-- **Decision:** —
+- **Status:** DECIDED
+- **Decision:** A — KEEP AS EXPLICIT PROJECT HARD GATE (UNSUPPORTED ANCHOR)
 - **Recommendation:** A
 - **Owner:** Product
-- **PO Approval:** PENDING
-- **Approved by:** —
-- **Date:** —
+- **PO Approval:** APPROVED
+- **Approved by:** Product Owner
+- **Date:** 2026-08-11
 
 **Do not merge** into PD-005 / PD-001 (already DECIDED).
 
@@ -421,28 +419,26 @@ no formula/threshold change
 
 Baseline regression reference unchanged: `76 / 100 / 100 / 95 / 65 / 99`.
 
-### Sign-off
+### PO DECISION
 
-```text
-PD-002 Decision: A | B | C
-Approved by: [name]
-Date: [YYYY-MM-DD]
-Notes: [optional]
-```
-
-*(Fields intentionally blank — PO sign-off pending.)*
+- **Status:** DECIDED
+- **Decision:** A — KEEP AS EXPLICIT PROJECT HARD GATE (UNSUPPORTED ANCHOR)
+- **Decision meaning:** EU `gateCapOnChlorineFail = 65` is retained as a project hard-gate outcome. 65 is NOT an EU Directive score. 65 remains classified as UNSUPPORTED ANCHOR. No numeric, threshold, weight, or model change.
+- **Approved by:** Product Owner
+- **Date:** 2026-08-11
+- **Notes:** Documentation/semantic framing only. No model change required or authorized.
 
 ---
 
 ## PD-003: Thailand DO treatment
 
-- **Status:** OPEN
-- **Decision:** —
+- **Status:** DECIDED
+- **Decision:** A — KEEP DO EXCLUDED AS PROJECT DESIGN
 - **Recommendation:** A
 - **Owner:** Product
-- **PO Approval:** PENDING
-- **Approved by:** —
-- **Date:** —
+- **PO Approval:** APPROVED
+- **Approved by:** Product Owner
+- **Date:** 2026-08-11
 
 **Do not merge** into PD-005 / PD-001 (already DECIDED).
 
@@ -548,28 +544,26 @@ no claim that Thai law explicitly excludes DO
 
 Baseline regression reference unchanged: `76 / 100 / 100 / 95 / 65 / 99`.
 
-### Sign-off
+### PO DECISION
 
-```text
-PD-003 Decision: A | B | C
-Approved by: [name]
-Date: [YYYY-MM-DD]
-Notes: [optional]
-```
-
-*(Fields intentionally blank — PO sign-off pending.)*
+- **Status:** DECIDED
+- **Decision:** A — KEEP DO EXCLUDED AS PROJECT DESIGN
+- **Decision meaning:** Thailand Country Benchmark continues to exclude DO. DO exclusion is project design. This does NOT prove that Thai law explicitly excludes DO. No model, numeric, or threshold change.
+- **Approved by:** Product Owner
+- **Date:** 2026-08-11
+- **Notes:** Documentation/semantic framing only. No model change required or authorized.
 
 ---
 
 ## PD-004: ORP role in country benchmark
 
-- **Status:** OPEN
-- **Decision:** —
+- **Status:** DECIDED
+- **Decision:** A — KEEP AS SHARED OPERATIONAL / PROJECT BAND
 - **Recommendation:** A
 - **Owner:** Product
-- **PO Approval:** PENDING
-- **Approved by:** —
-- **Date:** —
+- **PO Approval:** APPROVED
+- **Approved by:** Product Owner
+- **Date:** 2026-08-11
 
 **Do not merge** into PD-005 / PD-001 (already DECIDED).
 
@@ -659,16 +653,14 @@ no country-specific standard claim
 
 Baseline regression reference unchanged: `76 / 100 / 100 / 95 / 65 / 99`.
 
-### Sign-off
+### PO DECISION
 
-```text
-PD-004 Decision: A | B | C
-Approved by: [name]
-Date: [YYYY-MM-DD]
-Notes: [optional]
-```
-
-*(Fields intentionally blank — PO sign-off pending.)*
+- **Status:** DECIDED
+- **Decision:** A — KEEP AS SHARED OPERATIONAL / PROJECT BAND
+- **Decision meaning:** ORP 200–600 is retained as a shared operational/project band. It is NOT five independent national drinking-water standards. No country-specific ORP bands created. No numeric, threshold, weight, or model change.
+- **Approved by:** Product Owner
+- **Date:** 2026-08-11
+- **Notes:** Documentation/semantic framing only. No model change required or authorized.
 
 ---
 
@@ -679,7 +671,7 @@ Notes: [optional]
 | No PO sign-off | Docs / workshop records only | Any `src/**` score/engine/threshold/weight/gate/ORP/DO change |
 | PD-005 DECIDED A | Policy / UX / docs / anti-ranking tests | MODEL/SCORE still frozen |
 | PD-001 DECIDED A | Verdict semantics (copy/metadata as scoped) | Scoring math change |
-| PD-002/003/004 OPEN | Recommendations recorded; PO may sign | Gate/DO/ORP numeric changes; auto-DECIDED from recommendation |
+| PD-002/003/004 DECIDED A | Docs/semantic framing only | Gate/DO/ORP numeric changes (none required for A) |
 | PD-002/003/004 DECIDED A | Docs/semantic framing only | Model/score change (none required for A) |
 | PD-002/003/004 DECIDED B or C | Separate implementation task only | Same-pass engine edits |
 
@@ -698,9 +690,9 @@ scores.** Do not create artificial differentiation for UI cosmetics.
 ```text
 PD-005 = DECIDED — A (FORBID MAGNITUDE RANKING)
 PD-001 = DECIDED — A (PASS-BAND / COMPARISON-PASS LANGUAGE)
-PD-002 = OPEN — Recommendation A — PO Approval PENDING
-PD-003 = OPEN — Recommendation A — PO Approval PENDING
-PD-004 = OPEN — Recommendation A — PO Approval PENDING
+PD-002 = DECIDED — A (KEEP EU GATE 65 AS PROJECT HARD GATE / UNSUPPORTED ANCHOR)
+PD-003 = DECIDED — A (KEEP THAILAND DO EXCLUDED AS PROJECT DESIGN)
+PD-004 = DECIDED — A (KEEP ORP 200–600 AS SHARED OPERATIONAL / PROJECT BAND)
 
 MODEL = FROZEN
 SCORE = FROZEN
@@ -708,9 +700,7 @@ BASELINE = UNCHANGED (76 / 100 / 100 / 95 / 65 / 99)
 ```
 
 ```text
-PRODUCT DECISIONS PREPARED
-RECOMMENDATIONS RECORDED (A each — NOT approval)
-PO APPROVAL PENDING
+ALL FIVE PRODUCT DECISIONS DECIDED A
 MODEL FROZEN
 SCORE FROZEN
 ```
@@ -720,8 +710,7 @@ SCORE FROZEN
 ## STOP
 
 ```text
-PD-005 / PD-001 DECIDED — presentation/policy implementation only
-PD-002 / PD-003 / PD-004 WORKSHOP RECORDS PREPARED — OPEN PENDING PO
+PD-001 / PD-002 / PD-003 / PD-004 / PD-005 — ALL DECIDED A
 MODEL FROZEN
 SCORE FROZEN
 NO NUMERIC TUNING
