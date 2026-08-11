@@ -23,6 +23,19 @@ since Case 1328 supplies all six readings simultaneously.
 | Chlorine (free) | 0.30 | 0.025/0.08/0.15/0.22 + raw-value branches below 0.1 and up to 2.0 | "midpoint of former Prod residual 0.2–0.5" | `PRODUCT_DECISION` (derived from a prior internal constant) | No | 1 | 0 | 1 | 0 | 0 | LOW | Structurally the most complex curve (mixed distance + raw-value branches); no documented rationale for branch boundaries |
 | DO | ≥8.0 | 7.2/6.5/6.0/5.0/3.0, no upper bound in this file | "Near-Ideal ≥8.0; ≥6.0 is Compliance floor (~68), not exceptional" | `EXPERT_DECISION` | No | 1 | 0 | 1 | 0 | 0 | LOW | Ideal value 8.0 undocumented beyond this comment; physical upper-bound handling lives in the input-validation layer, not this file |
 
+## Correction — comment math errors found in `EVIDENCE_BASED_SCORING_AUDIT.md`
+
+The pH and Chlorine rows above cite the source code's own comments
+("midpoint of common 6.5–8.5 acceptability band" for pH; "midpoint of
+former Prod residual 0.2–0.5" for Chlorine) as the stated rationale for
+their centers (7.2 and 0.30). A later audit found **both midpoint claims
+are numerically wrong**: the actual midpoint of 6.5–8.5 is 7.5, not 7.2;
+the actual midpoint of 0.2–0.5 is 0.35, not 0.30. This does not change
+either row's `Confidence` (already `LOW`) or `Source_type`, but it means
+even the prose rationale recorded here should not be read as a verified
+derivation — see `EVIDENCE_BASED_SCORING_AUDIT.md` §Step 6 for the full
+finding.
+
 ## Reading this table correctly
 
 - **1 real sample everywhere** means exactly that — every "real samples"

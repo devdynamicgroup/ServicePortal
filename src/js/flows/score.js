@@ -339,19 +339,23 @@ function renderScoreDisplay() {
     : (eligibility
       ? Boolean(eligibility.canCalculateScore)
       : canDisplayScoreNumber(readiness, S.activeJob));
-  // Summary number is Quality Score V2 (near-ideal model), never the selected
-  // Benchmark comparison. Benchmark remains comparison-only (findings/status).
+  // Summary number tracks the selected Country Benchmark comparison (the
+  // engine-computed score for S.scoreStandardKey via buildComparisonScoreResult
+  // -> WaterScoreBenchmarkRegistry.calculate) so switching countries changes
+  // the Hero. Quality V3 (computedWho/publishedScore) remains the fallback
+  // when no comparison score is available yet, unchanged from prior behavior.
   const computedWho = S.currentScoreResult?.computedScore;
   const comparisonScore = result.score;
   const publishedScore = S.currentScoreResult?.score;
   // Public report page has no live readings to recompute from — it must fall
   // back to the already-published score instead of showing NaN.
-  // Field hero shows Quality Score so Thailand Benchmark 100 ≠ "perfect water".
   const wq = S.publicScoreView && Number.isFinite(publishedScore)
     ? publishedScore
-    : Number.isFinite(computedWho)
-      ? computedWho
-      : (Number.isFinite(publishedScore) ? publishedScore : NaN);
+    : Number.isFinite(comparisonScore)
+      ? comparisonScore
+      : Number.isFinite(computedWho)
+        ? computedWho
+        : (Number.isFinite(publishedScore) ? publishedScore : NaN);
   console.log('RENDER SCORE DISPLAY', {
     score: wq,
     qualityScore: computedWho,

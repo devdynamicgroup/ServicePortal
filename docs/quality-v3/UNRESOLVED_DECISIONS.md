@@ -45,6 +45,53 @@ product/UX choice, evidence per `CALIBRATION_WORKFLOW.md` — a change to
 aggregation is a model-parameter change like any other and falls under the
 same calibration/validation/holdout discipline.
 
+**Candidate Product Definition — Status: CANDIDATE, NOT APPROVED**
+
+```
+Quality Score = คุณภาพน้ำในสภาวะปกติ (Normal Drinking Water Quality)
+                โดยแยกออกจาก Compliance, Outbreak Context, และ
+                Health/Safety Ceiling
+```
+
+Proposed during the Chlorine >0.5 mg/L review (case study below) as a
+candidate answer to this section's central open question. **Not selected,
+not implemented, not to be treated as decided.** If approved in a future
+session, it would directly resolve the Chlorine >0.5 mg/L placeholder
+below (by ruling out using outbreak-allowance or health-ceiling values as
+quality-curve anchors) and would narrow candidates A-E above toward
+whichever one best represents "distance from normal-condition ideal"
+specifically, excluding safety-signal framings (C, and part of D).
+Anyone opening this document should read this as: *this is where the
+thinking currently stands, not what was decided.*
+
+**Chlorine >0.5 mg/L case study (concrete instance of this same open
+question):** an implementation pass proposed anchoring the Quality V3
+chlorine curve's upper ramp to WHO's 5.0 mg/L health-based ceiling. This
+was reviewed against a 3-option evidence-context decision table (Normal
+Drinking Water / Outbreak Context / Health-Based Ceiling, kept separate)
+and rejected — it answers "is this safe" (a ceiling question) while being
+used to answer "is this good quality" (a target question), inflating
+scores for outbreak-context-only concentrations under normal conditions.
+No replacement was approved; production currently carries an interim,
+explicitly-labeled-as-unapproved placeholder for this range (see
+`FINAL_SCORING_IMPLEMENTATION_REPORT.md` status update). **This is the
+same unresolved question as this section, seen through one parameter** —
+resolving §1 in general would resolve this specific case too, and vice
+versa a decision here should be checked for consistency with whatever §1
+eventually decides.
+
+**Empirical update:** `DECISION_MATRIX.md` ("New finding 1") computed what
+Case A (`CASE-1328`) and Case B (`SYNTHETIC-CASE-B`) would score under
+geometric mean, harmonic mean, and a minimum-weighted blend, using the
+existing parameter grades — no curve was changed to produce these numbers.
+Result: geometric/harmonic mean move Case A by under 1 point (91.64 →
+91.17 / 90.65) — candidate `E` as commonly understood ("nonlinear
+aggregation") does not by itself address the single-weak-parameter dilution
+this section describes. Only a minimum-weighted blend produces a material
+shift, and that blend's weighting factor has no evidence behind it either.
+This doesn't resolve the decision — it narrows what "candidate E" can
+mean if chosen.
+
 ## 2. Customer-facing Quality vs. Safety language
 
 `src/js/i18n.js` currently binds language directly to the Quality V3
