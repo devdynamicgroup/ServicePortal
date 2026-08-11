@@ -134,12 +134,13 @@
   }
 
   function evaluateCompliance(readings) {
-    const ph = Number(readings.ph);
-    const tds = Number(readings.tds);
-    const turb = Number(readings.turbidity);
-    const orp = Number(readings.orp);
-    const fcl = Number(readings.chlorine);
-    const do_ = Number(readings.do);
+    const toFin = typeof toFiniteReading === 'function' ? toFiniteReading : (v) => { if (v === null || v === undefined || v === '' || v === false) return NaN; const n = Number(v); return Number.isFinite(n) ? n : NaN; };
+    const ph = toFin(readings.ph);
+    const tds = toFin(readings.tds);
+    const turb = toFin(readings.turbidity);
+    const orp = toFin(readings.orp);
+    const fcl = toFin(readings.chlorine);
+    const do_ = toFin(readings.do);
 
     const checks = {
       ph: ph >= 6.5 && ph <= 8.5,
@@ -172,12 +173,13 @@
   }
 
   function computeQualityScoreDetail(readings) {
-    const ph = Number(readings.ph);
-    const tds = Number(readings.tds);
-    const turb = Number(readings.turbidity);
-    const orp = Number(readings.orp);
-    const fcl = Number(readings.chlorine);
-    const do_ = Number(readings.do);
+    const toFin = typeof toFiniteReading === 'function' ? toFiniteReading : (v) => { if (v === null || v === undefined || v === '' || v === false) return NaN; const n = Number(v); return Number.isFinite(n) ? n : NaN; };
+    const ph = toFin(readings.ph);
+    const tds = toFin(readings.tds);
+    const turb = toFin(readings.turbidity);
+    const orp = toFin(readings.orp);
+    const fcl = toFin(readings.chlorine);
+    const do_ = toFin(readings.do);
 
     if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
       return {

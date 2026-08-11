@@ -71,11 +71,12 @@
   }
 
   function calculate(readings) {
-    const ph = Number(readings.ph);
-    const tds = Number(readings.tds);
-    const turb = Number(readings.turbidity);
-    const orp = Number(readings.orp);
-    const cl = Number(readings.chlorine);
+    const toFin = typeof toFiniteReading === 'function' ? toFiniteReading : (v) => { if (v === null || v === undefined || v === '' || v === false) return NaN; const n = Number(v); return Number.isFinite(n) ? n : NaN; };
+    const ph = toFin(readings.ph);
+    const tds = toFin(readings.tds);
+    const turb = toFin(readings.turbidity);
+    const orp = toFin(readings.orp);
+    const cl = toFin(readings.chlorine);
     if (![ph, tds, turb, orp, cl].every(Number.isFinite)) {
       return incomplete('Thailand', 'thailand', { readings, engineVersion: 'v1.0', standardRevision: 'Thailand Drinking Water Standard 2024' });
     }
