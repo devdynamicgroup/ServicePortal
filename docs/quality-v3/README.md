@@ -11,7 +11,8 @@ has zero dependency on any scoring engine — see the accompanying test suite).
 
 ## Contents
 
-- [`evidence-registry.json`](evidence-registry.json) — machine-readable record of every known measurement sample (real or synthetic) and what it has/hasn't been used for.
+- [`evidence-registry/`](evidence-registry/) — **constant/clause** evidence registry (red-flag hunt baseline for Product Decision). Machine-readable [`constants.json`](evidence-registry/constants.json). Model remains frozen; `NO CITATION` is an explicit status, not a blank.
+- [`evidence-registry.json`](evidence-registry.json) — machine-readable record of every known **measurement sample** (real or synthetic) and what it has/hasn't been used for. Distinct from constant/clause registry above.
 - [`CASE_1328_RECLASSIFICATION.md`](CASE_1328_RECLASSIFICATION.md) — why Case 1328 is calibration data, not validation evidence, and cannot become holdout evidence.
 - [`MODEL_PROVENANCE.md`](MODEL_PROVENANCE.md) — the authoritative record of what evidence Quality V3 `quality-v3.0` currently rests on.
 - [`PARAMETER_EVIDENCE_MATRIX.md`](PARAMETER_EVIDENCE_MATRIX.md) — per-parameter (pH/TDS/turbidity/ORP/chlorine/DO) evidence classification.
