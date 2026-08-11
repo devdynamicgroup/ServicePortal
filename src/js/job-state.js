@@ -82,7 +82,13 @@ function restoreActiveCaseFromPersistence() {
   const job = findJobByCaseRef(ref, JOBS);
   if (!job) return null;
   S.activeJob = job;
-  focusCalendarOnJobDate(job);
+  // Only pull the calendar off today for a Case the operator is genuinely
+  // mid-assessment on. Otherwise a stale ref (e.g. a Case merely opened once,
+  // days ago) would silently strand a fresh page load on an old date instead
+  // of today — see the 2026-08-10/11 production incident this guard fixes.
+  if (job.status === 'in_progress') {
+    focusCalendarOnJobDate(job);
+  }
   return job;
 }
 
