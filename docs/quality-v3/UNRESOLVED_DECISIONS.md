@@ -1,131 +1,732 @@
-# Quality V3 — Unresolved Decisions
+# Quality V3 — Product Decision Log
 
-Explicitly recorded so no future engineer "fixes" either of these through
-an ad-hoc code change. Both require a product decision (and, for the
-safety model, evidence per `CALIBRATION_WORKFLOW.md`) before any
-implementation. **Nothing below is selected or implemented by this
-document.**
+```text
+Layer:
+EVIDENCE → SEMANTICS → PRODUCT DECISION → MODEL → SCORE
 
-## 1. Quality index vs. safety signal
+Current layer: PRODUCT DECISION
+
+Model status: FROZEN
+Score status: FROZEN
+```
+
+**Nothing below is selected or implemented unless Status = `DECIDED` with an
+explicit Product Owner sign-off in that record.**
+
+```text
+Architect recommendation ≠ Product Owner approval
+Product recommendation ≠ Product Owner approval
+Audit finding ≠ Product Owner decision
+```
+
+Related semantic contract (documentation of clarified semantics — **not** PO
+approval): `COUNTRY_BENCHMARK_SEMANTIC_CONTRACT.md`
+
+---
+
+## Decision status policy
+
+| Status | Meaning |
+| --- | --- |
+| **OPEN** | Recommendation may exist; Product Owner has **not** approved. |
+| **DECIDED** | Explicit PO sign-off exists in the PO SIGN-OFF block. |
+| **DEFERRED** | Intentionally postponed pending evidence or another decision. |
+| **IMPLEMENTED** | Implementation completed **after** `DECIDED` (not used until then). |
+
+**Rules:**
+
+- Do **not** mark `DECIDED` without explicit Product Owner approval.
+- Do **not** invent Approved by / Date / Decision fields.
+- Do **not** convert architect or facilitator recommendations into approval.
+- **PD approval does not automatically authorize model changes.**
+  Model changes require a separate implementation / evidence gate.
+
+---
+
+## Governance context
+
+```text
+Semantics:       Clarified (Country Benchmark = country-specific
+                 compliance / benchmark signal — NOT universal quality,
+                 NOT official regulatory score, NOT cross-country ranking)
+Model:           FROZEN
+Score:           FROZEN
+Evidence tracks: OPEN — workshop records prepared; PO approval pending
+                 (PD-002 / PD-003 / PD-004)
+```
+
+**Synthetic baseline (construction output only — NOT a calibration target):**
+
+```text
+readings: { ph:7.85, tds:175, turbidity:0.42, orp:515, do:5.30, chlorine:0.70, temp:25 }
+HEAD: Quality V3=76 · TH=100 · JP=100 · WHO=95 · EU=65 · EPA=99
+```
+
+| Valid for | Not valid for |
+| --- | --- |
+| Regression replay | Calibration target |
+| Behavior verification | Desired output / ranking target |
+| Semantic audit | Justification for thresholds / weights / EU 65 |
+| Detecting unintended score changes | Tuning for visual spread |
+
+**Decision queue (priority):**
+
+1. **PD-005** — Cross-country ranking policy — **DECIDED A**
+2. **PD-001** — Verdict semantics for comparison score — **DECIDED A**
+3. **PD-002 / PD-003 / PD-004** — Workshop prepared; **OPEN** pending PO sign-off
+   (recommended **A** each; recommendation ≠ approval)
+
+**Verified root-cause position (summary):** Pipeline/arithmetic are **not** the
+problem. Issues are semantic / construction (different engine semantics,
+flat-100, EU gate unsupported anchor, TH DO exclusion by design, shared ORP,
+weights without sufficient evidence). Magnitude ranking across countries is
+not currently valid.
+
+---
+
+## Impact matrix
+
+| Decision | UI | i18n | Metadata | Model | Score | Evidence | Product approval |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **PD-005** | possible | possible | possible | **NONE** | **NONE** | NO (policy) | **REQUIRED** |
+| **PD-001** | yes | yes | possible | **NONE** | **NONE** | NO (UX semantics) | **REQUIRED** |
+| **PD-002** | possible | possible | possible | **YES** (if changed) | **YES** | YES / product rationale | **REQUIRED** |
+| **PD-003** | possible | possible | possible | **YES** | **YES** | YES | **REQUIRED** |
+| **PD-004** | possible | possible | possible | **YES** | **YES** | YES | **REQUIRED** |
+
+```text
+PD approval does not automatically authorize model changes.
+```
+
+---
+
+## Prior open items (Quality V3 — preserved)
+
+The following predate the Country Benchmark PD series. They remain open and
+are **not** superseded by PD-001–PD-005.
+
+### 1. Quality index vs. safety signal
 
 Current behavior (unweighted arithmetic mean of 6 equally-weighted
-parameters):
+parameters): one catastrophic parameter + five ideal parameters ≈ 84–87.
+This is mathematically expected under averaging — whether it is acceptable
+product behavior depends on whether Quality V3 is a closeness-to-ideal index
+or a safety signal.
 
-```
-one catastrophic parameter
-+
-five ideal parameters
-=
-approximately 84–87
-```
-
-This is **mathematically expected** under equal weighting — it is not a
-bug in the formula, it is what an average does. Whether it is *acceptable
-product behavior* is the open question, and it depends entirely on what
-Quality V3 is supposed to communicate: a closeness-to-ideal index (where
-this behavior is unremarkable) or something closer to a safety signal
-(where it likely is not).
-
-Candidate future approaches, recorded without selecting one:
-
-```
-A. Equal-weight average (current)
-B. Weighted average — some parameters count more than others
-C. Hard safety gate — a catastrophic single parameter caps or zeroes the
-   overall score regardless of the others
-D. Quality + Compliance hybrid — combine the existing separate Compliance
-   channel (PASS/WARNING/FAIL) with Quality into one displayed signal
-E. Nonlinear aggregation — e.g. geometric mean, min-weighted blend, or
-   another function that penalizes outliers more than a simple average
-```
-
-Selecting one of these requires: (1) an explicit product decision on what
-Quality V3 is supposed to represent, and (2) for anything beyond a pure
-product/UX choice, evidence per `CALIBRATION_WORKFLOW.md` — a change to
-aggregation is a model-parameter change like any other and falls under the
-same calibration/validation/holdout discipline.
+Candidates (none selected): A equal-weight (current) · B weighted · C hard
+safety gate · D Quality+Compliance hybrid · E nonlinear aggregation.
 
 **Candidate Product Definition — Status: CANDIDATE, NOT APPROVED**
 
-```
-Quality Score = คุณภาพน้ำในสภาวะปกติ (Normal Drinking Water Quality)
-                โดยแยกออกจาก Compliance, Outbreak Context, และ
-                Health/Safety Ceiling
-```
-
-Proposed during the Chlorine >0.5 mg/L review (case study below) as a
-candidate answer to this section's central open question. **Not selected,
-not implemented, not to be treated as decided.** If approved in a future
-session, it would directly resolve the Chlorine >0.5 mg/L placeholder
-below (by ruling out using outbreak-allowance or health-ceiling values as
-quality-curve anchors) and would narrow candidates A-E above toward
-whichever one best represents "distance from normal-condition ideal"
-specifically, excluding safety-signal framings (C, and part of D).
-Anyone opening this document should read this as: *this is where the
-thinking currently stands, not what was decided.*
-
-**Chlorine >0.5 mg/L case study (concrete instance of this same open
-question):** an implementation pass proposed anchoring the Quality V3
-chlorine curve's upper ramp to WHO's 5.0 mg/L health-based ceiling. This
-was reviewed against a 3-option evidence-context decision table (Normal
-Drinking Water / Outbreak Context / Health-Based Ceiling, kept separate)
-and rejected — it answers "is this safe" (a ceiling question) while being
-used to answer "is this good quality" (a target question), inflating
-scores for outbreak-context-only concentrations under normal conditions.
-No replacement was approved; production currently carries an interim,
-explicitly-labeled-as-unapproved placeholder for this range (see
-`FINAL_SCORING_IMPLEMENTATION_REPORT.md` status update). **This is the
-same unresolved question as this section, seen through one parameter** —
-resolving §1 in general would resolve this specific case too, and vice
-versa a decision here should be checked for consistency with whatever §1
-eventually decides.
-
-**Empirical update:** `DECISION_MATRIX.md` ("New finding 1") computed what
-Case A (`CASE-1328`) and Case B (`SYNTHETIC-CASE-B`) would score under
-geometric mean, harmonic mean, and a minimum-weighted blend, using the
-existing parameter grades — no curve was changed to produce these numbers.
-Result: geometric/harmonic mean move Case A by under 1 point (91.64 →
-91.17 / 90.65) — candidate `E` as commonly understood ("nonlinear
-aggregation") does not by itself address the single-weak-parameter dilution
-this section describes. Only a minimum-weighted blend produces a material
-shift, and that blend's weighting factor has no evidence behind it either.
-This doesn't resolve the decision — it narrows what "candidate E" can
-mean if chosen.
-
-## 2. Customer-facing Quality vs. Safety language
-
-`src/js/i18n.js` currently binds language directly to the Quality V3
-numeric band, not to the separate Compliance channel:
-
-```
-score.msg.excellent (≥80): "Your water meets international standards.
-                             Clean and balanced at every tap."
-score.msg.goodDetail (≥60): "Clean, safe water for daily use."
+```text
+Quality Score = Normal Drinking Water Quality
+(separated from Compliance, Outbreak Context, Health/Safety Ceiling)
 ```
 
-This is a product-communication risk because:
+Chlorine >0.5 mg/L case study and aggregation empirics remain as previously
+documented; no selection made here.
 
+### 2. Customer-facing Quality vs. Safety language
+
+Quality-channel copy (e.g. “meets international standards”) remains a
+product/brand decision separate from Country Benchmark PD-001. Prior
+semantic-clarification copy for the **comparison** channel does **not**
+close this Quality-channel item.
+
+---
+
+## PD-005 — Cross-country Benchmark Ranking Policy
+
+- **Status:** DECIDED
+- **Owner:** Product Owner
+- **Date:** 2026-08-11
+- **Priority:** 1
+
+### Question
+
+Can the 0–100 Country Benchmark scores be used to **rank countries**
+(e.g. “Japan better than EU because 100 > 65”)?
+
+### Options
+
+#### A — FORBID MAGNITUDE RANKING
+
+Scores may be shown independently:
+
+```text
+Under Thailand benchmark: 100
+Under Japan benchmark: 100
+Under WHO-style benchmark: 95
+...
 ```
-Quality score ≠ regulatory compliance
-Quality score ≠ health safety
-Quality score ≠ laboratory certification
+
+Product must **not** imply Japan > Thailand, Thailand > EU, EPA > WHO from
+magnitude alone. **Equal scores remain valid.**
+
+Allowed: per-engine score · per-parameter view within an engine ·
+compliance interpretation within one engine.
+
+Forbidden: cross-country ranking · sorting countries as best/worst by raw score.
+
+#### B — REDESIGN COMPARISON SEMANTICS
+
+Replace scalar ranking with e.g. parameter-level pass matrix /
+benchmark-specific compliance status / evidence-backed comparison
+dimensions. Larger product/model project — keep model frozen until redesign
+is separately approved.
+
+#### C — HARMONIZE THEN RANK
+
+Allow ranking only after common parameter set, comparable semantics,
+evidence-backed limits, comparable grading/weights/gates. **Major model
+project** — mark Model Change Required; require evidence before
+implementation.
+
+### Recommendation (historical — superseded by PO decision)
+
+**A — FORBID MAGNITUDE RANKING** *(facilitator recommendation only)*
+
+### PO DECISION
+
+- **Status:** DECIDED
+- **Decision:** A — FORBID MAGNITUDE RANKING
+- **Decision meaning:** Country Benchmark 0–100 scores MUST NOT be ranked against each other by magnitude.
+- **Approved by:** User instruction / Product Owner instruction
+- **Date:** 2026-08-11
+- **Notes:** Implementation authorized for policy/copy/UX/semantic tests only. No model/score numeric change. Equal scores remain valid.
+
+### Rationale
+
+Engines differ in parameter inclusion, grading, weights, gates, and evidence
+strength. Shared display scale ≠ shared measurement scale. Baseline
+`100/100/95/65/99` is construction output, not ranking ground truth.
+
+### Evidence Required
+
+**NO** regulatory citation for the policy itself.
+
+### Allowed Changes After Approval
+
+- Documentation / product copy reinforcing no-ranking
+- Policy-level prevention of “better country” language
+- Semantic / policy tests
+- UI labels that do not imply magnitude ranking
+
+**Model and score math: NONE.**
+
+### Explicitly Forbidden
+
+- Numeric tuning · threshold / weight / gate / ORP / DO changes
+- Artificial country differentiation
+- Calibrating against `76 / 100 / 100 / 95 / 65 / 99`
+
+### Acceptance Criteria
+
+1. Product must not describe raw country scores as a ranking.
+2. Equal scores remain valid.
+3. No score math changes required.
+4. No artificial country differentiation.
+5. Baseline and production math unchanged.
+
+---
+
+## PD-001 — Country Benchmark Verdict Semantics
+
+- **Status:** DECIDED
+- **Owner:** Product Owner
+- **Date:** 2026-08-11
+- **Priority:** 2
+
+### Question
+
+Should comparison scores use quality-gradient verdict labels
+(`Excellent` / `Good` / `Fair` / `Poor`) when engines often use flat pass
+bands?
+
+### Audit finding (not a decision)
+
+```text
+Flat-100 ⇒ 100 often means within accepted / pass band
+100 ≠ proven “perfect” or “excellent” water quality
 ```
 
-A user reading "85 / Excellent / meets international standards" has no
-structural reason to know that number is a distance-from-ideal index built
-on one uncalibrated real sample, rather than a safety or compliance claim.
+### Options
 
-**This document does not propose replacement copy.** Rewriting
-persuasive customer-facing text is a product/brand decision requiring
-sign-off on the specific replacement wording, not an engineering judgment
-call — and is explicitly out of scope for this and prior hardening passes.
+#### A — PASS-BAND LANGUAGE
 
-## What would resolve these
+Wording such as: Within pass band · Comparison pass · Within selected
+comparison limits (instead of implying superior water quality).
 
-For #1: a product decision on Quality V3's intended meaning, followed by
-evidence-backed aggregation work per `CALIBRATION_WORKFLOW.md` if the
-resolution requires a parameter-level change.
+Advantages: smallest blast radius · preserves scoring · describes flat-100 ·
+no regulatory evidence required.
 
-For #2: a product/brand decision on replacement copy that accurately
-separates Quality, Compliance, and (if introduced) a Safety signal, per the
-distinctions documented in `docs/QUALITY_V3_MODEL_SPECIFICATION.md` §2.
+#### B — STRICT COMPLIANCE VERDICT
+
+Use only PASS / WARNING / FAIL (or equivalent). Strongest semantic
+alignment; potentially larger UX/product change. Define exact compliance
+states before implementation.
+
+#### C — KEEP CURRENT VERDICT + DISCLAIMER
+
+Keep Excellent/Good/… with explicit disclaimer. Minimal change; **residual
+semantic risk remains.** **Not recommended.**
+
+### Recommendation (historical — superseded by PO decision)
+
+**A** *(facilitator recommendation only)*
+
+### PO DECISION
+
+- **Status:** DECIDED
+- **Decision:** A — PASS-BAND / COMPARISON-PASS LANGUAGE
+- **Decision meaning:** Country Benchmark comparison scores MUST use pass-band/comparison-pass semantics rather than quality-gradient wording such as Excellent/Good.
+- **Approved by:** User instruction / Product Owner instruction
+- **Date:** 2026-08-11
+- **Notes:** Presentation/i18n/badge layer only. Do not change scoring math, thresholds, weights, or gates. Baseline must remain 76/100/100/95/65/99.
+
+### Rationale
+
+Quality-gradient labels overclaim what flat-100 establishes. PD-005 forbids
+ranking; PD-001 ensures a single-engine view does not overclaim quality.
+
+### Evidence Required
+
+**NO** regulatory citation — UX / product semantics decision.
+
+### Allowed Changes After Approval
+
+- Verdict copy · i18n · UI badges · metadata display labels
+- Tests protecting verdict semantics
+
+**Score calculation, thresholds, weights, gates: unchanged.**
+
+### Explicitly Forbidden
+
+- Tuning curves to “justify Excellent”
+- Threshold / weight / gate changes
+- Artificial country differentiation
+- Changing baseline numbers
+
+### Acceptance Criteria
+
+1. Comparison verdict wording does not claim universal quality.
+2. Score 100 is not presented as “perfect” / “Excellent” for Country Benchmark.
+3. Pass-band wording is used instead.
+4. No scoring math change; baseline unchanged; tests green.
+
+---
+
+## PD-002: EU chlorine hard-gate anchor
+
+- **Status:** OPEN
+- **Decision:** —
+- **Recommendation:** A
+- **Owner:** Product
+- **PO Approval:** PENDING
+- **Approved by:** —
+- **Date:** —
+
+**Do not merge** into PD-005 / PD-001 (already DECIDED).
+
+### Question
+
+What should happen to `gateCapOnChlorineFail = 65` in the EU Country Benchmark engine?
+
+### Evidence
+
+```text
+Code:          src/js/score/benchmark/eu/limits.js → gateCapOnChlorineFail: 65
+Origin:        commit f5579564 (2026-08-07)
+Mechanism:     chlorine outside EU engine band → Math.min(score, 65)
+Directive:     NO AUTHORITATIVE SOURCE defines 65 as EU regulatory /
+               Directive score, penalty, or mandated composite cap
+Derivation:    NO mathematical derivation from Directive 2020/2184
+Test lock:     behavior lock ≠ regulatory evidence
+```
+
+```text
+65 = UNSUPPORTED ANCHOR
+gate intent = project / engineering design
+```
+
+Safe product wording:
+
+```text
+EU 65 is a project hard-gate outcome after chlorine is outside
+this engine's band.
+
+65 is NOT an EU Directive score.
+
+65 remains an UNSUPPORTED ANCHOR.
+```
+
+### Options
+
+**A — KEEP AS EXPLICIT PRODUCT RULE** — Keep `65` unchanged. Document as project hard gate; retain UNSUPPORTED ANCHOR; never describe as EU regulatory scoring; no model or numeric change.
+
+**B — REMOVE HARD CAP** — Remove hard-cap behavior; expose uncapped composite. Requires explicit Product Decision before implementation. **No implementation in this task.**
+
+**C — REPLACE WITH EVIDENCE-BACKED VALUE** — Replace only after authoritative evidence or explicit Product Owner rationale. Forbidden: 65 → 60/70/80 for realism. **No implementation in this task.**
+
+### Recommendation
+
+A
+
+```text
+Recommendation ≠ Approval
+```
+
+### Rationale
+
+Preserves current behavior and regression stability. Separates product rule from regulation without pretending 65 is evidence-derived. Avoids arbitrary numeric replacement. Keeps future evidence/model review open. **A does NOT upgrade 65 from UNSUPPORTED ANCHOR.**
+
+### Evidence requirement
+
+| Option | Evidence required |
+| --- | --- |
+| **A** | NO (Product accepts named product rule while documenting UNSUPPORTED ANCHOR) |
+| **B** | Impact analysis on EU composite behavior; explicit PO approval |
+| **C** | Authoritative citation **or** explicit PO rationale explaining why chlorine failure triggers a hard gate **and** why the replacement number is justified |
+
+### Allowed implementation after approval
+
+| If Decision | Allowed now | Follow-up |
+| --- | --- | --- |
+| **A** | Governance/documentation semantics only | None required |
+| **B** | Planning only | Separate EU engine implementation task |
+| **C** | Planning only | Separate evidence review + EU engine implementation task |
+
+### Explicitly forbidden
+
+- Changing 65 → another number for realism (65 → 60 / 70 / 80)
+- Removing/replacing gate without DECIDED + scoped implementation
+- Claiming “EU Directive score = 65” or that EU law requires 65
+- Using baseline EU=65 as calibration target
+- Marking DECIDED without explicit PO sign-off
+
+### Acceptance criteria
+
+**If A is eventually approved:**
+
+```text
+gateCap remains 65
+65 remains explicitly classified UNSUPPORTED ANCHOR
+no claim that 65 is EU regulatory score
+no formula/threshold change
+```
+
+**If B is approved:** only then may implementation planning begin.
+
+**If C is approved:** citation + rationale must exist before numeric replacement.
+
+Baseline regression reference unchanged: `76 / 100 / 100 / 95 / 65 / 99`.
+
+### Sign-off
+
+```text
+PD-002 Decision: A | B | C
+Approved by: [name]
+Date: [YYYY-MM-DD]
+Notes: [optional]
+```
+
+*(Fields intentionally blank — PO sign-off pending.)*
+
+---
+
+## PD-003: Thailand DO treatment
+
+- **Status:** OPEN
+- **Decision:** —
+- **Recommendation:** A
+- **Owner:** Product
+- **PO Approval:** PENDING
+- **Approved by:** —
+- **Date:** —
+
+**Do not merge** into PD-005 / PD-001 (already DECIDED).
+
+### Question
+
+Should Thailand continue to exclude DO from the Country Benchmark score?
+
+### Evidence
+
+```text
+Code:     thailand/weights.js — DO/Temp omitted from weights
+          thailand/limits.js — do: Not specified; unbounded: true
+          thailand/score.js — “DO and Temp are not scored”
+Comment:  “Thailand does not score them” = project statement
+Origin:   founding commit f5579564
+Lists:    DO not found among reviewed DoH recommendation / MWA surveillance params
+Legal:    NO AUTHORITATIVE CLAUSE found stating Thai DW regulation explicitly excludes DO
+```
+
+```text
+PROJECT DESIGN: DO EXCLUDED
+
++
+DO was not found in reviewed Thai drinking-water
+recommendation / potable surveillance parameter lists
+
+BUT
+
+legal exclusion is NOT established
+```
+
+Safe product wording:
+
+```text
+This project does not score DO for the Thailand Country Benchmark.
+
+DO exclusion is project design.
+
+DO was not found among the reviewed Thai drinking-water
+recommendation / potable surveillance parameter lists.
+
+This does NOT prove that Thai law explicitly excludes DO.
+```
+
+Never state “Thai law excludes DO” unless an authoritative citation explicitly proves it.
+
+### Options
+
+**A — KEEP DO EXCLUDED AS PROJECT DESIGN** — Keep current model unchanged. Document PROJECT DESIGN: DO EXCLUDED. No regulatory claim. No model, numeric, or threshold change.
+
+**B — INCLUDE DO USING CITED THAI LIMIT** — Only after authoritative Thai drinking-water evidence establishes the relevant limit and PO explicitly approves model change. Do not invent the limit. **No implementation now.**
+
+**C — INCLUDE DO AS OPERATIONAL INDICATOR** — Requires Product Decision defining composite vs display-only vs operational status. **No implementation now.**
+
+### Recommendation
+
+A
+
+```text
+Recommendation ≠ Approval
+```
+
+### Rationale
+
+Matches current product design. Avoids unsupported legal claims. Avoids importing foreign DO limits. No model change without Thai evidence basis. Preserves documented bias (weak DO does not reduce TH score) as a known model characteristic.
+
+### Evidence requirement
+
+| Option | Evidence required |
+| --- | --- |
+| **A** | NO (honest project-design wording) |
+| **B** | Authoritative Thai drinking-water source; specific applicable criterion; numeric limit; scope; rationale for scoring role |
+| **C** | Product definition of operational semantics (composite impact, display-only, status channel) |
+
+### Allowed implementation after approval
+
+| If Decision | Allowed now | Follow-up |
+| --- | --- | --- |
+| **A** | Docs/wording only | None required |
+| **B** | Planning only | Separate TH engine implementation after cited limit |
+| **C** | Planning only | Separate product + model design task |
+
+### Explicitly forbidden
+
+- Claiming “Thai law excludes DO” without cited article
+- Adding DO for score spread / TH↔JP differentiation
+- Importing non-Thai DO thresholds as Thai regulatory
+- Marking DECIDED without explicit PO sign-off
+
+### Acceptance criteria
+
+**If A is eventually approved:**
+
+```text
+Thailand continues excluding DO
+wording remains PROJECT DESIGN
+no claim that Thai law explicitly excludes DO
+```
+
+**If B is approved:** authoritative Thai citation required before implementation.
+
+**If C is approved:** Product must explicitly define operational semantics before implementation.
+
+Baseline regression reference unchanged: `76 / 100 / 100 / 95 / 65 / 99`.
+
+### Sign-off
+
+```text
+PD-003 Decision: A | B | C
+Approved by: [name]
+Date: [YYYY-MM-DD]
+Notes: [optional]
+```
+
+*(Fields intentionally blank — PO sign-off pending.)*
+
+---
+
+## PD-004: ORP role in country benchmark
+
+- **Status:** OPEN
+- **Decision:** —
+- **Recommendation:** A
+- **Owner:** Product
+- **PO Approval:** PENDING
+- **Approved by:** —
+- **Date:** —
+
+**Do not merge** into PD-005 / PD-001 (already DECIDED).
+
+### Question
+
+How should ORP 200–600 be treated in country engines?
+
+### Evidence
+
+```text
+Code:     ORP min=200 max=600 identical across TH/JP/WHO/EU/EPA limits.js
+Origin:   founding commit f5579564 (shared copy)
+TH:       no country-specific DW ORP band verified
+JP:       not among MHLW 51 water-quality criteria; ops monitoring ≠ criterion 200–600
+WHO:      operational disinfection monitoring; universal ORP values cannot be recommended
+EU:       no Directive parametric ORP 200–600 verified
+EPA:      no MCL/MRDL/SMCL for ORP 200–600 verified
+```
+
+```text
+NO COUNTRY-SPECIFIC DRINKING-WATER STANDARD VERIFIED
+
+ORP 200–600 = shared operational / project construction
+
+NOT
+
+five independent national drinking-water standards
+```
+
+### Options
+
+**A — KEEP AS SHARED OPERATIONAL / PROJECT BAND** — Keep `200–600` unchanged. Label as shared operational indicator / project construction; not a national drinking-water standard. No numeric or model change.
+
+**B — REMOVE ORP FROM COUNTRY COMPOSITES** — ORP becomes display/operational only. Requires model redesign and explicit Product Decision. **No implementation now.**
+
+**C — CREATE COUNTRY-SPECIFIC ORP BANDS** — Only after authoritative country-specific evidence per jurisdiction. Do not derive values for differentiation. **No implementation now.**
+
+### Recommendation
+
+A
+
+```text
+Recommendation ≠ Approval
+```
+
+### Rationale
+
+Evidence does not support national regulatory framing for any engine. Semantic correction is sufficient. Avoids arbitrary per-country bands and unnecessary model change. Preserves regression stability.
+
+### Evidence requirement
+
+| Option | Evidence required |
+| --- | --- |
+| **A** | NO (Product accepts shared operational framing) |
+| **B** | Impact analysis on all five composites; explicit PO approval |
+| **C** | Authoritative per-country drinking-water evidence for each band; no artificial differentiation |
+
+### Allowed implementation after approval
+
+| If Decision | Allowed now | Follow-up |
+| --- | --- | --- |
+| **A** | Docs/labels reinforcing shared-ops framing | None required |
+| **B** | Planning only | Separate model redesign task |
+| **C** | Planning only | Separate per-country evidence + implementation |
+
+### Explicitly forbidden
+
+- Claiming five independent national ORP standards
+- Inventing country-specific ORP for spread
+- Claiming 200–600 is a WHO guideline value or EPA MCL
+- Copying 200–600 and relabeling as country-specific evidence
+- Marking DECIDED without explicit PO sign-off
+
+### Acceptance criteria
+
+**If A is eventually approved:**
+
+```text
+ORP remains 200–600
+ORP is labeled shared operational/project construction
+no country-specific standard claim
+```
+
+**If B is approved:** model redesign required before implementation.
+
+**If C is approved:** authoritative country-specific evidence required; no artificial differentiation.
+
+Baseline regression reference unchanged: `76 / 100 / 100 / 95 / 65 / 99`.
+
+### Sign-off
+
+```text
+PD-004 Decision: A | B | C
+Approved by: [name]
+Date: [YYYY-MM-DD]
+Notes: [optional]
+```
+
+*(Fields intentionally blank — PO sign-off pending.)*
+
+---
+
+## After sign-off rules
+
+| Condition | Allowed | Forbidden |
+| --- | --- | --- |
+| No PO sign-off | Docs / workshop records only | Any `src/**` score/engine/threshold/weight/gate/ORP/DO change |
+| PD-005 DECIDED A | Policy / UX / docs / anti-ranking tests | MODEL/SCORE still frozen |
+| PD-001 DECIDED A | Verdict semantics (copy/metadata as scoped) | Scoring math change |
+| PD-002/003/004 OPEN | Recommendations recorded; PO may sign | Gate/DO/ORP numeric changes; auto-DECIDED from recommendation |
+| PD-002/003/004 DECIDED A | Docs/semantic framing only | Model/score change (none required for A) |
+| PD-002/003/004 DECIDED B or C | Separate implementation task only | Same-pass engine edits |
+
+```text
+EVIDENCE → SEMANTICS → PRODUCT DECISION → MODEL → SCORE
+Forbidden reverse: DESIRED SCORE → TUNE → JUSTIFY
+```
+
+If two countries score equal under correct semantics — **accept equal
+scores.** Do not create artificial differentiation for UI cosmetics.
+
+---
+
+## Current decision state
+
+```text
+PD-005 = DECIDED — A (FORBID MAGNITUDE RANKING)
+PD-001 = DECIDED — A (PASS-BAND / COMPARISON-PASS LANGUAGE)
+PD-002 = OPEN — Recommendation A — PO Approval PENDING
+PD-003 = OPEN — Recommendation A — PO Approval PENDING
+PD-004 = OPEN — Recommendation A — PO Approval PENDING
+
+MODEL = FROZEN
+SCORE = FROZEN
+BASELINE = UNCHANGED (76 / 100 / 100 / 95 / 65 / 99)
+```
+
+```text
+PRODUCT DECISIONS PREPARED
+RECOMMENDATIONS RECORDED (A each — NOT approval)
+PO APPROVAL PENDING
+MODEL FROZEN
+SCORE FROZEN
+```
+
+---
+
+## STOP
+
+```text
+PD-005 / PD-001 DECIDED — presentation/policy implementation only
+PD-002 / PD-003 / PD-004 WORKSHOP RECORDS PREPARED — OPEN PENDING PO
+MODEL FROZEN
+SCORE FROZEN
+NO NUMERIC TUNING
+NO ARTIFICIAL COUNTRY DIFFERENTIATION
+NO REGULATORY CLAIM INVENTION
+NO MODEL CHANGE
+NO SCORE CHANGE
+```

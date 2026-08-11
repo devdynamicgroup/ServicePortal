@@ -7,11 +7,32 @@ function getScoreStyle(wq) {
 }
 
 /** Customer-facing verdict shown on the summary card (not the DWQI band legend).
- *  Bands follow Excel Report summary: ≥80 Excellent, ≥60 Acceptable, else Action. */
+ *  Bands follow Excel Report summary: ≥80 Excellent, ≥60 Acceptable, else Action.
+ *  Used for Quality / published Water Score — NOT Country Benchmark comparison (PD-001). */
 function customerVerdict(wq) {
   if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#284dcd', tier: 'high' };
   if (wq >= 60) return { label: t('score.verdict.good'), color: '#56d096', tier: 'mid' };
   return { label: t('score.verdict.attention'), color: '#f07b7b', tier: 'low' };
+}
+
+/**
+ * PD-001 — Country Benchmark presentation verdict (pass-band language).
+ * Presentation only: does not change engine math or numeric score.
+ * Flat-100 ⇒ within pass band, not “Excellent” quality gradient.
+ */
+function comparisonPresentationVerdict(wq) {
+  if (!Number.isFinite(Number(wq))) return { label: '—', color: '#284dcd', tier: 'pending' };
+  const n = Number(wq);
+  if (n >= 80) return { label: t('score.benchmark.verdict.passBand'), color: '#284dcd', tier: 'high' };
+  if (n >= 60) return { label: t('score.benchmark.verdict.withinLimits'), color: '#56d096', tier: 'mid' };
+  return { label: t('score.benchmark.verdict.outsideLimits'), color: '#f07b7b', tier: 'low' };
+}
+
+/** True when the hero/summary number is the selected Country Benchmark comparison score. */
+function isShowingCountryBenchmarkComparison() {
+  if (S.publicScoreView) return false;
+  const comparisonScore = activeComparisonResult()?.score;
+  return Number.isFinite(Number(comparisonScore));
 }
 
 function scoreSummaryNote(wq, findings) {
@@ -37,9 +58,9 @@ function animateScoreNumber(el, target) {
   requestAnimationFrame(step);
 }
 
-/** Benchmark comparison — independent country engines via WaterScoreBenchmarkRegistry. */
+/** Benchmark comparison — independent country engines via WaterScoreBenchmarkRegistry.
+ *  PD-005: dropdown order is navigation convenience only — NOT a magnitude ranking. */
 const DEFAULT_SCORE_STANDARD_KEY = 'thailand';
-/** Thai first, then strictest cleanliness expectations → least strict. */
 const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'japan', 'eu', 'who', 'usEpa']);
 
 function benchmarkRegistry() {
@@ -115,8 +136,10 @@ function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDA
     val: f.val,
     note: f.note || ''
   }));
-  // Prefer engine-authored verdict; fall back only if an engine omitted metadata.
+  // Prefer engine-authored verdict for metadata; UI presentation uses
+  // comparisonPresentationVerdict (PD-001) — do not surface Excellent/Good as Country Benchmark meaning.
   const engineVerdict = scored.verdict || null;
+  const presentation = score == null ? null : comparisonPresentationVerdict(score);
   const fallbackVerdict = score == null ? null : customerVerdict(score);
   return {
     standardKey: key,
@@ -128,8 +151,9 @@ function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDA
     statuses: scored.statuses || null,
     engine: scored.engine || key,
     engineKey: scored.engineKey || key,
-    verdict: engineVerdict || fallbackVerdict?.label || null,
-    verdictTier: fallbackVerdict?.tier || null,
+    verdict: presentation?.label || engineVerdict || fallbackVerdict?.label || null,
+    engineVerdict,
+    verdictTier: presentation?.tier || fallbackVerdict?.tier || null,
     summary: scored.summary || null,
     passedParameters: scored.passedParameters || [],
     warningParameters: scored.warningParameters || [],
@@ -367,7 +391,12 @@ function renderScoreDisplay() {
     showScore
   });
   const findings = result.findings || [];
-  const verdict = Number.isFinite(wq) ? customerVerdict(wq) : { tier: 'pending', label: '—', color: '#284dcd' };
+  // PD-001: Country Benchmark comparison uses pass-band presentation, not Excellent/Good.
+  // Quality / published path keeps customerVerdict (quality-gradient) unchanged.
+  const showingComparison = !S.publicScoreView && Number.isFinite(Number(comparisonScore));
+  const verdict = Number.isFinite(wq)
+    ? (showingComparison ? comparisonPresentationVerdict(wq) : customerVerdict(wq))
+    : { tier: 'pending', label: '—', color: '#284dcd' };
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
   const noteEl = document.getElementById('score-summary-note');
@@ -385,13 +414,15 @@ function renderScoreDisplay() {
   if (standardEl) {
     standardEl.textContent = t(context.standard.labelKey);
   }
-  // Hero number = Quality Score (or published Quality). Benchmark is labeled separately.
+  // Hero label reflects the selected Country Benchmark comparison score (wq).
+  // Quality V3 remains on currentScoreResult / publish path — see renderWaterScore.
   if (heroSourceEl) {
     if (showScore) {
       if (S.publicScoreView) {
         heroSourceEl.textContent = t('score.hero.published');
       } else {
-        heroSourceEl.textContent = t('score.hero.quality');
+        const shortName = t(context.standard.shortKey);
+        heroSourceEl.textContent = t('score.hero.benchmark').replace('{name}', shortName);
       }
       heroSourceEl.hidden = false;
     } else {
@@ -441,10 +472,9 @@ function renderScoreDisplay() {
   }
   if (noteEl) {
     if (showScore) {
-      // Score card shows the numeric result only — do not append benchmark
-      // prose, measurement/inspection coverage, or "Inspection incomplete".
-      noteEl.textContent = '';
-      noteEl.hidden = true;
+      // PD-005 / PD-001: comparison disclaimer — not a ranking; not universal quality.
+      noteEl.textContent = t('score.benchmark.disclaimer');
+      noteEl.hidden = false;
     } else if (readiness?.ocrBusy) {
       noteEl.hidden = false;
       noteEl.textContent = t('score.readiness.processingText');
@@ -982,17 +1012,21 @@ function renderScoreImprove(context = getScoreEvalContext()) {
       ? Boolean(eligibility.canCalculateScore)
       : canDisplayScoreNumber(readiness, S.activeJob));
   const wq = Number.isFinite(score) ? score : 0;
-  const verdict = customerVerdict(wq);
+  // PD-001: "all good" / improve headings for comparison use pass-band tiers, not Excellent.
+  const verdict = isShowingCountryBenchmarkComparison()
+    ? comparisonPresentationVerdict(wq)
+    : customerVerdict(wq);
 
   if (!rows.length) {
     section.hidden = true;
     listEl.replaceChildren();
     if (allGood) {
-      // Only claim "all good" when the overall score is ready and excellent.
       const showPass = showScore && verdict.tier === 'high';
       allGood.hidden = !showPass;
       if (allGoodText && showPass) {
-        allGoodText.textContent = t('score.allGood').replace('{n}', String(allRows.length || 8));
+        allGoodText.textContent = isShowingCountryBenchmarkComparison()
+          ? t('score.benchmark.allWithinLimits').replace('{n}', String(allRows.length || 8))
+          : t('score.allGood').replace('{n}', String(allRows.length || 8));
       }
     }
     return;
