@@ -81,7 +81,7 @@
     const fcl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
     if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
-      return incomplete('WHO', 'who', { readings, engineVersion: 'v1.0', standardRevision: 'WHO Drinking Water Guideline 2025' });
+      return incomplete('WHO', 'who', { readings, engineVersion: 'v1.0', standardRevision: 'WHO-inspired guideline proximity engine (project scoring; not an official WHO index)' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), turbidity: gradeTurbidity(turb),
@@ -117,30 +117,30 @@
 
     const reasons = [];
     if (!ideal.chlorine && fcl > L.chlorine.idealMax) {
-      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine exceeds WHO guideline residual band (0.2–0.5 mg/L).' });
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine exceeds the WHO residual-guidance band used by this project engine (0.2–0.5 mg/L).' });
     } else if (!ideal.chlorine && fcl < L.chlorine.idealMin) {
-      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below WHO recommended residual for drinking water.' });
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below the WHO residual-guidance band used by this project engine (0.2–0.5 mg/L).' });
     }
     if (!ideal.turbidity) {
-      reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds WHO drinking-water guideline (≤ 1 NTU).' });
+      reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds the WHO-style turbidity target used by this project engine (≤ 1 NTU).' });
     }
     if (!ideal.tds) {
-      reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds WHO aesthetic guideline (≤ 500 mg/L).' });
+      reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds the WHO aesthetic-guideline ceiling used by this project engine (≤ 500 mg/L).' });
     }
     if (!ideal.ph) {
-      reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside WHO recommended range (6.5–8.5).' });
+      reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside the WHO-style comparison band used by this project engine (6.5–8.5).' });
     }
     if (!ideal.do) {
-      reasons.push({ parameter: 'do', severity: classifications.do.toLowerCase(), message: 'Dissolved oxygen is below WHO comparison minimum (≥ 6 mg/L).' });
+      reasons.push({ parameter: 'do', severity: classifications.do.toLowerCase(), message: 'Dissolved oxygen is below the project WHO-engine DO floor (≥ 6 mg/L — not a WHO Ideal / health guideline).' });
     }
     if (!ideal.orp) {
-      reasons.push({ parameter: 'orp', severity: classifications.orp.toLowerCase(), message: 'ORP is outside the WHO comparison operational window (200–600 mV).' });
+      reasons.push({ parameter: 'orp', severity: classifications.orp.toLowerCase(), message: 'ORP is outside the shared project operational window used for WHO comparison (200–600 mV — not a WHO Ideal).' });
     }
 
     const verdict = verdictFrom(score);
-    let summary = 'Meets WHO drinking water recommendations.';
-    if (reasons.length) summary = 'Does not fully meet WHO drinking-water guideline proximity for all indicators.';
-    if (verdict === 'Excellent' && !reasons.length) summary = 'Aligns closely with WHO drinking-water guideline targets.';
+    let summary = 'Meets this project’s WHO-inspired guideline proximity targets for the scored indicators.';
+    if (reasons.length) summary = 'Does not fully meet this project’s WHO-inspired guideline proximity targets for all indicators.';
+    if (verdict === 'Excellent' && !reasons.length) summary = 'Aligns closely with this project’s WHO-inspired proximity targets (not an official WHO score).';
 
     const statuses = {
       ph: statusOf('ph', ph), tds: statusOf('tds', tds), chlorine: statusOf('chlorine', fcl),
@@ -152,12 +152,12 @@
     
     const topPositiveFactors = [];
     const topNegativeFactors = [];
-    if (ideal.ph) topPositiveFactors.push('pH is within WHO recommended range (6.5–8.5)');
-    if (ideal.tds) topPositiveFactors.push('TDS is at or below WHO aesthetic guideline (≤ 500 mg/L)');
-    if (ideal.turbidity) topPositiveFactors.push('Turbidity meets WHO drinking-water guideline (≤ 1 NTU)');
-    if (ideal.orp) topPositiveFactors.push('ORP indicates an effective disinfection / redox window (200–600 mV)');
-    if (ideal.do) topPositiveFactors.push('Dissolved oxygen meets WHO comparison minimum (≥ 6 mg/L)');
-    if (ideal.chlorine) topPositiveFactors.push('Free chlorine is inside WHO residual band (0.2–0.5 mg/L)');
+    if (ideal.ph) topPositiveFactors.push('pH is within the WHO-style comparison band used by this project engine (6.5–8.5)');
+    if (ideal.tds) topPositiveFactors.push('TDS is at or below the WHO aesthetic-guideline ceiling used by this project engine (≤ 500 mg/L)');
+    if (ideal.turbidity) topPositiveFactors.push('Turbidity meets the WHO-style turbidity target used by this project engine (≤ 1 NTU)');
+    if (ideal.orp) topPositiveFactors.push('ORP is inside the shared project operational window (200–600 mV — not a WHO Ideal)');
+    if (ideal.do) topPositiveFactors.push('Dissolved oxygen meets the project WHO-engine DO floor (≥ 6 mg/L — not a WHO Ideal)');
+    if (ideal.chlorine) topPositiveFactors.push('Free chlorine is inside the WHO residual-guidance band used by this project engine (0.2–0.5 mg/L)');
     reasons.forEach(r => topNegativeFactors.push(r.message));
 
     return wrap({
@@ -175,7 +175,7 @@
       findings,
       readings,
       engineVersion: 'v1.0',
-      standardRevision: 'WHO Drinking Water Guideline 2025'
+      standardRevision: 'WHO-inspired guideline proximity engine (project scoring; not an official WHO index)'
     });
 
   }

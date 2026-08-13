@@ -80,7 +80,7 @@
     const cl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
     if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
-      return incomplete('Japan', 'japan', { readings, engineVersion: 'v1.0', standardRevision: 'Japan Drinking Water Standard 2023' });
+      return incomplete('Japan', 'japan', { readings, engineVersion: 'v1.0', standardRevision: 'Japan-style Compliance Index (project engine; JP DO ≥5 project-defined / unsupported Ideal — PD-008 deferred)' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
@@ -130,13 +130,13 @@
       reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds Japan comparison ceiling (≤ 500 mg/L).' });
     }
     if (!pass.do) {
-      reasons.push({ parameter: 'do', severity: classifications.do.toLowerCase(), message: 'Dissolved oxygen is below Japan comparison minimum (≥ 5 mg/L).' });
+      reasons.push({ parameter: 'do', severity: classifications.do.toLowerCase(), message: 'Dissolved oxygen is below the project Japan-engine DO floor (≥ 5 mg/L — not a verified national Ideal; PD-008 deferred).' });
     }
 
     const verdict = verdictFrom(score);
-    let summary = 'Meets Japanese drinking-water criteria for this comparison.';
-    if (!reasons.length && verdict === 'Excellent') summary = 'Strong alignment with Japanese drinking-water criteria.';
-    else if (reasons.length) summary = 'One or more Japanese drinking-water criteria need attention.';
+    let summary = 'Meets this project’s Japan-style Compliance Index criteria for this comparison.';
+    if (!reasons.length && verdict === 'Excellent') summary = 'Strong alignment with this project’s Japan-style Compliance Index criteria.';
+    else if (reasons.length) summary = 'One or more Japan-style comparison criteria used by this project engine need attention.';
 
     const statuses = {
       ph: statusOf('ph', ph), tds: statusOf('tds', tds), chlorine: statusOf('chlorine', cl),
@@ -152,7 +152,7 @@
     if (pass.tds) topPositiveFactors.push('TDS is within Japan comparison ceiling (≤ 500 mg/L)');
     if (pass.chlorine) topPositiveFactors.push('Free chlorine residual meets Japan recommendation (0.1–1 mg/L)');
     if (pass.turbidity) topPositiveFactors.push('Turbidity meets Japanese drinking-water recommendation (≤ 2 NTU)');
-    if (pass.do) topPositiveFactors.push('Dissolved oxygen meets Japan comparison minimum (≥ 5 mg/L)');
+    if (pass.do) topPositiveFactors.push('Dissolved oxygen meets the project Japan-engine DO floor (≥ 5 mg/L — not a verified national Ideal)');
     if (pass.orp) topPositiveFactors.push('ORP is inside the operational window used for Japan comparison');
     reasons.forEach(r => topNegativeFactors.push(r.message));
 
@@ -171,7 +171,7 @@
       findings,
       readings,
       engineVersion: 'v1.0',
-      standardRevision: 'Japan Drinking Water Standard 2023'
+      standardRevision: 'Japan-style Compliance Index (project engine; JP DO ≥5 project-defined / unsupported Ideal — PD-008 deferred)'
     });
 
   }
