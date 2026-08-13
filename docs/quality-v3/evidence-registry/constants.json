@@ -66,7 +66,10 @@
       "action": "RESEARCH",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "NO CITATION for a named Thai clause in this pass — do not treat as VERIFIED."
+      "notes": "NO CITATION for a named Thai clause in this pass — do not treat as VERIFIED.",
+      "lock_state": "RESEARCH_BLOCKED",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "TH-TDS-PASSMAX",
@@ -85,7 +88,10 @@
       "action": "RESEARCH",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "NO CITATION — hunt incomplete for binding Thai clause."
+      "notes": "NO CITATION — hunt incomplete for binding Thai clause.",
+      "lock_state": "RESEARCH_BLOCKED",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "TH-TURBIDITY-PASSMAX",
@@ -104,7 +110,10 @@
       "action": "RESEARCH",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "NO CITATION for edition-locked Thai clause in this pass."
+      "notes": "NO CITATION for edition-locked Thai clause in this pass.",
+      "lock_state": "RESEARCH_BLOCKED",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "JP-CHLORINE-BAND",
@@ -123,7 +132,10 @@
       "action": "KEEP BUT LABEL",
       "citation_status": "PARTIAL",
       "redesign_candidate": false,
-      "notes": "Label: legal minimum vs taste upper. Do not invent a hard max criterion."
+      "notes": "Label: legal minimum vs taste upper. Do not invent a hard max criterion.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "JP-DO-MIN",
@@ -164,7 +176,10 @@
       "action": "KEEP",
       "citation_status": "CITED",
       "redesign_candidate": false,
-      "notes": "Band verified. Scoring curve shape still product design."
+      "notes": "Band verified. Scoring curve shape still product design.",
+      "lock_state": "LOCKED_KEEP",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "JP-TURBIDITY-IDEAL",
@@ -183,7 +198,10 @@
       "action": "KEEP BUT LABEL",
       "citation_status": "PARTIAL",
       "redesign_candidate": false,
-      "notes": "KEEP band magnitude with unit caveat; do not claim NTU equivalence without metrology note."
+      "notes": "KEEP band magnitude with unit caveat; do not claim NTU equivalence without metrology note.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "JP-WEIGHTS",
@@ -202,7 +220,10 @@
       "action": "PRODUCT DECISION",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "Forbidden to 'fix to look sensible' without Product Decision."
+      "notes": "Forbidden to 'fix to look sensible' without Product Decision.",
+      "lock_state": "PD_REQUIRED",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "WHO-CHLORINE-IDEAL",
@@ -221,7 +242,10 @@
       "action": "KEEP BUT LABEL",
       "citation_status": "PARTIAL",
       "redesign_candidate": false,
-      "notes": "Label as residual guidance, not health Ideal. URL left empty rather than inventing a deep-link."
+      "notes": "Label as residual guidance, not health Ideal. URL left empty rather than inventing a deep-link.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "WHO-TDS-TIERS",
@@ -240,7 +264,10 @@
       "action": "KEEP BUT LABEL",
       "citation_status": "PARTIAL",
       "redesign_candidate": false,
-      "notes": "KEEP as aesthetic-labeled tiers. Exact edition wording should be pinned in a later RESEARCH pass."
+      "notes": "KEEP as aesthetic-labeled tiers. Exact edition wording should be pinned in a later RESEARCH pass.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "WHO-TURBIDITY-IDEAL",
@@ -259,7 +286,10 @@
       "action": "KEEP BUT LABEL",
       "citation_status": "PARTIAL",
       "redesign_candidate": false,
-      "notes": "Do not merge ≤1 and ideally <0.1 into one claim."
+      "notes": "Do not merge ≤1 and ideally <0.1 into one claim.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "WHO-TIER-SCORES",
@@ -278,7 +308,10 @@
       "action": "PRODUCT DECISION",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "NO CITATION — project mapping from qualitative tiers to numbers."
+      "notes": "NO CITATION — project mapping from qualitative tiers to numbers.",
+      "lock_state": "PD_REQUIRED",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "WHO-DO-MIN",
@@ -297,7 +330,10 @@
       "action": "RESEARCH",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "NO CITATION — do not treat as WHO-derived Ideal."
+      "notes": "NO CITATION — do not treat as WHO-derived Ideal.",
+      "lock_state": "RESEARCH_BLOCKED",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "EU-CHLORINE-BAND",
@@ -338,7 +374,10 @@
       "action": "KEEP",
       "citation_status": "CITED",
       "redesign_candidate": false,
-      "notes": "Band accepted as Directive-aligned indicator."
+      "notes": "Band accepted as Directive-aligned indicator.",
+      "lock_state": "LOCKED_KEEP",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "EU-TURBIDITY-IDEAL",
@@ -357,7 +396,10 @@
       "action": "KEEP BUT LABEL",
       "citation_status": "PARTIAL",
       "redesign_candidate": false,
-      "notes": "KEEP with works-context label."
+      "notes": "KEEP with works-context label.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "EU-GATE-65",
@@ -376,7 +418,10 @@
       "action": "KEEP BUT LABEL",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "PD-002 DECIDED A: KEEP as PROJECT-DEFINED rule; number remains UNSUPPORTED ANCHOR. Rule class vs number class both recorded here."
+      "notes": "PD-002 DECIDED A: KEEP as PROJECT-DEFINED rule; number remains UNSUPPORTED ANCHOR. Rule class vs number class both recorded here.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "EU-WEIGHTS",
@@ -395,7 +440,10 @@
       "action": "PRODUCT DECISION",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "NO CITATION — do not retune without Product Decision."
+      "notes": "NO CITATION — do not retune without Product Decision.",
+      "lock_state": "PD_REQUIRED",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "EPA-CHLORINE-BAND",
@@ -436,7 +484,10 @@
       "action": "KEEP",
       "citation_status": "CITED",
       "redesign_candidate": false,
-      "notes": "KEEP as secondary/aesthetic. Label accordingly in product copy."
+      "notes": "KEEP as secondary/aesthetic. Label accordingly in product copy.",
+      "lock_state": "LOCKED_KEEP",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "EPA-TURBIDITY-TT",
@@ -455,7 +506,10 @@
       "action": "KEEP BUT LABEL",
       "citation_status": "PARTIAL",
       "redesign_candidate": false,
-      "notes": "KEEP with TT label; do not call MCL."
+      "notes": "KEEP with TT label; do not call MCL.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "EPA-TDS-INTERNAL-300",
@@ -474,7 +528,10 @@
       "action": "PRODUCT DECISION",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "NO CITATION as EPA value — project internal soft Ideal."
+      "notes": "NO CITATION as EPA value — project internal soft Ideal.",
+      "lock_state": "PD_REQUIRED",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "EPA-WEIGHTS",
@@ -493,7 +550,10 @@
       "action": "PRODUCT DECISION",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "NO CITATION."
+      "notes": "NO CITATION.",
+      "lock_state": "PD_REQUIRED",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "QV3-PH-CENTER",
@@ -556,7 +616,10 @@
       "action": "KEEP",
       "citation_status": "PARTIAL",
       "redesign_candidate": false,
-      "notes": "KEEP center only. Downstream breakpoints remain UNSUPPORTED / project."
+      "notes": "KEEP center only. Downstream breakpoints remain UNSUPPORTED / project.",
+      "lock_state": "LOCKED_KEEP",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "QV3-ORP-NI",
@@ -641,7 +704,10 @@
       "action": "KEEP BUT LABEL",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "PD-004 DECIDED A. Forbidden to call national standard. NO CITATION as national clause."
+      "notes": "PD-004 DECIDED A. Forbidden to call national standard. NO CITATION as national clause.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     }
   ],
   "authority": "SOURCE_OF_TRUTH",
