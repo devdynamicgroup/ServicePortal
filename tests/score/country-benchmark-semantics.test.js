@@ -80,6 +80,19 @@ console.log('\nGovernance — all five PDs DECIDED A');
   assert(decisionDoc.includes('FORBID MAGNITUDE RANKING'), 'PD-005 Decision A recorded');
   assert(decisionDoc.includes('PASS-BAND') || decisionDoc.includes('pass-band'), 'PD-001 Decision A recorded');
 
+
+  // PD-010/011 Ideal KEEP+LABEL locks (ledger Status asserts deferred until UNRESOLVED PD-010/011 sections land)
+  const qv3Src = fs.readFileSync(path.join(root, 'src/js/score/production/computeQualityScoreV2.js'), 'utf8');
+  assert(qv3Src.includes('PD-011 A'), 'Q-V3 source carries PD-011 A labels');
+  assert(!/pH center 7\.2 = midpoint of common 6\.5–8\.5/.test(qv3Src), 'false pH midpoint claim removed');
+  assert(qv3Src.includes('Math.abs(ph - 7.2)'), 'pH center 7.2 numeric unchanged');
+  assert(qv3Src.includes('tds <= 80'), 'TDS ≤80 numeric unchanged');
+  assert(qv3Src.includes('Math.abs(orp - 400)'), 'ORP 400 numeric unchanged');
+  assert(qv3Src.includes('doValue >= 8.0'), 'DO ≥8 numeric unchanged');
+  assert(qv3Src.includes('lerp(fcl, 0.5, 100, 1.0, 46)'), 'Cl high-side 46@1.0 unchanged');
+  assert(i18nSrc.includes("'score.about.qualityNote'"), 'qualityNote i18n key exists');
+  assert(i18nSrc.includes('PROJECT-DEFINED'), 'PROJECT-DEFINED Ideal labeling present');
+
   const pd002decisions = ['KEEP AS EXPLICIT PROJECT HARD GATE', 'UNSUPPORTED ANCHOR'];
   const pd003decisions = ['KEEP DO EXCLUDED AS PROJECT DESIGN'];
   const pd004decisions = ['KEEP AS SHARED OPERATIONAL / PROJECT BAND'];

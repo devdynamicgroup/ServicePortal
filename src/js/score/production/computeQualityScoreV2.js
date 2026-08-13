@@ -2,7 +2,7 @@
  * Production Quality Score V3 — Near-Ideal proximity (recalibrated).
  *
  * Product decisions:
- *   100 = genuinely Near-Ideal / Exceptional Quality
+ *   100 = genuinely Near-Ideal / Exceptional Quality (PROJECT Ideal index)
  *   PASS ≠ 100
  *   Quality ≠ country Benchmark
  *   Country differences live in Benchmark engines, not in this Quality model
@@ -12,28 +12,19 @@
  *               → Quality Score 0–100 (this module)
  *               → Benchmark Comparison (Thailand / Japan / WHO / EU / US EPA)
  *
- * Weights: UNCHANGED equal average of 6 scored parameters.
+ * Weights: UNCHANGED equal average of 6 scored parameters (PD-007 D).
  * Temp / EC / DO% / Total Chlorine: NOT SCORED.
  *
- * V3 vs V2 calibration (evidence-based narrowing — not arbitrary score-=N):
- * - Near-Ideal zones narrowed so "normal clean drinking water" does not land 95–100.
- * - Former Prod/WHO 100 plateaus remain COMPLIANCE only.
- * - pH center 7.2 = midpoint of common 6.5–8.5 acceptability band.
- * - TDS Near-Ideal ≤80 aligns under Japan complementary residue preference (30–200)
- *   and well below EPA SMCL 500 / former Prod ≤300 Quality plateau.
- * - Turbidity Near-Ideal ≤0.10 NTU: WHO Guidelines for Drinking-water Quality
- *   states turbidity should ideally be below 0.1 NTU for effective disinfection
- *   (changed from ≤0.08; see docs/quality-v3/REALITY_FIRST_IMPLEMENTATION_REPORT.md).
- * - Free Cl: flat 100 across WHO's cited floor-to-target band (0.2-0.5 mg/L),
- *   continuous ramp below 0.2. Replaces a prior two-branch curve whose
- *   unchecked overlap produced an undocumented +18pt cliff at 0.08 mg/L — see
- *   docs/quality-v3/EVIDENCE_BASED_SCORING_AUDIT.md §6. The >0.5 mg/L shape is
- *   an INTERIM placeholder (reused pre-existing 46-at-1.0/28-at-2.0/floor-8
- *   anchors, not evidence-derived for this range) pending a product decision
- *   on what Quality V3 measures — see docs/quality-v3/UNRESOLVED_DECISIONS.md §1
- *   and the full rationale in gradeChlorine() below. Do not read >0.5 mg/L as approved.
- * - ORP center 400 = midpoint of former operational 200–600 (no external Ideal); NI |Δ|≤25.
- * - DO Near-Ideal ≥8.0; ≥6.0 is Compliance floor (~68), not exceptional.
+ * PD-011 A (2026-08-13) — KEEP + LABEL for Ideal magnitudes (NO numeric change):
+ * - pH center 7.2, TDS NI ≤80, ORP Ideal 400±25, DO NI ≥8, Cl >0.5 curve
+ *   are PROJECT-DEFINED product rules — NOT WHO / EPA / JP / national Ideals.
+ * - Historical claim “pH 7.2 = midpoint of 6.5–8.5” is FALSE (true mid = 7.5)
+ *   and must not be restated as justification.
+ * - Free Cl flat 0.2–0.5 reuses WHO residual *guidance framing* only; it is not
+ *   a verified “quality Ideal = 100” regulatory standard. High-side >0.5 curve
+ *   remains PROJECT interim (46@1.0 / 28@2.0 / floor 8) — not evidence-derived.
+ * - Turbidity NI ≤0.1 retains PARTIAL WHO disinfection Ideal framing (unchanged).
+ * - ORP 400±25 is project Ideal, separate from shared operational band 200–600 (PD-004).
  *
  * Legacy DWQI remains in computeLegacyDwqiScore (frozen reference).
  */
@@ -52,6 +43,7 @@
   }
 
   function gradePh(ph) {
+    // PD-011 A: PROJECT-DEFINED Ideal center 7.2 (NOT a WHO/EPA Ideal; NOT midpoint of 6.5–8.5).
     const d = Math.abs(ph - 7.2);
     if (d <= 0.15) return 100;
     if (d <= 0.4) return lerp(d, 0.15, 100, 0.4, 90);
@@ -62,6 +54,7 @@
   }
 
   function gradeTds(tds) {
+    // PD-011 A: PROJECT-DEFINED Near-Ideal ≤80 (NOT WHO excellent <300; NOT Japan taste 30–200 Ideal).
     if (tds <= 80) return 100;
     if (tds <= 120) return lerp(tds, 80, 100, 120, 92);
     if (tds <= 200) return lerp(tds, 120, 92, 200, 80);
@@ -85,27 +78,10 @@
   }
 
   function gradeChlorine(fcl) {
-    // Flat 100 across WHO's cited floor-to-target band (0.2-0.5 mg/L: 0.2 =
-    // minimum at point of delivery, 0.5 = target after contact time for
-    // effective disinfection) and a continuous ramp below 0.2 toward the
-    // under-disinfection floor. This removes the prior two-branch collision
-    // (a distance-from-0.3 branch plus a separate raw-value branch below 0.1)
-    // that produced an undocumented +18pt cliff at 0.08 mg/L — see
-    // docs/quality-v3/EVIDENCE_BASED_SCORING_AUDIT.md §6. NEITHER of these two
-    // pieces is in dispute.
-    //
-    // INTERIM, NOT FINAL: the shape above 0.5 mg/L is unresolved. WHO's 0.5-1.0
-    // mg/L range is an outbreak-context allowance and its 5.0 mg/L figure is a
-    // health-based (safety) ceiling, not a quality target — using either as a
-    // "quality curve anchor" requires first deciding what Quality V3 is meant
-    // to measure (open since docs/quality-v3/UNRESOLVED_DECISIONS.md §1; see
-    // the chlorine-specific decision table in this thread's history). Pending
-    // that decision, this segment is re-anchored to the same 46-at-1.0 /
-    // 28-at-2.0 / floor-8 values already shipped in production before any
-    // change in this review series (docs/quality-v3/CANDIDATE_SCORING_TABLE.md
-    // predecessor curve) — reused rather than re-derived, and continuous with
-    // the now-uncontested flat band, but explicitly NOT an evidence-backed
-    // choice for this range. Do not read this segment as approved.
+    // PD-011 A: Flat 0.2–0.5 uses WHO residual *guidance framing* only (delivery min /
+    // disinfection contact) — NOT a verified regulatory “quality Ideal = 100”.
+    // High-side >0.5 (46@1.0 / 28@2.0 / floor 8) is PROJECT-DEFINED interim —
+    // NOT derived from MRDL/GV/taste. Magnitudes unchanged.
     if (fcl >= 0.2 && fcl <= 0.5) return 100;
     if (fcl < 0.2) return clamp(lerp(fcl, 0, 5, 0.2, 100), 2, 100);
     if (fcl <= 1.0) return lerp(fcl, 0.5, 100, 1.0, 46);
@@ -114,6 +90,8 @@
   }
 
   function gradeOrp(orp) {
+    // PD-011 A: PROJECT-DEFINED Ideal 400±25 — NOT a WHO universal Ideal.
+    // Separate from shared operational band 200–600 (PD-004).
     const d = Math.abs(orp - 400);
     if (d <= 25) return 100;
     if (d <= 70) return lerp(d, 25, 100, 70, 86);
@@ -124,6 +102,7 @@
   }
 
   function gradeDo(doValue) {
+    // PD-011 A: PROJECT-DEFINED Near-Ideal ≥8 — NOT a potable WHO Ideal; NOT aquatic-life criterion.
     if (doValue >= 8.0) return 100;
     if (doValue >= 7.2) return lerp(doValue, 7.2, 90, 8.0, 100);
     if (doValue >= 6.5) return lerp(doValue, 6.5, 78, 7.2, 90);
@@ -168,7 +147,7 @@
       checks,
       failedParameters: failed,
       marginalParameters: marginal,
-      standardRevision: 'Former Production/WHO acceptability plateaus (compliance only)'
+      standardRevision: 'Quality V3 compliance checks use project pass bands; Near-Ideal Quality targets are PROJECT-DEFINED (PD-011 A), not national Ideals'
     };
   }
 

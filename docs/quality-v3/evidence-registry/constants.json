@@ -508,11 +508,14 @@
       "clause": "",
       "unit": "pH",
       "source_value": "",
-      "semantic_gap": "Comment claims midpoint of 6.5–8.5; true midpoint is 7.5 — known rationale error; value remains project choice",
-      "action": "PRODUCT DECISION",
+      "semantic_gap": "No WHO/EPA Ideal center at 7.2. Historical midpoint-of-6.5–8.5 claim is false (true mid=7.5) and removed from code comments under PD-011 A.",
+      "action": "KEEP BUT LABEL",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "NO CITATION as a standard Ideal. Do not retune from baseline aesthetics."
+      "notes": "PD-011 A KEEP+LABEL (2026-08-13). PROJECT-DEFINED Ideal center 7.2 retained numerically. Not a national Ideal. Numeric change requires a new PD.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "QV3-TDS-NI",
@@ -522,16 +525,19 @@
       "code_path": "src/js/score/production/computeQualityScoreV2.js",
       "semantic": "Near-Ideal TDS ceiling",
       "evidence_class": "PROJECT-DEFINED",
-      "source_name": "Japan complementary residue preference 30–200 (framing only)",
+      "source_name": "",
       "source_url": "",
-      "clause": "complementary / management item, not core health criterion",
+      "clause": "",
       "unit": "mg/L",
-      "source_value": "30–200 range cited as framing; cutoff 80 is stricter project choice",
-      "semantic_gap": "≤80 is not itself the cited Japanese range",
+      "source_value": "",
+      "semantic_gap": "≤80 is not WHO excellent <300, not Japan taste 30–200 Ideal, not EPA SMCL 500. Japan 30–200 is framing context only.",
       "action": "KEEP BUT LABEL",
-      "citation_status": "PARTIAL",
+      "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "Label as project NI inside a cited complementary range — not a national Ideal."
+      "notes": "PD-011 A KEEP+LABEL. PROJECT-DEFINED NI ≤80. Do not claim WHO/JP/EPA Ideal. Numeric change requires a new PD.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "QV3-TURBIDITY-NI",
@@ -565,11 +571,14 @@
       "clause": "",
       "unit": "mV",
       "source_value": "",
-      "semantic_gap": "Derived as midpoint of operational 200–600; no external Ideal",
-      "action": "RESEARCH",
+      "semantic_gap": "Derived historically as midpoint of operational 200–600; WHO forbids universal ORP Ideal. PD-011 A keeps magnitude as PROJECT Ideal only.",
+      "action": "KEEP BUT LABEL",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "NO CITATION. Related shared band is OPERATIONAL (PD-004)."
+      "notes": "PD-011 A KEEP+LABEL. PROJECT-DEFINED Ideal 400±25. Separate from PD-004 ops band 200–600. Not WHO Ideal. Numeric change requires a new PD.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "QV3-CHLORINE-BAND-CURVE",
@@ -578,17 +587,20 @@
       "code_value": "flat 0.2–0.5; continuous ramp >0.5 (46@1.0 / 28@2.0 / floor 8)",
       "code_path": "src/js/score/production/computeQualityScoreV2.js",
       "semantic": "Quality Ideal band + high-side curve",
-      "evidence_class": "PARTIALLY VERIFIED",
-      "source_name": "WHO residual 0.2–0.5 (band only)",
+      "evidence_class": "PROJECT-DEFINED",
+      "source_name": "",
       "source_url": "",
-      "clause": "residual guidance 0.2–0.5 at delivery",
+      "clause": "",
       "unit": "mg/L",
-      "source_value": "0.2–0.5 residual; >0.5 curve is explicitly interim / not evidence-backed in code comments",
-      "semantic_gap": "Band ≈ WHO residual; high-side curve = project interim pending UNRESOLVED §1",
+      "source_value": "",
+      "semantic_gap": "0.2–0.5 aligns with WHO residual guidance framing only (not quality Ideal). High-side 46/28/8 is unsupported interim.",
       "action": "KEEP BUT LABEL",
-      "citation_status": "PARTIAL",
+      "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "Band KEEP BUT LABEL; >0.5 shape = PRODUCT DECISION later (not silent fix)."
+      "notes": "PD-011 A KEEP+LABEL. Band + high-side retained as PROJECT-DEFINED. Do not claim WHO Ideal score=100 or MRDL-derived curve. Numeric change requires a new PD.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "QV3-DO-NI",
@@ -597,17 +609,20 @@
       "code_value": "NI ≥8.0 (compliance floor ~6.0 → ~68)",
       "code_path": "src/js/score/production/computeQualityScoreV2.js",
       "semantic": "Near-Ideal DO floor",
-      "evidence_class": "UNSUPPORTED",
+      "evidence_class": "PROJECT-DEFINED",
       "source_name": "",
       "source_url": "",
       "clause": "",
       "unit": "mg/L",
       "source_value": "",
-      "semantic_gap": "No drinking-water Ideal ≥8 locked as standard in this hunt",
-      "action": "RESEARCH",
+      "semantic_gap": "No potable WHO Ideal ≥8; aquatic-life thresholds must not be substituted.",
+      "action": "KEEP BUT LABEL",
       "citation_status": "NO CITATION",
       "redesign_candidate": false,
-      "notes": "NO CITATION — project/model assumption."
+      "notes": "PD-011 A KEEP+LABEL. PROJECT-DEFINED NI ≥8. Not a national potable Ideal. Numeric change requires a new PD.",
+      "lock_state": "LOCKED_LABEL",
+      "model_change_authorized": false,
+      "editable_without_pd": false
     },
     {
       "id": "SHARED-ORP-BAND",
@@ -628,5 +643,25 @@
       "redesign_candidate": false,
       "notes": "PD-004 DECIDED A. Forbidden to call national standard. NO CITATION as national clause."
     }
-  ]
+  ],
+  "authority": "SOURCE_OF_TRUTH",
+  "governance": {
+    "locked_at": "2026-08-13",
+    "model_change_authorized_global": false,
+    "product_decision_gate_required": true,
+    "lock_state_enum": [
+      "LOCKED_KEEP",
+      "LOCKED_LABEL",
+      "MODEL_REPAIR_GATED",
+      "RESEARCH_BLOCKED",
+      "PD_REQUIRED"
+    ],
+    "rules": [
+      "Numeric values must not change without Product Decision that cites constant id(s).",
+      "LOCKED_KEEP / LOCKED_LABEL: label/docs only; no threshold/weight/curve/gate edits.",
+      "MODEL_REPAIR_GATED: redesign candidates; blocked until dedicated Model Repair PD.",
+      "RESEARCH_BLOCKED: no model change until citation or explicit NO-CITATION acceptance PD.",
+      "PD_REQUIRED: product/design magnitude; blocked until Product Decision."
+    ]
+  }
 }
