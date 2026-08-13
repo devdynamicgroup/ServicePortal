@@ -74,7 +74,9 @@ console.log('\nCase 13.28 — Quality V2 + benchmarks');
   assert(quality <= 94, `Quality V3 Case 13.28 not overfit (got ${quality})`);
   assert(quality < 96, `Quality V3 below prior V2 Case A band (got ${quality})`);
   assert(sandbox.QUALITY_SCORE_ENGINE_VERSION === 'quality-v3.0', 'engine version quality-v3.0');
-  const expected = { thailand: 100, who: 100, eu: 100, japan: 100, usEpa: 100 };
+  // Raw composite is 100 on every engine for this reading; Country Hero ceiling
+  // caps the displayed/composite score at 99 (100 is reserved for Quality V3).
+  const expected = { thailand: 99, who: 99, eu: 99, japan: 99, usEpa: 99 };
   for (const [key, score] of Object.entries(expected)) {
     const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, CASE_1328);
     assert(result.score === score, `${key} Case 13.28 = ${score}`);

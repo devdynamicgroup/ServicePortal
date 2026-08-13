@@ -162,7 +162,12 @@ function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDA
   const key = reg?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const standard = getWaterQualityStandard(key);
   const scored = reg.calculate(key, readings || {});
-  const score = Number.isFinite(scored.score) ? scored.score : null;
+  // Registry already applies Country Hero ceiling (PASS ≠ 100; 100 = Q-V3 only).
+  // Re-assert here so Hero / comparison never surfaces 100 even if an engine bypasses wrap.
+  const rawScore = Number.isFinite(scored.score) ? scored.score : null;
+  const score = (typeof applyCountryBenchmarkHeroCeiling === 'function')
+    ? applyCountryBenchmarkHeroCeiling(rawScore)
+    : (rawScore != null && rawScore > 99 ? 99 : rawScore);
   const findings = (scored.findings || []).map(f => ({
     label: f.label || (f.labelKey && typeof t === 'function' ? t(f.labelKey) : (f.labelKey || '')),
     val: f.val,

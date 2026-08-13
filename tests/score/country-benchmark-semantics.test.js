@@ -54,7 +54,9 @@ const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
   thailand: 99,
-  japan: 100,
+  // Raw Japan composite is 100 for this reading; Country Hero ceiling caps
+  // the displayed score at 99 (100 is reserved for Quality V3).
+  japan: 99,
   who: 95,
   eu: 65,
   usEpa: 99
@@ -143,10 +145,18 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   const overlap = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06 };
   const thOverlap = bench('thailand', overlap).score;
   const jpOverlap = bench('japan', overlap).score;
-  assert(thOverlap === jpOverlap && thOverlap === 100, 'equal TH/JP scores remain valid (inner-plateau overlap)');
-  const th = bench('thailand', BASELINE.readings).score;
-  const jp = bench('japan', BASELINE.readings).score;
-  assert(th === 99 && jp === 100, 'BASELINE TH/JP may differ after in-band severity — not a ranking');
+  // Raw composite is 100 on both engines for this reading; Country Hero
+  // ceiling caps both at 99 — equality is still valid (inner-plateau overlap).
+  assert(thOverlap === jpOverlap && thOverlap === 99, 'equal TH/JP scores remain valid (inner-plateau overlap)');
+  const thBaseline = bench('thailand', BASELINE.readings);
+  const jpBaseline = bench('japan', BASELINE.readings);
+  // Both land on 99, but via different mechanisms — TH's own in-band severity
+  // curve already grades chlorine below 100 pre-ceiling; JP's raw composite
+  // is exactly 100 and only reaches 99 via the shared Hero ceiling.
+  assert(thBaseline.score === 99 && jpBaseline.score === 99,
+    'BASELINE TH/JP both 99 (different mechanisms, not a ranking)');
+  assert(thBaseline.params.chlorine < 100, 'TH chlorine grade already below 100 pre-ceiling (in-band severity)');
+  assert(Object.values(jpBaseline.params).every(v => v === 100), 'JP raw params all 100 (Hero ceiling is the only reduction)');
   assert(!scoreFlowSrc.includes('strictest cleanliness expectations'),
     'dropdown order comment no longer implies quality ranking');
 }
@@ -254,7 +264,11 @@ console.log('\nPD-012 B — Japan DO excluded from Compliance Index (I2 den)');
     den += W[key];
   }
   assert(Math.abs(den - 0.88) < 1e-9, 'reconstructed den excludes do:0.12');
-  assert(Math.round(num / den) === low.score, 'JP score matches five-param weighted mean');
+  // low.score is post-Hero-ceiling; compare against the raw weighted mean
+  // through the same shared ceiling function, not a duplicated formula.
+  const rawMean = Math.round(num / den);
+  assert(sandbox.applyCountryBenchmarkHeroCeiling(rawMean) === low.score,
+    `JP score matches five-param weighted mean through Hero ceiling (raw ${rawMean} -> ${low.score})`);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

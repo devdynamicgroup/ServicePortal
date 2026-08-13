@@ -206,7 +206,8 @@ console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
   });
   assert(q.score === 76, `Quality V3 baseline 76 (got ${q.score})`);
   assert(th.score === 99 && th.engineKey === 'thailand', 'baseline displayed TH=99 from thailand engine');
-  assert(jp.score === 100 && jp.engineKey === 'japan', 'baseline displayed JP=100 from japan engine');
+  // Raw JP composite is 100 for this reading; Hero ceiling caps at 99.
+  assert(jp.score === 99 && jp.engineKey === 'japan', 'baseline displayed JP=99 from japan engine');
   assert(who.score === 95 && who.engineKey === 'who', 'baseline displayed WHO=95 from who engine');
   assert(eu.score === 65 && eu.engineKey === 'eu', 'baseline displayed EU=65 from eu engine');
   assert(epa.score === 99 && epa.engineKey === 'usEpa', 'baseline displayed EPA=99 from usEpa engine');
@@ -248,7 +249,8 @@ console.log('\n10. Quality V3 unchanged');
   switchCountry('japan');
   assert(sandbox.S.currentScoreResult.computedScore === 76, 'publish computedScore stays Quality 76 after JP switch');
   assert(sandbox.S.scoreVal === 76, 'S.scoreVal (publish) stays Quality 76');
-  assert(sandbox.S.displayedScore.score === 100, 'displayed Japan score is 100, not Quality 76');
+  // Raw JP composite is 100; Hero ceiling caps at 99 — still independent of Quality V3 (76).
+  assert(sandbox.S.displayedScore.score === 99, 'displayed Japan score is 99 (ceiling-capped), not Quality 76');
 }
 
 console.log('\nLive Hero must not fall back to Quality V3 when country score is incomplete');

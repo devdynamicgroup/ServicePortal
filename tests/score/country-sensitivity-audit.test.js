@@ -289,7 +289,8 @@ console.log('\nCountry switch TH→JP→EU→WHO→EPA→TH (no stale cache)');
 console.log('\nMissing-data country semantics');
 {
   assert(bench('thailand', { ...IDEAL, ph: null }).score == null, 'TH missing pH incomplete');
-  assert(bench('japan', { ...IDEAL, do: null }).score === 100
+  // Raw composite is 100 (all other params ideal); Hero ceiling caps at 99.
+  assert(bench('japan', { ...IDEAL, do: null }).score === 99
     && bench('japan', { ...IDEAL, do: null }).classifications.do === 'NOT_EVALUATED',
     'JP missing DO still scores / NOT_EVALUATED');
   assert(bench('eu', { ...IDEAL, do: null }).score == null, 'EU missing DO incomplete');
@@ -390,7 +391,8 @@ console.log('\nEPA Cl 0.3 vs 3.9 identical (PD-008 numbers frozen — inner shap
   const hi = bench('usEpa', { ...IDEAL, chlorine: 3.9 });
   assert(lo.params.chlorine === 100 && hi.params.chlorine === 100,
     'EPA Cl 0.3 and 3.9 both grade 100');
-  assert(lo.score === hi.score && lo.score === 100, 'EPA Hero 0.3 === 3.9 === 100');
+  // Raw composite is 100 for both; Hero ceiling caps both at 99 identically.
+  assert(lo.score === hi.score && lo.score === 99, 'EPA Hero 0.3 === 3.9 === 99');
   assert(sandbox.UsEpaBenchmarkLimits.chlorine.projectMin === 0.2
     && sandbox.UsEpaBenchmarkLimits.chlorine.mrdlMax === 4.0,
     'EPA Cl ceilings unchanged 0.2 / 4.0');
@@ -410,16 +412,17 @@ console.log('\nWHO Cl 0 vs 1.0 same tier (no below-min branch — shape NOT auth
     'WHO Cl=-1 does not reach a finite score (validator strips implausible)');
 }
 
-console.log('\nTH Cl 0.51 — grade drops, Hero still 100 via Math.round (display rounding, not a new clamp)');
+console.log('\nTH Cl 0.51 — grade drops, Math.round still rounds raw composite to 100, Hero ceiling caps at 99');
 {
   const r = bench('thailand', { ...IDEAL, chlorine: 0.51 });
   assert(r.params.chlorine < 100 && r.params.chlorine >= 99, `TH Cl 0.51 grade ${r.params.chlorine} < 100`);
-  assert(r.score === 100, 'TH Cl 0.51 composite rounds to 100 (Math.round unchanged)');
+  assert(r.score === 99, 'TH Cl 0.51 composite rounds to 100 pre-ceiling, Hero shows 99 (Math.round unchanged, ceiling applied)');
 }
 
 console.log('\nCross-country freeze on standard fixtures (non-TH engines)');
 {
-  assert(bench('japan', BASE).score === 100, 'JP BASE 100');
+  // Raw JP composite is 100 for BASE; Hero ceiling caps at 99.
+  assert(bench('japan', BASE).score === 99, 'JP BASE 99');
   assert(bench('who', BASE).score === 95, 'WHO BASE 95');
   assert(bench('eu', BASE).score === 65, 'EU BASE 65');
   assert(bench('usEpa', BASE).score === 99, 'EPA BASE 99');

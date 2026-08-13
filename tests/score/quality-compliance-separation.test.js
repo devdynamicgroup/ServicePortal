@@ -68,8 +68,10 @@ function validated(raw) {
   const epa = sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', readings);
 
   assert(quality < 100, 'Case 1328 Quality V3 score stays below 100 through the validated pipeline');
-  assert(th.score === 100 && jp.score === 100 && who.score === 100 && eu.score === 100 && epa.score === 100,
-    'Case 1328 scores 100 on every country benchmark, independent of Quality V3');
+  // Raw composite is 100 on every engine for this reading; Country Hero
+  // ceiling caps the displayed score at 99 (100 is reserved for Quality V3).
+  assert(th.score === 99 && jp.score === 99 && who.score === 99 && eu.score === 99 && epa.score === 99,
+    'Case 1328 scores 99 (Hero ceiling) on every country benchmark, independent of Quality V3');
   assert(quality !== th.score, 'Quality V3 numerically differs from the (selected) country benchmark score');
 
   // Selecting a different benchmark must never change the Quality number.

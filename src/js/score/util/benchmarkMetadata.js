@@ -1,7 +1,23 @@
 ﻿/**
  * Utility only — shapes benchmark metadata envelope + stable input fingerprinting.
  * Does NOT score parameters or encode country philosophy.
+ *
+ * Country Hero ceiling (product architecture, computeQualityScoreV2.js header):
+ *   100 = genuinely Near-Ideal / Exceptional Quality  → Quality V3 only
+ *   PASS ≠ 100
+ *   Quality ≠ country Benchmark
+ * Therefore Country Benchmark composite Hero must never equal 100.
+ * Param-level grades may still report 100 for in-band compliance; the composite
+ * Hero is capped. Does not change weights, aggregation, Math.round, or Q-V3.
  */
+
+/** Hard ceiling for Country Benchmark composite scores (Hero / registry.calculate). */
+const COUNTRY_BENCHMARK_HERO_MAX = 99;
+
+function applyCountryBenchmarkHeroCeiling(score) {
+  if (!Number.isFinite(score)) return score;
+  return score > COUNTRY_BENCHMARK_HERO_MAX ? COUNTRY_BENCHMARK_HERO_MAX : score;
+}
 
 function normalizeBenchmarkReadingValue(value) {
   const n = Number(value);
@@ -56,7 +72,7 @@ function finalizeBenchmarkMetadata(input) {
   return {
     engine: input.engine,
     engineKey: input.engineKey,
-    score: input.score,
+    score: applyCountryBenchmarkHeroCeiling(input.score),
     verdict: input.verdict,
     summary: input.summary,
     passedParameters,

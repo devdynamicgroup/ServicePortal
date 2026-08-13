@@ -146,7 +146,8 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
     console.log(`  Case ${label} Quality=${q} compliance=${detail.compliance.status} TH=${th.score} JP=${jp.score}`);
     console.log(`  Case ${label} TH params`, th.params);
     console.log(`  Case ${label} JP params`, jp.params);
-    assert(th.score === 100 && jp.score === 100, `Case ${label}: TH===JP===100 expected plateau overlap`);
+    // Raw composite is 100 on both engines; Hero ceiling caps both at 99.
+    assert(th.score === 99 && jp.score === 99, `Case ${label}: TH===JP===99 expected plateau overlap`);
     assert(th.score === jp.score, `Case ${label}: documented same-result TH===JP`);
     assert(Number.isFinite(q) && q < th.score, `Case ${label}: Quality ${q} is not overwritten by TH ${th.score}`);
     assert(detail.engineVersion === 'quality-v3.0' || sandbox.QUALITY_SCORE_ENGINE_VERSION === 'quality-v3.0',
@@ -229,7 +230,8 @@ console.log('\nHero data source contract — live display is country engine; Qua
   assert(displayedTh.score !== quality, `displayed TH ${displayedTh.score} !== Quality ${quality}`);
   assert(th.standardKey === 'thailand' && jp.standardKey === 'japan', 'comparison carries country keys');
   assert(quality === 92, `Case A Quality locked evidence = 92 (got ${quality})`);
-  assert(th.score === 100 && jp.score === 100, 'both country engines 100 while Quality 92');
+  // Raw composite is 100 on both engines; Hero ceiling caps both at 99.
+  assert(th.score === 99 && jp.score === 99, 'both country engines 99 (Hero ceiling) while Quality 92');
 }
 
 console.log('\nCase persistence — benchmark switch must not wipe caseId / measurements');

@@ -191,7 +191,8 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
   const q = sandbox.computeScoreFromReadings(BASE);
   assert(q === 76, `Quality V3 still 76 (got ${q})`);
   assert(bench('thailand', BASE).score === 99, 'TH baseline 99 (Cl 0.7 in-band severity, not flat 100)');
-  assert(bench('japan', BASE).score === 100, 'JP baseline 100');
+  // Raw JP composite is 100 for BASE; Hero ceiling caps at 99.
+  assert(bench('japan', BASE).score === 99, 'JP baseline 99');
   assert(bench('who', BASE).score === 95, 'WHO baseline 95');
   assert(bench('eu', BASE).score === 65, 'EU baseline 65');
   assert(bench('usEpa', BASE).score === 99, 'EPA baseline 99');

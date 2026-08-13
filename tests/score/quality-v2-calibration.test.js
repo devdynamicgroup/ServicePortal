@@ -91,10 +91,12 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   assert(a.score < 96, `Case A below previous V2 overfit band (got ${a.score})`);
   assert(a.compliance.status === 'PASS', 'Case A compliance PASS');
   assert(b.compliance.status !== 'PASS', 'Case B compliance not PASS');
-  assert(bench('thailand', CASE_A) === 100, 'TH Case A = 100');
-  assert(bench('japan', CASE_A) === 100, 'Japan Case A = 100');
-  assert(bench('thailand', CASE_B) === 100, 'TH Case B = 100');
-  assert(bench('japan', CASE_B) === 100, 'Japan Case B = 100 (DO excluded from JP index — PD-012 B)');
+  // Raw composite is 100 for both cases on both engines; Country Hero
+  // ceiling caps the displayed score at 99 (100 is reserved for Quality V3).
+  assert(bench('thailand', CASE_A) === 99, 'TH Case A = 99');
+  assert(bench('japan', CASE_A) === 99, 'Japan Case A = 99');
+  assert(bench('thailand', CASE_B) === 99, 'TH Case B = 99');
+  assert(bench('japan', CASE_B) === 99, 'Japan Case B = 99 (DO excluded from JP index — PD-012 B)');
 }
 
 console.log('\nCountry differentiation on locked sample (standards differ)');
