@@ -15,7 +15,14 @@ window.ThailandBenchmarkLimits = Object.freeze({
     temp: 'Not specified'
   }),
   ph: Object.freeze({ min: 6.5, max: 8.5 }),
-  tds: Object.freeze({ passMax: 1000, softStart: 1000, softEnd: 1500 }),
+  tds: Object.freeze({
+    passMax: 1000,
+    softStart: 1000,
+    softEnd: 1500,
+    // Inner 100-plateau: existing project TDS inner (JP/EU/WHO/EPA use 300).
+    // Compliance ceiling remains passMax 1000 (TH-TDS-PASSMAX unchanged).
+    gradeExcellentMax: 300
+  }),
   chlorine: Object.freeze({
     min: 0.2,
     max: 2.0,
@@ -30,7 +37,13 @@ window.ThailandBenchmarkLimits = Object.freeze({
       context: 'DoH pipe-end surveillance residual — not adopted as this engine Compliance Ideal'
     })
   }),
-  turbidity: Object.freeze({ passMax: 5, softEnd: 12 }),
+  turbidity: Object.freeze({
+    passMax: 5,
+    softEnd: 12,
+    // Inner 100-plateau: existing EU/WHO/EPA turbidity ideal (1 NTU).
+    // Compliance ceiling remains passMax 5 (TH-TURBIDITY-PASSMAX unchanged).
+    gradeExcellentMax: 1
+  }),
   orp: Object.freeze({ min: 200, max: 600 }),
   do: Object.freeze({ unbounded: true }),
   temp: Object.freeze({ unbounded: true })

@@ -53,7 +53,7 @@ const scoreFlowSrc = fs.readFileSync(path.join(root, 'src/js/flows/score.js'), '
 const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
-  thailand: 100,
+  thailand: 99,
   japan: 100,
   who: 95,
   eu: 65,
@@ -140,9 +140,13 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
     'disclaimer forbids higher=better-country');
   assert(!/best country|worst country|country ranking|leaderboard/i.test(scoreFlowSrc.replace(/PD-005[\s\S]*?ranking/g, '')),
     'score flow does not introduce best/worst country ranking');
+  const overlap = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06 };
+  const thOverlap = bench('thailand', overlap).score;
+  const jpOverlap = bench('japan', overlap).score;
+  assert(thOverlap === jpOverlap && thOverlap === 100, 'equal TH/JP scores remain valid (inner-plateau overlap)');
   const th = bench('thailand', BASELINE.readings).score;
   const jp = bench('japan', BASELINE.readings).score;
-  assert(th === jp && th === 100, 'equal TH/JP scores remain valid');
+  assert(th === 99 && jp === 100, 'BASELINE TH/JP may differ after in-band severity — not a ranking');
   assert(!scoreFlowSrc.includes('strictest cleanliness expectations'),
     'dropdown order comment no longer implies quality ranking');
 }
@@ -186,7 +190,7 @@ console.log('\nPD-001 — comparison presentation is pass-band, not Excellent');
 
 
   const compare = sandbox.buildComparisonScoreResult(BASELINE.readings, 'thailand');
-  assert(compare.score === 100, 'comparison numeric score unchanged');
+  assert(compare.score === 99, 'comparison numeric score matches Thailand engine (99 after in-band severity)');
   assert(compare.verdict === 'score.benchmark.verdict.passBand', `comparison result.verdict is pass-band (got ${compare.verdict})`);
   assert(compare.engineVerdict === 'Excellent', `engineVerdict preserved as Excellent (got ${compare.engineVerdict})`);
 
@@ -214,7 +218,7 @@ console.log('\nModel integrity — engines untouched numerically');
 console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, never PASS');
 {
   const th = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', BASELINE.readings);
-  assert(th.score === 100, 'TH baseline score unchanged at 100');
+  assert(th.score === 99, 'TH baseline 99 after in-band Cl severity (DO still excluded)');
   assert(th.classifications.do === 'NOT_EVALUATED', `TH measured DO → NOT_EVALUATED (got ${th.classifications.do})`);
   assert(th.classifications.temp === 'NOT_EVALUATED', `TH measured temp → NOT_EVALUATED (got ${th.classifications.temp})`);
   assert(th.statuses.do !== 'good', 'TH DO status is not good');
@@ -222,7 +226,7 @@ console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, neve
   assert(!(th.passedParameters || []).includes('temp'), 'TH temp not in passedParameters');
 
   const thNullDo = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', { ...BASELINE.readings, do: null, temp: null });
-  assert(thNullDo.score === 100, 'TH score unchanged with null DO/temp');
+  assert(thNullDo.score === 99, 'TH score unchanged with null DO/temp');
   assert(thNullDo.classifications.do === 'NOT_EVALUATED', 'TH null DO → NOT_EVALUATED (not PASS via Number(null)===0)');
   assert(thNullDo.classifications.temp === 'NOT_EVALUATED', 'TH null temp → NOT_EVALUATED');
 }

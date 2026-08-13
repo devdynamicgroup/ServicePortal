@@ -87,10 +87,16 @@ console.log('\nPD-008 — TH chlorine boundaries (numeric lock)');
   const pts = [0.19, 0.20, 0.49, 0.50, 0.51, 1.0, 2.0];
   for (const cl of pts) {
     const r = bench('thailand', withCl(cl));
-    const inBand = cl >= 0.2 && cl <= 2.0;
-    assert(r.params.chlorine === (inBand ? 100 : r.params.chlorine), `TH Cl=${cl} grade ${r.params.chlorine}`);
-    if (inBand) assert(r.params.chlorine === 100, `TH Cl=${cl} in-band → 100`);
-    if (!inBand) assert(r.params.chlorine < 100, `TH Cl=${cl} out-of-band → <100`);
+    const inCompliance = cl >= 0.2 && cl <= 2.0;
+    const inExcellent = cl >= 0.2 && cl <= 0.5;
+    assert(r.statuses.chlorine === (inCompliance ? 'good' : 'attn'),
+      `TH Cl=${cl} compliance status ${r.statuses.chlorine}`);
+    if (inExcellent) assert(r.params.chlorine === 100, `TH Cl=${cl} inner residual → grade 100`);
+    if (inCompliance && !inExcellent) {
+      assert(r.params.chlorine < 100 && r.params.chlorine >= 70,
+        `TH Cl=${cl} still in 0.2–2.0 band but severity-graded (${r.params.chlorine})`);
+    }
+    if (!inCompliance) assert(r.params.chlorine < 100, `TH Cl=${cl} out-of-band → <100`);
   }
   const above = bench('thailand', withCl(2.01));
   assert(above.params.chlorine < 100, 'TH Cl=2.01 out of band');
@@ -184,7 +190,7 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
 {
   const q = sandbox.computeScoreFromReadings(BASE);
   assert(q === 76, `Quality V3 still 76 (got ${q})`);
-  assert(bench('thailand', BASE).score === 100, 'TH baseline 100');
+  assert(bench('thailand', BASE).score === 99, 'TH baseline 99 (Cl 0.7 in-band severity, not flat 100)');
   assert(bench('japan', BASE).score === 100, 'JP baseline 100');
   assert(bench('who', BASE).score === 95, 'WHO baseline 95');
   assert(bench('eu', BASE).score === 65, 'EU baseline 65');

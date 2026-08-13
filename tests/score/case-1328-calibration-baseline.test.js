@@ -59,7 +59,7 @@ const CASE_1328 = {
 console.log('\nLocked sample (legacy DWQI freeze)');
 {
   assert(sandbox.computeLegacyDwqiScore(LOCKED) === 93, 'Legacy DWQI locked = 93');
-  const expected = { thailand: 100, who: 93, eu: 65, japan: 96, usEpa: 91 };
+  const expected = { thailand: 95, who: 93, eu: 65, japan: 96, usEpa: 91 };
   for (const [key, score] of Object.entries(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, LOCKED).score === score,
       `${key} locked = ${score}`);
@@ -99,8 +99,9 @@ console.log('\nBoundary still reduces Quality V2 score');
   const base = sandbox.computeScoreFromReadings(CASE_1328);
   assert(sandbox.computeScoreFromReadings({ ...CASE_1328, ph: 9.5 }) < base, 'pH out of band reduces Quality');
   assert(sandbox.computeScoreFromReadings({ ...CASE_1328, chlorine: 0.8 }) < base, 'Cl 0.8 reduces Quality');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', { ...CASE_1328, chlorine: 0.8 }).score === 100,
-    'Thai still 100 at Cl 0.8 (wider acceptability band — expected)');
+  const thCl = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', { ...CASE_1328, chlorine: 0.8 });
+  assert(thCl.score === 99, `Thai Cl 0.8 severity-graded to 99 (got ${thCl.score}), still inside 0.2–2.0`);
+  assert(thCl.statuses.chlorine === 'good', 'Thai Cl 0.8 remains compliance-pass');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

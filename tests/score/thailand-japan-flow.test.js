@@ -7,6 +7,7 @@
  * - Live displayed Score uses the selected country engine; Quality V3 remains publish-only.
  * - Case A/B: TH score === JP score is expected (both within national plateaus).
  * - DIFF fixture: TH score !== JP score when standards diverge.
+ *   TH is no longer a flat 100 across the full compliance band.
  */
 const fs = require('fs');
 const path = require('path');
@@ -82,8 +83,9 @@ const CASE_B = {
   ph: 7.9, tds: 155, turbidity: 0.6, orp: 507, do: 5.2, chlorine: 0.5, temp: 31.0
 };
 /**
- * Intentional differentiation fixture — inside Thailand pass plateaus,
- * outside Japan stricter TDS / turbidity / chlorine ceilings.
+ * Intentional differentiation fixture — inside Thailand compliance ceilings
+ * (TDS≤1000 / turb≤5 / Cl 0.2–2.0) but outside Japan stricter limits,
+ * and outside Thailand inner 100-plateaus (TDS 300 / turb 1 / Cl 0.2–0.5).
  */
 const DIFF = {
   ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28
@@ -158,13 +160,15 @@ console.log('\nDifferentiation fixture — standards diverge → TH !== JP');
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH', th.score, th.params);
   console.log('  DIFF JP', jp.score, jp.params);
-  assert(th.score === 100, `DIFF Thailand still 100 (got ${th.score})`);
+  assert(th.score === 87, `DIFF Thailand = 87 after in-band severity (got ${th.score})`);
   assert(jp.score !== th.score, `DIFF Japan ${jp.score} !== Thailand ${th.score}`);
   assert(jp.params.tds < 100, 'DIFF JP TDS below 100 (TDS 800 > JP 500)');
   assert(jp.params.turbidity < 100, 'DIFF JP turbidity below 100 (3.5 > JP 2)');
   assert(jp.params.chlorine < 100, 'DIFF JP chlorine below 100 (1.5 > JP 1)');
-  assert(th.params.tds === 100 && th.params.turbidity === 100 && th.params.chlorine === 100,
-    'DIFF TH params remain 100 under Thailand limits');
+  assert(th.params.tds < 100 && th.params.turbidity < 100 && th.params.chlorine < 100,
+    'DIFF TH TDS/turb/Cl leave the inner 100-plateau while remaining inside passMax');
+  assert(th.statuses.tds === 'good' && th.statuses.turbidity === 'good' && th.statuses.chlorine === 'good',
+    'DIFF TH still compliance-pass (passMax / Cl band unchanged)');
 }
 
 console.log('\nQuality isolation — benchmark runs do not mutate Quality / each other');

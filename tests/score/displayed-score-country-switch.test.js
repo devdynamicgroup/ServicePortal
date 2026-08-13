@@ -172,9 +172,24 @@ console.log('\n6–7. Thailand → Japan → Thailand via setScoreReferenceStand
   const back = switchCountry('thailand');
   assert(back.engineKey === 'thailand', 'switch back engineKey=thailand');
   assert(back.score === th.score, `switch back displayed ${back.score} restores Thailand`);
+
+  const sequence = ['thailand', 'japan', 'eu', 'who', 'usEpa', 'thailand'];
+  const hero = [];
+  for (const key of sequence) {
+    const out = switchCountry(key);
+    const engine = sandbox.WaterScoreBenchmarkRegistry.calculate(key, DIFF);
+    assert(out.engineKey === key, `sequence ${key}: engineKey=${out.engineKey}`);
+    assert(out.score === engine.score, `sequence ${key}: Hero ${out.score} === engine ${engine.score}`);
+    assert(sandbox.S.scoreVal === sandbox.computeQualityScoreDetail(DIFF).score,
+      `sequence ${key}: S.scoreVal stays Quality V3`);
+    hero.push({ key, score: out.score, engineKey: out.engineKey });
+  }
+  assert(hero[0].score === hero[5].score && hero[0].engineKey === 'thailand',
+    'TH→…→TH restores Thailand Hero without stale cache');
+  console.log('  country-switch Hero', hero);
 }
 
-console.log('\nBaseline displayed vs Quality V3 (76/100/100/95/65/99)');
+console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
 {
   const q = sandbox.computeQualityScoreDetail(BASELINE);
   const th = displayed(BASELINE, 'thailand');
@@ -190,13 +205,13 @@ console.log('\nBaseline displayed vs Quality V3 (76/100/100/95/65/99)');
     }
   });
   assert(q.score === 76, `Quality V3 baseline 76 (got ${q.score})`);
-  assert(th.score === 100 && th.engineKey === 'thailand', 'baseline displayed TH=100 from thailand engine');
+  assert(th.score === 99 && th.engineKey === 'thailand', 'baseline displayed TH=99 from thailand engine');
   assert(jp.score === 100 && jp.engineKey === 'japan', 'baseline displayed JP=100 from japan engine');
   assert(who.score === 95 && who.engineKey === 'who', 'baseline displayed WHO=95 from who engine');
   assert(eu.score === 65 && eu.engineKey === 'eu', 'baseline displayed EU=65 from eu engine');
   assert(epa.score === 99 && epa.engineKey === 'usEpa', 'baseline displayed EPA=99 from usEpa engine');
   assert(th.score !== q.score, 'baseline Hero is not Quality V3 76');
-  assert(jp.engineKey !== th.engineKey, 'TH vs JP call different engines even when both 100');
+  assert(jp.engineKey !== th.engineKey, 'TH vs JP call different engines even when scores are close');
 }
 
 console.log('\n8. Japan DO 5.3 / 0 / null / 20 — same displayed Japan score, NOT_EVALUATED');

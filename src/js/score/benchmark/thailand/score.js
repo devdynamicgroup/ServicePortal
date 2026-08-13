@@ -17,22 +17,41 @@
     const dist = ph < L.ph.min ? L.ph.min - ph : ph - L.ph.max;
     return clamp(100 - dist * 35);
   }
+  /**
+   * MODEL DESIGN (2026-08-13): Japan-style inner plateau + decline to passMax.
+   * Compliance ceilings (passMax / Cl 0.2–2.0) unchanged. Grade 100 is no longer
+   * the entire compliance band — that was the saturation defect.
+   * Inner TDS 300 = existing project plateau (JP/EU/WHO/EPA). Inner turb 1 NTU =
+   * existing EU/WHO/EPA ideal. Inner Cl 0.2–0.5 = already-cited DoH residual.
+   */
   function gradeTds(tds) {
-    if (tds <= L.tds.passMax) return 100;
+    const excellent = L.tds.gradeExcellentMax;
+    if (tds <= excellent) return 100;
+    if (tds <= L.tds.passMax) {
+      return clamp(100 - (tds - excellent) / (L.tds.passMax - excellent) * 25);
+    }
     if (tds <= L.tds.softEnd) {
-      return clamp(100 - (tds - L.tds.softStart) / (L.tds.softEnd - L.tds.softStart) * 40);
+      return clamp(75 - (tds - L.tds.passMax) / (L.tds.softEnd - L.tds.passMax) * 35);
     }
     return clamp(40 - (tds - L.tds.softEnd) / 50);
   }
   function gradeChlorine(cl) {
-    if (cl >= L.chlorine.min && cl <= L.chlorine.max) return 100;
+    const excellentMax = L.chlorine.citedSurveillanceResidual.max;
+    if (cl >= L.chlorine.min && cl <= excellentMax) return 100;
     if (cl < L.chlorine.min) return clamp(cl / L.chlorine.min * 70);
-    return clamp(100 - (cl - L.chlorine.max) * 25);
+    if (cl <= L.chlorine.max) {
+      return clamp(100 - (cl - excellentMax) / (L.chlorine.max - excellentMax) * 30);
+    }
+    return clamp(70 - (cl - L.chlorine.max) * 25);
   }
   function gradeTurbidity(turb) {
-    if (turb <= L.turbidity.passMax) return 100;
+    const excellent = L.turbidity.gradeExcellentMax;
+    if (turb <= excellent) return 100;
+    if (turb <= L.turbidity.passMax) {
+      return clamp(100 - (turb - excellent) / (L.turbidity.passMax - excellent) * 40);
+    }
     if (turb <= L.turbidity.softEnd) {
-      return clamp(100 - (turb - L.turbidity.passMax) / (L.turbidity.softEnd - L.turbidity.passMax) * 45);
+      return clamp(60 - (turb - L.turbidity.passMax) / (L.turbidity.softEnd - L.turbidity.passMax) * 20);
     }
     return clamp(40 - (turb - L.turbidity.softEnd) * 4);
   }

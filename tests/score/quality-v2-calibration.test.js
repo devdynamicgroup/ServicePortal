@@ -107,7 +107,7 @@ console.log('\nCountry differentiation on locked sample (standards differ)');
   console.log('  locked TH/JP/WHO/EU', th, jp, who, eu);
   assert(th !== eu, 'Thailand ≠ EU on locked sample');
   assert(jp !== eu, 'Japan ≠ EU on locked sample');
-  assert(th === 100 && who === 93, 'TH/WHO differentiation preserved');
+  assert(th === 95 && who === 93, 'TH/WHO differentiation preserved (TH 95 after in-band severity)');
 }
 
 console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
@@ -120,7 +120,7 @@ console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
   const th = bench('thailand', DIFF);
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH/JP', th, jp);
-  assert(th === 100, `DIFF Thailand = 100 (got ${th})`);
+  assert(th === 87, `DIFF Thailand = 87 after in-band severity (got ${th})`);
   assert(jp !== th, `DIFF Japan ${jp} !== Thailand ${th}`);
 }
 

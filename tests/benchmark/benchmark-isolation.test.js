@@ -229,7 +229,7 @@ console.log('\nTest 6 — Registry independence (dummy engine)');
 console.log('\nTest 7 — Benchmark scores locked (must not drift)');
 {
   restoreAll();
-  const expected = { thailand: 100, who: 93, eu: 65, japan: 96, usEpa: 91 };
+  const expected = { thailand: 95, who: 93, eu: 65, japan: 96, usEpa: 91 };
   for (const key of KEYS) {
     const score = reg.calculate(key, SAMPLE).score;
     assert(score === expected[key], `${key} score locked at ${expected[key]} (got ${score})`);
