@@ -307,6 +307,116 @@ console.log('\nInvalid / extreme');
     'extreme-valid TH → 0');
 }
 
+function jobFrom(r) {
+  return {
+    id: 'local-forensic-1',
+    notionId: 'notion-forensic-1',
+    draft: {
+      fields: {
+        'm-ph': r.ph, 'm-tds': r.tds, 'm-turb': r.turbidity,
+        'm-orp': r.orp, 'm-do': r.do, 'm-free-cl': r.chlorine, 'm-temp': r.temp
+      }
+    }
+  };
+}
+
+function pipeline(raw, country) {
+  const mapped = sandbox.readingsFromFieldMap(jobFrom(raw).draft.fields);
+  const merged = sandbox.mergeReadingLayers({}, mapped, {});
+  const validation = sandbox.MeasurementValidator.validateMeasurements(merged);
+  const resolved = sandbox.resolveScoreReadings(jobFrom(raw));
+  const eng = bench(country, resolved);
+  const disp = displayed(resolved, country);
+  const q = sandbox.computeQualityScoreDetail(resolved);
+  return { mapped, merged, validation, resolved, eng, disp, q };
+}
+
+function rawUnchanged(raw, pipe) {
+  return ['ph', 'tds', 'turbidity', 'orp', 'chlorine', 'do', 'temp'].every((k) =>
+    pipe.mapped[k] === raw[k] && pipe.merged[k] === raw[k] && pipe.resolved[k] === raw[k]);
+}
+
+console.log('\nRAW immutability — named forensic fixtures');
+{
+  const named = {
+    DIFF,
+    IDEAL,
+    ORP_LOW: { ...IDEAL, orp: 200 },
+    ORP_MID: { ...IDEAL, orp: 400 },
+    ORP_HIGH: { ...IDEAL, orp: 600 },
+    EPA_CL_LOW: { ...IDEAL, chlorine: 0.2 },
+    EPA_CL_MID: { ...IDEAL, chlorine: 0.5 },
+    EPA_CL_HIGH: { ...IDEAL, chlorine: 3.9 },
+    WHO_CL_BELOW: { ...IDEAL, chlorine: 0 },
+    WHO_CL_LOW: { ...IDEAL, chlorine: 0.1 },
+    WHO_CL_HIGH: { ...IDEAL, chlorine: 1.0 }
+  };
+  for (const [label, raw] of Object.entries(named)) {
+    const p = pipeline(raw, 'thailand');
+    assert(p.validation.status === 'VALID', `${label} validator VALID`);
+    assert(rawUnchanged(raw, p), `${label} RAW===mapped===merged===resolved`);
+  }
+}
+
+console.log('\nDIFF live path TH — RAW→grade→round→Hero (no Q-V3 overwrite)');
+{
+  const p = pipeline(DIFF, 'thailand');
+  assert(p.eng.params.tds < 100 && p.eng.params.turbidity < 100 && p.eng.params.chlorine < 100,
+    'DIFF TH TDS/turb/Cl grades leave 100');
+  assert(p.eng.score === 87 && p.disp.score === 87 && p.disp.engineKey === 'thailand',
+    `DIFF Hero ${p.disp.score} === engine 87`);
+  assert(p.q.score === 61, `DIFF Q-V3 isolated 61 (got ${p.q.score})`);
+}
+
+console.log('\nORP 200==400==600 country grades (PD-004 band freeze — shape NOT authorized)');
+{
+  for (const key of KEYS) {
+    const g200 = grade(key, 'orp', 200);
+    const g400 = grade(key, 'orp', 400);
+    const g600 = grade(key, 'orp', 600);
+    assert(g200 === 100 && g400 === 100 && g600 === 100,
+      `${key} ORP 200/400/600 all grade 100 (inherited flat; PD-004 locks band not inner curve)`);
+    assert(grade(key, 'orp', 150) < 100 && grade(key, 'orp', 650) < 100,
+      `${key} ORP outside 200–600 declines`);
+  }
+  assert(sandbox.computeQualityScoreDetail({ ...IDEAL, orp: 200 }).score
+    !== sandbox.computeQualityScoreDetail({ ...IDEAL, orp: 400 }).score,
+    'Q-V3 ORP 200 !== 400 (severity lives on Quality channel)');
+}
+
+console.log('\nEPA Cl 0.3 vs 3.9 identical (PD-008 numbers frozen — inner shape NOT authorized)');
+{
+  const lo = bench('usEpa', { ...IDEAL, chlorine: 0.3 });
+  const hi = bench('usEpa', { ...IDEAL, chlorine: 3.9 });
+  assert(lo.params.chlorine === 100 && hi.params.chlorine === 100,
+    'EPA Cl 0.3 and 3.9 both grade 100');
+  assert(lo.score === hi.score && lo.score === 100, 'EPA Hero 0.3 === 3.9 === 100');
+  assert(sandbox.UsEpaBenchmarkLimits.chlorine.projectMin === 0.2
+    && sandbox.UsEpaBenchmarkLimits.chlorine.mrdlMax === 4.0,
+    'EPA Cl ceilings unchanged 0.2 / 4.0');
+  assert(sandbox.computeQualityScoreDetail({ ...IDEAL, chlorine: 0.3 }).score
+    !== sandbox.computeQualityScoreDetail({ ...IDEAL, chlorine: 3.9 }).score,
+    'Q-V3 distinguishes Cl 0.3 vs 3.9');
+}
+
+console.log('\nWHO Cl 0 vs 1.0 same tier (no below-min branch — shape NOT authorized)');
+{
+  const zero = bench('who', { ...IDEAL, chlorine: 0 });
+  const one = bench('who', { ...IDEAL, chlorine: 1.0 });
+  assert(zero.params.chlorine === 80 && one.params.chlorine === 80,
+    'WHO Cl 0 and 1.0 both grade 80 (fair bucket)');
+  const neg = pipeline({ ...IDEAL, chlorine: -1 }, 'who');
+  assert(neg.resolved.chlorine === undefined || neg.eng.score == null,
+    'WHO Cl=-1 does not reach a finite score (validator strips implausible)');
+}
+
+console.log('\nTH Cl 0.51 — grade drops, Hero still 100 via Math.round (display rounding, not a new clamp)');
+{
+  const r = bench('thailand', { ...IDEAL, chlorine: 0.51 });
+  assert(r.params.chlorine < 100 && r.params.chlorine >= 99, `TH Cl 0.51 grade ${r.params.chlorine} < 100`);
+  assert(r.score === 100, 'TH Cl 0.51 composite rounds to 100 (Math.round unchanged)');
+}
+
 console.log('\nCross-country freeze on standard fixtures (non-TH engines)');
 {
   assert(bench('japan', BASE).score === 100, 'JP BASE 100');
