@@ -190,5 +190,31 @@ console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, neve
   assert(thNullDo.classifications.temp === 'NOT_EVALUATED', 'TH null temp → NOT_EVALUATED');
 }
 
+console.log('\nPD-012 B — Japan DO excluded from Compliance Index (I2 den)');
+{
+  const W = sandbox.JapanBenchmarkWeights;
+  assert(W.do === 0.12 && W.ph === 0.16 && W.orp === 0.12, 'JP-WEIGHTS do:0.12 retained (PD-013 A)');
+  const expectedDen = W.ph + W.tds + W.chlorine + W.turbidity + W.orp;
+  assert(Math.abs(expectedDen - 0.88) < 1e-9, `expected scored den = 0.88 (got ${expectedDen})`);
+
+  const low = bench('japan', { ...BASELINE.readings, do: 2.0 });
+  const high = bench('japan', { ...BASELINE.readings, do: 9.0 });
+  const miss = bench('japan', { ...BASELINE.readings, do: null });
+  assert(Number.isFinite(low.score) && Number.isFinite(high.score) && Number.isFinite(miss.score), 'JP scores finite with low/high/missing DO');
+  assert(low.score === high.score, 'JP score identical for low vs high DO');
+  assert(low.score === miss.score, 'JP score identical for low vs missing DO');
+  assert(low.classifications.do === 'NOT_EVALUATED' && high.classifications.do === 'NOT_EVALUATED' && miss.classifications.do === 'NOT_EVALUATED', 'JP DO always NOT_EVALUATED');
+  assert(low.params.do === undefined && !Object.prototype.hasOwnProperty.call(low.params, 'do'), 'JP graded params omit do');
+  // Reconstruct den from scored grades to prove DO weight not in composite.
+  let num = 0;
+  let den = 0;
+  for (const key of ['ph', 'tds', 'chlorine', 'turbidity', 'orp']) {
+    num += low.params[key] * W[key];
+    den += W[key];
+  }
+  assert(Math.abs(den - 0.88) < 1e-9, 'reconstructed den excludes do:0.12');
+  assert(Math.round(num / den) === low.score, 'JP score matches five-param weighted mean');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
