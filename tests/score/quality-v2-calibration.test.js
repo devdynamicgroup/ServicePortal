@@ -94,7 +94,7 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   assert(bench('thailand', CASE_A) === 100, 'TH Case A = 100');
   assert(bench('japan', CASE_A) === 100, 'Japan Case A = 100');
   assert(bench('thailand', CASE_B) === 100, 'TH Case B = 100');
-  assert(bench('japan', CASE_B) === 100, 'Japan Case B = 100 (DO≥5)');
+  assert(bench('japan', CASE_B) === 100, 'Japan Case B = 100 (DO excluded from JP index — PD-012 B)');
 }
 
 console.log('\nCountry differentiation on locked sample (standards differ)');

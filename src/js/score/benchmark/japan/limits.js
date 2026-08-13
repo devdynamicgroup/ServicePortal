@@ -1,4 +1,7 @@
-﻿/** Japan national drinking-water criteria (comparison). */
+﻿/** Japan national drinking-water criteria (comparison).
+ * PD-012 B (2026-08-13): DO is NOT scored in Japan Compliance Index (NOT_EVALUATED).
+ * do.min = 5 retained for provenance/compatibility only — not a scored national Ideal;
+ * magnitude MUST NOT be replaced or treated as Compliance Index criterion. */
 window.JapanBenchmarkLimits = Object.freeze({
   display: Object.freeze({
     ph: '5.8 - 8.6',
@@ -6,7 +9,7 @@ window.JapanBenchmarkLimits = Object.freeze({
     chlorine: '<= 1 mg/L',
     turbidity: '<= 2 NTU',
     orp: '200 - 600 mV',
-    do: '>= 5 mg/L',
+    do: 'not evaluated (PD-012 B)',
     temp: '<= 30°C'
   }),
   ph: Object.freeze({ min: 5.8, max: 8.6 }),

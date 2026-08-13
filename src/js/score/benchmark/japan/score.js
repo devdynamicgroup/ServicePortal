@@ -1,6 +1,8 @@
 ﻿/**
  * Japan benchmark engine — national criteria with turbidity/chlorine emphasis.
  * Owns Japan-specific metadata explanations.
+ * PD-012 B (2026-08-13): DO excluded from Japan Compliance Index (NOT_EVALUATED).
+ * JP-WEIGHTS values unchanged (PD-013 A); do:0.12 retained in weights.js but skipped in num/den.
  */
 (function registerJapanBenchmarkEngine() {
   const L = window.JapanBenchmarkLimits;
@@ -9,6 +11,9 @@
   const wrap = typeof finalizeBenchmarkMetadata === 'function' ? finalizeBenchmarkMetadata : (x) => x;
   const incomplete = typeof incompleteBenchmarkMetadata === 'function'
     ? incompleteBenchmarkMetadata : () => ({ score: null });
+
+  /** Scored Compliance Index params only — DO excluded (PD-012 B). */
+  const SCORED_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp']);
 
   function gradePh(ph) {
     if (ph >= L.ph.min && ph <= L.ph.max) return 100;
@@ -38,10 +43,6 @@
     if (orp < L.orp.min) return clamp(orp / L.orp.min * 100);
     return clamp(100 - (orp - L.orp.max) / 10);
   }
-  function gradeDo(doValue) {
-    if (doValue >= L.do.min) return 100;
-    return clamp(doValue / L.do.min * 100);
-  }
 
   function classify(grade, pass) {
     if (pass) return 'PASS';
@@ -59,6 +60,8 @@
   }
 
   function statusOf(param, value) {
+    // PD-012 B: DO is excluded from Japan Compliance Index — never good/attn from ≥5.
+    if (param === 'do') return 'pending';
     const n = Number(value);
     if (!Number.isFinite(n)) return 'pending';
     if (param === 'ph') return n >= L.ph.min && n <= L.ph.max ? 'good' : 'attn';
@@ -66,7 +69,6 @@
     if (param === 'chlorine') return n >= L.chlorine.min && n <= L.chlorine.max ? 'good' : 'attn';
     if (param === 'turbidity') return n <= L.turbidity.ideal ? 'good' : 'attn';
     if (param === 'orp') return n >= L.orp.min && n <= L.orp.max ? 'good' : 'attn';
-    if (param === 'do') return n >= L.do.min ? 'good' : 'attn';
     if (param === 'temp') return n <= L.temp.max ? 'good' : 'attn';
     return 'good';
   }
@@ -79,29 +81,41 @@
     const orp = toFin(readings.orp);
     const cl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
-    if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
-      return incomplete('Japan', 'japan', { readings, engineVersion: 'v1.0', standardRevision: 'Japan-style Compliance Index (project engine; JP DO ≥5 project-defined / unsupported Ideal — PD-008 deferred)' });
+    // PD-012 B: five scored params only — DO not required for a complete Japan score.
+    if (![ph, tds, turb, orp, cl].every(Number.isFinite)) {
+      return incomplete('Japan', 'japan', {
+        readings,
+        engineVersion: 'v1.0',
+        standardRevision: 'Japan-style Compliance Index (project engine; DO NOT_EVALUATED — PD-012 B; JP-WEIGHTS values unchanged — PD-013 A)'
+      });
     }
     const params = {
-      ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
-      turbidity: gradeTurbidity(turb), orp: gradeOrp(orp), do: gradeDo(do_)
+      ph: gradePh(ph),
+      tds: gradeTds(tds),
+      chlorine: gradeChlorine(cl),
+      turbidity: gradeTurbidity(turb),
+      orp: gradeOrp(orp)
+      // do intentionally omitted from graded params (PD-012 B)
     };
-    let num = 0; let den = 0;
-    Object.keys(W).forEach(key => { num += params[key] * W[key]; den += W[key]; });
-    const score = Math.round(num / den);
+    let num = 0;
+    let den = 0;
+    // PD-012 B + PD-013 A (I2): keep W.do = 0.12 in weights.js; exclude from both num and den.
+    Object.keys(W).forEach((key) => {
+      if (key === 'do') return;
+      if (!SCORED_KEYS.includes(key)) return;
+      if (!Number.isFinite(params[key])) return;
+      num += params[key] * W[key];
+      den += W[key];
+    });
+    const score = den > 0 ? Math.round(num / den) : null;
 
     const pass = {
       ph: ph >= L.ph.min && ph <= L.ph.max,
       tds: tds <= L.tds.displayMax,
       chlorine: cl >= L.chlorine.min && cl <= L.chlorine.max,
       turbidity: turb <= L.turbidity.ideal,
-      orp: orp >= L.orp.min && orp <= L.orp.max,
-      do: do_ >= L.do.min,
-      // Not Measured must never read as PASS. temp is not part of the Japan
-      // scoring formula (zero weight — see weights.js), so this only affects
-      // the classification/metadata bucket, never the score.
-      // Use toFin — Number(null)===0 must not become a measured temp.
-      temp: Number.isFinite(toFin(readings.temp)) && toFin(readings.temp) <= L.temp.max
+      orp: orp >= L.orp.min && orp <= L.orp.max
+      // do excluded — never pass/fail Compliance Index via ≥5
     };
     const tempVal = toFin(readings.temp);
     const classifications = {
@@ -110,8 +124,14 @@
       chlorine: classify(params.chlorine, pass.chlorine),
       turbidity: classify(params.turbidity, pass.turbidity),
       orp: classify(params.orp, pass.orp),
-      do: classify(params.do, pass.do),
-      temp: !Number.isFinite(tempVal) ? 'NOT_MEASURED' : (pass.temp ? 'PASS' : 'WARNING')
+      // PD-012 B: DO excluded from Japan Compliance Index.
+      do: 'NOT_EVALUATED',
+      // Not Measured must never read as PASS. temp is not part of the Japan
+      // scoring formula (zero weight — see weights.js), so this only affects
+      // the classification/metadata bucket, never the score.
+      temp: !Number.isFinite(tempVal) ? 'NOT_MEASURED' : (
+        (Number.isFinite(tempVal) && tempVal <= L.temp.max) ? 'PASS' : 'WARNING'
+      )
     };
 
     const reasons = [];
@@ -129,30 +149,32 @@
     if (!pass.tds) {
       reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds Japan comparison ceiling (≤ 500 mg/L).' });
     }
-    if (!pass.do) {
-      reasons.push({ parameter: 'do', severity: classifications.do.toLowerCase(), message: 'Dissolved oxygen is below the project Japan-engine DO floor (≥ 5 mg/L — not a verified national Ideal; PD-008 deferred).' });
-    }
 
     const verdict = verdictFrom(score);
-    let summary = 'Meets this project’s Japan-style Compliance Index criteria for this comparison.';
-    if (!reasons.length && verdict === 'Excellent') summary = 'Strong alignment with this project’s Japan-style Compliance Index criteria.';
-    else if (reasons.length) summary = 'One or more Japan-style comparison criteria used by this project engine need attention.';
+    let summary = 'Meets this project’s Japan-style Compliance Index criteria for this comparison (DO not evaluated — PD-012 B).';
+    if (!reasons.length && verdict === 'Excellent') {
+      summary = 'Strong alignment with this project’s Japan-style Compliance Index criteria (DO not evaluated — PD-012 B).';
+    } else if (reasons.length) {
+      summary = 'One or more Japan-style comparison criteria used by this project engine need attention (DO not evaluated — PD-012 B).';
+    }
 
     const statuses = {
-      ph: statusOf('ph', ph), tds: statusOf('tds', tds), chlorine: statusOf('chlorine', cl),
-      turbidity: statusOf('turbidity', turb), orp: statusOf('orp', orp), do: statusOf('do', do_),
+      ph: statusOf('ph', ph),
+      tds: statusOf('tds', tds),
+      chlorine: statusOf('chlorine', cl),
+      turbidity: statusOf('turbidity', turb),
+      orp: statusOf('orp', orp),
+      do: statusOf('do', do_),
       temp: statusOf('temp', readings.temp)
     };
     const findings = reasons.map(r => ({ label: r.message, val: String(readings[r.parameter] ?? ''), note: '' }));
 
-    
     const topPositiveFactors = [];
     const topNegativeFactors = [];
     if (pass.ph) topPositiveFactors.push('pH is within Japan national range (5.8–8.6)');
     if (pass.tds) topPositiveFactors.push('TDS is within Japan comparison ceiling (≤ 500 mg/L)');
     if (pass.chlorine) topPositiveFactors.push('Free chlorine residual meets Japan recommendation (0.1–1 mg/L)');
     if (pass.turbidity) topPositiveFactors.push('Turbidity meets Japanese drinking-water recommendation (≤ 2 NTU)');
-    if (pass.do) topPositiveFactors.push('Dissolved oxygen meets the project Japan-engine DO floor (≥ 5 mg/L — not a verified national Ideal)');
     if (pass.orp) topPositiveFactors.push('ORP is inside the operational window used for Japan comparison');
     reasons.forEach(r => topNegativeFactors.push(r.message));
 
@@ -171,7 +193,7 @@
       findings,
       readings,
       engineVersion: 'v1.0',
-      standardRevision: 'Japan-style Compliance Index (project engine; JP DO ≥5 project-defined / unsupported Ideal — PD-008 deferred)'
+      standardRevision: 'Japan-style Compliance Index (project engine; DO NOT_EVALUATED — PD-012 B; JP-WEIGHTS values unchanged — PD-013 A)'
     });
 
   }
