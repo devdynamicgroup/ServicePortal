@@ -130,7 +130,7 @@
       reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside US EPA secondary range (6.5–8.5).' });
     }
     if (!pass.do) {
-      reasons.push({ parameter: 'do', severity: classifications.do.toLowerCase(), message: 'Dissolved oxygen is below EPA comparison minimum (≥ 6 mg/L).' });
+      reasons.push({ parameter: 'do', severity: classifications.do.toLowerCase(), message: 'Dissolved oxygen is below the project EPA-engine DO floor (≥ 6 mg/L — not an EPA primary/secondary standard).' });
     }
 
     const verdict = verdictFrom(score);
@@ -152,7 +152,7 @@
     if (pass.tds) topPositiveFactors.push('TDS is at or below US EPA SMCL aesthetic guideline (≤ 500 mg/L)');
     if (pass.chlorine) topPositiveFactors.push('Free chlorine is within US EPA MRDL-style comparison band (0.2–4 mg/L)');
     if (pass.turbidity) topPositiveFactors.push('Turbidity meets US EPA treatment-technique style target (≤ 1 NTU)');
-    if (pass.do) topPositiveFactors.push('Dissolved oxygen meets EPA comparison minimum (≥ 6 mg/L)');
+    if (pass.do) topPositiveFactors.push('Dissolved oxygen meets the project EPA-engine DO floor (≥ 6 mg/L — not an EPA primary/secondary standard)');
     if (pass.orp) topPositiveFactors.push('ORP is inside the operational window used for EPA comparison');
     reasons.forEach(r => topNegativeFactors.push(r.message));
 
