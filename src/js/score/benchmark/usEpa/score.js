@@ -21,9 +21,11 @@
     return clamp(78 - (tds - L.tds.smcl) / 12);
   }
   function gradeChlorine(cl) {
-    if (cl >= L.chlorine.min && cl <= L.chlorine.max) return 100;
-    if (cl < L.chlorine.min) return clamp(cl / L.chlorine.min * 60);
-    return clamp(100 - (cl - L.chlorine.max) * 30);
+    const lo = L.chlorine.projectMin ?? L.chlorine.min;
+    const hi = L.chlorine.mrdlMax ?? L.chlorine.max;
+    if (cl >= lo && cl <= hi) return 100;
+    if (cl < lo) return clamp(cl / lo * 60);
+    return clamp(100 - (cl - hi) * 30);
   }
   function gradeTurbidity(turb) {
     if (turb <= L.turbidity.ttIdeal) return 100;
@@ -63,7 +65,11 @@
     if (!Number.isFinite(n)) return 'pending';
     if (param === 'ph') return n >= L.ph.min && n <= L.ph.max ? 'good' : 'attn';
     if (param === 'tds') return n <= L.tds.smcl ? 'good' : 'attn';
-    if (param === 'chlorine') return n >= L.chlorine.min && n <= L.chlorine.max ? 'good' : 'attn';
+    if (param === 'chlorine') {
+      const lo = L.chlorine.projectMin ?? L.chlorine.min;
+      const hi = L.chlorine.mrdlMax ?? L.chlorine.max;
+      return n >= lo && n <= hi ? 'good' : 'attn';
+    }
     if (param === 'turbidity') return n <= L.turbidity.ttIdeal ? 'good' : 'attn';
     if (param === 'orp') return n >= L.orp.min && n <= L.orp.max ? 'good' : 'attn';
     if (param === 'do') return n >= L.do.min ? 'good' : 'attn';
@@ -80,7 +86,7 @@
     const cl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
     if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
-      return incomplete('US EPA', 'usEpa', { readings, engineVersion: 'v1.0', standardRevision: 'US EPA MCL / SMCL / TT comparison set 2024' });
+      return incomplete('US EPA', 'usEpa', { readings, engineVersion: 'v1.0', standardRevision: 'US EPA-inspired Compliance Index (Cl: project floor 0.2 + MRDL 4.0; MCL/SMCL/TT-style)' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
@@ -93,7 +99,7 @@
     const pass = {
       ph: ph >= L.ph.min && ph <= L.ph.max,
       tds: tds <= L.tds.smcl,
-      chlorine: cl >= L.chlorine.min && cl <= L.chlorine.max,
+      chlorine: cl >= (L.chlorine.projectMin ?? L.chlorine.min) && cl <= (L.chlorine.mrdlMax ?? L.chlorine.max),
       turbidity: turb <= L.turbidity.ttIdeal,
       orp: orp >= L.orp.min && orp <= L.orp.max,
       do: do_ >= L.do.min,
@@ -121,10 +127,10 @@
     if (!pass.tds) {
       reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds US EPA secondary (SMCL) aesthetic guideline (≤ 500 mg/L).' });
     }
-    if (!pass.chlorine && cl > L.chlorine.max) {
-      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine exceeds US EPA MRDL-style upper comparison (≤ 4 mg/L).' });
-    } else if (!pass.chlorine && cl < L.chlorine.min) {
-      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below the operational residual floor used for EPA comparison (≥ 0.2 mg/L).' });
+    if (!pass.chlorine && cl > (L.chlorine.mrdlMax ?? L.chlorine.max)) {
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine exceeds US EPA MRDL ceiling (≤ 4.0 mg/L as Cl2; 40 CFR 141.65).' });
+    } else if (!pass.chlorine && cl < (L.chlorine.projectMin ?? L.chlorine.min)) {
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below the project residual floor used with EPA comparison (≥ 0.2 mg/L — not an EPA MRDL lower bound).' });
     }
     if (!pass.ph) {
       reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside US EPA secondary range (6.5–8.5).' });
@@ -150,7 +156,7 @@
     const topNegativeFactors = [];
     if (pass.ph) topPositiveFactors.push('pH is within US EPA secondary range (6.5–8.5)');
     if (pass.tds) topPositiveFactors.push('TDS is at or below US EPA SMCL aesthetic guideline (≤ 500 mg/L)');
-    if (pass.chlorine) topPositiveFactors.push('Free chlorine is within US EPA MRDL-style comparison band (0.2–4 mg/L)');
+    if (pass.chlorine) topPositiveFactors.push('Free chlorine is within EPA Compliance Index window (project floor ≥0.2 + MRDL ≤4.0 mg/L)');
     if (pass.turbidity) topPositiveFactors.push('Turbidity meets US EPA treatment-technique style target (≤ 1 NTU)');
     if (pass.do) topPositiveFactors.push('Dissolved oxygen meets the project EPA-engine DO floor (≥ 6 mg/L — not an EPA primary/secondary standard)');
     if (pass.orp) topPositiveFactors.push('ORP is inside the operational window used for EPA comparison');
@@ -171,7 +177,7 @@
       findings,
       readings,
       engineVersion: 'v1.0',
-      standardRevision: 'US EPA MCL / SMCL / TT comparison set 2024'
+      standardRevision: 'US EPA-inspired Compliance Index (Cl: project floor 0.2 + MRDL 4.0; MCL/SMCL/TT-style)'
     });
 
   }

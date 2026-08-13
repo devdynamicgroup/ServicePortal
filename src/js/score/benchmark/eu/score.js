@@ -1,6 +1,7 @@
 ﻿/**
- * EU benchmark engine — parametric compliance philosophy.
- * Critical chlorine outside band triggers a hard composite cap.
+ * EU benchmark engine — parametric / indicator comparison philosophy.
+ * Free-chlorine residual band is PROJECT-DEFINED (PD-008) — not Directive 2020/2184.
+ * Critical chlorine outside project band triggers hard composite cap (PD-002 gate 65).
  * Owns EU-specific metadata explanations.
  */
 (function registerEuBenchmarkEngine() {
@@ -77,7 +78,7 @@
     const cl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
     if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
-      return incomplete('EU', 'eu', { readings, engineVersion: 'v1.0', standardRevision: 'EU Drinking Water Directive parametric values 2020/2184' });
+      return incomplete('EU', 'eu', { readings, engineVersion: 'v1.0', standardRevision: 'EU-engine project benchmark (Directive-inspired; free-Cl residual project-defined)' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
@@ -107,9 +108,9 @@
 
     const reasons = [];
     if (cl > L.chlorine.max) {
-      reasons.push({ parameter: 'chlorine', severity: 'critical', message: 'Free chlorine exceeds EU parametric residual value (≤ 0.5 mg/L). Score capped.' });
+      reasons.push({ parameter: 'chlorine', severity: 'critical', message: 'Free chlorine exceeds the EU-engine project residual band (≤ 0.5 mg/L; not a Directive free-Cl residual). Score capped.' });
     } else if (cl < L.chlorine.min) {
-      reasons.push({ parameter: 'chlorine', severity: 'critical', message: 'Free chlorine is below EU parametric residual band (0.1–0.5 mg/L). Score capped.' });
+      reasons.push({ parameter: 'chlorine', severity: 'critical', message: 'Free chlorine is below the EU-engine project residual band (0.1–0.5 mg/L; not a Directive free-Cl residual). Score capped.' });
     }
     if (turb > L.turbidity.ideal) {
       reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds EU drinking-water parametric expectation (≤ 1 NTU).' });
@@ -125,9 +126,9 @@
     }
 
     const verdict = verdictFrom(score, chlorineFail);
-    let summary = 'Meets EU drinking-water parametric expectations for this comparison.';
-    if (chlorineFail) summary = 'Fails EU parametric chlorine check — composite score is gated.';
-    else if (reasons.length) summary = 'One or more EU parametric/indicator expectations are not met.';
+    let summary = 'Meets EU-engine comparison expectations for this reading set.';
+    if (chlorineFail) summary = 'Fails EU-engine project chlorine check — composite score is gated (PD-002).';
+    else if (reasons.length) summary = 'One or more EU-engine parametric/indicator expectations are not met.';
 
     const statuses = {
       ph: statusOf('ph', ph), tds: statusOf('tds', tds), chlorine: statusOf('chlorine', cl),
@@ -143,7 +144,7 @@
     if (tds <= L.tds.displayMax) topPositiveFactors.push('TDS is within EU indicator threshold used here (≤ 500 mg/L)');
     if (turb <= L.turbidity.ideal) topPositiveFactors.push('Turbidity meets EU parametric expectation (≤ 1 NTU)');
     if (do_ >= L.do.min) topPositiveFactors.push('Dissolved oxygen meets EU comparison minimum (≥ 6 mg/L)');
-    if (!chlorineFail) topPositiveFactors.push('Free chlorine is inside EU parametric residual band (0.1–0.5 mg/L)');
+    if (!chlorineFail) topPositiveFactors.push('Free chlorine is inside the EU-engine project residual band (0.1–0.5 mg/L)');
     if (orp >= L.orp.min && orp <= L.orp.max) topPositiveFactors.push('ORP is inside the operational window used for EU comparison');
     reasons.forEach(r => topNegativeFactors.push(r.message));
 
@@ -162,7 +163,7 @@
       findings,
       readings,
       engineVersion: 'v1.0',
-      standardRevision: 'EU Drinking Water Directive parametric values 2020/2184',
+      standardRevision: 'EU-engine project benchmark (Directive-inspired; free-Cl residual project-defined)',
       gated: chlorineFail
     });
 

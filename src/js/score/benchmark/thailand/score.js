@@ -86,7 +86,7 @@
     const orp = toFin(readings.orp);
     const cl = toFin(readings.chlorine);
     if (![ph, tds, turb, orp, cl].every(Number.isFinite)) {
-      return incomplete('Thailand', 'thailand', { readings, engineVersion: 'v1.0', standardRevision: 'Thailand Drinking Water Standard 2024' });
+      return incomplete('Thailand', 'thailand', { readings, engineVersion: 'v1.0', standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–2.0 project-defined — PD-008)' });
     }
     const params = {
       ph: gradePh(ph),
@@ -126,9 +126,9 @@
 
     const reasons = [];
     if (!pass.chlorine && cl > L.chlorine.max) {
-      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is above Thailand drinking-water residual guidance (0.2–2.0 mg/L).' });
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is above the Thailand project compliance band (0.2–2.0 mg/L; not a verified DoH Ideal — PD-008).' });
     } else if (!pass.chlorine && cl < L.chlorine.min) {
-      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below Thailand residual guidance — disinfection may be insufficient.' });
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below the Thailand project compliance band (≥ 0.2 mg/L) — disinfection residual may be insufficient.' });
     }
     if (!pass.turbidity) {
       reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds Thailand local acceptability limit (≤ 5 NTU).' });
@@ -170,7 +170,7 @@
     const topNegativeFactors = [];
     if (pass.ph) topPositiveFactors.push('pH is within Thailand recommended range (6.5–8.5)');
     if (pass.tds) topPositiveFactors.push('TDS is within Thailand local acceptability (≤ 1000 mg/L)');
-    if (pass.chlorine) topPositiveFactors.push('Free chlorine residual is within Thailand guidance (0.2–2.0 mg/L)');
+    if (pass.chlorine) topPositiveFactors.push('Free chlorine residual is within the Thailand project compliance band (0.2–2.0 mg/L)');
     if (pass.turbidity) topPositiveFactors.push('Turbidity meets Thailand local limit (≤ 5 NTU)');
     if (pass.orp) topPositiveFactors.push('ORP is inside the operational window used for Thailand comparison');
     topPositiveFactors.push('Dissolved oxygen is not scored under Thailand local comparison');
@@ -191,7 +191,7 @@
       findings,
       readings,
       engineVersion: 'v1.0',
-      standardRevision: 'Thailand Drinking Water Standard 2024'
+      standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–2.0 project-defined — PD-008)'
     });
 
   }
