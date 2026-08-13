@@ -664,6 +664,110 @@ Baseline regression reference unchanged: `76 / 100 / 100 / 95 / 65 / 99`.
 
 ---
 
+## PD-006: Country Score channel identity
+
+- **Status:** DECIDED
+- **Owner:** Product Owner
+- **Date opened:** 2026-08-13
+- **Date decided:** 2026-08-13
+- **Priority:** 1
+- **Depends on:** Evidence registry SoT locked; PD-001 / PD-005 DECIDED A
+- **Blocks:** _(cleared — PD-008 may open after PD-007 also DECIDED)_
+
+### Question
+
+Is Country Benchmark permanently a **Compliance / Benchmark Index** (flat
+in-band pass semantics), or must the product also expose a separate
+**country-linked Quality** score?
+
+### Evidence (not a decision)
+
+```text
+Code behavior:     flat-in-band → grade 100 on most country engines
+PD-001:            comparison UI = pass-band language (DECIDED A)
+PD-005:            no cross-country magnitude ranking (DECIDED A)
+Contract doc:      Country Benchmark = compliance / benchmark signal
+Architecture:      Quality V3 · Compliance (PASS/WARNING/FAIL) · Country
+                   Benchmark are three parallel channels
+Registry:          many country constants CONFLICTING / UNSUPPORTED /
+                   PROJECT-DEFINED — unsafe to call “national quality score”
+```
+
+### Options
+
+#### A — COMPLIANCE INDEX (formalize current truth)
+
+Country Score = **Compliance / Benchmark Index** for the selected engine only.
+
+- Keep flat-in-band construction as the intended meaning of 100
+- Quality remains **Quality V3 only**
+- PASS/WARNING/FAIL remains the separate Compliance channel
+- Do **not** invent a fourth “country quality” score in this PD
+
+**Model impact if A:** NONE required. Label/docs/tests only.
+
+#### B — DUAL OUTPUT (compliance + country quality)
+
+Each country engine must eventually emit both:
+
+1. compliance / pass-band signal  
+2. a graded quality-like score under that engine’s limits  
+
+**Model impact if B:** MAJOR redesign. Requires separate curves, evidence,
+and later Model Repair — **not** authorized by choosing B alone.
+
+#### C — RENAME ONLY / DEFER SUBSTANCE
+
+Keep math; only rename product strings (e.g. “Compliance Index”) without
+locking the long-term channel model.
+
+**Model impact if C:** NONE. Residual ambiguity remains (not recommended as
+final).
+
+### Recommendation (facilitator only — NOT approval)
+
+**A — COMPLIANCE INDEX**
+
+Matches shipped behavior, PD-001/005, and the semantic contract. Avoids
+building a second quality model on unsupported constants.
+
+```text
+Recommendation ≠ Approval
+```
+
+### Evidence Required
+
+| Option | Evidence required |
+| --- | --- |
+| **A** | NO (product accepts compliance identity) |
+| **B** | Full redesign brief + evidence for quality curves per engine |
+| **C** | NO (but leaves PD-006 effectively unresolved) |
+
+### Allowed after DECIDED
+
+| Decision | Allowed now | Forbidden |
+| --- | --- | --- |
+| **A** | Docs, UI copy, semantic tests locking compliance identity | Threshold/weight/curve/gate changes |
+| **B** | Planning docs only | Same-pass engine math changes |
+| **C** | Copy experiments only | Claiming the channel question is closed |
+
+### Explicitly Forbidden
+
+- Marking DECIDED without PO sign-off
+- Using PD-006 to authorize TH Cl / JP DO / EU Cl / EPA Cl numeric edits
+- Artificial country score spread
+
+### PO DECISION
+
+- **Status:** DECIDED
+- **Decision:** A — COMPLIANCE INDEX (formalize current truth)
+- **Decision meaning:** Country Benchmark / Country Score is a **Compliance / Benchmark Index** for the selected engine only. Flat-in-band 100 means within modeled pass bands — **not** “best quality.” Quality remains **Quality V3 only**. PASS/WARNING/FAIL remains the separate Compliance channel. No fourth “country quality” score is authorized by this decision.
+- **Approved by:** Product Owner
+- **Date:** 2026-08-13
+- **Notes:** Documentation / UI copy / semantic tests only. **No model, threshold, weight, curve, or gate change.** Baseline unchanged. Unlocks opening PD-008 after PD-007 also DECIDED.
+
+---
+
 ## After sign-off rules
 
 | Condition | Allowed | Forbidden |
@@ -674,6 +778,7 @@ Baseline regression reference unchanged: `76 / 100 / 100 / 95 / 65 / 99`.
 | PD-002/003/004 DECIDED A | Docs/semantic framing only | Gate/DO/ORP numeric changes (none required for A) |
 | PD-002/003/004 DECIDED A | Docs/semantic framing only | Model/score change (none required for A) |
 | PD-002/003/004 DECIDED B or C | Separate implementation task only | Same-pass engine edits |
+| PD-006 DECIDED A | Docs/UI/tests locking Compliance Index identity | Country quality dual-score; numeric country edits |
 
 ```text
 EVIDENCE → SEMANTICS → PRODUCT DECISION → MODEL → SCORE
@@ -693,6 +798,7 @@ PD-001 = DECIDED — A (PASS-BAND / COMPARISON-PASS LANGUAGE)
 PD-002 = DECIDED — A (KEEP EU GATE 65 AS PROJECT HARD GATE / UNSUPPORTED ANCHOR)
 PD-003 = DECIDED — A (KEEP THAILAND DO EXCLUDED AS PROJECT DESIGN)
 PD-004 = DECIDED — A (KEEP ORP 200–600 AS SHARED OPERATIONAL / PROJECT BAND)
+PD-006 = DECIDED — A (COUNTRY SCORE = COMPLIANCE INDEX)
 
 MODEL = FROZEN
 SCORE = FROZEN
@@ -700,7 +806,7 @@ BASELINE = UNCHANGED (76 / 100 / 100 / 95 / 65 / 99)
 ```
 
 ```text
-ALL FIVE PRODUCT DECISIONS DECIDED A
+PD-001–PD-005 DECIDED A; PD-006 DECIDED A (COMPLIANCE INDEX)
 MODEL FROZEN
 SCORE FROZEN
 ```
@@ -710,7 +816,7 @@ SCORE FROZEN
 ## STOP
 
 ```text
-PD-001 / PD-002 / PD-003 / PD-004 / PD-005 — ALL DECIDED A
+PD-001 / PD-002 / PD-003 / PD-004 / PD-005 / PD-006 — DECIDED (006 = A COMPLIANCE INDEX)
 MODEL FROZEN
 SCORE FROZEN
 NO NUMERIC TUNING

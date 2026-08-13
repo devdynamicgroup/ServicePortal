@@ -13,8 +13,8 @@ mismatch, unsupported EU gate anchor, shared ORP, Thailand DO exclusion).
 
 ## Core contract
 
-**Country Benchmark** is a **country-specific compliance / benchmark signal**
-for the selected reference engine. It is:
+**Country Benchmark** is a **country-specific Compliance / Benchmark Index**
+(PD-006 DECIDED A) for the selected reference engine. It is:
 
 - a **comparison view** for the same field readings under one selected engine
 - **not** a universal water-quality score
@@ -31,8 +31,9 @@ Rules:
 3. **Quality V3**, **Compliance** (PASS/WARNING/FAIL), and **Country Benchmark**
    remain three separate channels (see `computeQualityScoreV2.js` architecture
    comment and `tests/score/quality-compliance-separation.test.js`).
-
----
+4. **PD-007 DECIDED D:** Quality V3 keeps `mean/6`. On the Quality/publish path,
+   Compliance **FAIL** overrides Excellent/Good wording — numeric Quality score
+   is unchanged.
 
 ## Per-engine semantics (current implementation)
 
@@ -129,6 +130,8 @@ and **semantic contract tests** that lock scoring math unchanged.
 ## Related artifacts
 
 - Root-cause audit: `COUNTRY_SCORE_SEMANTICS_REVIEW.md`, `COUNTRY_SCORE_REALISM_AUDIT.md`
+- Constant SoT: `evidence-registry/constants.json`, `MODEL_GOVERNANCE.md`
+- Open channel decisions: `UNRESOLVED_DECISIONS.md` (PD-006 / PD-007)
 - EU gate provenance: commit `f5579564`, `docs/BENCHMARK_ENGINE_COMPARISON_SAMPLE.md`
 - Isolation: `tests/benchmark/benchmark-isolation.test.js`
 - Channel separation: `tests/score/quality-compliance-separation.test.js`
