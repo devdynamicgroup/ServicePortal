@@ -8,11 +8,43 @@ function getScoreStyle(wq) {
 
 /** Customer-facing verdict shown on the summary card (not the DWQI band legend).
  *  Bands follow Excel Report summary: ≥80 Excellent, ≥60 Acceptable, else Action.
- *  Used for Quality / published Water Score — NOT Country Benchmark comparison (PD-001). */
+ *  Used for Quality / published Water Score — NOT Country Benchmark comparison (PD-001).
+ *  Callers on the Quality/publish path must use qualityPublishPresentation
+ *  (PD-007 D + PD-009 B) so Compliance FAIL/WARNING cannot surface as
+ *  Excellent/Good alone. */
 function customerVerdict(wq) {
   if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#284dcd', tier: 'high' };
   if (wq >= 60) return { label: t('score.verdict.good'), color: '#56d096', tier: 'mid' };
   return { label: t('score.verdict.attention'), color: '#f07b7b', tier: 'low' };
+}
+
+/**
+ * PD-007 D + PD-009 B — Quality / publish presentation hybrid.
+ * Numeric Quality score (mean/6) is unchanged. Compliance math unchanged.
+ * When Compliance is FAIL or WARNING, do not present Excellent/Good alone —
+ * quality index ≠ safety clearance. WARNING uses distinct copy from FAIL.
+ */
+function qualityPublishPresentation(wq, complianceStatus) {
+  const status = String(complianceStatus || '').toUpperCase();
+  if (status === 'FAIL') {
+    return {
+      label: t('score.verdict.complianceFail'),
+      color: '#f07b7b',
+      tier: 'low',
+      complianceOverride: true,
+      complianceOverrideKind: 'FAIL'
+    };
+  }
+  if (status === 'WARNING') {
+    return {
+      label: t('score.verdict.complianceWarning'),
+      color: '#d9a441',
+      tier: 'low',
+      complianceOverride: true,
+      complianceOverrideKind: 'WARNING'
+    };
+  }
+  return { ...customerVerdict(wq), complianceOverride: false, complianceOverrideKind: null };
 }
 
 /**
@@ -392,10 +424,13 @@ function renderScoreDisplay() {
   });
   const findings = result.findings || [];
   // PD-001: Country Benchmark comparison uses pass-band presentation, not Excellent/Good.
-  // Quality / published path keeps customerVerdict (quality-gradient) unchanged.
+  // PD-007 D + PD-009 B: Quality / published path — FAIL/WARNING override Excellent/Good wording.
   const showingComparison = !S.publicScoreView && Number.isFinite(Number(comparisonScore));
+  const complianceStatus = S.currentScoreResult?.complianceStatus || null;
   const verdict = Number.isFinite(wq)
-    ? (showingComparison ? comparisonPresentationVerdict(wq) : customerVerdict(wq))
+    ? (showingComparison
+      ? comparisonPresentationVerdict(wq)
+      : qualityPublishPresentation(wq, complianceStatus))
     : { tier: 'pending', label: '—', color: '#284dcd' };
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
@@ -472,8 +507,15 @@ function renderScoreDisplay() {
   }
   if (noteEl) {
     if (showScore) {
-      // PD-005 / PD-001: comparison disclaimer — not a ranking; not universal quality.
-      noteEl.textContent = t('score.benchmark.disclaimer');
+      // PD-007 D + PD-009 B: FAIL/WARNING get explicit hybrid notes on Quality/publish path.
+      // Comparison path keeps the benchmark disclaimer (PD-005 / PD-001).
+      if (!showingComparison && verdict.complianceOverride) {
+        noteEl.textContent = verdict.complianceOverrideKind === 'WARNING'
+          ? t('score.msg.complianceWarningOverride')
+          : t('score.msg.complianceFailOverride');
+      } else {
+        noteEl.textContent = t('score.benchmark.disclaimer');
+      }
       noteEl.hidden = false;
     } else if (readiness?.ocrBusy) {
       noteEl.hidden = false;
@@ -1019,10 +1061,11 @@ function renderScoreImprove(context = getScoreEvalContext()) {
       ? Boolean(eligibility.canCalculateScore)
       : canDisplayScoreNumber(readiness, S.activeJob));
   const wq = Number.isFinite(score) ? score : 0;
-  // PD-001: "all good" / improve headings for comparison use pass-band tiers, not Excellent.
+  // PD-001: comparison uses pass-band tiers.
+  // PD-007 D + PD-009 B: Quality path uses FAIL/WARNING presentation override.
   const verdict = isShowingCountryBenchmarkComparison()
     ? comparisonPresentationVerdict(wq)
-    : customerVerdict(wq);
+    : qualityPublishPresentation(wq, S.currentScoreResult?.complianceStatus || null);
 
   if (!rows.length) {
     section.hidden = true;
@@ -1261,7 +1304,13 @@ async function shareScore() {
     const result = await response.json();
     if (!response.ok || !result.reportUrl) throw new Error(result.error || 'Could not publish score');
 
-    job.result = { ...(job.result || {}), waterScore: result.score, reportUrl: result.reportUrl, publicReportToken: result.reportToken };
+    job.result = {
+      ...(job.result || {}),
+      waterScore: result.score,
+      complianceStatus: S.currentScoreResult?.complianceStatus || job.result?.complianceStatus || null,
+      reportUrl: result.reportUrl,
+      publicReportToken: result.reportToken
+    };
 
     const outcome = await shareScoreResult({
       reportToken: result.reportToken,

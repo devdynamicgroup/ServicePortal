@@ -146,7 +146,31 @@ console.log('\nPD-001 — comparison presentation is pass-band, not Excellent');
   assert(!String(present100.label).toLowerCase().includes('excellent'), 'comparison presentation is not Excellent');
 
   const qualityVerdict = sandbox.customerVerdict(92);
-  assert(qualityVerdict.label === 'score.verdict.excellent', 'Quality path still uses Excellent for high scores');
+  assert(qualityVerdict.label === 'score.verdict.excellent', 'customer customerVerdict still Excellent for high scores');
+
+  assert(typeof sandbox.qualityPublishPresentation === 'function', 'qualityPublishPresentation exists');
+  const failOverride = sandbox.qualityPublishPresentation(92, 'FAIL');
+  assert(failOverride.label === 'score.verdict.complianceFail', `FAIL overrides Excellent (got ${failOverride.label})`);
+  assert(failOverride.tier === 'low', 'FAIL override tier is low');
+  assert(failOverride.complianceOverride === true, 'FAIL sets complianceOverride');
+  assert(failOverride.complianceOverrideKind === 'FAIL', 'FAIL sets complianceOverrideKind');
+  const warnOverride = sandbox.qualityPublishPresentation(92, 'WARNING');
+  assert(warnOverride.label === 'score.verdict.complianceWarning', `WARNING overrides Excellent (got ${warnOverride.label})`);
+  assert(warnOverride.tier === 'low', 'WARNING override tier is low');
+  assert(warnOverride.complianceOverride === true, 'WARNING sets complianceOverride');
+  assert(warnOverride.complianceOverrideKind === 'WARNING', 'WARNING sets complianceOverrideKind');
+  const warnGood = sandbox.qualityPublishPresentation(65, 'WARNING');
+  assert(warnGood.complianceOverride === true, 'WARNING also blocks Good/Acceptable');
+  const passOk = sandbox.qualityPublishPresentation(92, 'PASS');
+  assert(passOk.label === 'score.verdict.excellent', 'PASS keeps Excellent on Quality path');
+  assert(passOk.complianceOverride !== true, 'PASS does not set complianceOverride');
+  assert(i18nSrc.includes("'score.verdict.complianceFail'"), 'complianceFail i18n key exists');
+  assert(i18nSrc.includes("'score.verdict.complianceWarning'"), 'complianceWarning i18n key exists');
+  assert(i18nSrc.includes("'score.msg.complianceWarningOverride'"), 'complianceWarningOverride i18n key exists');
+  assert(i18nSrc.includes('compliance failed') || i18nSrc.includes('Compliance'), 'EN complianceFail wording present');
+  assert(i18nSrc.includes('compliance warning') || i18nSrc.includes('WARNING'), 'EN complianceWarning wording present');
+  assert(scoreFlowSrc.includes("status === 'WARNING'"), 'score flow handles WARNING override');
+
 
   const compare = sandbox.buildComparisonScoreResult(BASELINE.readings, 'thailand');
   assert(compare.score === 100, 'comparison numeric score unchanged');
