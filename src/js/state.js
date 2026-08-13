@@ -18,6 +18,7 @@ const S = {
   scoreStandardKey: 'thailand',
   currentScoreResult: null,
   comparisonScoreResult: null,
+  displayedScore: null,
   stepsDone: { preassess: false, assess: false, score: false, payment: false, feedback: false },
   scoreVal: null,
   scoreDetail: {},

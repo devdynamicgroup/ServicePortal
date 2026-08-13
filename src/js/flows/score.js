@@ -204,6 +204,55 @@ function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDA
   };
 }
 
+/**
+ * Selected-country benchmark score. Delegates to the existing registry —
+ * does not duplicate country formulas. Never calls Quality V3.
+ */
+function getCountryBenchmarkScore(readings, standardKey = DEFAULT_SCORE_STANDARD_KEY) {
+  return buildComparisonScoreResult(readings, standardKey);
+}
+
+/**
+ * Score the user actually sees in #gauge-val.
+ *
+ * Live Score screen: selected country engine (thailand|japan|eu|who|usEpa).
+ * Public /r/{token} report: persisted published Quality Water Score.
+ *
+ * Quality V3 remains on currentScoreResult / S.scoreVal for publish+share.
+ * It is not the live Hero number and is not used as a fallback when a
+ * country is selected.
+ */
+function resolveDisplayedScore({
+  publicView = false,
+  publishedScore = null,
+  readings = {},
+  standardKey = DEFAULT_SCORE_STANDARD_KEY
+} = {}) {
+  if (publicView && Number.isFinite(Number(publishedScore))) {
+    const score = Math.max(0, Math.min(100, Math.round(Number(publishedScore))));
+    return {
+      score,
+      source: 'published',
+      standardKey: 'quality-v3',
+      engineKey: 'quality-v3',
+      showScore: true,
+      comparison: null,
+      classifications: null
+    };
+  }
+  const comparison = getCountryBenchmarkScore(readings, standardKey);
+  const score = Number.isFinite(Number(comparison.score)) ? comparison.score : null;
+  return {
+    score,
+    source: 'country-benchmark',
+    standardKey: comparison.standardKey,
+    engineKey: comparison.engineKey,
+    showScore: score != null,
+    comparison,
+    classifications: comparison.classifications || null
+  };
+}
+
 const SCORE_BAR_COLORS = Object.freeze({
   low: '#f07b7b',
   mid: '#56d096',
@@ -382,42 +431,31 @@ function renderScoreDisplay() {
 
   const context = getScoreEvalContext(result);
   const readiness = getScoreDataReadiness(S.activeJob);
-  // Eligibility contract is the single source of truth for completeness.
-  // Score visibility uses canCalculateScore (numeric inputs only).
-  // Official publish/close uses canPublishReport (measurements + inspection).
-  // A published view still gets a (legacy-tagged) contract rather than none,
-  // so the bypass stays traceable instead of silent.
+  // Eligibility still describes missing production inputs (publish/share).
+  // Live Hero visibility follows the selected country engine, not the
+  // production 6-key list (which requires DO even when Japan excludes DO).
   const eligibility = isPublishedScoreView(S.activeJob)
     ? (typeof EligibilityContract !== 'undefined' ? EligibilityContract.buildLegacy() : null)
     : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(S.activeJob) : null);
-  const showScore = isPublishedScoreView(S.activeJob)
-    ? true
-    : (eligibility
-      ? Boolean(eligibility.canCalculateScore)
-      : canDisplayScoreNumber(readiness, S.activeJob));
-  // Summary number tracks the selected Country Benchmark comparison (the
-  // engine-computed score for S.scoreStandardKey via buildComparisonScoreResult
-  // -> WaterScoreBenchmarkRegistry.calculate) so switching countries changes
-  // the Hero. Quality V3 (computedWho/publishedScore) remains the fallback
-  // when no comparison score is available yet, unchanged from prior behavior.
+  const displayed = resolveDisplayedScore({
+    publicView: Boolean(S.publicScoreView),
+    publishedScore: S.currentScoreResult?.score,
+    readings: result.readings || S.scoreBaseReadings || {},
+    standardKey: result.standardKey || S.scoreStandardKey
+  });
+  S.displayedScore = displayed;
+  const showScore = displayed.showScore;
+  const wq = displayed.score;
   const computedWho = S.currentScoreResult?.computedScore;
-  const comparisonScore = result.score;
-  const publishedScore = S.currentScoreResult?.score;
-  // Public report page has no live readings to recompute from — it must fall
-  // back to the already-published score instead of showing NaN.
-  const wq = S.publicScoreView && Number.isFinite(publishedScore)
-    ? publishedScore
-    : Number.isFinite(comparisonScore)
-      ? comparisonScore
-      : Number.isFinite(computedWho)
-        ? computedWho
-        : (Number.isFinite(publishedScore) ? publishedScore : NaN);
+  const comparisonScore = displayed.source === 'country-benchmark' ? displayed.score : result.score;
   console.log('RENDER SCORE DISPLAY', {
     score: wq,
+    source: displayed.source,
+    engineKey: displayed.engineKey,
     qualityScore: computedWho,
     comparisonScore,
     compliance: S.currentScoreResult?.complianceStatus || null,
-    standard: result.standardKey,
+    standard: displayed.standardKey,
     readings: result.readings,
     readiness,
     showScore
@@ -425,7 +463,7 @@ function renderScoreDisplay() {
   const findings = result.findings || [];
   // PD-001: Country Benchmark comparison uses pass-band presentation, not Excellent/Good.
   // PD-007 D + PD-009 B: Quality / published path — FAIL/WARNING override Excellent/Good wording.
-  const showingComparison = !S.publicScoreView && Number.isFinite(Number(comparisonScore));
+  const showingComparison = displayed.source === 'country-benchmark' && displayed.showScore;
   const complianceStatus = S.currentScoreResult?.complianceStatus || null;
   const verdict = Number.isFinite(wq)
     ? (showingComparison
@@ -494,7 +532,6 @@ function renderScoreDisplay() {
 
   if (bandEl) {
     if (showScore) {
-      // Quality verdict drives the hero badge. Benchmark verdict stays in comparison panels.
       bandEl.textContent = verdict.label;
     } else if (readiness?.ocrBusy) {
       bandEl.textContent = t('score.readiness.calculatingBadge');
@@ -564,6 +601,7 @@ function setScoreReferenceStandard(standardKey) {
 
   S.scoreStandardKey = key;
   S.scoreBaseReadings = readings;
+  // Publish/share channel stays Quality V3. Live Hero uses country engine.
   S.scoreVal = computedScore;
   S.currentScoreResult = {
     ...(S.currentScoreResult || {}),
@@ -578,13 +616,21 @@ function setScoreReferenceStandard(standardKey) {
     compliance: detail?.compliance || null,
     validation: S.lastReadingsValidation || null
   };
-  S.comparisonScoreResult = buildComparisonScoreResult(readings, key);
+  S.comparisonScoreResult = getCountryBenchmarkScore(readings, key);
+  S.displayedScore = resolveDisplayedScore({
+    publicView: Boolean(S.publicScoreView),
+    publishedScore: S.currentScoreResult.score,
+    readings,
+    standardKey: key
+  });
   S.scoreParamOpen = null;
   console.log('STANDARD SWITCH', {
     key,
     readings,
     qualityScore: computedScore,
     comparisonScore: S.comparisonScoreResult.score,
+    displayedScore: S.displayedScore.score,
+    displayedEngine: S.displayedScore.engineKey,
     compliance: S.currentScoreResult.complianceStatus
   });
   renderScoreDisplay();
@@ -785,8 +831,8 @@ function readingsFromJob(job) {
  * Single Water Score renderer used by both the field app and /r/{token}.
  * publicView only changes chrome (handled by caller); display path is identical.
  *
- * currentScoreResult  → Quality Score V2 (share + backend publish)
- * comparisonScoreResult → selected-standard simulation (comparison only)
+ * currentScoreResult  → Quality V3 (share + backend publish only)
+ * comparisonScoreResult / displayedScore → selected country engine (live Hero)
  */
 function renderWaterScore(job, options = {}) {
   const publicView = Boolean(options.publicView);
@@ -834,11 +880,20 @@ function renderWaterScore(job, options = {}) {
   if (!S.scoreStandardKey || !benchmarkRegistry()?.has?.(S.scoreStandardKey)) {
     S.scoreStandardKey = DEFAULT_SCORE_STANDARD_KEY;
   }
-  S.comparisonScoreResult = buildComparisonScoreResult(readings, S.scoreStandardKey);
+  S.comparisonScoreResult = getCountryBenchmarkScore(readings, S.scoreStandardKey);
+  S.displayedScore = resolveDisplayedScore({
+    publicView,
+    publishedScore: productionScore,
+    readings,
+    standardKey: S.scoreStandardKey
+  });
   console.log('DISPLAY SCORE PATH', {
     productionScore,
     computedScore,
     comparisonScore: S.comparisonScoreResult?.score,
+    displayedScore: S.displayedScore?.score,
+    displayedSource: S.displayedScore?.source,
+    displayedEngine: S.displayedScore?.engineKey,
     compliance: S.currentScoreResult.complianceStatus,
     standard: S.scoreStandardKey,
     published: Number.isFinite(published) ? published : null
@@ -1050,17 +1105,14 @@ function renderScoreImprove(context = getScoreEvalContext()) {
 
   const allRows = scoreTapRows(S.scoreTapFilter || 'all', context);
   const rows = allRows.filter(r => paramStatusUiKey(r.st) === 'attn');
-  const score = Number(activeComparisonResult()?.score);
-  const readiness = getScoreDataReadiness(S.activeJob);
-  const eligibility = (!isPublishedScoreView(S.activeJob) && typeof resolveReportEligibility === 'function')
-    ? resolveReportEligibility(S.activeJob)
-    : null;
-  const showScore = isPublishedScoreView(S.activeJob)
-    ? true
-    : (eligibility
-      ? Boolean(eligibility.canCalculateScore)
-      : canDisplayScoreNumber(readiness, S.activeJob));
-  const wq = Number.isFinite(score) ? score : 0;
+  const displayed = resolveDisplayedScore({
+    publicView: Boolean(S.publicScoreView),
+    publishedScore: S.currentScoreResult?.score,
+    readings: context.readings || S.scoreBaseReadings || {},
+    standardKey: context.selectedStandard || S.scoreStandardKey
+  });
+  const showScore = displayed.showScore;
+  const wq = Number.isFinite(displayed.score) ? displayed.score : 0;
   // PD-001: comparison uses pass-band tiers.
   // PD-007 D + PD-009 B: Quality path uses FAIL/WARNING presentation override.
   const verdict = isShowingCountryBenchmarkComparison()

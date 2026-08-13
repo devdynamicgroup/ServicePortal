@@ -4,7 +4,7 @@
  *
  * Documents (from executed engines, not UI assumptions):
  * - Cases have no country identity field; benchmark is session selection only.
- * - Hero production score is Quality V3; comparison uses selected country engine.
+ * - Live displayed Score uses the selected country engine; Quality V3 remains publish-only.
  * - Case A/B: TH score === JP score is expected (both within national plateaus).
  * - DIFF fixture: TH score !== JP score when standards diverge.
  */
@@ -48,6 +48,7 @@ const sandbox = {
     scoreVal: null,
     currentScoreResult: null,
     comparisonScoreResult: null,
+    displayedScore: null,
     scoreParamOpen: null,
     publicScoreView: false
   },
@@ -198,25 +199,31 @@ console.log('\nQuality isolation — benchmark runs do not mutate Quality / each
   assert(jp.score === JSON.parse(snaps.japan).score, 'JP comparison does not mutate engine');
 }
 
-console.log('\nHero data source contract — Quality vs comparison stay separate');
+console.log('\nHero data source contract — live display is country engine; Quality stays publish-only');
 {
   const readings = CASE_A;
   const quality = sandbox.computeScoreFromReadings(readings);
   const detail = sandbox.computeQualityScoreDetail(readings);
   const th = compare('thailand', readings);
   const jp = compare('japan', readings);
-  // Mimic production assignment in setScoreReferenceStandard / calcAndShowScore:
+  const displayedTh = sandbox.resolveDisplayedScore({ readings, standardKey: 'thailand' });
+  const displayedJp = sandbox.resolveDisplayedScore({ readings, standardKey: 'japan' });
   const currentScoreResult = {
     score: quality,
     computedScore: quality,
     standardKey: 'quality-v3',
     complianceStatus: detail.compliance.status
   };
-  assert(currentScoreResult.standardKey === 'quality-v3', 'production result tagged quality-v3');
-  assert(currentScoreResult.computedScore === quality, 'hero source is Quality');
+  assert(currentScoreResult.standardKey === 'quality-v3', 'publish result tagged quality-v3');
+  assert(currentScoreResult.computedScore === quality, 'publish/share source remains Quality V3');
+  assert(displayedTh.source === 'country-benchmark' && displayedTh.engineKey === 'thailand',
+    'live displayed score uses Thailand engine');
+  assert(displayedJp.source === 'country-benchmark' && displayedJp.engineKey === 'japan',
+    'live displayed score uses Japan engine');
+  assert(displayedTh.score === th.score && displayedJp.score === jp.score,
+    'displayed scores match country engines, not Quality');
+  assert(displayedTh.score !== quality, `displayed TH ${displayedTh.score} !== Quality ${quality}`);
   assert(th.standardKey === 'thailand' && jp.standardKey === 'japan', 'comparison carries country keys');
-  assert(th.score !== quality || jp.score !== quality || quality < 100,
-    'Quality is not forced equal to both country 100s as identity');
   assert(quality === 92, `Case A Quality locked evidence = 92 (got ${quality})`);
   assert(th.score === 100 && jp.score === 100, 'both country engines 100 while Quality 92');
 }
