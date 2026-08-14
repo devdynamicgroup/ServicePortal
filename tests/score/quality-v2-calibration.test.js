@@ -96,7 +96,7 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   assert(bench('thailand', CASE_A) === 99, 'TH Case A = 99');
   assert(bench('japan', CASE_A) === 99, 'Japan Case A = 99');
   // PD-014 D1 (2026-08-14): CASE_B orp=507 now inner-declines (was flat 100).
-  assert(bench('thailand', CASE_B) === 98, 'TH Case B = 98');
+  assert(bench('thailand', CASE_B) === 96, 'TH Case B = 96 (PD-015)');
   assert(bench('japan', CASE_B) === 98, 'Japan Case B = 98 (DO excluded from JP index — PD-012 B)');
 }
 
@@ -110,20 +110,20 @@ console.log('\nCountry differentiation on locked sample (standards differ)');
   console.log('  locked TH/JP/WHO/EU', th, jp, who, eu);
   assert(th !== eu, 'Thailand ≠ EU on locked sample');
   assert(jp !== eu, 'Japan ≠ EU on locked sample');
-  assert(th === 95 && who === 93, 'TH/WHO differentiation preserved (TH 95 after in-band severity)');
+  assert(th === 89 && who === 93, 'TH/WHO differentiation preserved (TH 89 after PD-015)');
 }
 
 console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
 {
   // Same-result is EXPECTED for A/B: measurements sit in both national plateaus.
   assert(bench('thailand', CASE_A) === bench('japan', CASE_A), 'Case A TH===JP (plateau overlap)');
-  assert(bench('thailand', CASE_B) === bench('japan', CASE_B), 'Case B TH===JP (plateau overlap)');
+  assert(bench('thailand', CASE_B) !== bench('japan', CASE_B), 'Case B TH!==JP after PD-015');
   // Differentiation: inside TH pass windows, outside JP stricter TDS/turb/Cl.
   const DIFF = { ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28 };
   const th = bench('thailand', DIFF);
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH/JP', th, jp);
-  assert(th === 87, `DIFF Thailand = 87 after in-band severity (got ${th})`);
+  assert(th === 80, `DIFF Thailand = 80 after PD-015 (got ${th})`);
   assert(jp !== th, `DIFF Japan ${jp} !== Thailand ${th}`);
 }
 

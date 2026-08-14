@@ -4,9 +4,9 @@
 Layer:
 EVIDENCE REGISTRY (SoT) → PRODUCT DECISION → MODEL REPAIR (gated) → SCORE
 
-Current layer: PRODUCT DECISION (PD-014 OPEN — Country Score model-shape workshop; no implementation)
+Current layer: MODEL REPAIR (gated) — PD-015 Thailand calibration AUTHORIZED
 
-Model status: FROZEN Ideals/weight magnitudes; PD-012 B Japan DO composition authorized; remaining Country shape HOLD
+Model status: Ideals/weights magnitudes frozen except Thailand excellent-band calibration per PD-015
 Score formula status: FROZEN (mean/6)
 Case flow: UNTOUCHED
 ```
@@ -31,7 +31,8 @@ Evidence class ≠ authorization to change numbers
 **Ideal disposition:** PD-011 DECIDED A — all five KEEP+LABEL (PROJECT-DEFINED; no Ideal numeric change)
 **Japan DO:** PD-012 DECIDED B — REMOVE DO from Japan Compliance Index
 **Composite design:** PD-013 DECIDED A×5 — KEEP weights / WHO tiers / EPA-300 (no numeric change)
-**Country model shape:** PD-014 OPEN — ORP / EPA Cl / WHO Cl&lt;0.2 / PD-006 scope; PO sheet PENDING
+**Country model shape:** PD-014 DECIDED + IMPLEMENTED
+**Thailand ordinary-band calibration:** PD-015 DECIDED — see `PD-015-THAILAND-CALIBRATION-SPEC.md`
 
 ---
 
@@ -57,19 +58,20 @@ Evidence class ≠ authorization to change numbers
 ## Governance context
 
 ```text
-Semantics:       PD-006 A · PD-007 D · PD-008 partial · PD-009 B · PD-010 B · PD-011 A · PD-012 B · PD-013 A×5 · PD-014 OPEN
-Model:           FROZEN Ideals/weights magnitudes; PD-012 B Japan DO composition only; Country shape HOLD
+Semantics:       PD-006 A · PD-007 D · PD-008 partial · PD-009 B · PD-010 B · PD-011 A · PD-012 B · PD-013 A×5 · PD-014 · PD-015
+Model:           Ideals/weights frozen; PD-015 authorizes Thailand excellent-band calibration only
 Score formula:   FROZEN (mean/6)
 Evidence SoT:    evidence-registry/constants.json
-Closed PDs:      PD-001–PD-013 (008 partial)
-Open PDs:        PD-014 (Country Score model shape — decision-only)
+Closed PDs:      PD-001–PD-015 (008 partial)
+Open PDs:        (none for Thailand ordinary-band calibration)
 ```
 
 **Synthetic baseline (construction output only — NOT a calibration target):**
 
 ```text
 readings: { ph:7.85, tds:175, turbidity:0.42, orp:515, do:5.30, chlorine:0.70, temp:25 }
-HEAD: Quality V3=76 · TH=100 · JP=100 · WHO=95 · EU=65 · EPA=99
+Pre-PD-015: Quality V3=76 · TH=97 · JP=98 · WHO=93 · EU=65 · EPA=98
+PD-015 TH expectation (same readings): TH=95 (Japan/WHO/EU/EPA unchanged)
 ```
 
 | Valid for | Not valid for |
@@ -81,14 +83,15 @@ HEAD: Quality V3=76 · TH=100 · JP=100 · WHO=95 · EU=65 · EPA=99
 
 **Decision queue (priority):**
 
-0. **PD-014 — Country Score model shape (ORP / EPA Cl / WHO Cl&lt;0.2 / PD-006 scope) — OPEN (decision-only; no implementation)**
-1. PD-012 B / PD-013 A×5 — JP-DO REMOVE · weights/WHO tiers/EPA-300 KEEP — **DECIDED** (closed)
-2. PD-011 — Ideal KEEP+LABEL (all five A) — **DECIDED**
-3. Ideal research (PD-010 B) — **COMPLETE**
-4. PD-009 — WARNING presentation — **DECIDED B**
-5. PD-008 — Cl provenance partial (JP DO later closed by PD-012 B) — **DECIDED partial**
-6. PD-006 / PD-007 — Compliance Index + mean/6+FAIL — **DECIDED**
-7. PD-001–PD-005 — **DECIDED A**
+0. **PD-015 — Thailand Country Benchmark ordinary-band calibration — DECIDED (implement)**
+1. PD-014 — Country Score model shape — **DECIDED + IMPLEMENTED**
+2. PD-012 B / PD-013 A×5 — **DECIDED** (closed)
+3. PD-011 — Ideal KEEP+LABEL — **DECIDED**
+4. Ideal research (PD-010 B) — **COMPLETE**
+5. PD-009 — WARNING presentation — **DECIDED B**
+6. PD-008 — Cl provenance partial — **DECIDED partial**
+7. PD-006 / PD-007 — **DECIDED**
+8. PD-001–PD-005 — **DECIDED A**
 
 **Verified root-cause position (summary):** Pipeline/arithmetic are **not** the
 problem. Issues are semantic / construction (different engine semantics,
@@ -1804,28 +1807,77 @@ PD-014 = DECIDED + IMPLEMENTED (2026-08-14) — COUNTRY SCORE MODEL SHAPE (ORP /
          (200/600, 0.2/4.0, WHO tiers >=0.2) unchanged — verified via empty
          git diff on every limits.js/weights.js. 1315 tests passed, 0 failed.
 
-MODEL = FROZEN Ideals/weights magnitudes; PD-012 B JP DO composition authorized; Country shape HOLD
+PD-015 = DECIDED (2026-08-14) — THAILAND COUNTRY BENCHMARK ORDINARY-BAND CALIBRATION
+         Spec: docs/quality-v3/PD-015-THAILAND-CALIBRATION-SPEC.md
+         Scope: Thailand engine only. Outer compliance ceilings unchanged.
+         Hero ceiling 99 KEEP. Q-V3 / JP / WHO / EU / EPA untouched.
+         Implementation Readiness: READY (numeric spec approved in this record).
+
+MODEL = Ideals/weights magnitudes frozen except PD-015 Thailand excellent-band edits
 SCORE FORMULA = FROZEN (mean/6)
-BASELINE = UNCHANGED (76 / 100 / 100 / 95 / 65 / 99)
-REGISTRY = SoT (PD-012 B + PD-013 A×5 recorded)
 CASE FLOW = UNTOUCHED
-PRODUCTION = HOLD
 ```
+
+---
+
+## PD-015: Thailand Country Benchmark ordinary-band calibration
+
+- **Status:** DECIDED
+- **Owner:** Product Owner
+- **Date opened:** 2026-08-14
+- **Date decided:** 2026-08-14
+- **Priority:** 1
+- **Depends on:** Case isolation fix; PD-006 A; PD-008 partial; TH severity `7a3f35a7`; PD-014 D1 ORP; forensic proof that 97–99 is legitimate plateau compression
+- **Blocks:** none after DECIDED — implementation authorized by this record + `PD-015-THAILAND-CALIBRATION-SPEC.md`
+- **Type:** Product Decision + Model Specification (Thailand only)
+- **Approved by:** Product Owner (chat instruction: PD-015 DECISION + IMPLEMENTATION TASK, 2026-08-14)
+- **PO Decision:** Authorize PROJECT-DEFINED Thailand excellent-band narrowing and in-pass severity slopes per Model Spec
+- **PO Approval:** APPROVED
+- **Spec file:** `docs/quality-v3/PD-015-THAILAND-CALIBRATION-SPEC.md`
+
+### Problem (locked forensic)
+
+Ordinary acceptable water collapses into Thailand Hero **97–99** because pH / TDS / turbidity remain flat-100 across a wide ordinary region while only mild ORP/Cl ramps remain.
+
+### Decision
+
+1. Thailand Country Benchmark **may** use parameter-specific excellent / preferred bands **narrower** than compliance pass bands (same design class as `7a3f35a7` / PD-014), **Thailand only**.
+2. Exact numbers are those in `PD-015-THAILAND-CALIBRATION-SPEC.md` (PROJECT-DEFINED).
+3. Hero ceiling **99 KEEP**. Weights / aggregation / Math.round **KEEP**.
+4. Japan / WHO / EU / US EPA / Q-V3 / Case / resolver / registry **UNTOUCHED**.
+
+### Authorized numbers (copy of spec)
+
+| Parameter | Change |
+| --- | --- |
+| pH | Preferred 6.8–7.8 → 100; pass edges → 85; outside pass ×35 unchanged |
+| TDS | excellentMax 300→**80**; in-pass decline 25→**60**; soft zone continuous |
+| Turbidity | excellentMax 1→**0.3**; in-pass decline 40→**50**; soft zone continuous |
+| Chlorine | unchanged (0.2–0.5 excellent) |
+| ORP | unchanged (350–450 excellent) |
+
+### Implementation Readiness
+
+```text
+READY — numeric Model Spec approved
+```
+
+### PO SIGN-OFF
+
+- **Status:** DECIDED
+- **Decision:** Authorize PD-015 Thailand calibration per Model Spec
+- **Approved by:** Product Owner
+- **Date:** 2026-08-14
 
 ---
 
 ## STOP
 
 ```text
-PD-001…013 — DECIDED (008 partial)
-PD-014 — OPEN (decision-only; PO sheet all PENDING)
-PD-012 B — JP DO NOT_EVALUATED (no replacement Ideal)
-PD-013 A×5 — NO NUMERIC REPAIR to listed composite ids
-PD-011 A — Ideal KEEP+LABEL only (not national Ideal certification)
-NO AUTO-REPLACE (7.2→7.5, ≤80→200/300, ORP from 200–600, aquatic DO, Cl curve from MRDL)
-NO COPY Q-V3 ORP 400±25 OR Cl 0.2–0.5 INTO COUNTRY ENGINES
-NO ARTIFICIAL COUNTRY DIFFERENTIATION
+STOP — do not invent further Country thresholds beyond an approved Model Spec.
+PD-015 numbers are the only Thailand excellent-band change authorized by this log entry.
+PD-001…014 — DECIDED as recorded above (008 partial)
+NO COPY Q-V3 ideals into Country engines beyond an approved Country Model Spec
+NO ARTIFICIAL CROSS-COUNTRY DIFFERENTIATION
 NO CASE FLOW CHANGES
-NO src/js/score/** SHAPE EDITS WHILE PD-014 IS OPEN
-NO COMMIT / PUSH / DEPLOY WITHOUT SEPARATE AUTH
 ```

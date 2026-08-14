@@ -57,7 +57,7 @@ function assert(cond, msg) {
 const FULL_READINGS = { ph: 7.2, tds: 450, chlorine: 0.8, turbidity: 2.5, orp: 350, do: 6.5, temp: 28 };
 const FULL_TASKS = { tapphoto: true, meter: true, visual: true, chlorine: true };
 const COUNTRY_KEYS = ['thailand', 'who', 'eu', 'japan', 'usEpa'];
-const LOCKED_SCORES = { thailand: 95, who: 93, eu: 65, japan: 96, usEpa: 91 };
+const LOCKED_SCORES = { thailand: 89, who: 93, eu: 65, japan: 96, usEpa: 91 };
 
 console.log('\nCase 1 — Complete assessment: canCalculateScore + canPublishReport, coverage 100, score calculated');
 {

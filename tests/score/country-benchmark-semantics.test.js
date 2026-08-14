@@ -56,7 +56,7 @@ const scoreFlowSrc = fs.readFileSync(path.join(root, 'src/js/flows/score.js'), '
 const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
-  thailand: 97,
+  thailand: 95,
   japan: 98,
   who: 93,
   eu: 65,
@@ -155,8 +155,8 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   // TH (97) and JP (98) genuinely differ — no longer identical via any
   // mechanism. This is the intended product fix: ordinary water no longer
   // collapses to one shared number.
-  assert(thBaseline.score === 97 && jpBaseline.score === 98,
-    'BASELINE TH 97 !== JP 98 (real separation, not a ranking)');
+  assert(thBaseline.score === 95 && jpBaseline.score === 98,
+    'BASELINE TH 95 !== JP 98 (real separation, not a ranking)');
   assert(thBaseline.params.chlorine < 100, 'TH chlorine grade already below 100 pre-ceiling (in-band severity)');
   assert(jpBaseline.params.orp < 100, 'JP orp grade now below 100 for orp=515 (PD-014 D1 inner decline)');
   assert(!scoreFlowSrc.includes('strictest cleanliness expectations'),
@@ -202,7 +202,7 @@ console.log('\nPD-001 — comparison presentation is pass-band, not Excellent');
 
 
   const compare = sandbox.buildComparisonScoreResult(BASELINE.readings, 'thailand');
-  assert(compare.score === 97, 'comparison numeric score matches Thailand engine (97 after PD-014 D1 orp severity)');
+  assert(compare.score === 95, 'comparison numeric score matches Thailand engine (95 after PD-015)');
   assert(compare.verdict === 'score.benchmark.verdict.passBand', `comparison result.verdict is pass-band (got ${compare.verdict})`);
   assert(compare.engineVerdict === 'Excellent', `engineVerdict preserved as Excellent (got ${compare.engineVerdict})`);
 
@@ -230,7 +230,7 @@ console.log('\nModel integrity — engines untouched numerically');
 console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, never PASS');
 {
   const th = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', BASELINE.readings);
-  assert(th.score === 97, 'TH baseline 97 after PD-014 orp+Cl severity (DO still excluded)');
+  assert(th.score === 95, 'TH baseline 95 after PD-015 ordinary-band calibration (DO still excluded)');
   assert(th.classifications.do === 'NOT_EVALUATED', `TH measured DO → NOT_EVALUATED (got ${th.classifications.do})`);
   assert(th.classifications.temp === 'NOT_EVALUATED', `TH measured temp → NOT_EVALUATED (got ${th.classifications.temp})`);
   assert(th.statuses.do !== 'good', 'TH DO status is not good');
@@ -238,7 +238,7 @@ console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, neve
   assert(!(th.passedParameters || []).includes('temp'), 'TH temp not in passedParameters');
 
   const thNullDo = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', { ...BASELINE.readings, do: null, temp: null });
-  assert(thNullDo.score === 97, 'TH score unchanged with null DO/temp');
+  assert(thNullDo.score === 95, 'TH score unchanged with null DO/temp');
   assert(thNullDo.classifications.do === 'NOT_EVALUATED', 'TH null DO → NOT_EVALUATED (not PASS via Number(null)===0)');
   assert(thNullDo.classifications.temp === 'NOT_EVALUATED', 'TH null temp → NOT_EVALUATED');
 }

@@ -119,10 +119,13 @@ console.log('\nCompliance ceilings unchanged (PD-008 / TH-TDS / TH-TURB)');
   assert(L.tds.passMax === 1000, 'TDS passMax still 1000');
   assert(L.turbidity.passMax === 5, 'turbidity passMax still 5');
   assert(L.chlorine.min === 0.2 && L.chlorine.max === 2.0, 'Cl compliance band still 0.2–2.0');
-  assert(L.tds.gradeExcellentMax === 300, 'TDS inner plateau 300 (existing project inner)');
-  assert(L.turbidity.gradeExcellentMax === 1, 'turbidity inner plateau 1 (EU/WHO/EPA ideal)');
+  assert(L.tds.gradeExcellentMax === 80, 'TDS excellentMax 80 (PD-015)');
+  assert(L.tds.inBandDecline === 60, 'TDS inBandDecline 60 (PD-015)');
+  assert(L.turbidity.gradeExcellentMax === 0.3, 'turbidity excellentMax 0.3 (PD-015)');
+  assert(L.turbidity.inBandDecline === 50, 'turbidity inBandDecline 50 (PD-015)');
   assert(L.chlorine.citedSurveillanceResidual.max === 0.5, 'Cl inner uses cited residual 0.5');
-  assert(L.ph.min === 6.5 && L.ph.max === 8.5, 'pH band unchanged');
+  assert(L.ph.min === 6.5 && L.ph.max === 8.5, 'pH compliance band unchanged');
+  assert(L.ph.preferredMin === 6.8 && L.ph.preferredMax === 7.8, 'pH preferred 6.8–7.8 (PD-015)');
   assert(L.orp.min === 200 && L.orp.max === 600, 'ORP shared band unchanged');
 }
 
@@ -140,13 +143,14 @@ console.log('\nTDS severity (others ideal)');
     const r = th({ ...IDEAL, tds: v });
     return { v, g: r.params.tds, s: r.score };
   });
-  assert(rows[0].g === 100 && rows[3].g === 100, 'TDS ≤300 grade 100');
+  assert(rows[0].g === 100, 'TDS ≤80 grade 100 (PD-015 excellentMax)');
+  assert(rows[3].g < 100, 'TDS 300 leaves excellent band under PD-015');
   assert(rows[5].g < rows[4].g && rows[4].g < 100, 'TDS 500→800 grade declines');
-  assert(rows[5].s < 100 && rows[5].s < rows[3].s, 'TDS 800 final < 100');
-  assert(rows[6].g === 75, 'TDS 1000 at passMax grade 75');
+  assert(rows[5].s < 100 && rows[5].s < rows[0].s, 'TDS 800 final < 100');
+  assert(rows[6].g === 40, 'TDS 1000 at passMax grade 40 (100-60)');
   assert(rows[8].g === 0 && rows[8].s === 80, 'TDS 5000 grade 0 → composite 80 (dilution remains)');
-  let prev = rows[3].g;
-  for (const row of rows.slice(4)) {
+  let prev = rows[0].g;
+  for (const row of rows.slice(1)) {
     assert(row.g <= prev + 1e-9, `TDS ${row.v} grade ${row.g} not reversed vs ${prev}`);
     prev = row.g;
   }
@@ -158,11 +162,12 @@ console.log('\nTurbidity severity (others ideal)');
     const r = th({ ...IDEAL, turbidity: v });
     return { v, g: r.params.turbidity, s: r.score };
   });
-  assert(rows[4].g === 100, 'turb ≤1 grade 100');
-  assert(rows[6].g === 75 && rows[6].s < 100, 'turb 3.5 grade 75, score < 100');
-  assert(rows[7].g === 60, 'turb 5 at passMax grade 60');
-  let prev = rows[4].g;
-  for (const row of rows.slice(5)) {
+  assert(rows[0].g === 100 && rows[2].g === 100, 'turb ≤0.3 grade 100 (PD-015)');
+  assert(rows[4].g < 100, 'turb 1 leaves excellent band under PD-015');
+  assert(Math.round(rows[6].g) === 66 && rows[6].s < 100, 'turb 3.5 grade ~66, score < 100');
+  assert(rows[7].g === 50, 'turb 5 at passMax grade 50 (100-50)');
+  let prev = rows[2].g;
+  for (const row of rows.slice(3)) {
     assert(row.g <= prev + 1e-9, `turb ${row.v} not reversed`);
     prev = row.g;
   }
@@ -189,9 +194,9 @@ console.log('\nDIFF pipeline retrace (RAW === engine input)');
   assert(t.grades.tds < 100 && t.grades.turbidity < 100 && t.grades.chlorine < 100,
     'DIFF TH TDS/turb/Cl grades leave 100');
   assert(t.grades.ph === 100 && t.grades.orp === 100, 'DIFF TH pH/ORP still 100');
-  assert(t.postRound === 87, `DIFF TH score 87 (got ${t.postRound})`);
-  assert(t.displayed === 87 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
-    'DIFF Hero = Thailand 87');
+  assert(t.postRound === 80, `DIFF TH score 80 (got ${t.postRound})`);
+  assert(t.displayed === 80 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
+    'DIFF Hero = Thailand 80');
   const jp = trace(DIFF, 'japan');
   assert(jp.postRound === 78 && jp.displayed === 78, 'DIFF JP unchanged 78');
   const q = sandbox.computeQualityScoreDetail(DIFF).score;
@@ -203,13 +208,13 @@ console.log('\nBASE / one-bad pipeline');
   const base = trace(BASE, 'thailand');
   assert(base.after.tds === 175 && base.grades.chlorine === 96, 'BASE Cl 0.7 grades 96 (not 100)');
   // PD-014 D1 (2026-08-14): BASE orp=515 now inner-declines too.
-  assert(base.postRound === 97 && base.displayed === 97, 'BASE TH 97');
+  assert(base.postRound === 95 && base.displayed === 95, 'BASE TH 95 (PD-015)');
   assert(sandbox.computeQualityScoreDetail(BASE).score === 76, 'BASE Q-V3 76');
   const tds = trace({ ...IDEAL, tds: 800 }, 'thailand');
   const turb = trace({ ...IDEAL, turbidity: 3.5 }, 'thailand');
   const cl = trace({ ...IDEAL, chlorine: 1.5 }, 'thailand');
-  assert(tds.postRound === 96 && tds.grades.tds < 100, 'oneBad TDS TH 96');
-  assert(turb.postRound === 95 && turb.grades.turbidity < 100, 'oneBad turb TH 95');
+  assert(tds.postRound === 91 && tds.grades.tds < 100, 'oneBad TDS TH 91');
+  assert(turb.postRound === 93 && turb.grades.turbidity < 100, 'oneBad turb TH 93');
   assert(cl.postRound === 96 && cl.grades.chlorine < 100, 'oneBad Cl TH 96');
 }
 
@@ -229,7 +234,8 @@ console.log('\nCross-engine isolation');
 console.log('\npH (unchanged flat in-band) / ORP (PD-014 D1, 2026-08-14 — inner severity)');
 {
   const phRows = [6.0, 6.5, 7.0, 7.2, 7.5, 8.0, 8.5, 9, 10].map((v) => th({ ...IDEAL, ph: v }));
-  assert(phRows[1].params.ph === 100 && phRows[6].params.ph === 100, 'pH 6.5–8.5 still grade 100');
+  assert(phRows[1].params.ph === 85 && phRows[6].params.ph === 85, 'pH 6.5/8.5 grade edgeGrade 85 (PD-015)');
+  assert(phRows[3].params.ph === 100, 'pH inside preferred still 100');
   assert(phRows[0].params.ph < 100 && phRows[7].params.ph < 100, 'pH outside band declines');
   const orpRows = [100, 200, 300, 350, 400, 500, 600, 700, 900].map((v) => th({ ...IDEAL, orp: v }));
   assert(orpRows[1].params.orp === 70 && orpRows[6].params.orp === 70, 'ORP 200/600 now grade 70 (D1 inner-ramp edges)');
@@ -260,14 +266,14 @@ console.log('\nCross-country matrix (JP/EU/WHO/EPA/Q-V3 frozen)');
     // flat 100. Rows using IDEAL orp=400 (inside the D1 plateau) are
     // unaffected; oneBadCl's chlorine=1.5 EPA drop is too small to move the
     // rounded composite off 99, confirmed by direct computation.
-    ['BASE', BASE, { th: 97, jp: 98, eu: 65, who: 93, epa: 98, q: 76 }],
-    ['DIFF', DIFF, { th: 87, jp: 78, eu: 61, who: 81, epa: 78, q: 61 }],
-    ['LOCKED', LOCKED, { th: 95, jp: 96, eu: 65, who: 93, epa: 91, q: 73 }],
-    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 96, jp: 92, eu: 93, who: 94, epa: 91, q: 90 }],
-    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 95, jp: 95, eu: 89, who: 97, epa: 89, q: 90 }],
+    ['BASE', BASE, { th: 95, jp: 98, eu: 65, who: 93, epa: 98, q: 76 }],
+    ['DIFF', DIFF, { th: 80, jp: 78, eu: 61, who: 81, epa: 78, q: 61 }],
+    ['LOCKED', LOCKED, { th: 89, jp: 96, eu: 65, who: 93, epa: 91, q: 73 }],
+    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 91, jp: 92, eu: 93, who: 94, epa: 91, q: 90 }],
+    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 93, jp: 95, eu: 89, who: 97, epa: 89, q: 90 }],
     ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 96, jp: 91, eu: 65, who: 92, epa: 99, q: 90 }],
-    ['twoBad', twoBad, { th: 91, jp: 87, eu: 82, who: 91, epa: 79, q: 80 }],
-    ['threeBad', threeBad, { th: 87, jp: 78, eu: 62, who: 83, epa: 78, q: 69 }]
+    ['twoBad', twoBad, { th: 84, jp: 87, eu: 82, who: 91, epa: 79, q: 80 }],
+    ['threeBad', threeBad, { th: 80, jp: 78, eu: 62, who: 83, epa: 78, q: 69 }]
   ];
   for (const [label, readings, exp] of rows) {
     const got = {

@@ -59,7 +59,7 @@ const CASE_1328 = {
 console.log('\nLocked sample (legacy DWQI freeze)');
 {
   assert(sandbox.computeLegacyDwqiScore(LOCKED) === 93, 'Legacy DWQI locked = 93');
-  const expected = { thailand: 95, who: 93, eu: 65, japan: 96, usEpa: 91 };
+  const expected = { thailand: 89, who: 93, eu: 65, japan: 96, usEpa: 91 };
   for (const [key, score] of Object.entries(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, LOCKED).score === score,
       `${key} locked = ${score}`);

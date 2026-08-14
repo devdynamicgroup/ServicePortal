@@ -136,12 +136,14 @@ console.log('\nMatrix — which params are scored');
   assert(Math.abs(den - 0.88) < 1e-9, `JP scored den 0.88 (got ${den})`);
 }
 
-console.log('\nFIXED — Thailand TDS / turbidity / chlorine in-band severity');
+console.log('\nFIXED — Thailand TDS / turbidity / chlorine in-band severity (PD-015)');
 {
-  assert(grade('thailand', 'tds', 300) === 100, 'TH TDS ≤300 = 100');
+  assert(grade('thailand', 'tds', 80) === 100, 'TH TDS ≤80 = 100 (PD-015)');
+  assert(grade('thailand', 'tds', 300) < 100, 'TH TDS 300 leaves excellent under PD-015');
   assert(grade('thailand', 'tds', 800) < 100 && grade('thailand', 'tds', 800) > grade('thailand', 'tds', 1000),
     'TH TDS 800 < 100 and better than 1000');
-  assert(grade('thailand', 'turbidity', 1) === 100, 'TH turb ≤1 = 100');
+  assert(grade('thailand', 'turbidity', 0.3) === 100, 'TH turb ≤0.3 = 100 (PD-015)');
+  assert(grade('thailand', 'turbidity', 1) < 100, 'TH turb 1 leaves excellent under PD-015');
   assert(grade('thailand', 'turbidity', 3.5) < 100, 'TH turb 3.5 < 100');
   assert(grade('thailand', 'chlorine', 0.3) === 100, 'TH Cl 0.3 = 100');
   assert(grade('thailand', 'chlorine', 1.5) < 100 && grade('thailand', 'chlorine', 1.5) > grade('thailand', 'chlorine', 2.0),
@@ -151,19 +153,25 @@ console.log('\nFIXED — Thailand TDS / turbidity / chlorine in-band severity');
   assert(sandbox.ThailandBenchmarkLimits.chlorine.min === 0.2
     && sandbox.ThailandBenchmarkLimits.chlorine.max === 2.0,
     'TH Cl compliance band ceiling unchanged');
-  assert(bench('thailand', DIFF).score === 87, `DIFF TH still 87 (got ${bench('thailand', DIFF).score})`);
+  assert(bench('thailand', DIFF).score === 80, `DIFF TH 80 after PD-015 (got ${bench('thailand', DIFF).score})`);
 }
 
-console.log('\nNOT FIXED (governance) — pH flat-in-band Compliance Index (PD-006)');
+console.log('\nNOT FIXED (governance) — pH flat-in-band for non-TH engines; TH uses PD-015 preferred');
 {
   for (const key of KEYS) {
     const L = sandbox.WaterScoreBenchmarkRegistry.get(key).limits.ph;
     const mid = (L.min + L.max) / 2;
     const nearLow = L.min + 0.1;
     const nearHigh = L.max - 0.1;
-    assert(grade(key, 'ph', mid) === 100, `${key} pH mid-band = 100 (compliance flat)`);
-    assert(grade(key, 'ph', nearLow) === 100, `${key} pH near-low = 100`);
-    assert(grade(key, 'ph', nearHigh) === 100, `${key} pH near-high = 100`);
+    if (key === 'thailand') {
+      assert(grade(key, 'ph', 7.2) === 100, 'thailand pH preferred center = 100');
+      assert(grade(key, 'ph', L.min) === 85, 'thailand pH at pass edge = 85');
+      assert(grade(key, 'ph', L.max) === 85, 'thailand pH at pass edge high = 85');
+    } else {
+      assert(grade(key, 'ph', mid) === 100, `${key} pH mid-band = 100 (compliance flat)`);
+      assert(grade(key, 'ph', nearLow) === 100, `${key} pH near-low = 100`);
+      assert(grade(key, 'ph', nearHigh) === 100, `${key} pH near-high = 100`);
+    }
     assert(grade(key, 'ph', L.min - 0.5) < 100, `${key} pH below band declines`);
     assert(grade(key, 'ph', L.max + 0.5) < 100, `${key} pH above band declines`);
   }
@@ -248,8 +256,8 @@ console.log('\nRAW vs engine input + Hero path (DIFF)');
   const th = bench('thailand', v.measurements);
   const disp = displayed(v.measurements, 'thailand');
   const cmp = sandbox.buildComparisonScoreResult(v.measurements, 'thailand');
-  assert(th.score === 87 && cmp.score === 87 && disp.score === 87,
-    'engine === comparison === displayed = 87');
+  assert(th.score === 80 && cmp.score === 80 && disp.score === 80,
+    'engine === comparison === displayed = 80');
   assert(disp.engineKey === 'thailand' && disp.source === 'country-benchmark', 'Hero country-benchmark');
   const q = sandbox.computeQualityScoreDetail(v.measurements).score;
   assert(q === 61 && q !== disp.score, `Q-V3 ${q} isolated from Hero ${disp.score}`);
@@ -371,8 +379,8 @@ console.log('\nDIFF live path TH — RAW→grade→round→Hero (no Q-V3 overwri
   const p = pipeline(DIFF, 'thailand');
   assert(p.eng.params.tds < 100 && p.eng.params.turbidity < 100 && p.eng.params.chlorine < 100,
     'DIFF TH TDS/turb/Cl grades leave 100');
-  assert(p.eng.score === 87 && p.disp.score === 87 && p.disp.engineKey === 'thailand',
-    `DIFF Hero ${p.disp.score} === engine 87`);
+  assert(p.eng.score === 80 && p.disp.score === 80 && p.disp.engineKey === 'thailand',
+    `DIFF Hero ${p.disp.score} === engine 80`);
   assert(p.q.score === 61, `DIFF Q-V3 isolated 61 (got ${p.q.score})`);
 }
 
@@ -442,7 +450,7 @@ console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA
   assert(bench('who', DIFF).score === 81, 'WHO DIFF 81 (unaffected — D1 no-op at orp=350, D3 only affects Cl<0.2)');
   assert(bench('usEpa', DIFF).score === 78, 'EPA DIFF 78 (was 79; D2 grades Cl=1.5 below 100 for the first time)');
   assert(bench('japan', LOCKED).score === 96, 'JP LOCKED 96 (unaffected — orp=350 is the D1 plateau edge)');
-  assert(bench('thailand', LOCKED).score === 95, 'TH LOCKED 95 (unaffected — orp=350 is the D1 plateau edge)');
+  assert(bench('thailand', LOCKED).score === 89, 'TH LOCKED 89 after PD-015 (orp=350 still excellent)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -13,27 +13,41 @@
     : () => ({ score: null });
 
   function gradePh(ph) {
-    if (ph >= L.ph.min && ph <= L.ph.max) return 100;
-    const dist = ph < L.ph.min ? L.ph.min - ph : ph - L.ph.max;
-    return clamp(100 - dist * 35);
+    // Outside compliance band — unchanged slope.
+    if (ph < L.ph.min) {
+      return clamp(100 - (L.ph.min - ph) * 35);
+    }
+    if (ph > L.ph.max) {
+      return clamp(100 - (ph - L.ph.max) * 35);
+    }
+    // PD-015: preferred inner band → 100; remainder of pass band declines to edgeGrade.
+    const prefMin = L.ph.preferredMin;
+    const prefMax = L.ph.preferredMax;
+    const edge = L.ph.edgeGrade;
+    if (ph >= prefMin && ph <= prefMax) return 100;
+    if (ph < prefMin) {
+      const t = (prefMin - ph) / (prefMin - L.ph.min);
+      return clamp(100 - t * (100 - edge));
+    }
+    const t = (ph - prefMax) / (L.ph.max - prefMax);
+    return clamp(100 - t * (100 - edge));
   }
   /**
-   * MODEL DESIGN (2026-08-13): Japan-style inner plateau + decline to passMax.
-   * Compliance ceilings (passMax / Cl 0.2–2.0) unchanged. Grade 100 is no longer
-   * the entire compliance band — that was the saturation defect.
-   * Inner TDS 300 = existing project plateau (JP/EU/WHO/EPA). Inner turb 1 NTU =
-   * existing EU/WHO/EPA ideal. Inner Cl 0.2–0.5 = already-cited DoH residual.
+   * PD-015 (2026-08-14): narrower excellentMax + steeper in-pass decline.
+   * Compliance ceilings (passMax / softEnd) unchanged.
    */
   function gradeTds(tds) {
     const excellent = L.tds.gradeExcellentMax;
+    const decline = L.tds.inBandDecline;
+    const passEdge = 100 - decline;
     if (tds <= excellent) return 100;
     if (tds <= L.tds.passMax) {
-      return clamp(100 - (tds - excellent) / (L.tds.passMax - excellent) * 25);
+      return clamp(100 - (tds - excellent) / (L.tds.passMax - excellent) * decline);
     }
     if (tds <= L.tds.softEnd) {
-      return clamp(75 - (tds - L.tds.passMax) / (L.tds.softEnd - L.tds.passMax) * 35);
+      return clamp(passEdge - (tds - L.tds.passMax) / (L.tds.softEnd - L.tds.passMax) * 35);
     }
-    return clamp(40 - (tds - L.tds.softEnd) / 50);
+    return clamp(Math.max(0, passEdge - 35) - (tds - L.tds.softEnd) / 50);
   }
   function gradeChlorine(cl) {
     const excellentMax = L.chlorine.citedSurveillanceResidual.max;
@@ -46,14 +60,16 @@
   }
   function gradeTurbidity(turb) {
     const excellent = L.turbidity.gradeExcellentMax;
+    const decline = L.turbidity.inBandDecline;
+    const passEdge = 100 - decline;
     if (turb <= excellent) return 100;
     if (turb <= L.turbidity.passMax) {
-      return clamp(100 - (turb - excellent) / (L.turbidity.passMax - excellent) * 40);
+      return clamp(100 - (turb - excellent) / (L.turbidity.passMax - excellent) * decline);
     }
     if (turb <= L.turbidity.softEnd) {
-      return clamp(60 - (turb - L.turbidity.passMax) / (L.turbidity.softEnd - L.turbidity.passMax) * 20);
+      return clamp(passEdge - (turb - L.turbidity.passMax) / (L.turbidity.softEnd - L.turbidity.passMax) * 20);
     }
-    return clamp(40 - (turb - L.turbidity.softEnd) * 4);
+    return clamp(Math.max(0, passEdge - 20) - (turb - L.turbidity.softEnd) * 4);
   }
   /**
    * PD-014 D1 (2026-08-14): project-defined inner severity within the locked

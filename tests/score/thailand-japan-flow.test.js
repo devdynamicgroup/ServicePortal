@@ -135,25 +135,25 @@ console.log('\nBenchmark selection — key routes to the matching engine');
 
 console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXPECTED equal)');
 {
-  // WHY equal: every scored parameter sits inside BOTH national pass windows.
-  // TH: pH 6.5–8.5, TDS≤1000, Cl 0.2–2.0, turb≤5, ORP 200–600 (DO unscored)
-  // JP: pH 5.8–8.6, TDS≤500, Cl 0.1–1.0, turb≤2, ORP 200–600, DO≥5
-  // PD-014 D1 (2026-08-14): Case A's orp=434.1 sits inside the inner plateau
-  // (350-450), unaffected. Case B's orp=507 now inner-declines on both
-  // engines — still equal to each other (98===98), just no longer 99.
-  for (const [label, readings, expected] of [['A', CASE_A, 99], ['B', CASE_B, 98]]) {
-    const th = bench('thailand', readings);
-    const jp = bench('japan', readings);
-    const q = sandbox.computeScoreFromReadings(readings);
-    const detail = sandbox.computeQualityScoreDetail(readings);
-    console.log(`  Case ${label} Quality=${q} compliance=${detail.compliance.status} TH=${th.score} JP=${jp.score}`);
-    console.log(`  Case ${label} TH params`, th.params);
-    console.log(`  Case ${label} JP params`, jp.params);
-    assert(th.score === expected && jp.score === expected, `Case ${label}: TH===JP===${expected} expected plateau overlap`);
-    assert(th.score === jp.score, `Case ${label}: documented same-result TH===JP`);
-    assert(Number.isFinite(q) && q < th.score, `Case ${label}: Quality ${q} is not overwritten by TH ${th.score}`);
-    assert(detail.engineVersion === 'quality-v3.0' || sandbox.QUALITY_SCORE_ENGINE_VERSION === 'quality-v3.0',
-      'production engine remains quality-v3');
+  // PD-015: Thailand ordinary-band calibration can diverge from Japan even when
+  // both engines still compliance-pass. Japan expectations unchanged.
+  {
+    const thA = bench('thailand', CASE_A);
+    const jpA = bench('japan', CASE_A);
+    const qA = sandbox.computeScoreFromReadings(CASE_A);
+    console.log(`  Case A Quality=${qA} TH=${thA.score} JP=${jpA.score}`);
+    assert(thA.score === 99 && jpA.score === 99, 'Case A: TH===JP===99 (both at Hero ceiling)');
+    assert(Number.isFinite(qA) && qA < thA.score, `Case A: Quality ${qA} is not overwritten by TH ${thA.score}`);
+  }
+  {
+    const thB = bench('thailand', CASE_B);
+    const jpB = bench('japan', CASE_B);
+    const qB = sandbox.computeScoreFromReadings(CASE_B);
+    console.log(`  Case B Quality=${qB} TH=${thB.score} JP=${jpB.score}`);
+    assert(jpB.score === 98, `Case B: JP unchanged 98 (got ${jpB.score})`);
+    assert(thB.score === 96, `Case B: TH=96 after PD-015 (got ${thB.score})`);
+    assert(thB.score !== jpB.score, 'Case B: TH may diverge from JP after PD-015');
+    assert(Number.isFinite(qB) && qB < thB.score, `Case B: Quality ${qB} is not overwritten by TH ${thB.score}`);
   }
 }
 
@@ -163,7 +163,7 @@ console.log('\nDifferentiation fixture — standards diverge → TH !== JP');
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH', th.score, th.params);
   console.log('  DIFF JP', jp.score, jp.params);
-  assert(th.score === 87, `DIFF Thailand = 87 after in-band severity (got ${th.score})`);
+  assert(th.score === 80, `DIFF Thailand = 80 after PD-015 (got ${th.score})`);
   assert(jp.score !== th.score, `DIFF Japan ${jp.score} !== Thailand ${th.score}`);
   assert(jp.params.tds < 100, 'DIFF JP TDS below 100 (TDS 800 > JP 500)');
   assert(jp.params.turbidity < 100, 'DIFF JP turbidity below 100 (3.5 > JP 2)');
@@ -298,7 +298,8 @@ console.log('\nFull matrix (execution evidence)');
   }
   console.log('  MATRIX_JSON', JSON.stringify(matrix));
   assert(matrix.A.thailand === matrix.A.japan, 'matrix A TH===JP');
-  assert(matrix.B.thailand === matrix.B.japan, 'matrix B TH===JP');
+  assert(matrix.B.thailand === 96 && matrix.B.japan === 98, 'matrix B TH=96 JP=98 after PD-015');
+  assert(matrix.DIFF.thailand === 80 && matrix.DIFF.japan === 78, 'matrix DIFF TH=80 JP=78');
   assert(matrix.DIFF.thailand !== matrix.DIFF.japan, 'matrix DIFF TH!==JP');
 }
 

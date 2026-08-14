@@ -207,7 +207,7 @@ console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
   assert(q.score === 76, `Quality V3 baseline 76 (got ${q.score})`);
   // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine
   // (was flat 100 pre-D1), so these move from their pre-D1 baseline.
-  assert(th.score === 97 && th.engineKey === 'thailand', 'baseline displayed TH=97 from thailand engine');
+  assert(th.score === 95 && th.engineKey === 'thailand', 'baseline displayed TH=95 from thailand engine (PD-015)');
   assert(jp.score === 98 && jp.engineKey === 'japan', 'baseline displayed JP=98 from japan engine');
   assert(who.score === 93 && who.engineKey === 'who', 'baseline displayed WHO=93 from who engine');
   assert(eu.score === 65 && eu.engineKey === 'eu', 'baseline displayed EU=65 from eu engine');

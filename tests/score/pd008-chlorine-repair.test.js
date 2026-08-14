@@ -196,7 +196,7 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
   const q = sandbox.computeScoreFromReadings(BASE);
   assert(q === 76, `Quality V3 still 76 (got ${q})`);
   // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine.
-  assert(bench('thailand', BASE).score === 97, 'TH baseline 97 (Cl 0.7 + orp 515 severity, not flat 100)');
+  assert(bench('thailand', BASE).score === 95, 'TH baseline 95 (PD-015 ordinary-band calibration)');
   assert(bench('japan', BASE).score === 98, 'JP baseline 98');
   assert(bench('who', BASE).score === 93, 'WHO baseline 93');
   assert(bench('eu', BASE).score === 65, 'EU baseline 65');
