@@ -96,9 +96,8 @@
     };
     let num = 0; let den = 0;
     Object.keys(W).forEach(key => { num += params[key] * W[key]; den += W[key]; });
-    let score = Math.round(num / den);
+    const rawScore = Math.round(num / den);
     const chlorineFail = cl < L.chlorine.min || cl > L.chlorine.max;
-    if (chlorineFail) score = Math.min(score, L.gateCapOnChlorineFail);
 
     const classifications = {
       ph: (ph >= L.ph.min && ph <= L.ph.max) ? 'PASS' : (params.ph >= 70 ? 'WARNING' : 'FAIL'),
@@ -115,6 +114,22 @@
         ? 'NOT_MEASURED'
         : (toFin(readings.temp) <= L.temp.max ? 'PASS' : 'WARNING')
     };
+
+    // EU chlorine-specific hard gate (PD-002, unchanged) — dominant for chlorine failures.
+    let score = chlorineFail ? Math.min(rawScore, L.gateCapOnChlorineFail) : rawScore;
+
+    // Non-chlorine severity-protection coverage (product decision, 2026-08-14):
+    // reuses the exact shared mechanism already deployed for Japan/WHO/US EPA
+    // (applyCountrySeverityProtection / worstBenchmarkClassification) — no new
+    // mechanism, no new cap values. Chlorine is explicitly excluded from this
+    // call (forced to 'PASS' in a local copy) so a chlorine-CRITICAL reading
+    // is governed only by the dedicated 65 gate above and can never be pulled
+    // down to the generic CRITICAL=60 — the existing PD-002 outcome (65) stays
+    // dominant whenever chlorine itself is the failing parameter.
+    if (typeof applyCountrySeverityProtection === 'function') {
+      const nonChlorineClassifications = { ...classifications, chlorine: 'PASS' };
+      score = Math.min(score, applyCountrySeverityProtection(rawScore, nonChlorineClassifications));
+    }
 
     const reasons = [];
     if (cl > L.chlorine.max) {

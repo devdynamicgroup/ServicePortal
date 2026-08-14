@@ -172,15 +172,18 @@ console.log('\nB. Classification locality — same-engine only');
   assert(rJpClean.score !== 60, 'Japan on a clean reading is not accidentally capped by a WHO-style trigger');
 }
 
-console.log('\nC. Country isolation — Thailand and EU numerically unaffected');
+console.log('\nC. Country isolation — Thailand numerically unaffected; EU chlorine gate still dominant');
 {
   const thBase = bench('thailand', { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 });
   assert(thBase.score === 86, `Thailand New C 8/11 unchanged (got ${thBase.score})`);
+  // EU non-chlorine severity coverage (2026-08-14): pH=4.5 now classifies FAIL
+  // on EU AND is no longer isolated from the generic cap — this is the
+  // intended new behavior (was 88 uncapped pre-fix).
   const euCritical = bench('eu', { ...IDEAL, ph: 4.5 });
   assert(euCritical.classifications.ph === 'FAIL', 'EU still classifies pH=4.5 as FAIL (classification logic untouched)');
-  assert(euCritical.score === 88, `EU pH=4.5 NOT capped by new mechanism, existing EU math unchanged (got ${euCritical.score})`);
+  assert(euCritical.score === 75, `EU pH=4.5 (non-chlorine FAIL) now capped at 75 (got ${euCritical.score})`);
   const euCl0 = bench('eu', { ...IDEAL, chlorine: 0 });
-  assert(euCl0.score === 65, `EU chlorine=0 still exactly its own existing gate value 65, not overridden (got ${euCl0.score})`);
+  assert(euCl0.score === 65, `EU chlorine=0 still exactly its own existing gate value 65, not overridden by the generic CRITICAL=60 (got ${euCl0.score})`);
 }
 
 console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-approved)');
@@ -193,11 +196,12 @@ console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-ap
   // WHO/EPA: worst=WARNING (chlorine and/or do) -> now capped at 85, was 93/98 pre-fix.
   assert(bench('who', newc811).score === 85, `New C 8/11 WHO worst=WARNING -> capped 85 (was 93 pre-fix)`);
   assert(bench('usEpa', newc811).score === 85, `New C 8/11 EPA worst=WARNING -> capped 85 (was 98 pre-fix)`);
-  assert(bench('eu', newc811).score === 65, 'New C 8/11 EU unchanged 65 (own PD-002 gate, out of scope)');
+  assert(bench('eu', newc811).score === 65, 'New C 8/11 EU unchanged 65 (chlorine CRITICAL dominates, generic cap does not lower it further)');
   assert(bench('japan', newc810).score === 99, 'New C 8/10 JP unchanged 99 (all-PASS, DO not indexed)');
   assert(bench('who', newc810).score === 85, `New C 8/10 WHO worst=WARNING -> capped 85 (was 96 pre-fix)`);
   assert(bench('usEpa', newc810).score === 85, `New C 8/10 EPA worst=WARNING -> capped 85 (was 98 pre-fix)`);
-  assert(bench('eu', newc810).score === 98, 'New C 8/10 EU unchanged 98 (own math, own gate does not fire on DO, out of scope)');
+  // EU non-chlorine severity coverage (2026-08-14): DO=FAIL now capped at 75 (was 98 uncapped pre-fix).
+  assert(bench('eu', newc810).score === 75, 'New C 8/10 EU now capped 75 (DO FAIL, non-chlorine severity coverage)');
   assert(bench('japan', c1328).score === 99, '13.28 JP unchanged 99 (all-PASS, hero ceiling only)');
   assert(bench('who', c1328).score === 99, '13.28 WHO unchanged 99 (all-PASS, worst=PASS, WARNING cap is a no-op)');
   assert(bench('usEpa', c1328).score === 99, '13.28 EPA unchanged 99 (all-PASS, worst=PASS, WARNING cap is a no-op)');
@@ -212,10 +216,70 @@ console.log('\nD2. WARNING cap engine isolation — Thailand/EU never see a WARN
   // and never calls applyCountrySeverityProtection at all (structural isolation, verified via git diff).
   assert(bench('thailand', newc811).score === 86, 'Thailand New C 8/11 unaffected by WARNING cap (still 86)');
   assert(bench('thailand', newc810).score === 90, 'Thailand New C 8/10 unaffected by WARNING cap (still 90)');
-  // EU's own DO check is binary PASS/FAIL (no WARNING tier at all) and EU never calls the shared
-  // severity-protection function — its own PD-002/independent math stands alone.
+  // EU's own DO check is binary PASS/FAIL (no WARNING tier at all for DO on EU).
   assert(bench('eu', newc811).classifications.do === 'FAIL', 'EU has no WARNING tier for DO — binary PASS/FAIL only');
   assert(bench('eu', newc810).classifications.do === 'FAIL', 'EU DO=5.31 also binary FAIL, not WARNING, on EU');
+}
+
+console.log('\nK. EU non-chlorine severity-protection coverage (2026-08-14, PO-approved)');
+{
+  // A. Existing chlorine behavior — chlorine CRITICAL must remain exactly 65, never 60.
+  const euClCrit = bench('eu', { ...IDEAL, chlorine: 0 });
+  assert(euClCrit.classifications.chlorine === 'CRITICAL', 'EU chlorine=0 classifies CRITICAL');
+  assert(euClCrit.score === 65, `A: chlorine CRITICAL stays exactly 65 (got ${euClCrit.score})`);
+
+  // B. DO severity — DO FAIL while chlorine PASS -> capped at 75.
+  const euDoFail = bench('eu', { ...IDEAL, do: 4.5 });
+  assert(euDoFail.classifications.do === 'FAIL' && euDoFail.classifications.chlorine === 'PASS', 'DO FAIL, chlorine PASS');
+  assert(euDoFail.score === 75, `B: DO FAIL (chlorine PASS) capped at 75 (got ${euDoFail.score})`);
+
+  // C. Non-chlorine WARNING while chlorine PASS -> must not exceed 85.
+  // (EU's own orp classify is binary PASS/WARNING tied to the 200-600 outer
+  // band only, not the PD-014 inner curve, so ph is used here instead — ph=5.8
+  // is outside EU's [6.5,9.5] pass range but grade=72 still clears the WARNING
+  // floor of 70, confirmed by direct computation.)
+  const euPhWarn = bench('eu', { ...IDEAL, ph: 5.8 });
+  assert(euPhWarn.classifications.ph === 'WARNING' && euPhWarn.classifications.chlorine === 'PASS', 'ph WARNING, chlorine PASS');
+  assert(euPhWarn.score <= 85, `C: non-chlorine WARNING (chlorine PASS) does not exceed 85 (got ${euPhWarn.score})`);
+
+  // D. Non-chlorine CRITICAL while chlorine PASS -> must not exceed 60.
+  const euTurbCrit = bench('eu', { ...IDEAL, turbidity: 6 });
+  assert(euTurbCrit.classifications.turbidity === 'CRITICAL' && euTurbCrit.classifications.chlorine === 'PASS', 'turbidity CRITICAL, chlorine PASS');
+  assert(euTurbCrit.score <= 60, `D: non-chlorine CRITICAL (chlorine PASS) does not exceed 60 (got ${euTurbCrit.score})`);
+
+  // E1. Combined severity, rawScore > 65 — chlorine's dedicated 65 gate must
+  // remain dominant; the generic CRITICAL=60 must NOT pull it down to 60.
+  // (65 is a CEILING via Math.min, not a forced value — this fixture's raw
+  // aggregate is well above 65 before any gate applies, so 65 is the correct
+  // binding constraint here.)
+  const euCombinedHigh = bench('eu', { ...IDEAL, chlorine: 0, do: 4.5 });
+  assert(euCombinedHigh.classifications.chlorine === 'CRITICAL' && euCombinedHigh.classifications.do === 'FAIL', 'E1: chlorine CRITICAL + DO FAIL');
+  assert(euCombinedHigh.score === 65, `E1 (rawScore>65): stays exactly 65, not pulled to 60 (got ${euCombinedHigh.score})`);
+
+  // E2. Combined severity, rawScore < 65 — the chlorine gate is Math.min, a
+  // ceiling not a floor. When OTHER parameters independently degrade the raw
+  // aggregate below 65, the gate must be a no-op and the lower raw value must
+  // stand. Chlorine CRITICAL must NEVER raise a score that is already worse
+  // than 65 — that would be a false-high regression.
+  const euCombinedLow = bench('eu', { ...IDEAL, chlorine: 0, do: 4.5, turbidity: 6 });
+  assert(euCombinedLow.classifications.chlorine === 'CRITICAL' && euCombinedLow.classifications.turbidity === 'CRITICAL', 'E2: chlorine CRITICAL + turbidity CRITICAL + DO FAIL');
+  assert(euCombinedLow.score < 65, `E2 (rawScore<65): final score stays below 65, never raised by the chlorine gate (got ${euCombinedLow.score})`);
+  assert(euCombinedLow.score !== 65 && euCombinedLow.score !== 60, `E2: final is neither artificially forced to 65 nor to 60 — it is the genuine lower raw-derived value (got ${euCombinedLow.score})`);
+
+  // F. Clean case — all PASS unaffected, 99 ceiling unaffected.
+  const euClean = bench('eu', IDEAL);
+  assert(sandbox.worstBenchmarkClassification(euClean.classifications) === 'PASS' || euClean.classifications.chlorine === 'PASS', 'EU IDEAL is clean');
+  assert(euClean.score >= 96, `F: clean EU case unaffected (got ${euClean.score})`);
+
+  // G. Real production cases — exact before/after per PO spec.
+  const newc811 = { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 };
+  const newc810 = { ph: 7.81, tds: 14.672, turbidity: 0.46, orp: 499.3, do: 5.31, chlorine: 0.37 };
+  const c1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3 };
+  const test1 = { ph: 7.4, tds: 250, turbidity: 0.2, orp: 300, do: 5, chlorine: 0.2 };
+  assert(bench('eu', newc811).score === 65, `G: New C 8/11 EU = 65 (got ${bench('eu', newc811).score})`);
+  assert(bench('eu', newc810).score === 75, `G: New C 8/10 EU 98 -> 75 (got ${bench('eu', newc810).score})`);
+  assert(bench('eu', c1328).score === 99, `G: Case 1328 EU = 99 (got ${bench('eu', c1328).score})`);
+  assert(bench('eu', test1).score === 75, `G: test1 EU 97 -> 75 (got ${bench('eu', test1).score})`);
 }
 
 console.log('\nE. Catastrophic fixtures (all cap to exactly 60, in-scope engines)');

@@ -281,10 +281,15 @@ console.log('\nCross-country matrix (JP/EU/WHO/EPA/Q-V3 frozen)');
     ['BASE', BASE, { th: 86, jp: 98, eu: 65, who: 85, epa: 85, q: 76 }],
     ['DIFF', DIFF, { th: 69, jp: 75, eu: 61, who: 75, epa: 75, q: 61 }],
     ['LOCKED', LOCKED, { th: 77, jp: 85, eu: 65, who: 85, epa: 75, q: 73 }],
-    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 79, jp: 75, eu: 93, who: 75, epa: 75, q: 90 }],
-    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 83, jp: 85, eu: 89, who: 85, epa: 75, q: 90 }],
+    // EU non-chlorine severity coverage (2026-08-14, PO-approved): tds/turbidity
+    // FAIL (chlorine PASS in these three rows) now capped at 75 (was 93/89/82
+    // uncapped). oneBadCl/threeBad/BASE/DIFF/LOCKED are chlorine-CRITICAL rows
+    // where the existing 65 gate already dominated — confirmed unaffected by
+    // direct recomputation.
+    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 79, jp: 75, eu: 75, who: 75, epa: 75, q: 90 }],
+    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 83, jp: 85, eu: 75, who: 85, epa: 75, q: 90 }],
     ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 90, jp: 75, eu: 65, who: 75, epa: 99, q: 90 }],
-    ['twoBad', twoBad, { th: 73, jp: 75, eu: 82, who: 75, epa: 75, q: 80 }],
+    ['twoBad', twoBad, { th: 73, jp: 75, eu: 75, who: 75, epa: 75, q: 80 }],
     ['threeBad', threeBad, { th: 69, jp: 75, eu: 62, who: 75, epa: 75, q: 69 }]
   ];
   for (const [label, readings, exp] of rows) {
