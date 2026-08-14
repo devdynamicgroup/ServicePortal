@@ -116,7 +116,6 @@ window.goScreen = function(id) {
     if (id === 's-chlorine' && typeof initChlorineReadingFields === 'function') initChlorineReadingFields();
     if (id === 's-feedback' && typeof initFeedbackScreen === 'function') initFeedbackScreen();
     if (id === 's-score') {
-      S.scoreStandardKey = typeof DEFAULT_SCORE_STANDARD_KEY !== 'undefined' ? DEFAULT_SCORE_STANDARD_KEY : 'thailand';
       calcAndShowScore();
     }
     if (id === 's-payment') updatePaymentScreen();

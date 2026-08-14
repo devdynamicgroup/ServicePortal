@@ -42,7 +42,8 @@ const files = [
   'src/js/score/benchmark/usEpa/weights.js',
   'src/js/score/benchmark/usEpa/score.js',
   'src/js/flows/score.js',
-  'src/js/job-state.js'
+  'src/js/job-state.js',
+  'src/js/app.js'
 ];
 
 function stubEl() {
@@ -76,10 +77,19 @@ function makeSandbox() {
     console,
     performance: { now: () => 0 },
     requestAnimationFrame: () => 0,
-    document: { getElementById: () => stubEl(), querySelector: () => stubEl(), querySelectorAll: () => [] },
+    document: {
+      readyState: 'loading',
+      addEventListener: () => {},
+      getElementById: () => stubEl(),
+      querySelector: () => stubEl(),
+      querySelectorAll: () => []
+    },
     S,
     t: (k) => k,
-    JOBS: []
+    JOBS: [],
+    localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+    goScreen: () => {},
+    showToast: () => {}
   };
   sandbox.globalThis = sandbox;
   sandbox.window = sandbox;
@@ -122,7 +132,7 @@ console.log('\nA. Pre-existing Case (no saved scoreStandardKey) opens with the s
   assert(sb.S.scoreStandardKey === 'thailand', 'defaults to thailand when the Case never saved a standard before');
 }
 
-console.log('\nB. Select EU, save, reload (new S, same job object), reopen — EU restored, Hero stays 65');
+console.log('\nB. Select EU, save, reload (new S, same job object), reopen, navigate to Score — EU restored, Hero stays 65');
 {
   const job = makeJob('real-newc811', '3b99a92d-fb61-81f2-a65a-c34db7f6179d', newc811);
   let sb = makeSandbox();
@@ -137,8 +147,9 @@ console.log('\nB. Select EU, save, reload (new S, same job object), reopen — E
   sb.S.activeJob = job;
   sb.loadJobState(job);
   assert(sb.S.scoreStandardKey === 'eu', 'EU restored automatically on reopen, no manual re-click needed');
-  const displayed = sb.resolveDisplayedScore({ publicView: false, publishedScore: null, readings: newc811, standardKey: sb.S.scoreStandardKey });
-  assert(displayed.engineKey === 'eu' && displayed.score === 65, 'Hero recomputes to EU=65 immediately after reload');
+  sb.goScreen('s-score');
+  assert(sb.S.scoreStandardKey === 'eu', 'Score navigation does not overwrite restored EU');
+  assert(sb.S.displayedScore.engineKey === 'eu' && sb.S.displayedScore.score === 65, 'Hero recomputes to EU=65 immediately after reload and Score navigation');
 }
 
 console.log('\nC. Switch to Thailand, save, reload, reopen — Thailand restored; switch back to EU — 65 again');
@@ -172,7 +183,7 @@ console.log('\nD. Case identity and readings are never altered by this fix');
   assert(JSON.stringify(job.draft.tapData[0].standardMeasurement) === JSON.stringify(newc811), 'readings unchanged');
 }
 
-console.log('\nE. Second, independent real Case proves the fix is general, not Case-specific');
+console.log('\nE. Second, independent real Case proves Japan persists through Score navigation');
 {
   const job2 = makeJob('real-newc810', '3b89a92d-fb61-8105-8c80-ff4477932434', newc810);
   let sb = makeSandbox();
@@ -187,9 +198,37 @@ console.log('\nE. Second, independent real Case proves the fix is general, not C
   sb.S.activeJob = job2;
   sb.loadJobState(job2);
   assert(sb.S.scoreStandardKey === 'japan', 'Case 2 Japan selection restored after reload — proves generality, not a New-C-8/11-specific fix');
+  sb.goScreen('s-score');
+  assert(sb.S.scoreStandardKey === 'japan', 'Score navigation does not overwrite restored Japan');
+  assert(sb.S.displayedScore.engineKey === 'japan' && sb.S.displayedScore.score === 99, 'Japan Hero remains selected after Score navigation');
 }
 
-console.log('\nF. New Cases default exactly like existing ones (defaultJobDraft carries the same default)');
+console.log('\nF. Case A/B selection remains isolated through Score navigation');
+{
+  const caseA = makeJob('case-a', 'notion-a', newc811);
+  const caseB = makeJob('case-b', 'notion-b', newc810);
+  const sb = makeSandbox();
+
+  sb.S.activeJob = caseA;
+  sb.loadJobState(caseA);
+  sb.setScoreReferenceStandard('eu');
+  sb.saveActiveJobState();
+
+  sb.S.activeJob = caseB;
+  sb.loadJobState(caseB);
+  sb.setScoreReferenceStandard('japan');
+  sb.saveActiveJobState();
+  sb.goScreen('s-score');
+  assert(sb.S.scoreStandardKey === 'japan', 'Case B keeps Japan after Score navigation');
+
+  sb.S.activeJob = caseA;
+  sb.loadJobState(caseA);
+  sb.goScreen('s-score');
+  assert(sb.S.scoreStandardKey === 'eu', 'Case A restores EU instead of inheriting Case B Japan');
+  assert(sb.S.displayedScore.engineKey === 'eu' && sb.S.displayedScore.score === 65, 'Case A Hero remains EU=65 after Case switch');
+}
+
+console.log('\nG. New Cases default exactly like existing ones (defaultJobDraft carries the same default)');
 {
   const sb = makeSandbox();
   const draft = sb.defaultJobDraft({});
