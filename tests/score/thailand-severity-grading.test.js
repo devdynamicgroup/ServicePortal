@@ -200,7 +200,9 @@ console.log('\nDIFF pipeline retrace (RAW === engine input)');
   assert(t.displayed === 69 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
     'DIFF Hero = Thailand 69');
   const jp = trace(DIFF, 'japan');
-  assert(jp.postRound === 78 && jp.displayed === 78, 'DIFF JP unchanged 78');
+  // Country severity protection (2026-08-14): DIFF's TDS/Cl are FAIL on
+  // Japan, now capped at 75 (was 78 uncapped).
+  assert(jp.postRound === 75 && jp.displayed === 75, 'DIFF JP capped 75 (TDS/Cl FAIL)');
   const q = sandbox.computeQualityScoreDetail(DIFF).score;
   assert(q === 61, 'DIFF Q-V3 unchanged 61');
 }
@@ -267,14 +269,20 @@ console.log('\nCross-country matrix (JP/EU/WHO/EPA/Q-V3 frozen)');
     // flat 100. Rows using IDEAL orp=400 (inside the D1 plateau) are
     // unaffected; oneBadCl's chlorine=1.5 EPA drop is too small to move the
     // rounded composite off 99, confirmed by direct computation.
+    //
+    // Country severity protection (2026-08-14, JP/WHO/EPA only): any row
+    // whose worst classification on that engine is FAIL/CRITICAL is now
+    // capped at 75/60. EU (its own PD-002 gate) and Thailand (PD-015) are
+    // out of scope and unaffected — values below verified unchanged for
+    // both. Recomputed directly against current code, not estimated.
     ['BASE', BASE, { th: 86, jp: 98, eu: 65, who: 93, epa: 98, q: 76 }],
-    ['DIFF', DIFF, { th: 69, jp: 78, eu: 61, who: 81, epa: 78, q: 61 }],
-    ['LOCKED', LOCKED, { th: 77, jp: 96, eu: 65, who: 93, epa: 91, q: 73 }],
-    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 79, jp: 92, eu: 93, who: 94, epa: 91, q: 90 }],
-    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 83, jp: 95, eu: 89, who: 97, epa: 89, q: 90 }],
-    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 90, jp: 91, eu: 65, who: 92, epa: 99, q: 90 }],
-    ['twoBad', twoBad, { th: 73, jp: 87, eu: 82, who: 91, epa: 79, q: 80 }],
-    ['threeBad', threeBad, { th: 69, jp: 78, eu: 62, who: 83, epa: 78, q: 69 }]
+    ['DIFF', DIFF, { th: 69, jp: 75, eu: 61, who: 75, epa: 75, q: 61 }],
+    ['LOCKED', LOCKED, { th: 77, jp: 96, eu: 65, who: 93, epa: 75, q: 73 }],
+    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 79, jp: 75, eu: 93, who: 75, epa: 75, q: 90 }],
+    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 83, jp: 95, eu: 89, who: 97, epa: 75, q: 90 }],
+    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 90, jp: 75, eu: 65, who: 75, epa: 99, q: 90 }],
+    ['twoBad', twoBad, { th: 73, jp: 75, eu: 82, who: 75, epa: 75, q: 80 }],
+    ['threeBad', threeBad, { th: 69, jp: 75, eu: 62, who: 75, epa: 75, q: 69 }]
   ];
   for (const [label, readings, exp] of rows) {
     const got = {

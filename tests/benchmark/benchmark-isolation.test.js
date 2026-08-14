@@ -229,7 +229,9 @@ console.log('\nTest 6 — Registry independence (dummy engine)');
 console.log('\nTest 7 — Benchmark scores locked (must not drift)');
 {
   restoreAll();
-  const expected = { thailand: 77, who: 93, eu: 65, japan: 96, usEpa: 91 };
+  // Country severity protection (2026-08-14): LOCKED's turbidity=2.5 is FAIL
+  // on US EPA, now capped at 75 (was 91 uncapped).
+  const expected = { thailand: 77, who: 93, eu: 65, japan: 96, usEpa: 75 };
   for (const key of KEYS) {
     const score = reg.calculate(key, SAMPLE).score;
     assert(score === expected[key], `${key} score locked at ${expected[key]} (got ${score})`);

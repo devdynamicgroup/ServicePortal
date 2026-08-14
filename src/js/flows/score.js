@@ -47,12 +47,36 @@ function qualityPublishPresentation(wq, complianceStatus) {
   return { ...customerVerdict(wq), complianceOverride: false, complianceOverrideKind: null };
 }
 
+/** Engines with numeric severity protection (product decision, 2026-08-14) —
+ *  presentation override below is scoped to exactly this set. EU/Thailand
+ *  are not in this set, so they always fall through to the unchanged
+ *  numeric-only branch below, regardless of their own classifications. */
+const COUNTRY_SEVERITY_PRESENTATION_ENGINES = Object.freeze(['japan', 'who', 'usEpa']);
+
 /**
  * PD-001 — Country Benchmark presentation verdict (pass-band language).
  * Presentation only: does not change engine math or numeric score.
  * Flat-100 ⇒ within pass band, not “Excellent” quality gradient.
+ *
+ * classifications/engineKey are optional. When engineKey is one of
+ * COUNTRY_SEVERITY_PRESENTATION_ENGINES (Japan/WHO/US EPA — the same scope
+ * as the numeric cap in benchmarkMetadata.js) and classifications shows a
+ * FAIL/CRITICAL parameter, the label reflects that instead of the numeric
+ * pass-band language, reusing the existing complianceFail/complianceWarning
+ * copy already used on the Quality/publish path (PD-007 D + PD-009 B) —
+ * no new wording invented. EU/Thailand/unspecified engines are unaffected.
  */
-function comparisonPresentationVerdict(wq) {
+function comparisonPresentationVerdict(wq, classifications, engineKey) {
+  if (classifications && COUNTRY_SEVERITY_PRESENTATION_ENGINES.includes(engineKey)
+    && typeof worstBenchmarkClassification === 'function') {
+    const worst = worstBenchmarkClassification(classifications);
+    if (worst === 'CRITICAL') {
+      return { label: t('score.verdict.complianceFail'), color: '#f07b7b', tier: 'low' };
+    }
+    if (worst === 'FAIL') {
+      return { label: t('score.verdict.complianceWarning'), color: '#f07b7b', tier: 'low' };
+    }
+  }
   if (!Number.isFinite(Number(wq))) return { label: '—', color: '#284dcd', tier: 'pending' };
   const n = Number(wq);
   if (n >= 80) return { label: t('score.benchmark.verdict.passBand'), color: '#284dcd', tier: 'high' };
@@ -176,7 +200,8 @@ function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDA
   // Prefer engine-authored verdict for metadata; UI presentation uses
   // comparisonPresentationVerdict (PD-001) — do not surface Excellent/Good as Country Benchmark meaning.
   const engineVerdict = scored.verdict || null;
-  const presentation = score == null ? null : comparisonPresentationVerdict(score);
+  const presentation = score == null ? null
+    : comparisonPresentationVerdict(score, scored.classifications, scored.engineKey || key);
   const fallbackVerdict = score == null ? null : customerVerdict(score);
   return {
     standardKey: key,
@@ -472,7 +497,7 @@ function renderScoreDisplay() {
   const complianceStatus = S.currentScoreResult?.complianceStatus || null;
   const verdict = Number.isFinite(wq)
     ? (showingComparison
-      ? comparisonPresentationVerdict(wq)
+      ? comparisonPresentationVerdict(wq, displayed.classifications, displayed.engineKey)
       : qualityPublishPresentation(wq, complianceStatus))
     : { tier: 'pending', label: '—', color: '#284dcd' };
   const hero = document.getElementById('score-hero');
@@ -1152,7 +1177,7 @@ function renderScoreImprove(context = getScoreEvalContext()) {
   // PD-001: comparison uses pass-band tiers.
   // PD-007 D + PD-009 B: Quality path uses FAIL/WARNING presentation override.
   const verdict = isShowingCountryBenchmarkComparison()
-    ? comparisonPresentationVerdict(wq)
+    ? comparisonPresentationVerdict(wq, displayed.classifications, displayed.engineKey)
     : qualityPublishPresentation(wq, S.currentScoreResult?.complianceStatus || null);
 
   if (!rows.length) {

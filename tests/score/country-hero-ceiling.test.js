@@ -78,7 +78,9 @@ console.log('\nCase B — country raw composite below ceiling stays unaffected B
   // is that values already below 99 pass through the ceiling untouched.
   assert(bench('who', BASE).score === 93, 'WHO BASE 93 (orp=515 now inner-declines, still < 99, ceiling no-op)');
   assert(bench('eu', BASE).score === 65, 'EU BASE 65 unaffected (chlorine gate dominates; ceiling no-op)');
-  assert(bench('usEpa', DIFF).score === 78, 'EPA DIFF 78 (Cl=1.5 now declines under D2, still < 99, ceiling no-op)');
+  // Country severity protection (2026-08-14): DIFF's TDS=800 is FAIL on EPA,
+  // now capped at 75 (was 78 uncapped under D2 alone).
+  assert(bench('usEpa', DIFF).score === 75, 'EPA DIFF 75 (TDS FAIL, severity-capped)');
 }
 
 console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / published Q-V3');

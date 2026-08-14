@@ -180,7 +180,13 @@
     return wrap({
       engine: 'WHO',
       engineKey: 'who',
-      score,
+      // Country severity protection (product decision, 2026-08-14): FAIL/CRITICAL
+      // classifications cap the composite. Explicit call, WHO-only — see
+      // src/js/score/util/benchmarkMetadata.js for the shared, engine-agnostic
+      // implementation. Does not affect grades, weights, or aggregation above.
+      score: (typeof applyCountrySeverityProtection === 'function')
+        ? applyCountrySeverityProtection(score, classifications)
+        : score,
       verdict,
       summary,
       classifications,

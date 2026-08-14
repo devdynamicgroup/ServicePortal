@@ -299,7 +299,10 @@ console.log('\nFull matrix (execution evidence)');
   console.log('  MATRIX_JSON', JSON.stringify(matrix));
   assert(matrix.A.thailand === matrix.A.japan, 'matrix A TH===JP');
   assert(matrix.B.thailand === 86 && matrix.B.japan === 98, 'matrix B TH=86 JP=98');
-  assert(matrix.DIFF.thailand === 69 && matrix.DIFF.japan === 78, 'matrix DIFF TH=69 JP=78');
+  // Country severity protection (2026-08-14): DIFF's TDS/Cl are FAIL on
+  // Japan, now capped at 75 (was 78 uncapped). Thailand unaffected (scope
+  // excludes Thailand).
+  assert(matrix.DIFF.thailand === 69 && matrix.DIFF.japan === 75, 'matrix DIFF TH=69 JP=75');
   assert(matrix.DIFF.thailand !== matrix.DIFF.japan, 'matrix DIFF TH!==JP');
 }
 

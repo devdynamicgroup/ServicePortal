@@ -173,7 +173,9 @@ console.log('\nZero drift: production + benchmark scores unchanged with Phase C 
   const sandbox = makeSandbox();
   assert(sandbox.computeLegacyDwqiScore(FULL_READINGS) === 93, 'legacy DWQI still locked at 93');
   assert(Number.isFinite(sandbox.computeScoreFromReadings(FULL_READINGS)), 'Quality V2 computes finite score');
-  const expected = { thailand: 77, who: 93, eu: 65, japan: 96, usEpa: 91 };
+  // Country severity protection (2026-08-14): LOCKED's turbidity=2.5 is FAIL
+  // on US EPA, now capped at 75 (was 91 uncapped).
+  const expected = { thailand: 77, who: 93, eu: 65, japan: 96, usEpa: 75 };
   for (const key of Object.keys(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS).score === expected[key],
       `${key} score still locked at ${expected[key]}`);

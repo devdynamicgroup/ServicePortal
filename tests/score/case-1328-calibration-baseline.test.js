@@ -59,7 +59,9 @@ const CASE_1328 = {
 console.log('\nLocked sample (legacy DWQI freeze)');
 {
   assert(sandbox.computeLegacyDwqiScore(LOCKED) === 93, 'Legacy DWQI locked = 93');
-  const expected = { thailand: 77, who: 93, eu: 65, japan: 96, usEpa: 91 };
+  // Country severity protection (2026-08-14): LOCKED's turbidity=2.5 is FAIL
+  // on US EPA (steepEnd threshold), now capped at 75 (was 91 uncapped).
+  const expected = { thailand: 77, who: 93, eu: 65, japan: 96, usEpa: 75 };
   for (const [key, score] of Object.entries(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, LOCKED).score === score,
       `${key} locked = ${score}`);

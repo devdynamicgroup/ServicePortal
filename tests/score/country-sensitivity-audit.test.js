@@ -241,7 +241,9 @@ console.log('\nAggregation dilution — documented limitation (no redesign)');
   assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 }).score === 45, 'TH 2 catastrophic → 45');
   assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 }).score === 30,
     'TH 3 catastrophic → 30');
-  assert(bench('usEpa', { ...IDEAL, tds: 5000 }).score === 80, 'EPA 1 catastrophic → 80');
+  // Country severity protection (2026-08-14): TDS=5000 is CRITICAL on EPA,
+  // now capped at 60 (was 80 uncapped).
+  assert(bench('usEpa', { ...IDEAL, tds: 5000 }).score === 60, 'EPA 1 catastrophic → 60 (CRITICAL cap)');
 }
 
 console.log('\nRAW vs engine input + Hero path (DIFF)');
@@ -445,10 +447,14 @@ console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA
   // DIFF orp=350 sits exactly on the D1 inner-plateau edge (still grade 100)
   // so only EPA DIFF moves, and only because D2 now grades its chlorine=1.5
   // below 100 (was flat 100 across the whole 0.2-4.0 window pre-D2).
-  assert(bench('japan', DIFF).score === 78, 'JP DIFF 78 (unaffected — D1 no-op at orp=350, D2 is EPA-only)');
+  // Country severity protection (2026-08-14): DIFF's TDS=800/chlorine=1.5 are
+  // FAIL on Japan, now capped at 75 (was 78 uncapped).
+  assert(bench('japan', DIFF).score === 75, 'JP DIFF 75 (TDS/Cl FAIL, severity-capped)');
   assert(bench('eu', DIFF).score === 61, 'EU DIFF 61 (unaffected — D1 no-op at orp=350, D2/D3 out of scope for EU)');
-  assert(bench('who', DIFF).score === 81, 'WHO DIFF 81 (unaffected — D1 no-op at orp=350, D3 only affects Cl<0.2)');
-  assert(bench('usEpa', DIFF).score === 78, 'EPA DIFF 78 (was 79; D2 grades Cl=1.5 below 100 for the first time)');
+  // Country severity protection (2026-08-14): DIFF's TDS=800/chlorine=1.5 are
+  // FAIL on WHO/EPA, now capped at 75 (was 81/78 uncapped).
+  assert(bench('who', DIFF).score === 75, 'WHO DIFF 75 (TDS/Cl FAIL, severity-capped)');
+  assert(bench('usEpa', DIFF).score === 75, 'EPA DIFF 75 (TDS FAIL, severity-capped)');
   assert(bench('japan', LOCKED).score === 96, 'JP LOCKED 96 (unaffected — orp=350 is the D1 plateau edge)');
   assert(bench('thailand', LOCKED).score === 77, 'TH LOCKED 77 after ordinary-band severity (orp=350 still excellent)');
 }

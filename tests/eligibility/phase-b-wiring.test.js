@@ -168,7 +168,9 @@ console.log('\nCase 5 — production score identical before/after integration (l
 console.log('\nCase 6 — benchmark outputs byte-identical when eligible (locked)');
 {
   const sandbox = makeSandbox();
-  const expected = { thailand: 77, who: 93, eu: 65, japan: 96, usEpa: 91 };
+  // Country severity protection (2026-08-14): LOCKED's turbidity=2.5 is FAIL
+  // on US EPA, now capped at 75 (was 91 uncapped).
+  const expected = { thailand: 77, who: 93, eu: 65, japan: 96, usEpa: 75 };
   for (const key of Object.keys(expected)) {
     const score = sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS).score;
     assert(score === expected[key], `${key} score still locked at ${expected[key]} (got ${score}) after Phase B wiring`);
