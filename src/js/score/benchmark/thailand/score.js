@@ -18,15 +18,20 @@
     return y0 + (y1 - y0) * Math.max(0, Math.min(1, t));
   }
   function gradePh(ph) {
+    // Outer branches anchored at edgeGrade (not 100) to stay continuous with
+    // the inner branch's value at min/max — anchoring at 100 made the grade
+    // jump upward just past 6.5/8.5 (monotonicity bug, found in acceptance
+    // review of bf3342db). Same decline slope (35/unit), same edgeGrade (70),
+    // same min/max — only the vertical anchor moved.
+    const edge = L.ph.edgeGrade;
     if (ph < L.ph.min) {
-      return clamp(100 - (L.ph.min - ph) * 35);
+      return clamp(edge - (L.ph.min - ph) * 35);
     }
     if (ph > L.ph.max) {
-      return clamp(100 - (ph - L.ph.max) * 35);
+      return clamp(edge - (ph - L.ph.max) * 35);
     }
     const prefMin = L.ph.preferredMin;
     const prefMax = L.ph.preferredMax;
-    const edge = L.ph.edgeGrade;
     if (ph >= prefMin && ph <= prefMax) return 100;
     if (ph < prefMin) return clamp(lerp(ph, L.ph.min, prefMin, edge, 100));
     return clamp(lerp(ph, prefMax, L.ph.max, 100, edge));
