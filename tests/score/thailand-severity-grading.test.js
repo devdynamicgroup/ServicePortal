@@ -229,9 +229,11 @@ console.log('\nCross-engine isolation');
   const jp = sandbox.WaterScoreBenchmarkRegistry.calculate('japan', BASE);
   // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine.
   assert(jp.score === 98 && jp.classifications.do === 'NOT_EVALUATED', 'JP BASE 98 / DO NE');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', BASE).score === 93, 'WHO 93');
+  // WARNING severity cap=85 (2026-08-14, PO-approved): BASE's worst classification
+  // on WHO/EPA is WARNING (chlorine=0.7 WHO tier / do=5.3), now capped 85 (was 93/98).
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', BASE).score === 85, 'WHO 85 (WARNING cap)');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', BASE).score === 65, 'EU 65');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', BASE).score === 98, 'EPA 98');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', BASE).score === 85, 'EPA 85 (WARNING cap)');
 }
 
 console.log('\npH (unchanged flat in-band) / ORP (PD-014 D1, 2026-08-14 — inner severity)');
@@ -271,15 +273,16 @@ console.log('\nCross-country matrix (JP/EU/WHO/EPA/Q-V3 frozen)');
     // rounded composite off 99, confirmed by direct computation.
     //
     // Country severity protection (2026-08-14, JP/WHO/EPA only): any row
-    // whose worst classification on that engine is FAIL/CRITICAL is now
-    // capped at 75/60. EU (its own PD-002 gate) and Thailand (PD-015) are
-    // out of scope and unaffected — values below verified unchanged for
-    // both. Recomputed directly against current code, not estimated.
-    ['BASE', BASE, { th: 86, jp: 98, eu: 65, who: 93, epa: 98, q: 76 }],
+    // whose worst classification on that engine is FAIL/CRITICAL is capped
+    // at 75/60, and (2026-08-14, PO-approved numeric) WARNING is capped at
+    // 85. EU (its own PD-002 gate) and Thailand (PD-015) are out of scope
+    // and unaffected — values below verified unchanged for both.
+    // Recomputed directly against current code, not estimated.
+    ['BASE', BASE, { th: 86, jp: 98, eu: 65, who: 85, epa: 85, q: 76 }],
     ['DIFF', DIFF, { th: 69, jp: 75, eu: 61, who: 75, epa: 75, q: 61 }],
-    ['LOCKED', LOCKED, { th: 77, jp: 96, eu: 65, who: 93, epa: 75, q: 73 }],
+    ['LOCKED', LOCKED, { th: 77, jp: 85, eu: 65, who: 85, epa: 75, q: 73 }],
     ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 79, jp: 75, eu: 93, who: 75, epa: 75, q: 90 }],
-    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 83, jp: 95, eu: 89, who: 97, epa: 75, q: 90 }],
+    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 83, jp: 85, eu: 89, who: 85, epa: 75, q: 90 }],
     ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 90, jp: 75, eu: 65, who: 75, epa: 99, q: 90 }],
     ['twoBad', twoBad, { th: 73, jp: 75, eu: 82, who: 75, epa: 75, q: 80 }],
     ['threeBad', threeBad, { th: 69, jp: 75, eu: 62, who: 75, epa: 75, q: 69 }]

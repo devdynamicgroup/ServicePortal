@@ -53,14 +53,17 @@ const scoreFlowSrc = fs.readFileSync(path.join(root, 'src/js/flows/score.js'), '
 // PD-014 D1/D2/D3 (2026-08-14): orp=515 now inner-declines on every engine
 // (was flat 100 for the whole 200-600 band); Q-V3 (76) and EU (65, gated by
 // chlorine) are unaffected by D1-D3.
+// WARNING severity cap=85 (2026-08-14, PO-approved numeric): this reading's
+// worst classification on WHO/EPA is WARNING (chlorine/do), now capped 85
+// (was 93/98).
 const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
   thailand: 86,
   japan: 98,
-  who: 93,
+  who: 85,
   eu: 65,
-  usEpa: 98
+  usEpa: 85
 });
 
 const KEYS = ['thailand', 'japan', 'who', 'eu', 'usEpa'];

@@ -231,7 +231,9 @@ console.log('\nTest 7 — Benchmark scores locked (must not drift)');
   restoreAll();
   // Country severity protection (2026-08-14): LOCKED's turbidity=2.5 is FAIL
   // on US EPA, now capped at 75 (was 91 uncapped).
-  const expected = { thailand: 77, who: 93, eu: 65, japan: 96, usEpa: 75 };
+  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): this fixture's
+  // turbidity=2.5 classifies WARNING on Japan/WHO, now capped 85 (was 96/93).
+  const expected = { thailand: 77, who: 85, eu: 65, japan: 85, usEpa: 75 };
   for (const key of KEYS) {
     const score = reg.calculate(key, SAMPLE).score;
     assert(score === expected[key], `${key} score locked at ${expected[key]} (got ${score})`);

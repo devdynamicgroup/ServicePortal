@@ -1,9 +1,10 @@
 /**
  * Country severity protection — Japan / WHO / US EPA only (product decision,
- * 2026-08-14): FAIL classification caps the Country Hero at 75, CRITICAL
- * caps at 60. PASS/WARNING unchanged. Thailand (PD-015) and EU (PD-002) are
- * explicitly out of scope and must be structurally unaffected — verified via
- * git diff (see report) and via the isolation assertions below.
+ * 2026-08-14): CRITICAL caps the Country Hero at 60, FAIL caps at 75,
+ * WARNING caps at 85 (PO numeric approval, governance basis PD-014 D4=B).
+ * PASS unchanged. Thailand (PD-015) and EU (PD-002) are explicitly out of
+ * scope and must be structurally unaffected — verified via git diff (see
+ * report) and via the isolation assertions below.
  * Numeric layer: src/js/score/util/benchmarkMetadata.js (worstBenchmarkClassification,
  *   applyCountrySeverityProtection), called explicitly from japan/who/usEpa score.js.
  * Presentation layer: src/js/flows/score.js comparisonPresentationVerdict(),
@@ -83,7 +84,7 @@ const IDEAL = { ph: 7.2, tds: 80, turbidity: 0.1, orp: 400, chlorine: 0.3, do: 8
 const IN_SCOPE = ['japan', 'who', 'usEpa'];
 const OUT_OF_SCOPE = ['thailand', 'eu'];
 
-console.log('\nA. Numeric protection — PASS/WARNING unchanged, in-scope engines');
+console.log('\nA. Numeric protection — PASS unchanged, in-scope engines');
 {
   for (const c of IN_SCOPE) {
     const r = bench(c, IDEAL);
@@ -91,6 +92,48 @@ console.log('\nA. Numeric protection — PASS/WARNING unchanged, in-scope engine
       `${c} IDEAL reading is all-PASS`);
     assert(r.score >= 96, `${c} IDEAL score unaffected by protection (got ${r.score})`);
   }
+}
+
+console.log('\nA2. Numeric protection — WARNING caps at 85');
+{
+  const rWho = bench('who', { ...IDEAL, do: 5.5 });
+  assert(rWho.classifications.do === 'WARNING', 'WHO do=5.5 classifies WARNING');
+  assert(rWho.score === 85, `WHO worst=WARNING capped at 85 (got ${rWho.score})`);
+
+  const rEpa = bench('usEpa', { ...IDEAL, do: 5.5 });
+  assert(rEpa.classifications.do === 'WARNING', 'EPA do=5.5 classifies WARNING');
+  assert(rEpa.score === 85, `EPA worst=WARNING capped at 85 (got ${rEpa.score})`);
+
+  // A raw composite already below 85 must not be raised.
+  const rLow = bench('who', { ...IDEAL, do: 5.5, tds: 550 });
+  assert(rLow.classifications.do === 'WARNING' || rLow.classifications.tds === 'WARNING',
+    'lower WARNING composite fixture still classifies WARNING');
+  assert(rLow.score <= 85, `WARNING composite already <=85 is not raised (got ${rLow.score})`);
+}
+
+console.log('\nA3. WARNING/FAIL/CRITICAL boundary — DO cliff around 4.799/4.800 (WHO)');
+{
+  const at480 = bench('who', { ...IDEAL, do: 4.8 });
+  assert(at480.classifications.do === 'WARNING', 'do=4.8 (grade exactly 80) classifies WARNING');
+  assert(at480.score === 85, `do=4.8 WARNING -> capped at 85 (got ${at480.score})`);
+
+  const at4799 = bench('who', { ...IDEAL, do: 4.799 });
+  assert(at4799.classifications.do === 'FAIL', 'do=4.799 (grade just under 80) classifies FAIL');
+  assert(at4799.score === 75, `do=4.799 FAIL -> capped at 75, unchanged by WARNING work (got ${at4799.score})`);
+
+  // Discontinuity is now 85->75 (10 points) instead of the pre-fix 97/99->75 (~22-24 points).
+  assert((at480.score - at4799.score) === 10, 'WARNING/FAIL cliff reduced to exactly 10 points at this boundary');
+}
+
+console.log('\nA4. Severity ordering — PASS >= WARNING(85) > FAIL(75) > CRITICAL(60), no inversion');
+{
+  const rPass = bench('who', IDEAL);
+  const rWarn = bench('who', { ...IDEAL, do: 5.5 });
+  const rFail = bench('who', { ...IDEAL, ph: 6.2 }); // WHO fairMin..min band -> grade 70 -> FAIL
+  const rCrit = bench('who', { ...IDEAL, ph: 4.0 }); // below poorMin -> grade 15 -> CRITICAL
+  assert(rPass.score >= rWarn.score, 'PASS score >= WARNING score');
+  assert(rWarn.score > rFail.score, 'WARNING(85) > FAIL(75), strictly ordered, no tier collapse');
+  assert(rFail.score > rCrit.score, 'FAIL(75) > CRITICAL(60)');
 }
 
 console.log('\nA. Numeric protection — FAIL caps at 75, CRITICAL caps at 60');
@@ -140,23 +183,39 @@ console.log('\nC. Country isolation — Thailand and EU numerically unaffected')
   assert(euCl0.score === 65, `EU chlorine=0 still exactly its own existing gate value 65, not overridden (got ${euCl0.score})`);
 }
 
-console.log('\nD. Real-case regression (exact values already verified this thread)');
+console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-approved)');
 {
   const newc811 = { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 };
   const newc810 = { ph: 7.81, tds: 14.672, turbidity: 0.46, orp: 499.3, do: 5.31, chlorine: 0.37 };
   const c1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3 };
-  assert(bench('japan', newc811).score === 98, 'New C 8/11 JP unchanged 98');
-  assert(bench('who', newc811).score === 93, 'New C 8/11 WHO unchanged 93');
-  assert(bench('usEpa', newc811).score === 98, 'New C 8/11 EPA unchanged 98');
-  assert(bench('eu', newc811).score === 65, 'New C 8/11 EU unchanged 65');
-  assert(bench('japan', newc810).score === 99, 'New C 8/10 JP unchanged 99');
-  assert(bench('who', newc810).score === 96, 'New C 8/10 WHO unchanged 96');
-  assert(bench('usEpa', newc810).score === 98, 'New C 8/10 EPA unchanged 98');
-  assert(bench('eu', newc810).score === 98, 'New C 8/10 EU unchanged 98');
-  assert(bench('japan', c1328).score === 99, '13.28 JP unchanged 99');
-  assert(bench('who', c1328).score === 99, '13.28 WHO unchanged 99');
-  assert(bench('usEpa', c1328).score === 99, '13.28 EPA unchanged 99');
-  assert(bench('thailand', c1328).score === 99, '13.28 TH unchanged 99');
+  // JP: DO not indexed (PD-012 B) -> both real cases are all-PASS on Japan -> unaffected.
+  assert(bench('japan', newc811).score === 98, 'New C 8/11 JP unchanged 98 (all-PASS, DO not indexed)');
+  // WHO/EPA: worst=WARNING (chlorine and/or do) -> now capped at 85, was 93/98 pre-fix.
+  assert(bench('who', newc811).score === 85, `New C 8/11 WHO worst=WARNING -> capped 85 (was 93 pre-fix)`);
+  assert(bench('usEpa', newc811).score === 85, `New C 8/11 EPA worst=WARNING -> capped 85 (was 98 pre-fix)`);
+  assert(bench('eu', newc811).score === 65, 'New C 8/11 EU unchanged 65 (own PD-002 gate, out of scope)');
+  assert(bench('japan', newc810).score === 99, 'New C 8/10 JP unchanged 99 (all-PASS, DO not indexed)');
+  assert(bench('who', newc810).score === 85, `New C 8/10 WHO worst=WARNING -> capped 85 (was 96 pre-fix)`);
+  assert(bench('usEpa', newc810).score === 85, `New C 8/10 EPA worst=WARNING -> capped 85 (was 98 pre-fix)`);
+  assert(bench('eu', newc810).score === 98, 'New C 8/10 EU unchanged 98 (own math, own gate does not fire on DO, out of scope)');
+  assert(bench('japan', c1328).score === 99, '13.28 JP unchanged 99 (all-PASS, hero ceiling only)');
+  assert(bench('who', c1328).score === 99, '13.28 WHO unchanged 99 (all-PASS, worst=PASS, WARNING cap is a no-op)');
+  assert(bench('usEpa', c1328).score === 99, '13.28 EPA unchanged 99 (all-PASS, worst=PASS, WARNING cap is a no-op)');
+  assert(bench('thailand', c1328).score === 99, '13.28 TH unchanged 99 (out of scope)');
+}
+
+console.log('\nD2. WARNING cap engine isolation — Thailand/EU never see a WARNING-triggered cap');
+{
+  const newc811 = { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 };
+  const newc810 = { ph: 7.81, tds: 14.672, turbidity: 0.46, orp: 499.3, do: 5.31, chlorine: 0.37 };
+  // Thailand has no WARNING classification concept in its own classify() bands the way JP/WHO/EPA do,
+  // and never calls applyCountrySeverityProtection at all (structural isolation, verified via git diff).
+  assert(bench('thailand', newc811).score === 86, 'Thailand New C 8/11 unaffected by WARNING cap (still 86)');
+  assert(bench('thailand', newc810).score === 90, 'Thailand New C 8/10 unaffected by WARNING cap (still 90)');
+  // EU's own DO check is binary PASS/FAIL (no WARNING tier at all) and EU never calls the shared
+  // severity-protection function — its own PD-002/independent math stands alone.
+  assert(bench('eu', newc811).classifications.do === 'FAIL', 'EU has no WARNING tier for DO — binary PASS/FAIL only');
+  assert(bench('eu', newc810).classifications.do === 'FAIL', 'EU DO=5.31 also binary FAIL, not WARNING, on EU');
 }
 
 console.log('\nE. Catastrophic fixtures (all cap to exactly 60, in-scope engines)');

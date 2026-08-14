@@ -440,9 +440,11 @@ console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA
   // BASE orp=515 is now inside the D1 outer-decline ramp on every engine
   // (>450) — no longer flat 100, so JP/WHO/EPA BASE genuinely move down.
   assert(bench('japan', BASE).score === 98, 'JP BASE 98 (was 99 pre-D1; orp=515 now inner-declines)');
-  assert(bench('who', BASE).score === 93, 'WHO BASE 93 (was 95 pre-D1; orp=515 now inner-declines)');
+  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): BASE's worst
+  // classification on WHO/EPA is WARNING -> capped 85 (was 93/98).
+  assert(bench('who', BASE).score === 85, 'WHO BASE 85 (WARNING cap; was 93 pre-cap)');
   assert(bench('eu', BASE).score === 65, 'EU BASE 65 (unchanged — chlorine gate already dominates composite)');
-  assert(bench('usEpa', BASE).score === 98, 'EPA BASE 98 (was 99 pre-D1; orp=515 now inner-declines)');
+  assert(bench('usEpa', BASE).score === 85, 'EPA BASE 85 (WARNING cap; was 98 pre-cap)');
   assert(sandbox.computeQualityScoreDetail(BASE).score === 76, 'Q-V3 BASE 76 (unaffected by Country changes)');
   // DIFF orp=350 sits exactly on the D1 inner-plateau edge (still grade 100)
   // so only EPA DIFF moves, and only because D2 now grades its chlorine=1.5
@@ -455,7 +457,9 @@ console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA
   // FAIL on WHO/EPA, now capped at 75 (was 81/78 uncapped).
   assert(bench('who', DIFF).score === 75, 'WHO DIFF 75 (TDS/Cl FAIL, severity-capped)');
   assert(bench('usEpa', DIFF).score === 75, 'EPA DIFF 75 (TDS FAIL, severity-capped)');
-  assert(bench('japan', LOCKED).score === 96, 'JP LOCKED 96 (unaffected — orp=350 is the D1 plateau edge)');
+  // JP LOCKED's turbidity=2.5 classifies WARNING on Japan; WARNING cap=85
+  // now applies (was 96 uncapped pre-2026-08-14 WARNING-tier fix).
+  assert(bench('japan', LOCKED).score === 85, 'JP LOCKED 85 (WARNING cap; was 96 pre-cap)');
   assert(bench('thailand', LOCKED).score === 77, 'TH LOCKED 77 after ordinary-band severity (orp=350 still excellent)');
 }
 

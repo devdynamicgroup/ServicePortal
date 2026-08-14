@@ -110,7 +110,9 @@ console.log('\nCountry differentiation on locked sample (standards differ)');
   console.log('  locked TH/JP/WHO/EU', th, jp, who, eu);
   assert(th !== eu, 'Thailand ≠ EU on locked sample');
   assert(jp !== eu, 'Japan ≠ EU on locked sample');
-  assert(th === 77 && who === 93, 'TH/WHO differentiation preserved (TH 77 after ordinary-band severity)');
+  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): LOCKED's worst
+  // classification on WHO is WARNING, now capped 85 (was 93).
+  assert(th === 77 && who === 85, 'TH/WHO differentiation preserved (TH 77, WHO 85 WARNING cap)');
 }
 
 console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');

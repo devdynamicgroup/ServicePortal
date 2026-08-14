@@ -109,9 +109,11 @@ console.log('\nOther engines + Q-V3 unchanged on New C 8/11');
 {
   const r = NEW_C_811;
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 98, 'JP 98');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', r).score === 93, 'WHO 93');
+  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): New C 8/11's
+  // worst classification on WHO/EPA is WARNING, now capped 85 (was 93/98).
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', r).score === 85, 'WHO 85 (WARNING cap)');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', r).score === 65, 'EU 65');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 98, 'EPA 98');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 85, 'EPA 85 (WARNING cap)');
   assert(sandbox.computeQualityScoreDetail(r).score === 76, 'Q-V3 76');
 }
 

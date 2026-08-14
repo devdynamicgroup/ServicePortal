@@ -74,9 +74,11 @@ console.log('\nCase B — country raw composite below ceiling stays unaffected B
 {
   // PD-014 D1/D2 (2026-08-14) changed WHO/EPA's own grading, so these values
   // moved from their pre-PD-014 baseline (95/79) — that movement is the
-  // intended severity fix, not a ceiling effect. What this case still proves
-  // is that values already below 99 pass through the ceiling untouched.
-  assert(bench('who', BASE).score === 93, 'WHO BASE 93 (orp=515 now inner-declines, still < 99, ceiling no-op)');
+  // intended severity fix, not a ceiling effect. WARNING severity cap=85
+  // (2026-08-14, PO-approved numeric) then further caps BASE's worst=WARNING
+  // composite (was 93 pre-cap). What this case still proves is that values
+  // already below 99 pass through the (unrelated, unmodified) ceiling untouched.
+  assert(bench('who', BASE).score === 85, 'WHO BASE 85 (WARNING cap; still < 99, ceiling no-op)');
   assert(bench('eu', BASE).score === 65, 'EU BASE 65 unaffected (chlorine gate dominates; ceiling no-op)');
   // Country severity protection (2026-08-14): DIFF's TDS=800 is FAIL on EPA,
   // now capped at 75 (was 78 uncapped under D2 alone).

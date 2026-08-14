@@ -175,7 +175,9 @@ console.log('\nZero drift: production + benchmark scores unchanged with Phase C 
   assert(Number.isFinite(sandbox.computeScoreFromReadings(FULL_READINGS)), 'Quality V2 computes finite score');
   // Country severity protection (2026-08-14): LOCKED's turbidity=2.5 is FAIL
   // on US EPA, now capped at 75 (was 91 uncapped).
-  const expected = { thailand: 77, who: 93, eu: 65, japan: 96, usEpa: 75 };
+  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): FULL_READINGS'
+  // turbidity=2.5 classifies WARNING on Japan/WHO, now capped 85 (was 96/93).
+  const expected = { thailand: 77, who: 85, eu: 65, japan: 85, usEpa: 75 };
   for (const key of Object.keys(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS).score === expected[key],
       `${key} score still locked at ${expected[key]}`);

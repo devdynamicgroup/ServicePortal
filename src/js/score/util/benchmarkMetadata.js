@@ -20,7 +20,9 @@ function applyCountryBenchmarkHeroCeiling(score) {
 }
 
 /**
- * Country severity protection (product decision, 2026-08-14).
+ * Country severity protection (product decision, 2026-08-14; WARNING tier
+ * added 2026-08-14 per PO numeric approval, governance basis PD-014 D4=B
+ * "general severity is now permitted in principle").
  * Scope: Japan / WHO / US EPA only — called explicitly from each of those
  * three engines' own calculate(), never from Thailand or EU, and never
  * invoked automatically by any shared dispatch path. This function itself
@@ -31,15 +33,16 @@ function applyCountryBenchmarkHeroCeiling(score) {
  * Policy (locked numbers, not derived from any curve/weight):
  *   worst classification = CRITICAL -> score capped at 60
  *   worst classification = FAIL     -> score capped at 75
- *   worst classification = WARNING or PASS -> score unchanged
+ *   worst classification = WARNING  -> score capped at 85
+ *   worst classification = PASS     -> score unchanged
  * temp is excluded (never scored by any engine). NOT_EVALUATED / NOT_MEASURED
  * are excluded (absence of a measurement, not a failure of one).
- * Does not touch weights, limits, curves, aggregation, or the 99 ceiling —
- * this runs on the already-computed composite, before finalizeBenchmarkMetadata's
- * own ceiling step, and is a no-op for any classification set with nothing
- * worse than WARNING.
+ * Does not touch grade curves, weights, limits, classification thresholds,
+ * aggregation, or the 99 ceiling — this runs on the already-computed
+ * composite, before finalizeBenchmarkMetadata's own ceiling step, and is a
+ * no-op for PASS.
  */
-const COUNTRY_SEVERITY_CAPS = Object.freeze({ FAIL: 75, CRITICAL: 60 });
+const COUNTRY_SEVERITY_CAPS = Object.freeze({ FAIL: 75, CRITICAL: 60, WARNING: 85 });
 
 function worstBenchmarkClassification(classifications) {
   const order = { CRITICAL: 3, FAIL: 2, WARNING: 1, PASS: 0 };
@@ -57,6 +60,7 @@ function applyCountrySeverityProtection(score, classifications) {
   const worst = worstBenchmarkClassification(classifications);
   if (worst === 'CRITICAL') return Math.min(score, COUNTRY_SEVERITY_CAPS.CRITICAL);
   if (worst === 'FAIL') return Math.min(score, COUNTRY_SEVERITY_CAPS.FAIL);
+  if (worst === 'WARNING') return Math.min(score, COUNTRY_SEVERITY_CAPS.WARNING);
   return score;
 }
 

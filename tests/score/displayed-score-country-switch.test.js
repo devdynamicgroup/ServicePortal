@@ -209,9 +209,11 @@ console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
   // (was flat 100 pre-D1), so these move from their pre-D1 baseline.
   assert(th.score === 86 && th.engineKey === 'thailand', 'baseline displayed TH=86 from thailand engine');
   assert(jp.score === 98 && jp.engineKey === 'japan', 'baseline displayed JP=98 from japan engine');
-  assert(who.score === 93 && who.engineKey === 'who', 'baseline displayed WHO=93 from who engine');
+  // WARNING severity cap=85 (2026-08-14, PO-approved numeric) further caps
+  // WHO/EPA's worst=WARNING composite (was 93/98 pre-cap).
+  assert(who.score === 85 && who.engineKey === 'who', 'baseline displayed WHO=85 from who engine');
   assert(eu.score === 65 && eu.engineKey === 'eu', 'baseline displayed EU=65 from eu engine');
-  assert(epa.score === 98 && epa.engineKey === 'usEpa', 'baseline displayed EPA=98 from usEpa engine');
+  assert(epa.score === 85 && epa.engineKey === 'usEpa', 'baseline displayed EPA=85 from usEpa engine');
   assert(th.score !== q.score, 'baseline Hero is not Quality V3 76');
   assert(jp.engineKey !== th.engineKey, 'TH vs JP call different engines even when scores are close');
 }
