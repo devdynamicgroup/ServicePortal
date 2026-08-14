@@ -284,5 +284,59 @@ console.log('\nI. NOT_EVALUATED / NOT_MEASURED must not trigger protection');
     'WHO temp absence does not read as a failure state');
 }
 
+console.log('\nJ. WARNING presentation (2026-08-14) — reuses existing withinLimits copy, distinct from passBand/complianceWarning');
+{
+  const jobFromReadings = (readings) => ({
+    id: 'warning-presentation-test', notionId: 'warning-presentation-test', draft: { tapData: [{ standardMeasurement: readings }] }
+  });
+  function switchAndRead(key, readings) {
+    sandbox.S.publicScoreView = false;
+    sandbox.S.activeJob = jobFromReadings(readings);
+    sandbox.setScoreReferenceStandard(key);
+    return sandbox.S.displayedScore;
+  }
+  const newc811 = { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 };
+  const c1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3 };
+
+  const who811 = switchAndRead('who', newc811);
+  assert(who811.score === 85 && who811.classifications && sandbox.worstBenchmarkClassification(who811.classifications) === 'WARNING',
+    'New C 8/11 WHO is score=85, worst=WARNING (numeric unchanged by this presentation fix)');
+  const who811Verdict = sandbox.comparisonPresentationVerdict(who811.score, who811.classifications, who811.engineKey);
+  assert(who811Verdict.label === 'score.benchmark.verdict.withinLimits',
+    `WHO WARNING label is withinLimits, not passBand (got "${who811Verdict.label}")`);
+  assert(who811Verdict.label !== 'score.benchmark.verdict.passBand', 'WHO WARNING label is NOT passBand');
+  assert(who811Verdict.label !== 'score.verdict.complianceWarning', 'WHO WARNING label is NOT the FAIL-tier complianceWarning string (distinct tiers)');
+
+  const epa811 = switchAndRead('usEpa', newc811);
+  const epa811Verdict = sandbox.comparisonPresentationVerdict(epa811.score, epa811.classifications, epa811.engineKey);
+  assert(epa811Verdict.label === 'score.benchmark.verdict.withinLimits', `EPA WARNING label is withinLimits (got "${epa811Verdict.label}")`);
+
+  const jp811 = switchAndRead('japan', newc811);
+  const jp811Verdict = sandbox.comparisonPresentationVerdict(jp811.score, jp811.classifications, jp811.engineKey);
+  assert(jp811Verdict.label === 'score.benchmark.verdict.passBand', `Japan PASS (worst=PASS) still shows passBand (got "${jp811Verdict.label}")`);
+
+  // Case 1328: all-PASS on JP/WHO/EPA — must remain passBand, unaffected by the new WARNING branch.
+  for (const key of ['japan', 'who', 'usEpa']) {
+    const r = switchAndRead(key, c1328);
+    const v = sandbox.comparisonPresentationVerdict(r.score, r.classifications, r.engineKey);
+    assert(v.label === 'score.benchmark.verdict.passBand', `Case 1328 ${key} still passBand (got "${v.label}")`);
+    assert(r.score === 99, `Case 1328 ${key} score numerically unchanged at 99 (got ${r.score})`);
+  }
+
+  // FAIL/CRITICAL branches must retain their exact pre-existing behavior.
+  const failWho = sandbox.comparisonPresentationVerdict(75, { ph: 'FAIL', tds: 'PASS', turbidity: 'PASS', orp: 'PASS', chlorine: 'PASS', do: 'PASS' }, 'who');
+  assert(failWho.label === 'score.verdict.complianceWarning', 'FAIL still shows complianceWarning (unchanged)');
+  const critWho = sandbox.comparisonPresentationVerdict(60, { ph: 'CRITICAL', tds: 'PASS', turbidity: 'PASS', orp: 'PASS', chlorine: 'PASS', do: 'PASS' }, 'who');
+  assert(critWho.label === 'score.verdict.complianceFail', 'CRITICAL still shows complianceFail (unchanged)');
+
+  // Thailand/EU must never activate the WARNING presentation branch — engineKey
+  // gate excludes them, so even a WARNING-shaped classifications object falls
+  // through to the pure numeric branch untouched by this fix.
+  const thVerdict = sandbox.comparisonPresentationVerdict(86, { ph: 'WARNING' }, 'thailand');
+  assert(thVerdict.label === 'score.benchmark.verdict.passBand', 'Thailand ignores WARNING classifications entirely, pure numeric passBand at 86');
+  const euVerdict = sandbox.comparisonPresentationVerdict(86, { ph: 'WARNING' }, 'eu');
+  assert(euVerdict.label === 'score.benchmark.verdict.passBand', 'EU ignores WARNING classifications entirely, pure numeric passBand at 86');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

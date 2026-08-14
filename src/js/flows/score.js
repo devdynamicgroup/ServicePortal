@@ -61,10 +61,15 @@ const COUNTRY_SEVERITY_PRESENTATION_ENGINES = Object.freeze(['japan', 'who', 'us
  * classifications/engineKey are optional. When engineKey is one of
  * COUNTRY_SEVERITY_PRESENTATION_ENGINES (Japan/WHO/US EPA — the same scope
  * as the numeric cap in benchmarkMetadata.js) and classifications shows a
- * FAIL/CRITICAL parameter, the label reflects that instead of the numeric
- * pass-band language, reusing the existing complianceFail/complianceWarning
- * copy already used on the Quality/publish path (PD-007 D + PD-009 B) —
- * no new wording invented. EU/Thailand/unspecified engines are unaffected.
+ * FAIL/CRITICAL/WARNING parameter, the label reflects that instead of the
+ * numeric pass-band language, reusing existing copy already used elsewhere
+ * in the score UI (PD-007 D + PD-009 B for complianceFail/complianceWarning;
+ * the pre-existing 60-79 numeric band for withinLimits) — no new wording
+ * invented. WARNING (2026-08-14, presentation-only follow-up to the WARNING
+ * numeric cap) reuses score.benchmark.verdict.withinLimits — the same string
+ * already shown for an ungated 60-79 score — so a WARNING-capped 85 reads as
+ * "within limits" rather than the "passBand" language reserved for a
+ * genuinely clean composite. EU/Thailand/unspecified engines are unaffected.
  */
 function comparisonPresentationVerdict(wq, classifications, engineKey) {
   if (classifications && COUNTRY_SEVERITY_PRESENTATION_ENGINES.includes(engineKey)
@@ -75,6 +80,9 @@ function comparisonPresentationVerdict(wq, classifications, engineKey) {
     }
     if (worst === 'FAIL') {
       return { label: t('score.verdict.complianceWarning'), color: '#f07b7b', tier: 'low' };
+    }
+    if (worst === 'WARNING') {
+      return { label: t('score.benchmark.verdict.withinLimits'), color: '#56d096', tier: 'mid' };
     }
   }
   if (!Number.isFinite(Number(wq))) return { label: '—', color: '#284dcd', tier: 'pending' };
