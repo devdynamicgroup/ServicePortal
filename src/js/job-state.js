@@ -1025,8 +1025,15 @@ async function loadJobsFromApi() {
           ? AssessmentSnapshot.preferDraft(localDraft, job.draft)
           : (localDraft || job.draft);
         if (preferred) {
-          next.draft = preferred;
-          syncJobMetaFromDraft(next, preferred);
+          // The assessment snapshot merger selects one whole draft based on
+          // measurement recency. Keep this independent Case preference from
+          // the local draft when the API draft predates country-selection
+          // persistence and therefore has no value to restore.
+          const draft = !job.draft?.scoreStandardKey && localDraft?.scoreStandardKey
+            ? { ...preferred, scoreStandardKey: localDraft.scoreStandardKey }
+            : preferred;
+          next.draft = draft;
+          syncJobMetaFromDraft(next, draft);
         }
       }
       return next;

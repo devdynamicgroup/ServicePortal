@@ -21,6 +21,7 @@ const vm = require('vm');
 
 const root = path.join(__dirname, '../..');
 const files = [
+  'src/js/assessment-snapshot.js',
   'src/js/score/util/clamp.js',
   'src/js/score/util/benchmarkMetadata.js',
   'src/js/score/production/computeProductionScore.js',
@@ -66,6 +67,7 @@ function stubEl() {
 }
 
 function makeSandbox() {
+  const storage = new Map();
   const S = {
     lang: 'en', scoreStandardKey: 'thailand', activeJob: null, scoreBaseReadings: null,
     scoreVal: null, currentScoreResult: null, comparisonScoreResult: null, displayedScore: null,
@@ -77,6 +79,8 @@ function makeSandbox() {
     console,
     performance: { now: () => 0 },
     requestAnimationFrame: () => 0,
+    clearTimeout: () => {},
+    setTimeout: () => 0,
     document: {
       readyState: 'loading',
       addEventListener: () => {},
@@ -87,7 +91,13 @@ function makeSandbox() {
     S,
     t: (k) => k,
     JOBS: [],
-    localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+    localStorage: {
+      getItem: (key) => storage.has(key) ? storage.get(key) : null,
+      setItem: (key, value) => storage.set(key, String(value)),
+      removeItem: (key) => storage.delete(key)
+    },
+    OperatorNotificationBridge: null,
+    OperatorNotificationObserver: null,
     goScreen: () => {},
     showToast: () => {}
   };
@@ -235,5 +245,33 @@ console.log('\nG. New Cases default exactly like existing ones (defaultJobDraft 
   assert(draft.scoreStandardKey === 'thailand', 'brand-new Case draft defaults scoreStandardKey to thailand');
 }
 
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+(async () => {
+  console.log('\nH. API refresh preserves a local country selection when the remote draft has none');
+  const local = makeJob('real-newc811', '3b99a92d-fb61-81f2-a65a-c34db7f6179d', newc811);
+  local.draft.scoreStandardKey = 'eu';
+  local.draft.assessmentUpdatedAt = '2026-08-14T10:00:00.000Z';
+
+  const remote = JSON.parse(JSON.stringify(local));
+  delete remote.draft.scoreStandardKey;
+  remote.draft.assessmentUpdatedAt = '2026-08-14T11:00:00.000Z';
+
+  const sb = makeSandbox();
+  sb.localStorage.setItem('wm-jobs', JSON.stringify([local]));
+  sb.fetch = async () => ({
+    ok: true,
+    json: async () => ({ ok: true, jobs: [remote] })
+  });
+  await sb.loadJobsFromApi();
+  const refreshed = sb.JOBS.find(job => job.notionId === local.notionId);
+  assert(refreshed?.draft?.scoreStandardKey === 'eu', 'API refresh keeps local EU when the API draft has no country selection');
+  sb.S.activeJob = refreshed;
+  sb.loadJobState(refreshed);
+  sb.goScreen('s-score');
+  assert(sb.S.displayedScore?.engineKey === 'eu' && sb.S.displayedScore.score === 65, 'fresh API-loaded Case reaches Score with EU Hero=65');
+
+  console.log(`\n${passed} passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
+})().catch(error => {
+  console.error(error);
+  process.exit(1);
+});
