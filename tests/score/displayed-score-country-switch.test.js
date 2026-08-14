@@ -205,12 +205,13 @@ console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
     }
   });
   assert(q.score === 76, `Quality V3 baseline 76 (got ${q.score})`);
-  assert(th.score === 99 && th.engineKey === 'thailand', 'baseline displayed TH=99 from thailand engine');
-  // Raw JP composite is 100 for this reading; Hero ceiling caps at 99.
-  assert(jp.score === 99 && jp.engineKey === 'japan', 'baseline displayed JP=99 from japan engine');
-  assert(who.score === 95 && who.engineKey === 'who', 'baseline displayed WHO=95 from who engine');
+  // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine
+  // (was flat 100 pre-D1), so these move from their pre-D1 baseline.
+  assert(th.score === 97 && th.engineKey === 'thailand', 'baseline displayed TH=97 from thailand engine');
+  assert(jp.score === 98 && jp.engineKey === 'japan', 'baseline displayed JP=98 from japan engine');
+  assert(who.score === 93 && who.engineKey === 'who', 'baseline displayed WHO=93 from who engine');
   assert(eu.score === 65 && eu.engineKey === 'eu', 'baseline displayed EU=65 from eu engine');
-  assert(epa.score === 99 && epa.engineKey === 'usEpa', 'baseline displayed EPA=99 from usEpa engine');
+  assert(epa.score === 98 && epa.engineKey === 'usEpa', 'baseline displayed EPA=98 from usEpa engine');
   assert(th.score !== q.score, 'baseline Hero is not Quality V3 76');
   assert(jp.engineKey !== th.engineKey, 'TH vs JP call different engines even when scores are close');
 }
@@ -250,7 +251,7 @@ console.log('\n10. Quality V3 unchanged');
   assert(sandbox.S.currentScoreResult.computedScore === 76, 'publish computedScore stays Quality 76 after JP switch');
   assert(sandbox.S.scoreVal === 76, 'S.scoreVal (publish) stays Quality 76');
   // Raw JP composite is 100; Hero ceiling caps at 99 — still independent of Quality V3 (76).
-  assert(sandbox.S.displayedScore.score === 99, 'displayed Japan score is 99 (ceiling-capped), not Quality 76');
+  assert(sandbox.S.displayedScore.score === 98, 'displayed Japan score is 98 (PD-014 D1), not Quality 76');
 }
 
 console.log('\nLive Hero must not fall back to Quality V3 when country score is incomplete');

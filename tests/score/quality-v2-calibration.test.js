@@ -95,8 +95,9 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   // ceiling caps the displayed score at 99 (100 is reserved for Quality V3).
   assert(bench('thailand', CASE_A) === 99, 'TH Case A = 99');
   assert(bench('japan', CASE_A) === 99, 'Japan Case A = 99');
-  assert(bench('thailand', CASE_B) === 99, 'TH Case B = 99');
-  assert(bench('japan', CASE_B) === 99, 'Japan Case B = 99 (DO excluded from JP index — PD-012 B)');
+  // PD-014 D1 (2026-08-14): CASE_B orp=507 now inner-declines (was flat 100).
+  assert(bench('thailand', CASE_B) === 98, 'TH Case B = 98');
+  assert(bench('japan', CASE_B) === 98, 'Japan Case B = 98 (DO excluded from JP index — PD-012 B)');
 }
 
 console.log('\nCountry differentiation on locked sample (standards differ)');

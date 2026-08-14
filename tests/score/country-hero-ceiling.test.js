@@ -70,11 +70,15 @@ console.log('\nCase A — country raw composite 100 -> Hero 99');
   }
 }
 
-console.log('\nCase B — country raw composite below ceiling stays unchanged');
+console.log('\nCase B — country raw composite below ceiling stays unaffected BY THE CEILING');
 {
-  assert(bench('who', BASE).score === 95, 'WHO BASE 95 unaffected (< 99)');
-  assert(bench('eu', BASE).score === 65, 'EU BASE 65 unaffected (< 99)');
-  assert(bench('usEpa', DIFF).score === 79, 'EPA DIFF 79 unaffected (< 99)');
+  // PD-014 D1/D2 (2026-08-14) changed WHO/EPA's own grading, so these values
+  // moved from their pre-PD-014 baseline (95/79) — that movement is the
+  // intended severity fix, not a ceiling effect. What this case still proves
+  // is that values already below 99 pass through the ceiling untouched.
+  assert(bench('who', BASE).score === 93, 'WHO BASE 93 (orp=515 now inner-declines, still < 99, ceiling no-op)');
+  assert(bench('eu', BASE).score === 65, 'EU BASE 65 unaffected (chlorine gate dominates; ceiling no-op)');
+  assert(bench('usEpa', DIFF).score === 78, 'EPA DIFF 78 (Cl=1.5 now declines under D2, still < 99, ceiling no-op)');
 }
 
 console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / published Q-V3');
@@ -82,7 +86,7 @@ console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / 
   const quality = sandbox.computeQualityScoreDetail(BASE).score;
   assert(quality === 76, `Q-V3 BASE stays 76, unrounded by Country ceiling (got ${quality})`);
   const jp = bench('japan', BASE).score;
-  assert(jp === 99 && jp !== quality, 'Country Hero (99) numerically independent of Q-V3 (76)');
+  assert(jp === 98 && jp !== quality, 'Country Hero (98, PD-014 D1) numerically independent of Q-V3 (76)');
   // Direct proof the ceiling function itself never touches non-country scores:
   // it is a pure function applied only inside finalizeBenchmarkMetadata(),
   // never called by computeQualityScoreV2.js / computeProductionScore.js.

@@ -33,10 +33,20 @@
     if (turb <= L.turbidity.hardFail) return clamp(100 - (turb - L.turbidity.ideal) / (L.turbidity.hardFail - L.turbidity.ideal) * 55);
     return clamp(35 - (turb - L.turbidity.hardFail) * 8);
   }
+  /**
+   * PD-014 D1 (2026-08-14): project-defined inner severity within the locked
+   * 200/600 outer band. No cited standard — see UNRESOLVED_DECISIONS.md
+   * PD-014 §D1. Outer limits (200/600) unchanged.
+   */
   function gradeOrp(orp) {
-    if (orp >= L.orp.min && orp <= L.orp.max) return 100;
-    if (orp < L.orp.min) return clamp(orp / L.orp.min * 100);
-    return clamp(100 - (orp - L.orp.max) / 10);
+    // Outer branches anchored at 70 (not 100) to stay continuous with the
+    // new inner ramp's edge value — the old formulas anchored at 100, which
+    // would jump upward just past 200/600 if left unanchored (monotonicity bug).
+    if (orp < L.orp.min) return clamp(orp / L.orp.min * 70);
+    if (orp > L.orp.max) return clamp(70 - (orp - L.orp.max) / 10);
+    if (orp >= 350 && orp <= 450) return 100;
+    if (orp < 350) return clamp(70 + (orp - 200) / 150 * 30);
+    return clamp(100 - (orp - 450) / 150 * 30);
   }
   function gradeDo(doValue) {
     if (doValue >= L.do.min) return 100;

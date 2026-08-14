@@ -4,9 +4,9 @@
 Layer:
 EVIDENCE REGISTRY (SoT) → PRODUCT DECISION → MODEL REPAIR (gated) → SCORE
 
-Current layer: PRODUCT DECISION (PD-012 DECIDED B — JP DO removed; PD-013 DECIDED A×5)
+Current layer: PRODUCT DECISION (PD-014 OPEN — Country Score model-shape workshop; no implementation)
 
-Model status: FROZEN Ideals/weight magnitudes; PD-012 B Japan DO composition authorized
+Model status: FROZEN Ideals/weight magnitudes; PD-012 B Japan DO composition authorized; remaining Country shape HOLD
 Score formula status: FROZEN (mean/6)
 Case flow: UNTOUCHED
 ```
@@ -31,6 +31,7 @@ Evidence class ≠ authorization to change numbers
 **Ideal disposition:** PD-011 DECIDED A — all five KEEP+LABEL (PROJECT-DEFINED; no Ideal numeric change)
 **Japan DO:** PD-012 DECIDED B — REMOVE DO from Japan Compliance Index
 **Composite design:** PD-013 DECIDED A×5 — KEEP weights / WHO tiers / EPA-300 (no numeric change)
+**Country model shape:** PD-014 OPEN — ORP / EPA Cl / WHO Cl&lt;0.2 / PD-006 scope; PO sheet PENDING
 
 ---
 
@@ -56,12 +57,12 @@ Evidence class ≠ authorization to change numbers
 ## Governance context
 
 ```text
-Semantics:       PD-006 A · PD-007 D · PD-008 partial · PD-009 B · PD-010 B · PD-011 A · PD-012 B · PD-013 A×5
-Model:           FROZEN Ideals/weights magnitudes; PD-012 B Japan DO composition only
+Semantics:       PD-006 A · PD-007 D · PD-008 partial · PD-009 B · PD-010 B · PD-011 A · PD-012 B · PD-013 A×5 · PD-014 OPEN
+Model:           FROZEN Ideals/weights magnitudes; PD-012 B Japan DO composition only; Country shape HOLD
 Score formula:   FROZEN (mean/6)
 Evidence SoT:    evidence-registry/constants.json
 Closed PDs:      PD-001–PD-013 (008 partial)
-Open PDs:        (none required for JP DO / composite KEEP pack)
+Open PDs:        PD-014 (Country Score model shape — decision-only)
 ```
 
 **Synthetic baseline (construction output only — NOT a calibration target):**
@@ -80,6 +81,7 @@ HEAD: Quality V3=76 · TH=100 · JP=100 · WHO=95 · EU=65 · EPA=99
 
 **Decision queue (priority):**
 
+0. **PD-014 — Country Score model shape (ORP / EPA Cl / WHO Cl&lt;0.2 / PD-006 scope) — OPEN (decision-only; no implementation)**
 1. PD-012 B / PD-013 A×5 — JP-DO REMOVE · weights/WHO tiers/EPA-300 KEEP — **DECIDED** (closed)
 2. PD-011 — Ideal KEEP+LABEL (all five A) — **DECIDED**
 3. Ideal research (PD-010 B) — **COMPLETE**
@@ -111,6 +113,7 @@ not currently valid.
 | **PD-009** | yes | yes | possible | **NONE** if A/B; **YES** if C/D | possible | NO for A/B | **REQUIRED** |
 | **PD-010** | possible | possible | possible | **YES** if ideals change | **YES** | YES / research | **REQUIRED** |
 | **PD-011** | possible | yes (labels) | possible | **YES** if C/D and ids cited | possible | YES | **REQUIRED** |
+| **PD-014** | none until DECIDED+spec | none until DECIDED+spec | none until DECIDED | **YES** only if any B + follow-up spec approved | **YES** only if any B + spec | YES for any B | **REQUIRED** (four A/B) |
 
 ```text
 PD approval does not automatically authorize model changes.
@@ -1255,6 +1258,486 @@ Per-Ideal disposition for:
 - **Date:** 2026-08-13
 - **Notes:** NO NUMERIC REPAIR under PD-013 A×5.
 
+---
+
+# PD WORKSHOP — COUNTRY SCORE MODEL SHAPE
+
+## PD-014: Country Score model-shape (ORP / EPA Cl / WHO Cl below-min / PD-006 scope)
+
+- **Status:** DECIDED (governance layer only — see Implementation Readiness below)
+- **Owner:** Product Owner
+- **Date opened:** 2026-08-13
+- **Date decided:** 2026-08-14
+- **Priority:** 1 (next; remaining Country P1 shape after forensic PASS)
+- **Depends on:** Forensic HOLD at HEAD `41654b42`; TH severity `7a3f35a7`; PD-004 A; PD-006 A; PD-008 partial; PD-013 A×5
+- **Blocks:** `src/js/score/**` Country shape edit — still blocked; see §10 Specification Attempt below
+- **Type:** Decision-only. No implementation in this record.
+- **Approved by:** Product Owner (chat instruction, 2026-08-14, HEAD `bac4044c`)
+- **PO Decision:** D1 ORP = B · D2 EPA Cl = B · D3 WHO Cl&lt;0.2 = B · D4 PD-006 scope = B
+- **PO Approval:** APPROVED
+- **Explicit scope of B (per PO instruction, recorded verbatim):** "authorize specification work" only — does NOT authorize copying Q-V3, does NOT authorize copying TH, does NOT authorize inventing any score/breakpoint, does NOT authorize code without an approved specification. This PD reopens/supersedes PD-004 and PD-006 **only** within the scope of D1–D4 as written here; PD-004/PD-006 records themselves are preserved unmodified below (history not deleted).
+
+```text
+This record does not select A or B.
+This record does not invent formulas, curves, tiers, thresholds, or ideals.
+Existing implementation is evidence only, not authorization.
+Audit finding ≠ Product Owner decision.
+```
+
+### Hard locks (not decision variables)
+
+| Locked | Value / rule |
+| --- | --- |
+| ORP band numbers | 200 / 600 |
+| EPA chlorine numbers | projectMin 0.2 / MRDL 4.0 |
+| TH passMax / Cl band ceilings | unchanged (`7a3f35a7` inner curves only; ceilings already governed) |
+| Weights | LOCKED (PD-013) |
+| Aggregation | LOCKED (weighted mean) |
+| Math.round | LOCKED |
+| Q-V3 | LOCKED (including ORP 400±25 and Cl 0.2–0.5) |
+| JP DO exclusion | LOCKED (PD-012 B) |
+| EU gate 65 | LOCKED (PD-002) |
+| WHO existing tier scores (100 / 80 / 50 / 25) | LOCKED unless PO explicitly chooses Decision 3 B **and** a follow-up spec is approved |
+| Case Flow / API / Notion / UI routing / Hero channel split | UNTOUCHED |
+| Production | HOLD — no push, no deploy |
+
+### Three concepts (must not be collapsed)
+
+| Concept | Meaning | Example |
+| --- | --- | --- |
+| **1. LIMIT** | Governed number that must not move in this workshop | EPA MRDL 4.0; ORP 200 and 600 |
+| **2. COMPLIANCE PASS BAND** | In-band → Country 100 under Compliance Index | “inside 0.2–4.0 is a pass” |
+| **3. QUALITY SEVERITY CURVE** | Worse-in-band values score lower while still inside the limit | Q-V3 Cl 0.3 ≠ 3.9 |
+
+A locked LIMIT does not prove an equally-ideal QUALITY curve.  
+Absence of a curve does not prove a curve must be invented.  
+That distinction is what the four A/B decisions establish.
+
+---
+
+## 1. Current SoT
+
+```text
+HEAD:                 41654b42
+Prior authorized fix: 7a3f35a7 (TH TDS / turbidity / chlorine inner severity)
+Forensic:             PASS
+Pipeline RAW→Hero:    PASS
+TH severity fix:      PASS (DIFF Thailand Hero 87)
+Remaining model shape: HOLD
+Production:           HOLD (older production commit; do not deploy)
+Q-V3 isolation:       PASS (publish channel stays quality-v3)
+Country switch:       PASS (TH→JP→EU→WHO→EPA→TH = 87,78,61,81,79,87)
+```
+
+**Already authorized and in the live path (do not reopen here):**
+
+- Thailand TDS: inner plateau ≤300, then decline to passMax 1000
+- Thailand turbidity: inner plateau ≤1, then decline to passMax 5
+- Thailand chlorine: inner 0.2–0.5, then decline to max 2.0
+- RAW immutability; no null/false→0
+- JP DO excluded (PD-012 B); den 0.88
+- Country Hero ≠ Q-V3
+
+**P1 remaining — this workshop only:**
+
+| ID | What code does today | What prior PD actually locked | What this PD must decide |
+| --- | --- | --- | --- |
+| **1 ORP** | All five Country engines: 200–600 → grade 100 | PD-004 A: shared operational **band** 200–600; no model change **at that time** | Flat vs inner band **shape** (numbers 200/600 stay) |
+| **2 EPA Cl** | 0.2–4.0 → grade 100, therefore 0.3 == 3.9 | PD-008: KEEP 0.2 and 4.0; split provenance; do not call the window Ideal | Flat vs residual inner **shape** (0.2 / 4.0 stay) |
+| **3 WHO Cl &lt;0.2** | Below 0.2 shares grade 80 with 0.51–1.0; 0 == 1.0 | PD-013: KEEP WHO-TIER-SCORES | Keep in 80-tier vs distinct below-min **tier** (do not invent the new score here) |
+| **4 PD-006 scope** | Country = Compliance Index; TH later received scoped inner severity | PD-006 A: Compliance Index; flat-in-band as meaning of 100 | TH exception stays scoped **or** severity may be general |
+
+Q-V3 already distinguishes ORP 200 vs 400 vs 600 and Cl 0.3 vs 3.9. That is **Quality-channel** evidence. Copying Q-V3 magnitudes into Country Score is **forbidden** unless a later spec cites them after PO selects B.
+
+---
+
+## 2. Decision 1 — ORP
+
+**Question:** Should Country Score treat every value in the governed 200–600 operational band as grade 100, or may an inner ORP band exist **inside** those same ceilings?
+
+### A — 200–600 remains flat
+
+1. **What changes semantically:** Nothing. Country 100 means “inside the shared operational/project ORP band.” 200, 400, and 600 remain equally 100.
+2. **What does NOT change:** Band 200/600; weights; aggregation; rounding; Q-V3 400±25; all five Country `gradeOrp` formulas.
+3. **Locked limits:** ORP min 200, max 600.
+4. **Evidence available:** Shared inherited `gradeOrp`; PD-004 A (keep band; not five national standards); no verified country-specific drinking-water ORP 200–600.
+5. **Evidence missing:** None required to **keep** A. (A is the current lock remaining in force.)
+6. **Risk of A:** Country Hero cannot show in-band ORP severity; Q-V3 will continue to be the only channel that treats 200 ≠ 400 ≠ 600. Forensic P1 remains as accepted product meaning.
+7. **Risk of B:** See B.
+8. **Implementation allowed immediately:** **No.** A requires no code. Status quo HOLD.
+9. **Follow-up model specification:** **No** if A.
+
+### B — Introduce inner ORP band
+
+1. **What changes semantically:** Country 100 would mean “inside an inner ORP band,” not merely “inside 200–600.” Values still inside 200–600 could score below 100.
+2. **What does NOT change in this workshop:** The numbers 200 and 600. Q-V3. Weights. Aggregation. Rounding. No inner numbers are chosen here.
+3. **Locked limits:** 200 / 600 remain the outer operational band.
+4. **Evidence available:** Forensic proof that 200==400==600 on all five Country engines; Q-V3 uses a different (Quality) shape. PD-004 evidence that 200–600 is **not** a national DW standard.
+5. **Evidence missing:** Authoritative inner-band definition per engine or an explicit **project-defined** inner spec. **Q-V3 400±25 is not authorization** to copy into Country Score.
+6. **Risk of A:** See A.
+7. **Risk of B:** Reopens PD-004’s “no model change”; risk of copying Quality ideals into Compliance Index; risk of five invented “national” ORP curves from one shared helper.
+8. **Implementation allowed immediately:** **No.**
+9. **Follow-up model specification:** **Yes — required** before any code. Spec must define inner band(s), which engines, and provenance (project vs cited). Must not invent values in the spec workshop without evidence/PO numbers.
+
+**Recommendation:** PO decision required.
+
+PD-004 A currently keeps the **limit** and forbade a model change in that PD. It did **not** independently prove that in-band equality is the intended quality meaning. This workshop is the reopen/confirm of **shape**, not a silent license to implement B.
+
+---
+
+## 3. Decision 2 — EPA Chlorine
+
+**Question:** Should EPA Country Score treat the entire governed window 0.2–4.0 as grade 100, or may a residual inner band exist **inside** those same ceilings?
+
+### A — 0.2–4.0 remains flat
+
+1. **What changes semantically:** Nothing. Country 100 means “inside projectMin..MRDL.” 0.3 and 3.9 remain equally 100.
+2. **What does NOT change:** 0.2; 4.0; provenance labels from PD-008; EPA Cl weight 0.15; Q-V3 Cl curve; the rule that 0.2–4.0 is **not** an EPA Ideal.
+3. **Locked limits:** projectMin 0.2 (PROJECT-DEFINED); mrdlMax 4.0 (EPA MRDL 40 CFR 141.65).
+4. **Evidence available:** PD-008 KEEP numbers + semantic repair; forensic 0.3 == 3.9; DIFF Cl 1.5 still EPA grade 100.
+5. **Evidence missing:** None required to **keep** A.
+6. **Risk of A:** Strongest remaining P1 vs Quality-channel intuition; EPA Hero will not punish high-but-legal residual. Accepted if Country remains Compliance Index for this param.
+7. **Risk of B:** See B.
+8. **Implementation allowed immediately:** **No.** A = no code.
+9. **Follow-up model specification:** **No** if A.
+
+### B — Introduce residual inner band
+
+1. **What changes semantically:** Country 100 would mean “inside an EPA residual inner band,” not “anywhere from 0.2 to MRDL 4.0.” 0.3 could outscore 3.9 while both remain ≤4.0 and ≥0.2.
+2. **What does NOT change in this workshop:** 0.2 floor; 4.0 MRDL; weights; aggregation; rounding; Q-V3. **No inner residual numbers are chosen here.**
+3. **Locked limits:** 0.2 / 4.0.
+4. **Evidence available:** PD-008 explicitly forbade calling 0.2–4.0 Ideal; Q-V3 already distinguishes 0.3 vs 3.9 **on the Quality channel**; TH already has a scoped Cl inner 0.2–0.5 (DoH surveillance residual — not adopted as TH legal Ideal).
+5. **Evidence missing:** An EPA-Country inner residual definition that is **not** a silent copy of TH 0.2–0.5 or Q-V3 0.2–0.5 unless PO later cites that as project-defined. PD-008 option D (project residual) was **not** selected.
+6. **Risk of A:** See A.
+7. **Risk of B:** Converts Compliance-window 100 into a quality curve; may be read as claiming an EPA “ideal residual” that PD-008 rejected; TH 0.2–0.5 is not EPA evidence.
+8. **Implementation allowed immediately:** **No.**
+9. **Follow-up model specification:** **Yes — required** before any code.
+
+**Recommendation:** PO decision required.
+
+---
+
+## 4. Decision 3 — WHO Chlorine &lt;0.2
+
+**Question:** Should WHO Country chlorine values below 0.2 remain in the existing grade-80 fair tier (same bucket as 0.51–1.0), or should below-min be a distinct tier?
+
+### A — Remains grade-80 tier
+
+1. **What changes semantically:** Nothing. Coarse WHO-style buckets stay: 0.2–0.5 → 100; otherwise ≤1 → 80 (including 0 and 1.0); ≤2 → 50; else 25.
+2. **What does NOT change:** Existing tier scores 100/80/50/25 (PD-013 KEEP WHO-TIER-SCORES); ideal 0.2–0.5; validator rejection of negative Cl (not in scope).
+3. **Locked limits:** idealMin 0.2, idealMax 0.5, fair 1, poor 2 — **and the numeric tier scores themselves** unless B is later specified.
+4. **Evidence available:** Executable WHO `gradeChlorine`; forensic Cl 0 == Cl 1.0 at 80; PD-013 A KEEP WHO-TIER-SCORES; negatives never reach the engine.
+5. **Evidence missing:** None required to **keep** A.
+6. **Risk of A:** Below-min disinfection residual is not distinguished from high-but-fair residual. Accepted if coarse tiers are the intended WHO-engine meaning.
+7. **Risk of B:** See B.
+8. **Implementation allowed immediately:** **No.** A = no code.
+9. **Follow-up model specification:** **No** if A.
+
+### B — Introduce separate below-min tier
+
+1. **What changes semantically:** Cl &lt; 0.2 would no longer share meaning with Cl = 1.0. Below-min would be its own Country-score class.
+2. **What does NOT change in this workshop:** Existing 100/80/50/25 values are **not** rewritten here. No new tier number is invented here. Validator unchanged.
+3. **Locked limits:** 0.2 / 0.5 / 1 / 2 remain the declared breakpoints until a spec says otherwise. **The new tier score is not a decision variable in this workshop.**
+4. **Evidence available:** Formula has no below-min branch; `fcl <= fair` catches 0 and 1.0; this is a hole relative to TH (which has below-min) but may be intentional WHO-tier coarseness.
+5. **Evidence missing:** The below-min **score**, whether 0 is worse than 0.19, and whether this overrides PD-013 KEEP WHO-TIER-SCORES.
+6. **Risk of A:** See A.
+7. **Risk of B:** Reopens PD-013; silent new WHO tier is exactly the unauthorized invention this workshop forbids; risk of copying TH below-min `cl/min*70` without WHO evidence.
+8. **Implementation allowed immediately:** **No.**
+9. **Follow-up model specification:** **Yes — required**, and it must **explicitly override PD-013** for the cited WHO chlorine tier id.
+
+**Recommendation:** PO decision required.
+
+---
+
+## 5. Decision 4 — PD-006 Semantics
+
+**Question:** After the authorized Thailand TDS / turbidity / chlorine inner-severity exception, is Country Score still a Compliance Index whose default meaning of 100 is “inside the modeled pass band,” with that TH exception **scoped**, or may Country Score **generally** contain parameter-specific severity inside governed limits?
+
+This is **not** original PD-006 option B (dual country-quality score). Dual output remains out of scope unless a separate PD reopens it.
+
+### A — Compliance Index remains default; existing TH exception stays scoped
+
+1. **What changes semantically:** Clarifies that `7a3f35a7` is a **named, already-authorized exception** (TH TDS / turb / Cl only). Default Country 100 remains “in the modeled compliance/pass band.” ORP / EPA Cl / WHO Cl stay flat/tiered unless Decisions 1–3 separately add **additional named exceptions**.
+2. **What does NOT change:** PD-006 A channel identity (Country ≠ Quality V3); PD-001 pass-band language; PD-005 no magnitude ranking; Q-V3 as the quality channel; TH inner ceilings.
+3. **Locked limits:** All currently governed Country ceilings.
+4. **Evidence available:** PD-006 A text (“flat-in-band as the intended meaning of 100”); later TH inner curves authorized as saturation repair using **existing project inners**, not a general redesign; forensic HOLD on remaining plateaus.
+5. **Evidence missing:** None required to **keep** A. PO must still not treat TH as silent permission for EPA/ORP/WHO.
+6. **Risk of A:** Remaining P1 plateaus persist unless Decisions 1–3 independently select B as **additional scoped exceptions**. Product must live with EPA 0.3==3.9 if Decision 2 is also A.
+7. **Risk of B:** See B.
+8. **Implementation allowed immediately:** **No.** A is a governance clarification. No code by itself.
+9. **Follow-up model specification:** **No** for A alone. Any later B on Decisions 1–3 still needs its own spec.
+
+### B — Country Score may generally use parameter-specific severity
+
+1. **What changes semantically:** In-band Country 100 is no longer the default meaning. Parameter-specific severity **inside** governed limits becomes an allowed Country-Score design, not a rare exception. This **refines/reopens** PD-006’s “flat-in-band = 100” sentence without creating a second country-quality number.
+2. **What does NOT change in this workshop:** Q-V3; weights; aggregation; rounding; ceilings; no new curves invented here. Original PD-006 dual-score option remains **not** selected by this B.
+3. **Locked limits:** Unchanged numbers; meaning of 100 changes.
+4. **Evidence available:** TH exception already exists; forensic remaining flats; Quality vs Compliance channel split still desired.
+5. **Evidence missing:** Which parameters/engines are in scope; whether B **requires** Decisions 1–3 B or only **permits** them; how PD-001 “pass-band language” is rewritten.
+6. **Risk of A:** See A.
+7. **Risk of B:** Scope creep (pH, DO min-gates, JP Cl, EU Cl) if “generally” is read as a mandate to curve everything; conflict with PD-001/PD-005 if Country starts looking like a quality ranking; still needs per-parameter specs — B is permission, not a formula.
+8. **Implementation allowed immediately:** **No.**
+9. **Follow-up model specification:** **Yes** before any new severity beyond the existing TH exception. B does not itself authorize ORP/EPA/WHO numbers.
+
+**Recommendation:** PO decision required.
+
+Do **not** infer B from the existence of the Thailand exception.
+
+---
+
+## 6. Cross-decision consequences
+
+Notation: four letters = ORP, EPA Cl, WHO Cl&lt;0.2, PD-006 scope.
+
+### Combinations that preserve Compliance Index semantics
+
+| Combo | Meaning | New model spec? | Code after DECIDED? |
+| --- | --- | --- | --- |
+| **A A A A** | Full status quo. TH exception remains the only in-band Country severity. Remaining P1 accepted as Compliance Index. | No | **No** (HOLD continues; tests/docs only if desired) |
+| **A A A + Decision 4 B** | Policy says severity *may* exist, but the three P1 params stay flat/tiered. Internally weak: permission without use. | Policy rewrite only | **No** engine change |
+| **B or EPA B or WHO B + Decision 4 A** | Additional **named, scoped** exceptions (same class as TH), while default remains Compliance Index. Internally consistent **if** PO lists the exception(s) explicitly. | **Yes**, per selected B | Only after that spec is approved |
+| **A A B + Decision 4 A** | WHO below-min as a scoped tier exception; ORP/EPA stay compliance-flat. | **Yes** (WHO tier spec; PD-013 override) | Only after spec |
+
+### Combinations that expand Country Score toward severity semantics
+
+| Combo | Meaning | New model spec? |
+| --- | --- | --- |
+| **Decision 4 B + any of Decisions 1–3 B** | General permission + at least one new in-band/below-min severity. Country 100 is no longer uniformly “in-band.” | **Yes** for each selected B |
+| **B B B B** | Maximum expansion: ORP inner + EPA residual inner + WHO below-min + general severity policy. | **Yes**, three specs (do not share one invented curve). Reopens PD-004 / PD-008 / PD-013 / PD-006 flat-in-band sentence. |
+
+### Combinations that are inconsistent or incomplete
+
+| Combo | Problem |
+| --- | --- |
+| Any **B** on 1–3 **without** a follow-up spec | Forbidden. This workshop must not be treated as formula authorization. |
+| Decision 4 **A** + implementing EPA/ORP/WHO severity **without** listing them as new scoped exceptions | Would silently convert TH-only exception into general redesign. |
+| Copying Q-V3 400±25 or Cl 0.2–0.5 into Country engines because a B was selected | Forbidden even after B, until the **spec** cites those values as project-defined Country numbers. |
+| Changing 200, 600, 0.2, 4.0, weights, mean, or rounding because B was selected | Forbidden. Those are not decision variables. |
+| Decision 4 **B** read as original PD-006 dual country-quality score | Out of scope. Dual output needs its own PD. |
+
+### Implementation sequencing (after PO fills the sheet)
+
+```text
+1. PO selects A/B for all four. Record DECIDED + Approved by + Date.
+2. If all A: stop. No engine change. Shape HOLD becomes accepted product law.
+3. If any B: open a Model Specification / evidence review for THAT item only.
+4. Spec cites constant ids, inner numbers or tier score, engines in scope.
+5. Separate implementation pass. Still no push/deploy without explicit auth.
+```
+
+---
+
+## 7. Protected Contracts
+
+Untouched regardless of A/B:
+
+- Case aggregate root; Customer identity only
+- `POST /api/cases`, `GET /api/public/water-check-offer`
+- Dashboard / Framer / LINE envelopes
+- Notion property names
+- Offer / Workflow / Booking / Feedback / Reports ownership (Case)
+- Exact customer match; no fuzzy; no name auto-merge
+- Quality V3 engine, ideals, mean/6, publish `S.scoreVal` / `currentScoreResult`
+- Live Hero routing (selected country vs published Quality)
+- Country weights, aggregation, `Math.round`
+- ORP 200/600, EPA Cl 0.2/4.0, TH passMax, EU gate 65, JP DO exclusion
+- WHO tier **scores** unless Decision 3 B + later spec
+- Production deployment
+
+---
+
+## 8. Implementation Gate
+
+```text
+NO CODE CHANGE
+NO COMMIT
+NO PUSH
+NO DEPLOY
+
+until PO has explicitly selected A/B for all four decisions
+AND any required model specification has been approved.
+```
+
+Selecting **A** on an item = keep current engine behavior; still **no** opportunistic refactors.
+
+Selecting **B** on an item = **authorization to specify**, not authorization to invent numbers in `src/js/score/**`.
+
+`src/js/score/**` remains frozen while this PD is OPEN.
+
+**Implementation Readiness:** `NOT READY`
+
+---
+
+## 9. PO Decision Sheet
+
+Fill only in a later PO SIGN-OFF. Do not infer from code.
+
+```text
+ORP:          [ A / B / PENDING ]
+EPA Cl:       [ A / B / PENDING ]
+WHO Cl <0.2:  [ A / B / PENDING ]
+PD-006:       [ A / B / PENDING ]
+```
+
+Current values:
+
+```text
+ORP:          B  (specification authorization only)
+EPA Cl:       B  (specification authorization only)
+WHO Cl <0.2:  B  (specification authorization only)
+PD-006:       B  (general severity permitted, still per-parameter spec required)
+```
+
+### PO SIGN-OFF
+
+- **Status:** DECIDED
+- **Decision:** D1=B, D2=B, D3=B, D4=B
+- **Approved by:** Product Owner (chat instruction)
+- **Date:** 2026-08-14
+- **Notes:** Workshop opened 2026-08-13 from forensic HOLD; decided 2026-08-14 at HEAD `bac4044c`. This decision authorizes specification work per item, explicitly NOT implementation, per the PO's own instruction ("B = specification authorization; B != implementation authorization"). See §10 for the specification attempt and where each item hit the no-invented-numbers wall.
+
+---
+
+## 10. Specification Attempt (post-decision, 2026-08-14)
+
+Attempted immediately after PO sign-off, per §6 "Implementation sequencing" step 3
+("If any B: open a Model Specification / evidence review for THAT item only").
+Result: **every item that requires a numeric inner value stops at the same wall.**
+This section records exactly where, per item, so this is not a repeat of a vague
+"blocked" — it is the specific line each spec cannot cross without inventing a
+number this repository has no evidence for.
+
+### D1 — ORP inner band: BLOCKED at step "inner numbers"
+
+- Outer limits (fixed, not reopened): 200 / 600.
+- Required next field per §2.B item 9: "Spec must define inner band(s), which
+  engines, and provenance (project vs cited)."
+- Searched this pass (again) for any cited ORP drinking-water severity source
+  in this repo: none exists beyond Q-V3's own `400±25`, which item 5 of §2.B
+  explicitly disqualifies as authorization ("Q-V3 400±25 is not authorization
+  to copy into Country Score").
+- **Cannot proceed**: no inner band value, no per-engine provenance, without
+  inventing one. Per §6 "Combinations that are inconsistent or incomplete":
+  "Any B on 1–3 without a follow-up spec | Forbidden."
+
+### D2 — EPA Chlorine inner band: BLOCKED at step "inner numbers"
+
+- Outer limits (fixed): projectMin 0.2 / MRDL 4.0.
+- §3.B item 5 already names the two candidates that would be needed and
+  explicitly forbids both without new authorization: TH's 0.2–0.5 (surveillance
+  residual, not EPA evidence) and Q-V3's own Cl curve.
+- No EPA-specific residual source is cited anywhere in this repo (`PD-008`
+  explicitly declined to select the "project residual" option that would have
+  supplied one).
+- **Cannot proceed**: same wall as D1 — no number to write into the spec that
+  isn't a forbidden copy or an invention.
+
+### D3 — WHO Chlorine &lt;0.2: BLOCKED at step "tier score"
+
+- Existing tiers (100/80/50/25) stay locked per PD-013 unless this spec
+  explicitly overrides the below-min one.
+- §4.B item 5: "Evidence missing: The below-min score, whether 0 is worse than
+  0.19." No WHO-cited source in this repo distinguishes those two values.
+- **Cannot proceed**: the one number this spec exists to produce (the below-min
+  tier score) has no evidentiary basis; copying TH's `cl/min*70` shape is
+  explicitly named as a risk to avoid in §4.B item 7.
+
+### D4 — PD-006 scope: SPECIFIABLE AS POLICY, but unlocks nothing by itself
+
+- This item does not require an invented number — it is a policy statement
+  ("parameter-specific severity is a permitted Country-Score design, not
+  reserved to the TH exception").
+- Recorded as: **general severity is now permitted in principle.**
+- Per §6 "Combinations that expand Country Score toward severity semantics":
+  D4=B only takes effect *combined with* a completed D1/D2/D3 spec. Since none
+  of those three can be completed without an invented number (above), D4=B has
+  no parameter left to apply to yet.
+
+### Net result
+
+```text
+D1 spec: BLOCKED — no inner ORP number without invention or a forbidden copy
+D2 spec: BLOCKED — no inner EPA residual number without invention or a forbidden copy
+D3 spec: BLOCKED — no below-min WHO tier score without invention or a forbidden copy
+D4 spec: RECORDED (policy only) — inert until D1/D2/D3 unblock
+
+IMPLEMENTATION READINESS: NOT READY
+src/js/score/**: FROZEN (unchanged this pass — confirmed empty git diff)
+```
+
+This is not a re-statement of "PD-014 pending" — PD-014 is now DECIDED. The
+remaining block is that a specification, to be real, needs a number; no number
+exists in this repository's evidence base for any of D1–D3, and the PO's own
+instruction for this decision explicitly withheld authorization to invent one
+("B != permission to invent numbers/breakpoint"). The next unblocking action
+is not another PD sign-off — it is someone supplying an actual number with
+provenance (a cited standard, or an explicit "this is a project-invented value,
+approved as such") for at least one of D1/D2/D3.
+
+---
+
+## 11. Implementation Record (2026-08-14)
+
+The PO supplied explicit numeric approval for the exact §10 candidates (verbatim,
+no changes). Implemented:
+
+```text
+D1 (all 5 engines, gradeOrp):
+  350-450        -> 100
+  200 <= orp<350 -> 70 + (orp-200)/150*30
+  450<orp<=600   -> 100 - (orp-450)/150*30
+  orp<200        -> orp/200*70   [anchor corrected from *100 to *70 — see below]
+  orp>600        -> 70-(orp-600)/10   [anchor corrected from 100 to 70 — see below]
+
+D2 (usEpa only, gradeChlorine):
+  0.2<=cl<=1.0   -> 100
+  1.0<cl<=4.0    -> 100-(cl-1.0)/3.0*40
+  cl<0.2         -> unchanged (cl/0.2*60, pre-existing, out of D2 scope)
+  cl>4.0         -> 60-(cl-4.0)*30   [anchor corrected from 100 to 60 — see below]
+
+D3 (who only, gradeChlorine):
+  0<=cl<0.2      -> cl/0.2*80
+  >=0.2          -> unchanged (existing 100/80/50/25 tiers, PD-013)
+```
+
+**One implementation-level correction made to the approved candidates:** the
+outer-decline branches for D1 (below 200 / above 600) and D2 (above 4.0) were
+originally specified anchored at 100 (their pre-D1/D2 starting value). Left
+as literally specified, this produced a discontinuity — grade would jump
+*upward* just past the outer limit (e.g. ORP 600 -> 70, but ORP 601 -> ~95
+under the unmodified old formula), violating the spec's own monotonicity
+requirement. Corrected by anchoring those same formulas (same slope, same
+shape) at the new boundary value (70 for D1, 60 for D2) instead of 100. No
+new number was invented — only the vertical anchor of an already-approved
+linear formula was shifted to preserve continuity with the newly-approved
+inner curve. Flagged here rather than applied silently.
+
+**Discrepancy noted, not silently resolved:** the approved D3 worked example
+listed `Cl=0.20 -> 80`, which conflicts with both the approved D3 formula
+(`0<=cl<0.2`, i.e. strictly less than 0.2) and the explicit protected-contract
+instruction ("existing WHO tiers >=0.2 unchanged"). Implemented per the
+formula and the protection rule (0.2 stays 100, the pre-existing ideal-tier
+value) — the worked-example row's `0.20` was treated as the off-by-one error,
+not a separate instruction to lower the ideal tier.
+
+**Result:** realistic-grid raw=100 share (84,035-combination sweep,
+`.tmp_probe/plateau-forensic-sweep.js`):
+
+```text
+              before PD-014   after PD-014
+Thailand      25.7%           7.7%
+Japan         42.0%           18.0%
+WHO           10.5%           3.9%
+EU            11.2%           4.8%
+US EPA        16.8%           6.4%
+```
+
+Tests: 1315 passed, 0 failed (incl. new `tests/score/pd014-severity-regression.test.js`,
+147 assertions). Q-V3 verified unchanged (empty git diff on computeQualityScoreV2.js /
+computeProductionScore.js). Not pushed or deployed as of this record.
+
+---
+
 ## After sign-off rules
 
 | Condition | Allowed | Forbidden |
@@ -1281,6 +1764,9 @@ Per-Ideal disposition for:
 | PD-011 DECIDED C/D/E with cited ids | Model Repair **only** for cited Ideal ids after follow-up auth | Invented replacements; Case Flow |
 | PD-012 DECIDED B | Japan DO excluded from Compliance Index; tests/registry; I2 den exclude | New DO Ideal number; JP weight redistribution; Q-V3 DO |
 | PD-013 DECIDED A×5 | Explicit KEEP of listed composite constants | Any magnitude change to those five ids |
+| PD-014 OPEN | This workshop record only | Any `src/js/score/**` shape/curve/tier/ideal edit; inventing inner numbers; push/deploy |
+| PD-014 DECIDED all A | Docs/tests locking accepted plateaus | Engine math change |
+| PD-014 DECIDED any B | Follow-up model specification for cited item(s) only | Immediate formula invention; copying Q-V3; changing locked ceilings |
 ```text
 EVIDENCE REGISTRY → PRODUCT DECISION → MODEL REPAIR → SCORE
 Forbidden reverse: DESIRED SCORE → TUNE → JUSTIFY
@@ -1309,12 +1795,21 @@ PD-010 = DECIDED — B (RESEARCH COMPLETE; IDEAL NUMBERS FROZEN; SAFE TO REPAIR 
 PD-011 = DECIDED — A ×5 (KEEP+LABEL PROJECT-DEFINED; NO IDEAL NUMERIC CHANGE)
 PD-012 = DECIDED — B (REMOVE DO FROM JAPAN COMPLIANCE INDEX)
 PD-013 = DECIDED — A ×5 (KEEP WEIGHTS / WHO TIERS / EPA-300; NO NUMERIC CHANGE)
+PD-014 = DECIDED + IMPLEMENTED (2026-08-14) — COUNTRY SCORE MODEL SHAPE (ORP / EPA Cl / WHO Cl<0.2 / PD-006 SCOPE)
+         PO SHEET: ORP B · EPA Cl B · WHO Cl<0.2 B · PD-006 B  (decided 2026-08-14, HEAD bac4044c)
+         PO NUMERIC APPROVAL: exact candidate numbers from §10 approved verbatim
+         (2026-08-14) — see §11 for the implementation record.
+         IMPLEMENTATION READINESS = DONE. src/js/score/{thailand,japan,who,eu,usEpa}/score.js
+         gradeOrp() (all 5) and usEpa/who gradeChlorine() updated. Outer limits
+         (200/600, 0.2/4.0, WHO tiers >=0.2) unchanged — verified via empty
+         git diff on every limits.js/weights.js. 1315 tests passed, 0 failed.
 
-MODEL = FROZEN Ideals/weights magnitudes; PD-012 B JP DO composition authorized
+MODEL = FROZEN Ideals/weights magnitudes; PD-012 B JP DO composition authorized; Country shape HOLD
 SCORE FORMULA = FROZEN (mean/6)
 BASELINE = UNCHANGED (76 / 100 / 100 / 95 / 65 / 99)
 REGISTRY = SoT (PD-012 B + PD-013 A×5 recorded)
 CASE FLOW = UNTOUCHED
+PRODUCTION = HOLD
 ```
 
 ---
@@ -1323,11 +1818,14 @@ CASE FLOW = UNTOUCHED
 
 ```text
 PD-001…013 — DECIDED (008 partial)
+PD-014 — OPEN (decision-only; PO sheet all PENDING)
 PD-012 B — JP DO NOT_EVALUATED (no replacement Ideal)
 PD-013 A×5 — NO NUMERIC REPAIR to listed composite ids
 PD-011 A — Ideal KEEP+LABEL only (not national Ideal certification)
 NO AUTO-REPLACE (7.2→7.5, ≤80→200/300, ORP from 200–600, aquatic DO, Cl curve from MRDL)
+NO COPY Q-V3 ORP 400±25 OR Cl 0.2–0.5 INTO COUNTRY ENGINES
 NO ARTIFICIAL COUNTRY DIFFERENTIATION
 NO CASE FLOW CHANGES
+NO src/js/score/** SHAPE EDITS WHILE PD-014 IS OPEN
 NO COMMIT / PUSH / DEPLOY WITHOUT SEPARATE AUTH
 ```

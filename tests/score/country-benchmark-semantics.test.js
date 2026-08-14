@@ -50,16 +50,17 @@ const decisionDoc = fs.readFileSync(path.join(root, 'docs/quality-v3/UNRESOLVED_
 const i18nSrc = fs.readFileSync(path.join(root, 'src/js/i18n.js'), 'utf8');
 const scoreFlowSrc = fs.readFileSync(path.join(root, 'src/js/flows/score.js'), 'utf8');
 
+// PD-014 D1/D2/D3 (2026-08-14): orp=515 now inner-declines on every engine
+// (was flat 100 for the whole 200-600 band); Q-V3 (76) and EU (65, gated by
+// chlorine) are unaffected by D1-D3.
 const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
-  thailand: 99,
-  // Raw Japan composite is 100 for this reading; Country Hero ceiling caps
-  // the displayed score at 99 (100 is reserved for Quality V3).
-  japan: 99,
-  who: 95,
+  thailand: 97,
+  japan: 98,
+  who: 93,
   eu: 65,
-  usEpa: 99
+  usEpa: 98
 });
 
 const KEYS = ['thailand', 'japan', 'who', 'eu', 'usEpa'];
@@ -150,13 +151,14 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   assert(thOverlap === jpOverlap && thOverlap === 99, 'equal TH/JP scores remain valid (inner-plateau overlap)');
   const thBaseline = bench('thailand', BASELINE.readings);
   const jpBaseline = bench('japan', BASELINE.readings);
-  // Both land on 99, but via different mechanisms — TH's own in-band severity
-  // curve already grades chlorine below 100 pre-ceiling; JP's raw composite
-  // is exactly 100 and only reaches 99 via the shared Hero ceiling.
-  assert(thBaseline.score === 99 && jpBaseline.score === 99,
-    'BASELINE TH/JP both 99 (different mechanisms, not a ranking)');
+  // PD-014 D1 (2026-08-14): orp=515 now inner-declines on both engines, so
+  // TH (97) and JP (98) genuinely differ — no longer identical via any
+  // mechanism. This is the intended product fix: ordinary water no longer
+  // collapses to one shared number.
+  assert(thBaseline.score === 97 && jpBaseline.score === 98,
+    'BASELINE TH 97 !== JP 98 (real separation, not a ranking)');
   assert(thBaseline.params.chlorine < 100, 'TH chlorine grade already below 100 pre-ceiling (in-band severity)');
-  assert(Object.values(jpBaseline.params).every(v => v === 100), 'JP raw params all 100 (Hero ceiling is the only reduction)');
+  assert(jpBaseline.params.orp < 100, 'JP orp grade now below 100 for orp=515 (PD-014 D1 inner decline)');
   assert(!scoreFlowSrc.includes('strictest cleanliness expectations'),
     'dropdown order comment no longer implies quality ranking');
 }
@@ -200,7 +202,7 @@ console.log('\nPD-001 — comparison presentation is pass-band, not Excellent');
 
 
   const compare = sandbox.buildComparisonScoreResult(BASELINE.readings, 'thailand');
-  assert(compare.score === 99, 'comparison numeric score matches Thailand engine (99 after in-band severity)');
+  assert(compare.score === 97, 'comparison numeric score matches Thailand engine (97 after PD-014 D1 orp severity)');
   assert(compare.verdict === 'score.benchmark.verdict.passBand', `comparison result.verdict is pass-band (got ${compare.verdict})`);
   assert(compare.engineVerdict === 'Excellent', `engineVerdict preserved as Excellent (got ${compare.engineVerdict})`);
 
@@ -228,7 +230,7 @@ console.log('\nModel integrity — engines untouched numerically');
 console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, never PASS');
 {
   const th = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', BASELINE.readings);
-  assert(th.score === 99, 'TH baseline 99 after in-band Cl severity (DO still excluded)');
+  assert(th.score === 97, 'TH baseline 97 after PD-014 orp+Cl severity (DO still excluded)');
   assert(th.classifications.do === 'NOT_EVALUATED', `TH measured DO → NOT_EVALUATED (got ${th.classifications.do})`);
   assert(th.classifications.temp === 'NOT_EVALUATED', `TH measured temp → NOT_EVALUATED (got ${th.classifications.temp})`);
   assert(th.statuses.do !== 'good', 'TH DO status is not good');
@@ -236,7 +238,7 @@ console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, neve
   assert(!(th.passedParameters || []).includes('temp'), 'TH temp not in passedParameters');
 
   const thNullDo = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', { ...BASELINE.readings, do: null, temp: null });
-  assert(thNullDo.score === 99, 'TH score unchanged with null DO/temp');
+  assert(thNullDo.score === 97, 'TH score unchanged with null DO/temp');
   assert(thNullDo.classifications.do === 'NOT_EVALUATED', 'TH null DO → NOT_EVALUATED (not PASS via Number(null)===0)');
   assert(thNullDo.classifications.temp === 'NOT_EVALUATED', 'TH null temp → NOT_EVALUATED');
 }

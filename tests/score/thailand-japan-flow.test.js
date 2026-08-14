@@ -138,7 +138,10 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
   // WHY equal: every scored parameter sits inside BOTH national pass windows.
   // TH: pH 6.5–8.5, TDS≤1000, Cl 0.2–2.0, turb≤5, ORP 200–600 (DO unscored)
   // JP: pH 5.8–8.6, TDS≤500, Cl 0.1–1.0, turb≤2, ORP 200–600, DO≥5
-  for (const [label, readings] of [['A', CASE_A], ['B', CASE_B]]) {
+  // PD-014 D1 (2026-08-14): Case A's orp=434.1 sits inside the inner plateau
+  // (350-450), unaffected. Case B's orp=507 now inner-declines on both
+  // engines — still equal to each other (98===98), just no longer 99.
+  for (const [label, readings, expected] of [['A', CASE_A, 99], ['B', CASE_B, 98]]) {
     const th = bench('thailand', readings);
     const jp = bench('japan', readings);
     const q = sandbox.computeScoreFromReadings(readings);
@@ -146,8 +149,7 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
     console.log(`  Case ${label} Quality=${q} compliance=${detail.compliance.status} TH=${th.score} JP=${jp.score}`);
     console.log(`  Case ${label} TH params`, th.params);
     console.log(`  Case ${label} JP params`, jp.params);
-    // Raw composite is 100 on both engines; Hero ceiling caps both at 99.
-    assert(th.score === 99 && jp.score === 99, `Case ${label}: TH===JP===99 expected plateau overlap`);
+    assert(th.score === expected && jp.score === expected, `Case ${label}: TH===JP===${expected} expected plateau overlap`);
     assert(th.score === jp.score, `Case ${label}: documented same-result TH===JP`);
     assert(Number.isFinite(q) && q < th.score, `Case ${label}: Quality ${q} is not overwritten by TH ${th.score}`);
     assert(detail.engineVersion === 'quality-v3.0' || sandbox.QUALITY_SCORE_ENGINE_VERSION === 'quality-v3.0',

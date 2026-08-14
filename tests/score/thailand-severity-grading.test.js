@@ -202,7 +202,8 @@ console.log('\nBASE / one-bad pipeline');
 {
   const base = trace(BASE, 'thailand');
   assert(base.after.tds === 175 && base.grades.chlorine === 96, 'BASE Cl 0.7 grades 96 (not 100)');
-  assert(base.postRound === 99 && base.displayed === 99, 'BASE TH 99');
+  // PD-014 D1 (2026-08-14): BASE orp=515 now inner-declines too.
+  assert(base.postRound === 97 && base.displayed === 97, 'BASE TH 97');
   assert(sandbox.computeQualityScoreDetail(BASE).score === 76, 'BASE Q-V3 76');
   const tds = trace({ ...IDEAL, tds: 800 }, 'thailand');
   const turb = trace({ ...IDEAL, turbidity: 3.5 }, 'thailand');
@@ -218,20 +219,21 @@ console.log('\nCross-engine isolation');
   assert(sandbox.EuBenchmarkLimits.gateCapOnChlorineFail === 65, 'EU gate 65');
   assert(sandbox.UsEpaBenchmarkLimits.chlorine.max === 4.0, 'EPA Cl max 4.0');
   const jp = sandbox.WaterScoreBenchmarkRegistry.calculate('japan', BASE);
-  // Raw JP composite is 100 for BASE; Hero ceiling caps at 99.
-  assert(jp.score === 99 && jp.classifications.do === 'NOT_EVALUATED', 'JP BASE 99 / DO NE');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', BASE).score === 95, 'WHO 95');
+  // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine.
+  assert(jp.score === 98 && jp.classifications.do === 'NOT_EVALUATED', 'JP BASE 98 / DO NE');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', BASE).score === 93, 'WHO 93');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', BASE).score === 65, 'EU 65');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', BASE).score === 99, 'EPA 99');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', BASE).score === 98, 'EPA 98');
 }
 
-console.log('\npH / ORP (unchanged flat in-band — not the saturation defect)');
+console.log('\npH (unchanged flat in-band) / ORP (PD-014 D1, 2026-08-14 — inner severity)');
 {
   const phRows = [6.0, 6.5, 7.0, 7.2, 7.5, 8.0, 8.5, 9, 10].map((v) => th({ ...IDEAL, ph: v }));
   assert(phRows[1].params.ph === 100 && phRows[6].params.ph === 100, 'pH 6.5–8.5 still grade 100');
   assert(phRows[0].params.ph < 100 && phRows[7].params.ph < 100, 'pH outside band declines');
   const orpRows = [100, 200, 300, 350, 400, 500, 600, 700, 900].map((v) => th({ ...IDEAL, orp: v }));
-  assert(orpRows[1].params.orp === 100 && orpRows[6].params.orp === 100, 'ORP 200–600 still grade 100');
+  assert(orpRows[1].params.orp === 70 && orpRows[6].params.orp === 70, 'ORP 200/600 now grade 70 (D1 inner-ramp edges)');
+  assert(orpRows[4].params.orp === 100, 'ORP 400 still grade 100 (inner plateau center)');
   assert(orpRows[0].params.orp < 100 && orpRows[7].params.orp < 100, 'ORP outside band declines');
 }
 
@@ -253,16 +255,19 @@ console.log('\nCross-country matrix (JP/EU/WHO/EPA/Q-V3 frozen)');
   const twoBad = { ...IDEAL, tds: 800, turbidity: 3.5 };
   const threeBad = { ...IDEAL, tds: 800, turbidity: 3.5, chlorine: 1.5 };
   const rows = [
-    // Raw JP composite is 100 for BASE, and raw EPA composite is 100 for
-    // oneBadCl; Hero ceiling caps both at 99.
-    ['BASE', BASE, { th: 99, jp: 99, eu: 65, who: 95, epa: 99, q: 76 }],
-    ['DIFF', DIFF, { th: 87, jp: 78, eu: 61, who: 81, epa: 79, q: 61 }],
+    // PD-014 D1/D2 (2026-08-14): BASE/DIFF/threeBad move — BASE's orp=515
+    // and DIFF/threeBad's chlorine=1.5 (EPA only) now decline instead of
+    // flat 100. Rows using IDEAL orp=400 (inside the D1 plateau) are
+    // unaffected; oneBadCl's chlorine=1.5 EPA drop is too small to move the
+    // rounded composite off 99, confirmed by direct computation.
+    ['BASE', BASE, { th: 97, jp: 98, eu: 65, who: 93, epa: 98, q: 76 }],
+    ['DIFF', DIFF, { th: 87, jp: 78, eu: 61, who: 81, epa: 78, q: 61 }],
     ['LOCKED', LOCKED, { th: 95, jp: 96, eu: 65, who: 93, epa: 91, q: 73 }],
     ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 96, jp: 92, eu: 93, who: 94, epa: 91, q: 90 }],
     ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 95, jp: 95, eu: 89, who: 97, epa: 89, q: 90 }],
     ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 96, jp: 91, eu: 65, who: 92, epa: 99, q: 90 }],
     ['twoBad', twoBad, { th: 91, jp: 87, eu: 82, who: 91, epa: 79, q: 80 }],
-    ['threeBad', threeBad, { th: 87, jp: 78, eu: 62, who: 83, epa: 79, q: 69 }]
+    ['threeBad', threeBad, { th: 87, jp: 78, eu: 62, who: 83, epa: 78, q: 69 }]
   ];
   for (const [label, readings, exp] of rows) {
     const got = {

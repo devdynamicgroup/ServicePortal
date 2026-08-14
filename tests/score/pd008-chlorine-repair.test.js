@@ -107,11 +107,16 @@ console.log('\nPD-008 — TH chlorine boundaries (numeric lock)');
 
 console.log('\nPD-008 — EPA chlorine boundaries (numeric lock + MRDL semantic)');
 {
+  // PD-014 D2 (2026-08-14): the 0.2-4.0 window is no longer flat 100 — only
+  // its own inner plateau (0.2-1.0) is. 0.2/4.0 themselves remain the LOCKED
+  // outer boundaries (still distinguishable from outside-the-window values).
   const pts = [0.19, 0.20, 0.49, 0.50, 1.0, 2.0, 3.9, 4.0, 4.01];
   for (const cl of pts) {
     const r = bench('usEpa', withCl(cl));
-    const inBand = cl >= 0.2 && cl <= 4.0;
-    if (inBand) assert(r.params.chlorine === 100, `EPA Cl=${cl} in window → 100`);
+    const inPlateau = cl >= 0.2 && cl <= 1.0;
+    const inWindow = cl >= 0.2 && cl <= 4.0;
+    if (inPlateau) assert(r.params.chlorine === 100, `EPA Cl=${cl} in inner plateau → 100`);
+    else if (inWindow) assert(r.params.chlorine < 100 && r.params.chlorine >= 60, `EPA Cl=${cl} in window but declining → [60,100)`);
     else assert(r.params.chlorine < 100, `EPA Cl=${cl} outside → <100`);
   }
   const hi = bench('usEpa', withCl(4.01));
@@ -190,12 +195,12 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
 {
   const q = sandbox.computeScoreFromReadings(BASE);
   assert(q === 76, `Quality V3 still 76 (got ${q})`);
-  assert(bench('thailand', BASE).score === 99, 'TH baseline 99 (Cl 0.7 in-band severity, not flat 100)');
-  // Raw JP composite is 100 for BASE; Hero ceiling caps at 99.
-  assert(bench('japan', BASE).score === 99, 'JP baseline 99');
-  assert(bench('who', BASE).score === 95, 'WHO baseline 95');
+  // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine.
+  assert(bench('thailand', BASE).score === 97, 'TH baseline 97 (Cl 0.7 + orp 515 severity, not flat 100)');
+  assert(bench('japan', BASE).score === 98, 'JP baseline 98');
+  assert(bench('who', BASE).score === 93, 'WHO baseline 93');
   assert(bench('eu', BASE).score === 65, 'EU baseline 65');
-  assert(bench('usEpa', BASE).score === 99, 'EPA baseline 99');
+  assert(bench('usEpa', BASE).score === 98, 'EPA baseline 98');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

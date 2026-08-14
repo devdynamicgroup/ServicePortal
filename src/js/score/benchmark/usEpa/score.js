@@ -20,12 +20,23 @@
     if (tds <= L.tds.smcl) return clamp(100 - (tds - 300) / 200 * 18);
     return clamp(78 - (tds - L.tds.smcl) / 12);
   }
+  /**
+   * PD-014 D2 (2026-08-14): project-defined inner residual severity within
+   * the locked 0.2/4.0 outer band. Inner plateau (0.2-1.0) sourced from
+   * cited utility operator-training "optimal range" guidance (ASDWA/PA DEP),
+   * not TH or Q-V3. Decline slope to MRDL is project-defined, no citation —
+   * see UNRESOLVED_DECISIONS.md PD-014 §D2. Outer limits unchanged.
+   */
   function gradeChlorine(cl) {
     const lo = L.chlorine.projectMin ?? L.chlorine.min;
     const hi = L.chlorine.mrdlMax ?? L.chlorine.max;
-    if (cl >= lo && cl <= hi) return 100;
     if (cl < lo) return clamp(cl / lo * 60);
-    return clamp(100 - (cl - hi) * 30);
+    // Anchored at 60 (not 100) to stay continuous with the new inner curve's
+    // value at hi (4.0) — the old formula anchored at 100, which would jump
+    // upward just past MRDL if left unanchored (monotonicity bug).
+    if (cl > hi) return clamp(60 - (cl - hi) * 30);
+    if (cl <= 1.0) return 100;
+    return clamp(100 - (cl - 1.0) / 3.0 * 40);
   }
   function gradeTurbidity(turb) {
     if (turb <= L.turbidity.ttIdeal) return 100;
@@ -34,10 +45,20 @@
     }
     return clamp(30 - (turb - L.turbidity.steepEnd) * 5);
   }
+  /**
+   * PD-014 D1 (2026-08-14): project-defined inner severity within the locked
+   * 200/600 outer band. No cited standard — see UNRESOLVED_DECISIONS.md
+   * PD-014 §D1. Outer limits (200/600) unchanged.
+   */
   function gradeOrp(orp) {
-    if (orp >= L.orp.min && orp <= L.orp.max) return 100;
-    if (orp < L.orp.min) return clamp(orp / L.orp.min * 100);
-    return clamp(100 - (orp - L.orp.max) / 10);
+    // Outer branches anchored at 70 (not 100) to stay continuous with the
+    // new inner ramp's edge value — the old formulas anchored at 100, which
+    // would jump upward just past 200/600 if left unanchored (monotonicity bug).
+    if (orp < L.orp.min) return clamp(orp / L.orp.min * 70);
+    if (orp > L.orp.max) return clamp(70 - (orp - L.orp.max) / 10);
+    if (orp >= 350 && orp <= 450) return 100;
+    if (orp < 350) return clamp(70 + (orp - 200) / 150 * 30);
+    return clamp(100 - (orp - 450) / 150 * 30);
   }
   function gradeDo(doValue) {
     if (doValue >= L.do.min) return 100;
