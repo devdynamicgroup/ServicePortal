@@ -100,6 +100,7 @@ function defaultJobDraft(job) {
     rating: 3,
     scoreVal: null,
     scoreTapFilter: 'all',
+    scoreStandardKey: 'thailand',
     scoreBaseReadings: null,
     paymentSlipPhoto: null,
     paymentSlipSource: null,
@@ -199,6 +200,10 @@ function saveActiveJobState() {
   draft.rating = S.rating;
   draft.scoreVal = S.scoreVal;
   draft.scoreTapFilter = S.scoreTapFilter;
+  // Selected Country Score standard (product decision, 2026-08-14): persisted
+  // per Case, same durable draft object as scoreTapFilter, so it survives
+  // reload/reopen instead of silently resetting to the 'thailand' default.
+  draft.scoreStandardKey = S.scoreStandardKey;
   draft.scoreBaseReadings = S.scoreBaseReadings ? { ...S.scoreBaseReadings } : null;
   draft.paymentSlipPhoto = S.paymentSlipPhoto;
   draft.paymentSlipSource = S.paymentSlipSource;
@@ -407,6 +412,10 @@ function loadJobState(job) {
   S.rating = draft.rating ?? 3;
   S.scoreVal = draft.scoreVal;
   S.scoreTapFilter = draft.scoreTapFilter || 'all';
+  // Restore this Case's own selected Country Score standard (falls back to
+  // the same 'thailand' default a brand-new Case would use). Must happen
+  // before any renderWaterScore()/Hero calculation for this Case.
+  S.scoreStandardKey = draft.scoreStandardKey || 'thailand';
   S.scoreBaseReadings = draft.scoreBaseReadings ? { ...draft.scoreBaseReadings } : null;
   // Case switch must not keep prior Case Hero / comparison objects alive.
   // Score screen recomputes from the newly loaded Case via renderWaterScore.
