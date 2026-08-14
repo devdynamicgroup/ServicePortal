@@ -21,7 +21,9 @@ const ELIGIBILITY_TASK_KEYS = Object.freeze(['tapphoto', 'meter', 'visual', 'chl
  * in validateAssessmentForComplete(), reused here rather than re-derived.
  */
 function buildReportTaskCompletion(job) {
-  const taps = (job?.draft?.tapData?.length ? job.draft.tapData : (typeof S !== 'undefined' ? S.tapData : [])) || [];
+  const taps = (typeof resolveJobTapDataForScore === 'function')
+    ? (resolveJobTapDataForScore(job) || [])
+    : ((job?.draft?.tapData?.length ? job.draft.tapData : (typeof S !== 'undefined' ? S.tapData : [])) || []);
   const tasks = {};
   ELIGIBILITY_TASK_KEYS.forEach(key => {
     tasks[key] = taps.length > 0 && taps.every(tap => Boolean(tap?.tasks?.[key]));

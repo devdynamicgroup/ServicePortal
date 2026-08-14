@@ -722,16 +722,47 @@ function mergeReadingLayers(...layers) {
 const SCORE_READY_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp']);
 
 /**
+ * True when `job` is the operator's currently active Case.
+ * Session globals (S.tapData, meter DOM) may only contribute readings for this Case.
+ */
+function isActiveScoreJob(job) {
+  if (!job || typeof S === 'undefined' || !S.activeJob) return false;
+  if (job === S.activeJob) return true;
+  const active = S.activeJob;
+  if (job.id != null && active.id != null && String(job.id) === String(active.id)) return true;
+  if (job.notionId && active.notionId && String(job.notionId) === String(active.notionId)) return true;
+  const compact = (value) => String(value || '').replace(/-/g, '');
+  if (job.notionId && active.id != null && compact(active.id) === compact(job.notionId)) return true;
+  if (active.notionId && job.id != null && compact(job.id) === compact(active.notionId)) return true;
+  return false;
+}
+
+/**
+ * Case-owned tap rows for scoring. Prefer job.draft.tapData.
+ * S.tapData is allowed only while scoring the active Case (live assessment session).
+ * Never fall back to another Case's session taps.
+ */
+function resolveJobTapDataForScore(job) {
+  const draft = job?.draft || {};
+  if (Array.isArray(draft.tapData) && draft.tapData.length) return draft.tapData;
+  if (isActiveScoreJob(job) && Array.isArray(S.tapData) && S.tapData.length) return S.tapData;
+  return Array.isArray(draft.tapData) ? draft.tapData : [];
+}
+
+/**
  * Real measurements only — never HTML placeholders, never demo fill values.
- * Sources: tap snapshots, saved draft fields, and live DOM input values.
+ * Sources: Case-owned tap snapshots and that Case's draft fields.
+ * Active-session S.tapData may supply taps only when scoring the active Case
+ * and draft.tapData is absent (see resolveJobTapDataForScore).
+ * Meter DOM (#m-*) is intentionally excluded — leftover DOM from Case A must
+ * never complete Case B's score.
  */
 function resolveScoreReadingsPresent(job) {
   const draft = job?.draft || {};
-  const fromTaps = readingsFromTapData(draft.tapData?.length ? draft.tapData : S.tapData);
+  const fromTaps = readingsFromTapData(resolveJobTapDataForScore(job));
   const fromFields = readingsFromFieldMap(draft.fields || {});
-  const fromDom = readingsFromDomFields();
   // Do not use scoreBaseReadings here — older drafts may have cached demo fill values.
-  return mergeReadingLayers(fromTaps, fromFields, fromDom);
+  return mergeReadingLayers(fromTaps, fromFields);
 }
 
 function getScoreDataReadiness(job = S.activeJob) {
@@ -740,7 +771,7 @@ function getScoreDataReadiness(job = S.activeJob) {
   const ocrBusy = Boolean(window.MeterReadingCapture?._processing)
     || Boolean(typeof processAssessmentPhoto === 'function' && processAssessmentPhoto._busy);
   const hasPhotos = (() => {
-    const taps = (job?.draft?.tapData?.length ? job.draft.tapData : S.tapData) || [];
+    const taps = resolveJobTapDataForScore(job) || [];
     return taps.some(tap => {
       const photos = tap?.photos || {};
       return Boolean(photos.tapphoto || photos.visual || photos.meter || (Array.isArray(tap?.meterImages) && tap.meterImages.length));
@@ -984,7 +1015,7 @@ function getRoomReadings(tapKey, context = getScoreEvalContext()) {
     ? context.readings
     : (S.scoreBaseReadings || {});
   const taps = S.taps?.length ? S.taps : ['Tap 1'];
-  const tapData = (S.activeJob?.draft?.tapData?.length ? S.activeJob.draft.tapData : S.tapData) || [];
+  const tapData = resolveJobTapDataForScore(S.activeJob) || [];
   const baseReady = SCORE_READY_KEYS.every(key => Number.isFinite(Number(base?.[key])));
 
   if (tapKey === 'all') {
@@ -1166,7 +1197,7 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
   if (!wrap || !track || !dotsEl) return;
 
   const taps = S.taps?.length ? S.taps : [];
-  const tapData = (S.activeJob?.draft?.tapData?.length ? S.activeJob.draft.tapData : S.tapData) || [];
+  const tapData = resolveJobTapDataForScore(S.activeJob) || [];
   const indices = S.scoreTapFilter && S.scoreTapFilter !== 'all'
     ? [taps.indexOf(S.scoreTapFilter)].filter(i => i >= 0)
     : taps.map((_, i) => i);

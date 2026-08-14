@@ -408,6 +408,13 @@ function loadJobState(job) {
   S.scoreVal = draft.scoreVal;
   S.scoreTapFilter = draft.scoreTapFilter || 'all';
   S.scoreBaseReadings = draft.scoreBaseReadings ? { ...draft.scoreBaseReadings } : null;
+  // Case switch must not keep prior Case Hero / comparison objects alive.
+  // Score screen recomputes from the newly loaded Case via renderWaterScore.
+  S.currentScoreResult = null;
+  S.comparisonScoreResult = null;
+  S.displayedScore = null;
+  const gaugeEl = typeof document !== 'undefined' ? document.getElementById('gauge-val') : null;
+  if (gaugeEl) gaugeEl.textContent = '—';
   S.paymentSlipPhoto = draft.paymentSlipPhoto;
   S.paymentSlipSource = draft.paymentSlipSource;
   S.taps = draft.taps?.length ? [...draft.taps] : [...DEFAULT_TAPS];
