@@ -151,7 +151,7 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
     const qB = sandbox.computeScoreFromReadings(CASE_B);
     console.log(`  Case B Quality=${qB} TH=${thB.score} JP=${jpB.score}`);
     assert(jpB.score === 98, `Case B: JP unchanged 98 (got ${jpB.score})`);
-    assert(thB.score === 96, `Case B: TH=96 after PD-015 (got ${thB.score})`);
+    assert(thB.score === 86, `Case B: TH=86 after ordinary-band severity (got ${thB.score})`);
     assert(thB.score !== jpB.score, 'Case B: TH may diverge from JP after PD-015');
     assert(Number.isFinite(qB) && qB < thB.score, `Case B: Quality ${qB} is not overwritten by TH ${thB.score}`);
   }
@@ -163,7 +163,7 @@ console.log('\nDifferentiation fixture — standards diverge → TH !== JP');
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH', th.score, th.params);
   console.log('  DIFF JP', jp.score, jp.params);
-  assert(th.score === 80, `DIFF Thailand = 80 after PD-015 (got ${th.score})`);
+  assert(th.score === 69, `DIFF Thailand = 69 after ordinary-band severity (got ${th.score})`);
   assert(jp.score !== th.score, `DIFF Japan ${jp.score} !== Thailand ${th.score}`);
   assert(jp.params.tds < 100, 'DIFF JP TDS below 100 (TDS 800 > JP 500)');
   assert(jp.params.turbidity < 100, 'DIFF JP turbidity below 100 (3.5 > JP 2)');
@@ -298,8 +298,8 @@ console.log('\nFull matrix (execution evidence)');
   }
   console.log('  MATRIX_JSON', JSON.stringify(matrix));
   assert(matrix.A.thailand === matrix.A.japan, 'matrix A TH===JP');
-  assert(matrix.B.thailand === 96 && matrix.B.japan === 98, 'matrix B TH=96 JP=98 after PD-015');
-  assert(matrix.DIFF.thailand === 80 && matrix.DIFF.japan === 78, 'matrix DIFF TH=80 JP=78');
+  assert(matrix.B.thailand === 86 && matrix.B.japan === 98, 'matrix B TH=86 JP=98');
+  assert(matrix.DIFF.thailand === 69 && matrix.DIFF.japan === 78, 'matrix DIFF TH=69 JP=78');
   assert(matrix.DIFF.thailand !== matrix.DIFF.japan, 'matrix DIFF TH!==JP');
 }
 

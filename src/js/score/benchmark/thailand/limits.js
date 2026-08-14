@@ -1,7 +1,9 @@
 ﻿/** Thailand benchmark — display ranges & compliance limits (local Pass/Fail).
- * PD-008 (2026-08-13): TH-CHLORINE-BAND — NO SAFE NUMERIC CHANGE to Cl 0.2–2.0.
- * PD-015 (2026-08-14): ordinary-band excellent inners narrowed (PROJECT-DEFINED).
- * Outer compliance ceilings unchanged. See PD-015-THAILAND-CALIBRATION-SPEC.md. */
+ * PD-008: Cl compliance 0.2–2.0 unchanged.
+ * PD-015: excellent inners (pH 6.8–7.8, TDS ≤80, turb ≤0.3) kept.
+ * 2026-08-14 ordinary-band severity: piecewise in-pass curves + weakest-link
+ * share so ordinary water is not averaged into 90–99. Outer pass ceilings
+ * unchanged. */
 window.ThailandBenchmarkLimits = Object.freeze({
   display: Object.freeze({
     ph: '6.5 - 8.5',
@@ -15,20 +17,21 @@ window.ThailandBenchmarkLimits = Object.freeze({
   ph: Object.freeze({
     min: 6.5,
     max: 8.5,
-    // PD-015: preferred / excellent inner inside the compliance band.
     preferredMin: 6.8,
     preferredMax: 7.8,
-    // Grade at pass edge when inside pass but outside preferred.
-    edgeGrade: 85
+    // Pass-edge grade (6.5 / 8.5). Preferred inner still 100.
+    edgeGrade: 70
   }),
   tds: Object.freeze({
     passMax: 1000,
     softStart: 1000,
     softEnd: 1500,
-    // PD-015: ordinary-band resolution (was 300).
     gradeExcellentMax: 80,
-    // Points lost from excellentMax → passMax (was 25).
-    inBandDecline: 60
+    goodMax: 150,
+    ordinaryMax: 300,
+    goodGrade: 84,
+    ordinaryGrade: 68,
+    passEdgeGrade: 40
   }),
   chlorine: Object.freeze({
     min: 0.2,
@@ -41,17 +44,29 @@ window.ThailandBenchmarkLimits = Object.freeze({
       max: 0.5,
       evidenceClass: 'OPERATIONAL',
       context: 'DoH pipe-end surveillance residual — not adopted as this engine Compliance Ideal'
-    })
+    }),
+    noticeableMax: 1.0,
+    noticeableGrade: 78,
+    passEdgeGrade: 70
   }),
   turbidity: Object.freeze({
     passMax: 5,
     softEnd: 12,
-    // PD-015: ordinary-band resolution (was 1).
     gradeExcellentMax: 0.3,
-    // Points lost from excellentMax → passMax (was 40).
-    inBandDecline: 50
+    ordinaryMax: 1,
+    ordinaryGrade: 70,
+    passEdgeGrade: 50
   }),
-  orp: Object.freeze({ min: 200, max: 600 }),
-  do: Object.freeze({ unbounded: true }),
-  temp: Object.freeze({ unbounded: true })
+  orp: Object.freeze({
+    min: 200,
+    max: 600,
+    excellentMin: 350,
+    excellentMax: 450,
+    goodMin: 300,
+    goodMax: 500,
+    goodGrade: 78
+  }),
+  // After equal-weight mean: pull 25% toward the weakest scored parameter
+  // so four perfect grades cannot hide one material miss.
+  weakestLinkShare: 0.25
 });

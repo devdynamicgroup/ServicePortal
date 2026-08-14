@@ -115,7 +115,7 @@ console.log('\nCase D — country switching routes to the selected engine, never
 console.log('\nCase E — TH severity preservation: DIFF stays 87, not further reduced by the ceiling');
 {
   const th = bench('thailand', DIFF);
-  assert(th.score === 80, `TH DIFF raw composite already below ceiling, unchanged at 80 (got ${th.score})`);
+  assert(th.score === 69, `TH DIFF raw composite already below ceiling, unchanged at 69 (got ${th.score})`);
 }
 
 console.log('\nCase F — existing near-ideal fixture: raw 100 -> Hero 99');

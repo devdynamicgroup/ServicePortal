@@ -96,7 +96,7 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   assert(bench('thailand', CASE_A) === 99, 'TH Case A = 99');
   assert(bench('japan', CASE_A) === 99, 'Japan Case A = 99');
   // PD-014 D1 (2026-08-14): CASE_B orp=507 now inner-declines (was flat 100).
-  assert(bench('thailand', CASE_B) === 96, 'TH Case B = 96 (PD-015)');
+  assert(bench('thailand', CASE_B) === 86, 'TH Case B = 86 (ordinary-band severity)');
   assert(bench('japan', CASE_B) === 98, 'Japan Case B = 98 (DO excluded from JP index — PD-012 B)');
 }
 
@@ -110,7 +110,7 @@ console.log('\nCountry differentiation on locked sample (standards differ)');
   console.log('  locked TH/JP/WHO/EU', th, jp, who, eu);
   assert(th !== eu, 'Thailand ≠ EU on locked sample');
   assert(jp !== eu, 'Japan ≠ EU on locked sample');
-  assert(th === 89 && who === 93, 'TH/WHO differentiation preserved (TH 89 after PD-015)');
+  assert(th === 77 && who === 93, 'TH/WHO differentiation preserved (TH 77 after ordinary-band severity)');
 }
 
 console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
@@ -123,7 +123,7 @@ console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
   const th = bench('thailand', DIFF);
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH/JP', th, jp);
-  assert(th === 80, `DIFF Thailand = 80 after PD-015 (got ${th})`);
+  assert(th === 69, `DIFF Thailand = 69 after ordinary-band severity (got ${th})`);
   assert(jp !== th, `DIFF Japan ${jp} !== Thailand ${th}`);
 }
 

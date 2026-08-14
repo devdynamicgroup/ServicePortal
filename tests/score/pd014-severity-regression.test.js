@@ -143,12 +143,13 @@ console.log('\nOrdinary/good/near-ideal separation — the actual product fix, p
   const BASE = { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 };
   const CASE_B = { ph: 7.9, tds: 155, turbidity: 0.6, orp: 507, chlorine: 0.5, do: 5.2, temp: 31.0 };
   const CASE_1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06 };
+  const CASE_810 = { ph: 7.81, tds: 138, turbidity: 0.46, orp: 499.3, do: 5.31, chlorine: 0.37 };
   const th = {
     base: sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', BASE).score,
-    good: sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', CASE_B).score,
+    good: sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', CASE_810).score,
     ideal: sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', CASE_1328).score
   };
-  assert(th.base < th.good && th.good < th.ideal, `TH: ordinary(${th.base}) < good(${th.good}) < near-ideal(${th.ideal})`);
+  assert(th.base < th.good && th.good < th.ideal, `TH: ordinary(${th.base}) < better(${th.good}) < near-ideal(${th.ideal})`);
   const jp = {
     base: sandbox.WaterScoreBenchmarkRegistry.calculate('japan', BASE).score,
     good: sandbox.WaterScoreBenchmarkRegistry.calculate('japan', CASE_B).score,

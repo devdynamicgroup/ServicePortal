@@ -59,14 +59,16 @@ console.log('\nPD-015 limits locked');
 {
   const L = sandbox.ThailandBenchmarkLimits;
   assert(L.tds.gradeExcellentMax === 80, 'TDS excellentMax 80');
-  assert(L.tds.inBandDecline === 60, 'TDS inBandDecline 60');
+  assert(L.tds.goodMax === 150 && L.tds.ordinaryMax === 300, 'TDS good/ordinary breakpoints');
+  assert(L.tds.passEdgeGrade === 40, 'TDS passEdge 40');
   assert(L.tds.passMax === 1000, 'TDS passMax unchanged');
   assert(L.turbidity.gradeExcellentMax === 0.3, 'turb excellentMax 0.3');
-  assert(L.turbidity.inBandDecline === 50, 'turb inBandDecline 50');
+  assert(L.turbidity.ordinaryMax === 1 && L.turbidity.ordinaryGrade === 70, 'turb ordinary 1 NTU → 70');
   assert(L.ph.preferredMin === 6.8 && L.ph.preferredMax === 7.8, 'pH preferred 6.8–7.8');
-  assert(L.ph.edgeGrade === 85, 'pH edgeGrade 85');
+  assert(L.ph.edgeGrade === 70, 'pH edgeGrade 70');
   assert(L.chlorine.min === 0.2 && L.chlorine.max === 2.0, 'Cl compliance unchanged');
   assert(L.orp.min === 200 && L.orp.max === 600, 'ORP outer unchanged');
+  assert(L.weakestLinkShare === 0.25, 'weakest-link share 0.25');
 }
 
 console.log('\nExisting Cases — natural ordering + no 97–99 ordinary cluster');
@@ -77,10 +79,10 @@ console.log('\nExisting Cases — natural ordering + no 97–99 ordinary cluster
   const f = th(FAUCET).score;
   const s = th(SINK).score;
   console.log(`  scores faucet=${f} sink=${s} NewC811=${a} NewC810=${b} 13.28=${c}`);
-  assert(a === 95, `New C 8/11 TH=95 (got ${a})`);
-  assert(b === 97, `New C 8/10 TH=97 (got ${b})`);
+  assert(a === 86, `New C 8/11 TH=86 (got ${a})`);
+  assert(b === 88, `New C 8/10 TH=88 (got ${b})`);
   assert(c === 99, `13.28 TH=99 ceiling (got ${c})`);
-  assert(f === 73, `faucet TH=73 (got ${f})`);
+  assert(f === 55, `faucet TH=55 (got ${f})`);
   assert(f < a && a < b && b < c, 'ordering faucet < 8/11 < 8/10 < 13.28');
   assert(!(a >= 97 && b >= 97 && c >= 97 && a <= 99 && b <= 99 && c <= 99 && a === 97 && b === 98),
     'ordinary trio no longer the pre-PD-015 97/98/99 cluster');
