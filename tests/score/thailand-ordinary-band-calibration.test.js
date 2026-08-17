@@ -111,11 +111,12 @@ console.log('\nOther engines + Q-V3 unchanged on New C 8/11');
 {
   const r = NEW_C_811;
   // Japan pH/chlorine inner curves (2026-08-17, PO-approved): chlorine=0.7
-  // and pH=7.85 are past their new ideal windows, pulling Japan to 90 (was 98).
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 90, 'JP 90');
-  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): New C 8/11's
-  // worst classification on WHO/EPA is WARNING, now capped 85 (was 93/98).
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', r).score === 85, 'WHO 85 (WARNING cap)');
+  // and pH=7.85 are past their new ideal windows. Score Architecture V6
+  // (2026-08-17, PO-approved): weakest-link aggregation pulls Japan to 86.
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 86, 'JP 86');
+  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepening
+  // crosses New C 8/11's chlorine=0.7 from WARNING into FAIL, FAIL cap (75) applies.
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', r).score === 75, 'WHO 75 (FAIL cap)');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', r).score === 65, 'EU 65');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 85, 'EPA 85 (WARNING cap)');
   assert(sandbox.computeQualityScoreDetail(r).score === 76, 'Q-V3 76');

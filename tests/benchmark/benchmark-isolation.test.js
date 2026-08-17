@@ -235,9 +235,16 @@ console.log('\nTest 7 — Benchmark scores locked (must not drift)');
   // turbidity=2.5 classifies WARNING on Japan/WHO, now capped 85 (was 96/93).
   // Thailand chlorine curve steepened + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
   // Japan turbidity inner curve (2026-08-17, PO-approved): turbidity=2.5 now
-  // grades 40 (flat zone 2-6 NTU, PO-approved edge grade), CRITICAL (was
-  // WARNING/grade~88), severity-capped at 60 (was 85).
-  const expected = { thailand: 70, who: 85, eu: 65, japan: 60, usEpa: 75 };
+  // grades 40 (flat zone 2-6 NTU, PO-approved edge grade), CRITICAL.
+  // Score Architecture V6 (2026-08-17, PO-approved): Japan/WHO/EU/US EPA now
+  // use weakest-link aggregation (share=0.25); WHO pH ceiling (<8.0) +
+  // chlorine steepening added. LOCKED: japan 60->57 (weakest-link pulls the
+  // already-CRITICAL-capped composite's raw aggregate below 60 itself, so
+  // the cap is now a no-op). WHO: chlorine=0.8 now grades 64 (steepened
+  // curve) instead of the old flat 80, crossing WHO's own classify()
+  // threshold from WARNING into FAIL, so the FAIL cap (75) now applies
+  // instead of the WARNING cap (85).
+  const expected = { thailand: 70, who: 75, eu: 65, japan: 57, usEpa: 75 };
   for (const key of KEYS) {
     const score = reg.calculate(key, SAMPLE).score;
     assert(score === expected[key], `${key} score locked at ${expected[key]} (got ${score})`);

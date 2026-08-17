@@ -60,12 +60,16 @@ const scoreFlowSrc = fs.readFileSync(path.join(root, 'src/js/flows/score.js'), '
 // reading's chlorine=0.7 (past the 0.2-0.5 project-defined ideal) and
 // pH=7.85 (past the cited 7.3-7.7 ideal) now decline, pulling Japan to 90
 // (was 98).
+// Score Architecture V6 (2026-08-17, PO-approved): Japan/WHO/EU/US EPA now
+// use weakest-link aggregation (share=0.25); WHO chlorine steepened
+// (0.7mg/L now grades lower, crossing WHO's own WARNING/FAIL classify()
+// threshold).
 const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
   thailand: 81,
-  japan: 90,
-  who: 85,
+  japan: 86,
+  who: 75,
   eu: 65,
   usEpa: 85
 });
@@ -153,25 +157,22 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   const overlap = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06 };
   const thOverlap = bench('thailand', overlap).score;
   const jpOverlap = bench('japan', overlap).score;
-  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves TH's
-  // raw composite for this reading from 98.9 to 98.35 (rounds to 98). Japan
-  // pH/TDS/chlorine inner curves (2026-08-17, PO-approved) independently pull
-  // JP's raw-100 composite for this same reading down to 98 too (pH=7.79 just
-  // past the cited 7.3-7.7 ideal). The two engines land on the same number
-  // again by coincidence — PD-005 forbids treating either outcome (equal or
-  // unequal) as a ranking; both are valid, so this now demonstrates the
-  // "equal is fine, not a ranking" case again.
-  assert(thOverlap === 98 && jpOverlap === 98 && thOverlap === jpOverlap,
-    'TH/JP scores may coincide — PD-005 forbids reading that as a ranking (98 = 98)');
+  // Score Architecture V6 (2026-08-17, PO-approved): Japan now uses
+  // weakest-link aggregation (share=0.25), pulling this reading's composite
+  // slightly toward its weakest grade (pH=91): 98 -> 97. TH stays 98 (own
+  // weakest-link share unchanged at 0.5). They no longer coincide — PD-005
+  // forbids treating either outcome (equal or unequal) as a ranking; both
+  // are valid, so this now demonstrates the "genuinely differ" case again.
+  assert(thOverlap === 98 && jpOverlap === 97 && thOverlap !== jpOverlap,
+    'TH/JP scores genuinely differ — PD-005 forbids reading that as a ranking (98 vs 97)');
   const thBaseline = bench('thailand', BASELINE.readings);
   const jpBaseline = bench('japan', BASELINE.readings);
-  // Thailand chlorine curve + weakest-link share (2026-08-17, PO-approved) and
-  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved) independently
-  // move TH to 81 and JP to 90 for this reading — no longer identical via any
-  // mechanism. This is the intended product fix: ordinary water no longer
-  // collapses to one shared number.
-  assert(thBaseline.score === 81 && jpBaseline.score === 90,
-    'BASELINE TH 81 !== JP 90 (real separation, not a ranking)');
+  // Score Architecture V6 (2026-08-17, PO-approved): Japan's weakest-link
+  // aggregation (share=0.25) pulls this reading's composite down further
+  // (86, was 90) — still genuinely different from Thailand's 81, just not
+  // via the exact same margin as before.
+  assert(thBaseline.score === 81 && jpBaseline.score === 86,
+    'BASELINE TH 81 !== JP 86 (real separation, not a ranking)');
   assert(thBaseline.params.chlorine < 100, 'TH chlorine grade already below 100 pre-ceiling (in-band severity)');
   assert(jpBaseline.params.orp < 100, 'JP orp grade now below 100 for orp=515 (PD-014 D1 inner decline)');
   assert(!scoreFlowSrc.includes('strictest cleanliness expectations'),
@@ -281,11 +282,15 @@ console.log('\nPD-012 B — Japan DO excluded from Compliance Index (I2 den)');
     den += W[key];
   }
   assert(Math.abs(den - 0.88) < 1e-9, 'reconstructed den excludes do:0.12');
-  // low.score is post-Hero-ceiling; compare against the raw weighted mean
+  // low.score is post-Hero-ceiling; compare against the raw weakest-link
+  // blend (Score Architecture V6, 2026-08-17, PO-approved, share=0.25)
   // through the same shared ceiling function, not a duplicated formula.
-  const rawMean = Math.round(num / den);
-  assert(sandbox.applyCountryBenchmarkHeroCeiling(rawMean) === low.score,
-    `JP score matches five-param weighted mean through Hero ceiling (raw ${rawMean} -> ${low.score})`);
+  const mean = num / den;
+  const weakest = Math.min(low.params.ph, low.params.tds, low.params.chlorine, low.params.turbidity, low.params.orp);
+  const share = sandbox.JapanBenchmarkLimits.weakestLinkShare;
+  const rawBlend = Math.round((1 - share) * mean + share * weakest);
+  assert(sandbox.applyCountryBenchmarkHeroCeiling(rawBlend) === low.score,
+    `JP score matches five-param weakest-link blend through Hero ceiling (raw ${rawBlend} -> ${low.score})`);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

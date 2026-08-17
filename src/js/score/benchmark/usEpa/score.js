@@ -107,15 +107,22 @@
     const cl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
     if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
-      return incomplete('US EPA', 'usEpa', { readings, engineVersion: 'v2', standardRevision: 'US EPA-inspired Compliance Index (Cl: project floor 0.2 + MRDL 4.0; MCL/SMCL/TT-style)' });
+      return incomplete('US EPA', 'usEpa', { readings, engineVersion: 'v3', standardRevision: 'US EPA-inspired Compliance Index (Cl: project floor 0.2 + MRDL 4.0; MCL/SMCL/TT-style)' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
       turbidity: gradeTurbidity(turb), orp: gradeOrp(orp), do: gradeDo(do_)
     };
     let num = 0; let den = 0;
-    Object.keys(W).forEach(key => { num += params[key] * W[key]; den += W[key]; });
-    const rawScore = Math.round(num / den);
+    const scoredGrades = [];
+    Object.keys(W).forEach(key => { num += params[key] * W[key]; den += W[key]; scoredGrades.push(params[key]); });
+    // 2026-08-17 (PO-approved, weakest-link share 0.25 — weaker than
+    // Thailand's 0.5): pulls the raw weighted mean 25% toward the single
+    // weakest scored parameter so it isn't diluted away by the other five.
+    const mean = num / den;
+    const weakest = Math.min(...scoredGrades);
+    const share = Number(L.weakestLinkShare) || 0;
+    const rawScore = Math.round((1 - share) * mean + share * weakest);
 
     const pass = {
       ph: ph >= L.ph.min && ph <= L.ph.max,
@@ -210,7 +217,7 @@
       statuses,
       findings,
       readings,
-      engineVersion: 'v2',
+      engineVersion: 'v3',
       standardRevision: 'US EPA-inspired Compliance Index (Cl: project floor 0.2 + MRDL 4.0; MCL/SMCL/TT-style)'
     });
 

@@ -145,8 +145,10 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
     // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved): TH's raw
     // composite is now 98.35 (rounds to 98, below ceiling). Japan pH inner
     // curve (2026-08-17, PO-approved): CASE_A's pH=7.79 is just past the
-    // 7.3-7.7 ideal window (grade 91), also pulling Japan to 98 -- coincide again.
-    assert(thA.score === 98 && jpA.score === 98, 'Case A: TH=98, JP=98 (coincide again, not a ranking)');
+    // 7.3-7.7 ideal window (grade 91). Score Architecture V6 (2026-08-17,
+    // PO-approved): Japan's own weakest-link aggregation pulls it to 97 --
+    // genuinely differ again, not coincidence.
+    assert(thA.score === 98 && jpA.score === 97, 'Case A: TH=98, JP=97 (genuinely differ, not a ranking)');
     assert(Number.isFinite(qA) && qA < thA.score, `Case A: Quality ${qA} is not overwritten by TH ${thA.score}`);
   }
   {
@@ -155,8 +157,9 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
     const qB = sandbox.computeScoreFromReadings(CASE_B);
     console.log(`  Case B Quality=${qB} TH=${thB.score} JP=${jpB.score}`);
     // Japan pH inner curve (2026-08-17, PO-approved): CASE_B's pH=7.9 is past
-    // the 7.3-7.7 ideal window (grade 80), pulling Japan to 95 (was 98).
-    assert(jpB.score === 95, `Case B: JP 95 (got ${jpB.score})`);
+    // the 7.3-7.7 ideal window (grade 80). Score Architecture V6 (2026-08-17,
+    // PO-approved): weakest-link aggregation pulls Japan to 91.
+    assert(jpB.score === 91, `Case B: JP 91 (got ${jpB.score})`);
     // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 83 (was 86).
     assert(thB.score === 83, `Case B: TH=83 after ordinary-band severity (got ${thB.score})`);
     assert(thB.score !== jpB.score, 'Case B: TH may diverge from JP after PD-015');
@@ -242,9 +245,10 @@ console.log('\nHero data source contract — live display is country engine; Qua
   assert(quality === 92, `Case A Quality locked evidence = 92 (got ${quality})`);
   // Thailand's weakest-link share update (2026-08-17, PO-approved) rounds its
   // raw composite to 98 for this reading. Japan pH inner curve (2026-08-17,
-  // PO-approved): pH=7.79 is just past the ideal window, also rounding to 98
-  // (both below the ceiling).
-  assert(th.score === 98 && jp.score === 98, 'TH=98, JP=98 (both below ceiling) while Quality 92');
+  // PO-approved): pH=7.79 is just past the ideal window. Score Architecture
+  // V6 (2026-08-17, PO-approved): Japan's own weakest-link aggregation pulls
+  // it to 97 (both below the ceiling).
+  assert(th.score === 98 && jp.score === 97, 'TH=98, JP=97 (both below ceiling) while Quality 92');
 }
 
 console.log('\nCase persistence — benchmark switch must not wipe caseId / measurements');
@@ -309,16 +313,17 @@ console.log('\nFull matrix (execution evidence)');
   }
   console.log('  MATRIX_JSON', JSON.stringify(matrix));
   // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved): TH moves
-  // for A/B/DIFF. Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved):
-  // JP also moves for A/B/DIFF (each has pH/tds/chlorine past its new ideal
-  // window) — A coincides with TH again by coincidence.
-  assert(matrix.A.thailand === 98 && matrix.A.japan === 98, 'matrix A TH=98, JP=98');
-  assert(matrix.B.thailand === 83 && matrix.B.japan === 95, 'matrix B TH=83 JP=95');
+  // for A/B/DIFF. Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved)
+  // + Score Architecture V6 weakest-link aggregation (2026-08-17, PO-approved):
+  // JP also moves for A/B/DIFF — A and TH genuinely differ now (98 vs 97).
+  assert(matrix.A.thailand === 98 && matrix.A.japan === 97, 'matrix A TH=98, JP=97');
+  assert(matrix.B.thailand === 83 && matrix.B.japan === 91, 'matrix B TH=83 JP=91');
   // Japan turbidity inner curve (2026-08-17, PO-approved): DIFF's
-  // turbidity=3.5 now grades 40 (flat zone 2-6 NTU), CRITICAL (was
-  // FAIL/grade~78), severity-capped at 60 (was 75). Thailand's own chlorine
-  // curve + weakest-link update (2026-08-17) separately moves its DIFF score to 46.
-  assert(matrix.DIFF.thailand === 46 && matrix.DIFF.japan === 54, 'matrix DIFF TH=46 JP=54');
+  // turbidity=3.5 now grades 40 (flat zone 2-6 NTU), CRITICAL. Score
+  // Architecture V6: weakest-link aggregation pulls it further to 45.
+  // Thailand's own chlorine curve + weakest-link update (2026-08-17)
+  // separately moves its DIFF score to 46.
+  assert(matrix.DIFF.thailand === 46 && matrix.DIFF.japan === 45, 'matrix DIFF TH=46 JP=45');
   assert(matrix.DIFF.thailand !== matrix.DIFF.japan, 'matrix DIFF TH!==JP');
 }
 

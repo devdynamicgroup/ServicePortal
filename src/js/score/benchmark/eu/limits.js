@@ -27,5 +27,10 @@ window.EuBenchmarkLimits = Object.freeze({
   temp: Object.freeze({ max: 25 }),
   gateCapOnChlorineFail: 65,
   gateCapProvenance: 'project-defined-pd-002',
-  gateCapEvidenceClass: 'UNSUPPORTED'
+  gateCapEvidenceClass: 'UNSUPPORTED',
+  // 2026-08-17 (PO-approved, weaker than Thailand's 0.5): pulls the raw
+  // weighted-mean composite 25% toward the single weakest scored parameter,
+  // so one materially weak parameter has a proportionate effect instead of
+  // being diluted by five unrelated PASS parameters.
+  weakestLinkShare: 0.25
 });

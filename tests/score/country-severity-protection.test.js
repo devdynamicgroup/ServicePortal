@@ -141,7 +141,7 @@ console.log('\nA. Numeric protection — FAIL caps at 75, CRITICAL caps at 60');
   const fixtures = {
     japan: [['pH=4.5', { ...IDEAL, ph: 4.5 }], ['chlorine=0', { ...IDEAL, chlorine: 0 }], ['turbidity=10', { ...IDEAL, turbidity: 10 }]],
     who: [['pH=4.5', { ...IDEAL, ph: 4.5 }], ['chlorine=0', { ...IDEAL, chlorine: 0 }], ['DO=0', { ...IDEAL, do: 0 }]],
-    usEpa: [['pH=4.5', { ...IDEAL, ph: 4.5 }], ['chlorine=0', { ...IDEAL, chlorine: 0 }], ['DO=0', { ...IDEAL, do: 0 }], ['turbidity=10', { ...IDEAL, turbidity: 10 }]]
+    usEpa: [['pH=4.5', { ...IDEAL, ph: 4.5 }], ['chlorine=0', { ...IDEAL, chlorine: 0 }], ['DO=0', { ...IDEAL, do: 0 }]]
   };
   for (const [c, cases] of Object.entries(fixtures)) {
     for (const [label, r] of cases) {
@@ -149,6 +149,11 @@ console.log('\nA. Numeric protection — FAIL caps at 75, CRITICAL caps at 60');
       assert(res.score === 60, `${c} ${label} -> CRITICAL -> 60 (got ${res.score}, worst=${JSON.stringify(res.classifications)})`);
     }
   }
+  // Score Architecture V6 (2026-08-17, PO-approved): US EPA weakest-link
+  // aggregation (share=0.25) pulls turbidity=10's raw composite itself below
+  // the 60 CRITICAL cap -- the cap is correctly a no-op here (ceiling, not floor).
+  const epaTurbCrit = bench('usEpa', { ...IDEAL, turbidity: 10 });
+  assert(epaTurbCrit.score === 55, `usEpa turbidity=10 -> CRITICAL -> 55, raw already below the 60 cap (got ${epaTurbCrit.score})`);
 }
 
 console.log('\nA. Boundary — pre-protection score exactly at/under the cap is a no-op');
@@ -181,11 +186,16 @@ console.log('\nC. Country isolation — Thailand numerically unaffected; EU chlo
   // EU non-chlorine severity coverage (2026-08-14): pH=4.5 now classifies FAIL
   // on EU AND is no longer isolated from the generic cap — this is the
   // intended new behavior (was 88 uncapped pre-fix).
+  // Score Architecture V6 (2026-08-17, PO-approved): EU weakest-link
+  // aggregation (share=0.25) pulls this reading's raw composite itself
+  // below the 75 FAIL cap -- correctly a no-op (ceiling, not floor).
   const euCritical = bench('eu', { ...IDEAL, ph: 4.5 });
   assert(euCritical.classifications.ph === 'FAIL', 'EU still classifies pH=4.5 as FAIL (classification logic untouched)');
-  assert(euCritical.score === 75, `EU pH=4.5 (non-chlorine FAIL) now capped at 75 (got ${euCritical.score})`);
+  assert(euCritical.score === 71, `EU pH=4.5 (non-chlorine FAIL): raw already below the 75 cap (got ${euCritical.score})`);
+  // chlorine=0 grades 0 (extreme), so weakest-link now pulls the raw
+  // composite below the dedicated 65 gate too -- gate is correctly a no-op.
   const euCl0 = bench('eu', { ...IDEAL, chlorine: 0 });
-  assert(euCl0.score === 65, `EU chlorine=0 still exactly its own existing gate value 65, not overridden by the generic CRITICAL=60 (got ${euCl0.score})`);
+  assert(euCl0.score === 56, `EU chlorine=0: raw already below its own 65 gate, not raised to it (got ${euCl0.score})`);
 }
 
 console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-approved)');
@@ -194,22 +204,28 @@ console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-ap
   const newc810 = { ph: 7.81, tds: 14.672, turbidity: 0.46, orp: 499.3, do: 5.31, chlorine: 0.37 };
   const c1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3 };
   // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): chlorine=0.7
-  // and pH=7.85 are past their new ideal windows, pulling Japan to 90 (was 98).
-  assert(bench('japan', newc811).score === 90, 'New C 8/11 JP 90 (chlorine/pH past ideal)');
-  // WHO/EPA: worst=WARNING (chlorine and/or do) -> now capped at 85, was 93/98 pre-fix.
-  assert(bench('who', newc811).score === 85, `New C 8/11 WHO worst=WARNING -> capped 85 (was 93 pre-fix)`);
+  // and pH=7.85 are past their new ideal windows. Score Architecture V6
+  // (2026-08-17, PO-approved): Japan weakest-link aggregation (share=0.25)
+  // pulls the composite further to 86 (was 90).
+  assert(bench('japan', newc811).score === 86, 'New C 8/11 JP 86 (chlorine/pH past ideal, weakest-link)');
+  // Score Architecture V6: WHO chlorine steepening (0.7mg/L) crosses WHO's
+  // own WARNING->FAIL classify() threshold, so the FAIL cap (75) now applies
+  // instead of the WARNING cap (85). EPA WARNING cap unaffected (85).
+  assert(bench('who', newc811).score === 75, `New C 8/11 WHO worst=FAIL (chlorine steepening) -> capped 75 (got ${bench('who', newc811).score})`);
   assert(bench('usEpa', newc811).score === 85, `New C 8/11 EPA worst=WARNING -> capped 85 (was 98 pre-fix)`);
   assert(bench('eu', newc811).score === 65, 'New C 8/11 EU unchanged 65 (chlorine CRITICAL dominates, generic cap does not lower it further)');
   // Japan pH inner curve (2026-08-17, PO-approved): pH=7.81 is just past the
-  // 7.3-7.7 ideal window (grade 89), pulling Japan to 97 (was 99).
-  assert(bench('japan', newc810).score === 97, 'New C 8/10 JP 97 (pH past ideal)');
+  // 7.3-7.7 ideal window (grade 89). Score Architecture V6: weakest-link
+  // pulls the composite further to 95 (was 97).
+  assert(bench('japan', newc810).score === 95, 'New C 8/10 JP 95 (pH past ideal, weakest-link)');
   assert(bench('who', newc810).score === 85, `New C 8/10 WHO worst=WARNING -> capped 85 (was 96 pre-fix)`);
   assert(bench('usEpa', newc810).score === 85, `New C 8/10 EPA worst=WARNING -> capped 85 (was 98 pre-fix)`);
   // EU non-chlorine severity coverage (2026-08-14): DO=FAIL now capped at 75 (was 98 uncapped pre-fix).
   assert(bench('eu', newc810).score === 75, 'New C 8/10 EU now capped 75 (DO FAIL, non-chlorine severity coverage)');
   // Japan pH inner curve (2026-08-17, PO-approved): pH=7.79 is just past the
-  // 7.3-7.7 ideal window (grade 91), pulling Japan to 98 (was 99).
-  assert(bench('japan', c1328).score === 98, '13.28 JP 98 (pH past ideal)');
+  // 7.3-7.7 ideal window (grade 91). Score Architecture V6: weakest-link
+  // pulls the composite further to 97 (was 98).
+  assert(bench('japan', c1328).score === 97, '13.28 JP 97 (pH past ideal, weakest-link)');
   assert(bench('who', c1328).score === 99, '13.28 WHO unchanged 99 (all-PASS, worst=PASS, WARNING cap is a no-op)');
   assert(bench('usEpa', c1328).score === 99, '13.28 EPA unchanged 99 (all-PASS, worst=PASS, WARNING cap is a no-op)');
   // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 98 (was 99), unrelated to this file's WARNING-cap topic.
@@ -234,10 +250,14 @@ console.log('\nD2. WARNING cap engine isolation — Thailand/EU never see a WARN
 
 console.log('\nK. EU non-chlorine severity-protection coverage (2026-08-14, PO-approved)');
 {
-  // A. Existing chlorine behavior — chlorine CRITICAL must remain exactly 65, never 60.
+  // A. Existing chlorine behavior. Score Architecture V6 (2026-08-17,
+  // PO-approved): weakest-link aggregation (share=0.25) now pulls this
+  // reading's raw composite (chlorine grades 0, extreme) below the 65 gate
+  // itself, so the gate is correctly a no-op (ceiling, not floor) and the
+  // lower raw value (56) stands, not 65 or the generic 60.
   const euClCrit = bench('eu', { ...IDEAL, chlorine: 0 });
   assert(euClCrit.classifications.chlorine === 'CRITICAL', 'EU chlorine=0 classifies CRITICAL');
-  assert(euClCrit.score === 65, `A: chlorine CRITICAL stays exactly 65 (got ${euClCrit.score})`);
+  assert(euClCrit.score === 56, `A: chlorine CRITICAL, raw already below the 65 gate (got ${euClCrit.score})`);
 
   // B. DO severity — DO FAIL while chlorine PASS -> capped at 75.
   const euDoFail = bench('eu', { ...IDEAL, do: 4.5 });
@@ -258,14 +278,15 @@ console.log('\nK. EU non-chlorine severity-protection coverage (2026-08-14, PO-a
   assert(euTurbCrit.classifications.turbidity === 'CRITICAL' && euTurbCrit.classifications.chlorine === 'PASS', 'turbidity CRITICAL, chlorine PASS');
   assert(euTurbCrit.score <= 60, `D: non-chlorine CRITICAL (chlorine PASS) does not exceed 60 (got ${euTurbCrit.score})`);
 
-  // E1. Combined severity, rawScore > 65 — chlorine's dedicated 65 gate must
-  // remain dominant; the generic CRITICAL=60 must NOT pull it down to 60.
-  // (65 is a CEILING via Math.min, not a forced value — this fixture's raw
-  // aggregate is well above 65 before any gate applies, so 65 is the correct
-  // binding constraint here.)
+  // E1. Combined severity. Score Architecture V6 (2026-08-17, PO-approved):
+  // with weakest-link aggregation now live, two independently degraded
+  // parameters (chlorine=0 grades 0, do=4.5 grades 75) pull the raw
+  // composite itself to 54 -- below BOTH the 65 chlorine gate and the 75
+  // FAIL cap, so both are correctly no-ops (ceiling, not floor) and the
+  // genuinely lower raw value stands.
   const euCombinedHigh = bench('eu', { ...IDEAL, chlorine: 0, do: 4.5 });
   assert(euCombinedHigh.classifications.chlorine === 'CRITICAL' && euCombinedHigh.classifications.do === 'FAIL', 'E1: chlorine CRITICAL + DO FAIL');
-  assert(euCombinedHigh.score === 65, `E1 (rawScore>65): stays exactly 65, not pulled to 60 (got ${euCombinedHigh.score})`);
+  assert(euCombinedHigh.score === 54, `E1: raw composite (54) now below both caps, neither raises it (got ${euCombinedHigh.score})`);
 
   // E2. Combined severity, rawScore < 65 — the chlorine gate is Math.min, a
   // ceiling not a floor. When OTHER parameters independently degrade the raw
@@ -298,9 +319,12 @@ console.log('\nE. Catastrophic fixtures (all cap to exactly 60, in-scope engines
   const cases = [
     ['japan', { ...IDEAL, ph: 4.5 }], ['japan', { ...IDEAL, chlorine: 0 }], ['japan', { ...IDEAL, turbidity: 10 }],
     ['who', { ...IDEAL, ph: 4.5 }], ['who', { ...IDEAL, chlorine: 0 }], ['who', { ...IDEAL, do: 0 }],
-    ['usEpa', { ...IDEAL, ph: 4.5 }], ['usEpa', { ...IDEAL, chlorine: 0 }], ['usEpa', { ...IDEAL, do: 0 }], ['usEpa', { ...IDEAL, turbidity: 10 }]
+    ['usEpa', { ...IDEAL, ph: 4.5 }], ['usEpa', { ...IDEAL, chlorine: 0 }], ['usEpa', { ...IDEAL, do: 0 }]
   ];
   for (const [c, r] of cases) assert(bench(c, r).score === 60, `${c} catastrophic fixture -> 60`);
+  // Score Architecture V6 (2026-08-17, PO-approved): US EPA weakest-link
+  // aggregation pulls turbidity=10's raw composite below the 60 cap itself.
+  assert(bench('usEpa', { ...IDEAL, turbidity: 10 }).score === 55, 'usEpa turbidity=10 catastrophic fixture -> 55 (raw below cap)');
 }
 
 console.log('\nF. Presentation — classification-aware, in-scope engines only');
@@ -332,7 +356,9 @@ console.log('\nF2. Presentation — EU/Thailand never activate the new country p
   sandbox.setScoreReferenceStandard('eu');
   const euDisplayed = sandbox.S.displayedScore;
   assert(euDisplayed.engineKey === 'eu', 'EU engine correctly selected');
-  assert(euDisplayed.score === 65, 'EU chlorine=0 still exactly 65 (existing gate, not new mechanism)');
+  // Score Architecture V6 (2026-08-17, PO-approved): weakest-link pulls the
+  // raw composite below the 65 gate itself (see section K.A above).
+  assert(euDisplayed.score === 56, 'EU chlorine=0 now 56 (weakest-link, gate correctly a no-op)');
 }
 
 console.log('\nG. Ceiling interaction — 99 ceiling still fires for uncapped PASS readings');
@@ -373,14 +399,29 @@ console.log('\nJ. WARNING presentation (2026-08-14) — reuses existing withinLi
   const newc811 = { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 };
   const c1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3 };
 
+  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepening
+  // crosses newc811's chlorine=0.7 from WARNING into FAIL classification, so
+  // this fixture no longer demonstrates the WARNING presentation branch on
+  // WHO -- it now correctly takes the FAIL path instead.
   const who811 = switchAndRead('who', newc811);
-  assert(who811.score === 85 && who811.classifications && sandbox.worstBenchmarkClassification(who811.classifications) === 'WARNING',
-    'New C 8/11 WHO is score=85, worst=WARNING (numeric unchanged by this presentation fix)');
+  assert(who811.score === 75 && who811.classifications && sandbox.worstBenchmarkClassification(who811.classifications) === 'FAIL',
+    'New C 8/11 WHO is score=75, worst=FAIL (chlorine steepening crosses WARNING->FAIL)');
   const who811Verdict = sandbox.comparisonPresentationVerdict(who811.score, who811.classifications, who811.engineKey);
-  assert(who811Verdict.label === 'score.benchmark.verdict.withinLimits',
-    `WHO WARNING label is withinLimits, not passBand (got "${who811Verdict.label}")`);
-  assert(who811Verdict.label !== 'score.benchmark.verdict.passBand', 'WHO WARNING label is NOT passBand');
-  assert(who811Verdict.label !== 'score.verdict.complianceWarning', 'WHO WARNING label is NOT the FAIL-tier complianceWarning string (distinct tiers)');
+  assert(who811Verdict.label === 'score.verdict.complianceWarning',
+    `WHO FAIL label is complianceWarning (got "${who811Verdict.label}")`);
+  assert(who811Verdict.label !== 'score.benchmark.verdict.passBand', 'WHO FAIL label is NOT passBand');
+  assert(who811Verdict.label !== 'score.benchmark.verdict.withinLimits', 'WHO FAIL label is NOT the WARNING-tier withinLimits string (distinct tiers)');
+
+  // WHO WARNING presentation still demonstrated by newc810 (do=5.31,
+  // unaffected by the chlorine steepening — this fixture's chlorine=0.37 is
+  // inside WHO's ideal band, not past it).
+  const newc810 = { ph: 7.81, tds: 14.672, turbidity: 0.46, orp: 499.3, do: 5.31, chlorine: 0.37 };
+  const who810 = switchAndRead('who', newc810);
+  assert(who810.score === 85 && who810.classifications && sandbox.worstBenchmarkClassification(who810.classifications) === 'WARNING',
+    'New C 8/10 WHO is score=85, worst=WARNING');
+  const who810Verdict = sandbox.comparisonPresentationVerdict(who810.score, who810.classifications, who810.engineKey);
+  assert(who810Verdict.label === 'score.benchmark.verdict.withinLimits',
+    `WHO WARNING label is withinLimits, not passBand (got "${who810Verdict.label}")`);
 
   const epa811 = switchAndRead('usEpa', newc811);
   const epa811Verdict = sandbox.comparisonPresentationVerdict(epa811.score, epa811.classifications, epa811.engineKey);
@@ -392,13 +433,14 @@ console.log('\nJ. WARNING presentation (2026-08-14) — reuses existing withinLi
 
   // Case 1328: all-PASS on JP/WHO/EPA — must remain passBand, unaffected by the new WARNING branch.
   // Japan pH inner curve (2026-08-17, PO-approved): pH=7.79 is just past the
-  // 7.3-7.7 ideal window (grade 91), pulling Japan to 98 (was 99) — still PASS
-  // classification, so still passBand; only WHO/EPA stay at 99.
+  // 7.3-7.7 ideal window (grade 91) — still PASS classification, so still
+  // passBand. Score Architecture V6 (2026-08-17, PO-approved): Japan's
+  // weakest-link aggregation (share=0.25) pulls the composite further to 97.
   for (const key of ['japan', 'who', 'usEpa']) {
     const r = switchAndRead(key, c1328);
     const v = sandbox.comparisonPresentationVerdict(r.score, r.classifications, r.engineKey);
     assert(v.label === 'score.benchmark.verdict.passBand', `Case 1328 ${key} still passBand (got "${v.label}")`);
-    const expected = key === 'japan' ? 98 : 99;
+    const expected = key === 'japan' ? 97 : 99;
     assert(r.score === expected, `Case 1328 ${key} score numerically ${expected} (got ${r.score})`);
   }
 

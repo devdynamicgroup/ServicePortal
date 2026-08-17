@@ -181,7 +181,9 @@ console.log('\nZero drift: production + benchmark scores unchanged with Phase C 
   // Japan turbidity inner curve (2026-08-17, PO-approved): turbidity=2.5 now
   // grades 40 (flat zone 2-6 NTU, PO-approved edge grade), CRITICAL (was
   // WARNING/grade~88), severity-capped at 60 (was 85).
-  const expected = { thailand: 70, who: 85, eu: 65, japan: 60, usEpa: 75 };
+  // Score Architecture V6 (2026-08-17, PO-approved): Japan/WHO/EU/US EPA now
+  // use weakest-link aggregation (share=0.25); WHO chlorine steepened.
+  const expected = { thailand: 70, who: 75, eu: 65, japan: 57, usEpa: 75 };
   for (const key of Object.keys(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS).score === expected[key],
       `${key} score still locked at ${expected[key]}`);

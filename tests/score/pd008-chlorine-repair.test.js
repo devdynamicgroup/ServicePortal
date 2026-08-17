@@ -203,11 +203,12 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
   // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 81 (was 86).
   assert(bench('thailand', BASE).score === 81, 'TH baseline 81 (ordinary-band severity)');
   // Japan pH/chlorine inner curves (2026-08-17, PO-approved): chlorine=0.7 and
-  // pH=7.85 are past their new ideal windows, pulling Japan to 90 (was 98).
-  assert(bench('japan', BASE).score === 90, 'JP baseline 90');
-  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): BASE's worst
-  // classification on WHO/EPA is WARNING, now capped 85 (was 93/98).
-  assert(bench('who', BASE).score === 85, 'WHO baseline 85 (WARNING cap)');
+  // pH=7.85 are past their new ideal windows. Score Architecture V6
+  // (2026-08-17, PO-approved): weakest-link aggregation pulls Japan to 86.
+  assert(bench('japan', BASE).score === 86, 'JP baseline 86');
+  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepening
+  // crosses BASE's chlorine=0.7 from WARNING into FAIL, FAIL cap (75) applies.
+  assert(bench('who', BASE).score === 75, 'WHO baseline 75 (FAIL cap)');
   assert(bench('eu', BASE).score === 65, 'EU baseline 65');
   assert(bench('usEpa', BASE).score === 85, 'EPA baseline 85 (WARNING cap)');
 }

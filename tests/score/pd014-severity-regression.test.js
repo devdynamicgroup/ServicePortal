@@ -84,7 +84,10 @@ console.log('\nD2 — EPA chlorine boundary values');
 
 console.log('\nD3 — WHO chlorine below-min boundary values');
 {
-  const expected = { 0: 0, 0.1: 40, 0.19: 76, 0.2: 100, 0.5: 100, 1.0: 80, 2.0: 50 };
+  // Score Architecture V6 (2026-08-17, PO-approved, evidence: WHO Technical
+  // Notes 11.1-11.4): 1.0/2.0 steepened (were 80/50, flat tiers) to a ramp
+  // 100->40 (0.5-1.0) continued to 25 by 2.0.
+  const expected = { 0: 0, 0.1: 40, 0.19: 76, 0.2: 100, 0.5: 100, 1.0: 40, 2.0: 25 };
   for (const [cl, exp] of Object.entries(expected)) {
     assert(gradeWhoCl(Number(cl)) === exp, `WHO Cl ${cl} = ${exp} (got ${gradeWhoCl(Number(cl))})`);
   }
@@ -92,8 +95,11 @@ console.log('\nD3 — WHO chlorine below-min boundary values');
   for (let i = 1; i < ramp.length; i++) assert(ramp[i] >= ramp[i - 1], `WHO Cl below-min ramp monotonic non-decreasing (${ramp[i - 1]}->${ramp[i]})`);
   assert(sandbox.WhoBenchmarkLimits.chlorine.idealMin === 0.2 && sandbox.WhoBenchmarkLimits.chlorine.idealMax === 0.5,
     'WHO Cl outer tier boundaries unchanged (PD-013)');
-  assert(gradeWhoCl(0.51) === 80 && gradeWhoCl(1.5) === 50 && gradeWhoCl(3) === 25,
-    'WHO Cl existing tiers >=0.2 unchanged');
+  // Score Architecture V6 (2026-08-17, PO-approved): steepened decline
+  // (0.51 was 80 flat-tier, now 98.8 just past the ideal edge; 1.5 was 50,
+  // now 32.5 on the steeper ramp; 3 stays 25, the unchanged poor-tier floor).
+  assert(gradeWhoCl(0.51) === 98.8 && gradeWhoCl(1.5) === 32.5 && gradeWhoCl(3) === 25,
+    'WHO Cl steepened decline (2026-08-17)');
 }
 
 console.log('\nParameter isolation — changing ORP does not move any other parameter grade');

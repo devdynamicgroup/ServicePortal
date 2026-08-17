@@ -97,14 +97,16 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   // Case A's raw composite to 98.35 (rounds to 98, below the ceiling).
   assert(bench('thailand', CASE_A) === 98, 'TH Case A = 98');
   // Japan pH inner curve (2026-08-17, PO-approved): CASE_A's pH=7.79 is just
-  // past the 7.3-7.7 ideal window (grade 91), pulling Japan to 98 (was 99).
-  assert(bench('japan', CASE_A) === 98, 'Japan Case A = 98');
+  // past the 7.3-7.7 ideal window (grade 91). Score Architecture V6
+  // (2026-08-17, PO-approved): weakest-link aggregation pulls Japan to 97.
+  assert(bench('japan', CASE_A) === 97, 'Japan Case A = 97');
   // PD-014 D1 (2026-08-14): CASE_B orp=507 now inner-declines (was flat 100).
   // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 83 (was 86).
   assert(bench('thailand', CASE_B) === 83, 'TH Case B = 83 (ordinary-band severity)');
   // Japan pH inner curve (2026-08-17, PO-approved): CASE_B's pH=7.9 is past
-  // the 7.3-7.7 ideal window (grade 80), pulling Japan to 95 (was 98).
-  assert(bench('japan', CASE_B) === 95, 'Japan Case B = 95 (DO excluded from JP index — PD-012 B)');
+  // the 7.3-7.7 ideal window (grade 80). Score Architecture V6 (2026-08-17,
+  // PO-approved): weakest-link aggregation pulls Japan to 91.
+  assert(bench('japan', CASE_B) === 91, 'Japan Case B = 91 (DO excluded from JP index — PD-012 B)');
 }
 
 console.log('\nCountry differentiation on locked sample (standards differ)');
@@ -117,20 +119,20 @@ console.log('\nCountry differentiation on locked sample (standards differ)');
   console.log('  locked TH/JP/WHO/EU', th, jp, who, eu);
   assert(th !== eu, 'Thailand ≠ EU on locked sample');
   assert(jp !== eu, 'Japan ≠ EU on locked sample');
-  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): LOCKED's worst
-  // classification on WHO is WARNING, now capped 85 (was 93).
   // Thailand chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
-  assert(th === 70 && who === 85, 'TH/WHO differentiation preserved (TH 70, WHO 85 WARNING cap)');
+  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepening
+  // crosses LOCKED's chlorine=0.8 from WARNING into FAIL, FAIL cap (75) applies.
+  assert(th === 70 && who === 75, 'TH/WHO differentiation preserved (TH 70, WHO 75 FAIL cap)');
 }
 
 console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
 {
   // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves TH's
-  // Case A composite to 98. Japan pH inner curve (2026-08-17, PO-approved)
-  // independently pulls Japan to 98 too -- the two now coincide again by
-  // coincidence. PD-005 forbids treating either outcome (equal or not) as a
-  // ranking; both are valid.
-  assert(bench('thailand', CASE_A) === 98 && bench('japan', CASE_A) === 98, 'Case A TH=98, JP=98 (coincide again, not a ranking)');
+  // Case A composite to 98. Score Architecture V6 (2026-08-17, PO-approved):
+  // Japan's own weakest-link aggregation pulls it to 97 instead -- the two no
+  // longer coincide. PD-005 forbids treating either outcome (equal or not) as
+  // a ranking; both are valid.
+  assert(bench('thailand', CASE_A) === 98 && bench('japan', CASE_A) === 97, 'Case A TH=98, JP=97 (genuinely differ, not a ranking)');
   assert(bench('thailand', CASE_B) !== bench('japan', CASE_B), 'Case B TH!==JP after PD-015');
   // Differentiation: inside TH pass windows, outside JP stricter TDS/turb/Cl.
   const DIFF = { ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28 };

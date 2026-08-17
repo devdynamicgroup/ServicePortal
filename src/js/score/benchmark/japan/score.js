@@ -142,7 +142,7 @@
     if (![ph, tds, turb, orp, cl].every(Number.isFinite)) {
       return incomplete('Japan', 'japan', {
         readings,
-        engineVersion: 'v2',
+        engineVersion: 'v3',
         standardRevision: 'Japan-style Compliance Index (project engine; DO NOT_EVALUATED — PD-012 B; JP-WEIGHTS values unchanged — PD-013 A)'
       });
     }
@@ -157,14 +157,25 @@
     let num = 0;
     let den = 0;
     // PD-012 B + PD-013 A (I2): keep W.do = 0.12 in weights.js; exclude from both num and den.
+    const scoredGrades = [];
     Object.keys(W).forEach((key) => {
       if (key === 'do') return;
       if (!SCORED_KEYS.includes(key)) return;
       if (!Number.isFinite(params[key])) return;
       num += params[key] * W[key];
       den += W[key];
+      scoredGrades.push(params[key]);
     });
-    const rawScore = den > 0 ? Math.round(num / den) : null;
+    // 2026-08-17 (PO-approved, weakest-link share 0.25 — weaker than
+    // Thailand's 0.5): pulls the raw weighted mean 25% toward the single
+    // weakest scored parameter so it isn't diluted away by the other four.
+    let rawScore = null;
+    if (den > 0 && scoredGrades.length) {
+      const mean = num / den;
+      const weakest = Math.min(...scoredGrades);
+      const share = Number(L.weakestLinkShare) || 0;
+      rawScore = Math.round((1 - share) * mean + share * weakest);
+    }
 
     const pass = {
       ph: ph >= L.ph.min && ph <= L.ph.max,
@@ -269,7 +280,7 @@
       // e277362f both shipped as 'v1.0') — v1 does not correspond to any
       // single historical baseline, so this is a fresh starting point, not a
       // precise reconstruction of prior history.
-      engineVersion: 'v2',
+      engineVersion: 'v3',
       standardRevision: 'Japan-style Compliance Index (project engine; DO NOT_EVALUATED — PD-012 B; JP-WEIGHTS values unchanged — PD-013 A)'
     });
 

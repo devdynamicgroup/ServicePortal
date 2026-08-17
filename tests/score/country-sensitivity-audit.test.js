@@ -177,6 +177,14 @@ console.log('\nNOT FIXED (governance) — pH flat-in-band for non-TH/JP engines;
       assert(Math.round(grade(key, 'ph', mid)) === 90, `japan pH mid-band (${mid}) declines to 90`);
       assert(grade(key, 'ph', nearLow) < 100, 'japan pH near-low declines');
       assert(grade(key, 'ph', nearHigh) < 100, 'japan pH near-high declines');
+    } else if (key === 'who') {
+      // Score Architecture V6 (2026-08-17, PO-approved, evidence: WHO/SDE/
+      // WSH/07.01/1 "pH should preferably be less than 8.0"): asymmetric —
+      // only an upper ceiling is cited, so 6.5-8.0 stays flat 100 (no lower-
+      // bound evidence), but above 8.0 now declines toward the legal max (8.5).
+      assert(grade(key, 'ph', mid) === 100, `who pH mid-band (${mid}, below 8.0 ceiling) = 100`);
+      assert(grade(key, 'ph', nearLow) === 100, 'who pH near-low = 100 (below 8.0 ceiling)');
+      assert(grade(key, 'ph', nearHigh) < 100, 'who pH near-high (8.4, past 8.0 ceiling) declines');
     } else {
       assert(grade(key, 'ph', mid) === 100, `${key} pH mid-band = 100 (compliance flat)`);
       assert(grade(key, 'ph', nearLow) === 100, `${key} pH near-low = 100`);
@@ -226,8 +234,12 @@ console.log('\nAcceptable narrow residual / ideal plateaus (not the TH overfit d
   assert(grade('eu', 'chlorine', 0.1) === 100 && grade('eu', 'chlorine', 0.5) === 100,
     'EU Cl 0.1–0.5 project residual');
   assert(bench('eu', { ...IDEAL, chlorine: 0.7 }).score <= 65, 'EU Cl fail gated ≤65');
-  assert(grade('who', 'chlorine', 0.3) === 100 && grade('who', 'chlorine', 0.7) === 80,
-    'WHO Cl ideal 0.2–0.5 then tiered');
+  // Score Architecture V6 (2026-08-17, PO-approved, evidence: WHO Technical
+  // Notes 11.1-11.4 — "optimum chlorine residual... 0.2 to 0.5mg/l"):
+  // steepened the 0.5-1.0 decline (was flat 80) to a ramp 100->40, mirroring
+  // the same WHO taste-threshold evidence already used for Thailand.
+  assert(grade('who', 'chlorine', 0.3) === 100 && grade('who', 'chlorine', 0.7) === 76,
+    'WHO Cl ideal 0.2–0.5 then steepened decline');
   // Japan turbidity inner curve (2026-08-17, PO-approved): grade-100 now
   // only holds ≤1 NTU (cited MHLW aesthetic target); 2 NTU (legal compliance
   // edge, still PASS) grades 40, and 3.5 NTU (past compliance) also grades
@@ -330,7 +342,9 @@ console.log('\nMissing-data country semantics');
   // Japan pH inner curve (2026-08-17, PO-approved): IDEAL's ph=7.2 is just
   // past the cited 7.3-7.7 ideal window (grade 90), so the raw composite is
   // 98, not 100 — the Hero ceiling is correctly a no-op here.
-  assert(bench('japan', { ...IDEAL, do: null }).score === 98
+  // Score Architecture V6 (2026-08-17, PO-approved): Japan weakest-link
+  // aggregation pulls IDEAL's composite to 96 (was 98).
+  assert(bench('japan', { ...IDEAL, do: null }).score === 96
     && bench('japan', { ...IDEAL, do: null }).classifications.do === 'NOT_EVALUATED',
     'JP missing DO still scores / NOT_EVALUATED');
   assert(bench('eu', { ...IDEAL, do: null }).score == null, 'EU missing DO incomplete');
@@ -444,8 +458,10 @@ console.log('\nWHO Cl 0 vs 1.0 (PD-014 D3, 2026-08-14 — below-min ramp authori
 {
   const zero = bench('who', { ...IDEAL, chlorine: 0 });
   const one = bench('who', { ...IDEAL, chlorine: 1.0 });
-  assert(zero.params.chlorine === 0 && one.params.chlorine === 80,
-    'WHO Cl 0 grades 0 (below-min ramp), Cl 1.0 still grades 80 (fair bucket, unchanged)');
+  // Score Architecture V6 (2026-08-17, PO-approved): Cl 1.0 now grades 40
+  // (steepened decline, was flat 80) — the below-min ramp at Cl=0 is unchanged.
+  assert(zero.params.chlorine === 0 && one.params.chlorine === 40,
+    'WHO Cl 0 grades 0 (below-min ramp, unchanged), Cl 1.0 now grades 40 (steepened)');
   const neg = pipeline({ ...IDEAL, chlorine: -1 }, 'who');
   assert(neg.resolved.chlorine === undefined || neg.eng.score == null,
     'WHO Cl=-1 does not reach a finite score (validator strips implausible)');
@@ -466,11 +482,14 @@ console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA
   // BASE orp=515 is now inside the D1 outer-decline ramp on every engine
   // (>450) — no longer flat 100, so JP/WHO/EPA BASE genuinely move down.
   // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): BASE's
-  // chlorine=0.7/pH=7.85 also decline now, pulling Japan further to 90.
-  assert(bench('japan', BASE).score === 90, 'JP BASE 90 (chlorine/pH past ideal, orp inner-declines)');
-  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): BASE's worst
-  // classification on WHO/EPA is WARNING -> capped 85 (was 93/98).
-  assert(bench('who', BASE).score === 85, 'WHO BASE 85 (WARNING cap; was 93 pre-cap)');
+  // chlorine=0.7/pH=7.85 also decline now. Score Architecture V6 (2026-08-17,
+  // PO-approved): Japan's weakest-link aggregation (share=0.25) pulls the
+  // composite further to 86 (was 90).
+  assert(bench('japan', BASE).score === 86, 'JP BASE 86 (chlorine/pH past ideal, weakest-link)');
+  // WARNING severity cap=85 (2026-08-14, PO-approved numeric) on EPA.
+  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepened
+  // (0.7mg/L crosses WARNING->FAIL classify() threshold), FAIL cap (75) applies.
+  assert(bench('who', BASE).score === 75, 'WHO BASE 75 (FAIL cap; chlorine steepening crosses WARNING->FAIL)');
   assert(bench('eu', BASE).score === 65, 'EU BASE 65 (unchanged — chlorine gate already dominates composite)');
   assert(bench('usEpa', BASE).score === 85, 'EPA BASE 85 (WARNING cap; was 98 pre-cap)');
   assert(sandbox.computeQualityScoreDetail(BASE).score === 76, 'Q-V3 BASE 76 (unaffected by Country changes)');
@@ -478,20 +497,21 @@ console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA
   // so only EPA DIFF moves, and only because D2 now grades its chlorine=1.5
   // below 100 (was flat 100 across the whole 0.2-4.0 window pre-D2).
   // Japan turbidity/TDS/chlorine inner curves (2026-08-17, PO-approved):
-  // DIFF's turbidity=3.5 (grade 40), tds=800 (grade 20, past the 500 legal
-  // ceiling too), and chlorine=1.5 (grade 40) are now all CRITICAL. Raw
-  // composite is 54, already below the CRITICAL cap (60) -- the cap is
-  // correctly a no-op (ceiling, not floor), not raised to 60.
-  assert(bench('japan', DIFF).score === 54, 'JP DIFF 54 (tds/cl/turbidity CRITICAL, raw already below cap)');
-  assert(bench('eu', DIFF).score === 61, 'EU DIFF 61 (unaffected — D1 no-op at orp=350, D2/D3 out of scope for EU)');
+  // DIFF's turbidity=3.5 (grade 40), tds=800 (grade 20), and chlorine=1.5
+  // (grade 40) are now all CRITICAL. Score Architecture V6 (2026-08-17,
+  // PO-approved): Japan/EU/WHO/US EPA weakest-link aggregation (share=0.25)
+  // pulls all four further toward their own worst grade.
+  assert(bench('japan', DIFF).score === 45, 'JP DIFF 45 (tds/cl/turbidity CRITICAL, weakest-link)');
+  assert(bench('eu', DIFF).score === 51, 'EU DIFF 51 (weakest-link pulls raw further down)');
   // Country severity protection (2026-08-14): DIFF's TDS=800/chlorine=1.5 are
-  // FAIL on WHO/EPA, now capped at 75 (was 81/78 uncapped).
-  assert(bench('who', DIFF).score === 75, 'WHO DIFF 75 (TDS/Cl FAIL, severity-capped)');
-  assert(bench('usEpa', DIFF).score === 75, 'EPA DIFF 75 (TDS FAIL, severity-capped)');
+  // FAIL on WHO/EPA. Score Architecture V6: weakest-link pulls WHO's raw
+  // aggregate itself below the 75 FAIL cap (now a no-op, ceiling not floor).
+  assert(bench('who', DIFF).score === 60, 'WHO DIFF 60 (raw aggregate now below the FAIL cap)');
+  assert(bench('usEpa', DIFF).score === 71, 'EPA DIFF 71 (weakest-link pulls raw below the 75 FAIL cap)');
   // Japan turbidity inner curve (2026-08-17, PO-approved): LOCKED's
-  // turbidity=2.5 now grades 40 (flat zone 2-6 NTU), CRITICAL (was
-  // WARNING/grade~88), severity-capped at 60 (was 85).
-  assert(bench('japan', LOCKED).score === 60, 'JP LOCKED 60 (turbidity CRITICAL, severity-capped)');
+  // turbidity=2.5 now grades 40 (flat zone 2-6 NTU), CRITICAL. Score
+  // Architecture V6: weakest-link pulls the composite to 57 (was 60).
+  assert(bench('japan', LOCKED).score === 57, 'JP LOCKED 57 (turbidity CRITICAL, weakest-link)');
   // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
   assert(bench('thailand', LOCKED).score === 70, 'TH LOCKED 70 after ordinary-band severity (orp=350 still excellent)');
 }

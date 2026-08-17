@@ -10,8 +10,22 @@
   const incomplete = typeof incompleteBenchmarkMetadata === 'function'
     ? incompleteBenchmarkMetadata : () => ({ score: null });
 
+  function lerp(x, x0, x1, y0, y1) {
+    if (x1 === x0) return y0;
+    const t = (x - x0) / (x1 - x0);
+    return y0 + (y1 - y0) * Math.max(0, Math.min(1, t));
+  }
+  /**
+   * 2026-08-17 (PO-approved, evidence: WHO/SDE/WSH/07.01/1 "pH should
+   * preferably be less than 8.0" for effective chlorine disinfection).
+   * Legal band (6.5-8.5) unchanged; adds a cited upper ceiling (8.0) with a
+   * ramp to the project-chosen edge grade (40) at the legal max (8.5). No
+   * lower-bound evidence exists, so 6.5-8.0 stays flat 100 as before.
+   */
   function gradePh(ph) {
-    if (ph >= L.ph.min && ph <= L.ph.max) return 100;
+    if (ph >= L.ph.min && ph <= L.ph.idealCeiling) return 100;
+    if (ph > L.ph.idealCeiling && ph <= L.ph.max) return clamp(lerp(ph, L.ph.idealCeiling, L.ph.max, 100, L.ph.edgeGrade));
+    if (ph > L.ph.max) return clamp(L.ph.edgeGrade - (ph - L.ph.max) * 10);
     if (ph >= L.ph.fairMin && ph <= L.ph.fairMax) return 70;
     if (ph >= L.ph.poorMin && ph <= L.ph.poorMax) return 40;
     return 15;
@@ -52,9 +66,9 @@
   function gradeChlorine(fcl) {
     if (fcl >= L.chlorine.idealMin && fcl <= L.chlorine.idealMax) return 100;
     if (fcl < L.chlorine.idealMin) return clamp(fcl / L.chlorine.idealMin * 80);
-    if (fcl <= L.chlorine.fair) return 80;
-    if (fcl <= L.chlorine.poor) return 50;
-    return 25;
+    if (fcl <= L.chlorine.fair) return clamp(lerp(fcl, L.chlorine.idealMax, L.chlorine.fair, 100, L.chlorine.noticeableGrade));
+    if (fcl <= L.chlorine.poor) return clamp(lerp(fcl, L.chlorine.fair, L.chlorine.poor, L.chlorine.noticeableGrade, L.chlorine.poorGrade));
+    return L.chlorine.poorGrade;
   }
   function gradeDo(doValue) {
     if (doValue >= L.do.min) return 100;
@@ -98,15 +112,25 @@
     const fcl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
     if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
-      return incomplete('WHO', 'who', { readings, engineVersion: 'v2', standardRevision: 'WHO-inspired guideline proximity engine (project scoring; not an official WHO index)' });
+      return incomplete('WHO', 'who', { readings, engineVersion: 'v3', standardRevision: 'WHO-inspired guideline proximity engine (project scoring; not an official WHO index)' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), turbidity: gradeTurbidity(turb),
       orp: gradeOrp(orp), chlorine: gradeChlorine(fcl), do: gradeDo(do_)
     };
     let num = 0; let den = 0;
-    Object.keys(W).forEach(key => { num += params[key] * W[key]; den += W[key]; });
-    const rawScore = Math.round(num / den);
+    const scoredGrades = [];
+    Object.keys(W).forEach(key => {
+      num += params[key] * W[key]; den += W[key];
+      scoredGrades.push(params[key]);
+    });
+    // 2026-08-17 (PO-approved, weakest-link share 0.25 — weaker than
+    // Thailand's 0.5): pulls the raw weighted mean 25% toward the single
+    // weakest scored parameter so it isn't diluted away by the other five.
+    const mean = num / den;
+    const weakest = Math.min(...scoredGrades);
+    const share = Number(L.weakestLinkShare) || 0;
+    const rawScore = Math.round((1 - share) * mean + share * weakest);
 
     const ideal = {
       ph: ph >= L.ph.min && ph <= L.ph.max,
@@ -204,7 +228,7 @@
       statuses,
       findings,
       readings,
-      engineVersion: 'v2',
+      engineVersion: 'v3',
       standardRevision: 'WHO-inspired guideline proximity engine (project scoring; not an official WHO index)'
     });
 

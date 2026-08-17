@@ -64,10 +64,9 @@ console.log('\nLocked sample (legacy DWQI freeze)');
   // WARNING severity cap=85 (2026-08-14, PO-approved numeric): this fixture's
   // turbidity=2.5 classifies WARNING on Japan/WHO, now capped 85 (was 96/93).
   // Thailand chlorine curve steepened + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
-  // Japan turbidity inner curve (2026-08-17, PO-approved): turbidity=2.5 now
-  // grades 40 (flat zone 2-6 NTU, PO-approved edge grade), CRITICAL (was
-  // WARNING/grade~88), severity-capped at 60 (was 85).
-  const expected = { thailand: 70, who: 85, eu: 65, japan: 60, usEpa: 75 };
+  // Score Architecture V6 (2026-08-17, PO-approved): Japan/WHO/EU/US EPA now
+  // use weakest-link aggregation (share=0.25); WHO chlorine steepened.
+  const expected = { thailand: 70, who: 75, eu: 65, japan: 57, usEpa: 75 };
   for (const [key, score] of Object.entries(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, LOCKED).score === score,
       `${key} locked = ${score}`);
@@ -88,8 +87,11 @@ console.log('\nCase 13.28 — Quality V2 + benchmarks');
   // pre-ceiling raw composite from 98.9 to 98.35, rounding to 98 (below the
   // ceiling, so the ceiling itself does not apply here) instead of 99.
   // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): pH=7.79 is
-  // just past the 7.3-7.7 ideal window (grade 91), pulling Japan to 98.
-  const expected = { thailand: 98, who: 99, eu: 99, japan: 98, usEpa: 99 };
+  // just past the 7.3-7.7 ideal window (grade 91).
+  // Score Architecture V6 (2026-08-17, PO-approved): Japan now uses
+  // weakest-link aggregation (share=0.25), pulling the composite slightly
+  // toward the weakest (pH=91) grade: 98 -> 97.
+  const expected = { thailand: 98, who: 99, eu: 99, japan: 97, usEpa: 99 };
   for (const [key, score] of Object.entries(expected)) {
     const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, CASE_1328);
     assert(result.score === score, `${key} Case 13.28 = ${score}`);

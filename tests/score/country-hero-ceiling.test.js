@@ -67,10 +67,11 @@ console.log('\nCase A — country raw composite 100 -> Hero 99');
   for (const key of KEYS) {
     const r = bench(key, IDEAL);
     // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): IDEAL's
-    // ph=7.2 is just past the cited 7.3-7.7 ideal window (grade 90), so
-    // Japan's raw composite for this fixture is no longer 100 -- the
-    // ceiling is correctly a no-op here (98 < 99), not a regression.
-    const expected = key === 'japan' ? 98 : 99;
+    // ph=7.2 is just past the cited 7.3-7.7 ideal window (grade 90). Score
+    // Architecture V6 (2026-08-17, PO-approved): Japan's weakest-link
+    // aggregation (share=0.25) pulls the composite further toward that
+    // weakest grade -- 96, not 98 -- still correctly below the 99 ceiling.
+    const expected = key === 'japan' ? 96 : 99;
     assert(r.score === expected, `${key} raw-100 fixture (IDEAL) ${key === 'japan' ? 'below ceiling' : 'capped to 99'} (got ${r.score})`);
   }
 }
@@ -83,11 +84,14 @@ console.log('\nCase B — country raw composite below ceiling stays unaffected B
   // (2026-08-14, PO-approved numeric) then further caps BASE's worst=WARNING
   // composite (was 93 pre-cap). What this case still proves is that values
   // already below 99 pass through the (unrelated, unmodified) ceiling untouched.
-  assert(bench('who', BASE).score === 85, 'WHO BASE 85 (WARNING cap; still < 99, ceiling no-op)');
+  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepened
+  // (0.7mg/L grades lower, crossing WARNING->FAIL) + weakest-link aggregation.
+  assert(bench('who', BASE).score === 75, 'WHO BASE 75 (FAIL cap; still < 99, ceiling no-op)');
   assert(bench('eu', BASE).score === 65, 'EU BASE 65 unaffected (chlorine gate dominates; ceiling no-op)');
-  // Country severity protection (2026-08-14): DIFF's TDS=800 is FAIL on EPA,
-  // now capped at 75 (was 78 uncapped under D2 alone).
-  assert(bench('usEpa', DIFF).score === 75, 'EPA DIFF 75 (TDS FAIL, severity-capped)');
+  // Country severity protection (2026-08-14): DIFF's TDS=800 is FAIL on EPA.
+  // Score Architecture V6 (2026-08-17, PO-approved): US EPA weakest-link
+  // aggregation pulls the raw composite further, but the FAIL cap (75) still binds.
+  assert(bench('usEpa', DIFF).score === 71, 'EPA DIFF 71 (weakest-link pulls raw below the 75 FAIL cap)');
 }
 
 console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / published Q-V3');
@@ -96,8 +100,10 @@ console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / 
   assert(quality === 76, `Q-V3 BASE stays 76, unrounded by Country ceiling (got ${quality})`);
   const jp = bench('japan', BASE).score;
   // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): BASE's
-  // chlorine=0.7/pH=7.85 now decline, pulling Japan to 90 (was 98).
-  assert(jp === 90 && jp !== quality, 'Country Hero (90) numerically independent of Q-V3 (76)');
+  // chlorine=0.7/pH=7.85 now decline. Score Architecture V6 (2026-08-17,
+  // PO-approved): Japan's weakest-link aggregation (share=0.25) pulls the
+  // composite further to 86 (was 90).
+  assert(jp === 86 && jp !== quality, 'Country Hero (86) numerically independent of Q-V3 (76)');
   // Direct proof the ceiling function itself never touches non-country scores:
   // it is a pure function applied only inside finalizeBenchmarkMetadata(),
   // never called by computeQualityScoreV2.js / computeProductionScore.js.
@@ -137,11 +143,12 @@ console.log('\nCase F — existing near-ideal fixture: raw 100 -> Hero 99');
   // raw composite for this reading from 98.9 to 98.35 (rounds to 98) -- below
   // the 99 ceiling, so the ceiling itself is a no-op here (not a regression).
   // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): CASE_1328's
-  // ph=7.79 is just past the cited 7.3-7.7 ideal window (grade 91), pulling
-  // Japan's raw composite below 100 too -- ceiling is a no-op (98 < 99).
+  // ph=7.79 is just past the cited 7.3-7.7 ideal window (grade 91). Score
+  // Architecture V6 (2026-08-17, PO-approved): Japan's weakest-link
+  // aggregation (share=0.25) pulls the composite further to 97 (was 98).
   for (const key of KEYS) {
     const r = bench(key, CASE_1328);
-    const expected = key === 'thailand' || key === 'japan' ? 98 : 99;
+    const expected = key === 'thailand' ? 98 : (key === 'japan' ? 97 : 99);
     assert(r.score === expected, `${key} Case 1328 (pre-existing near-ideal fixture) = ${expected} (got ${r.score})`);
   }
 }

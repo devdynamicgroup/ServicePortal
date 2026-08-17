@@ -28,5 +28,10 @@ window.UsEpaBenchmarkLimits = Object.freeze({
   turbidity: Object.freeze({ ttIdeal: 1, steepEnd: 5 }),
   orp: Object.freeze({ min: 200, max: 600 }),
   do: Object.freeze({ min: 6 }),
-  temp: Object.freeze({ max: 30 })
+  temp: Object.freeze({ max: 30 }),
+  // 2026-08-17 (PO-approved, weaker than Thailand's 0.5): pulls the raw
+  // weighted-mean composite 25% toward the single weakest scored parameter,
+  // so one materially weak parameter has a proportionate effect instead of
+  // being diluted by five unrelated PASS parameters.
+  weakestLinkShare: 0.25
 });
