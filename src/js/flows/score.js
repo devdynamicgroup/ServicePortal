@@ -1133,22 +1133,43 @@ function renderScoreReadings(context = getScoreEvalContext()) {
   listEl.classList.remove('is-loading');
   listEl.innerHTML = rows.map(r => {
     const statusKey = paramStatusUiKey(r.st);
+    const key = paramKey(r.p);
     if (statusKey === 'pending') {
-      return `<div class="score-metric-row is-pending">
-  <span class="score-metric-name">${r.p}</span>
-  <span class="score-metric-range">${r.std}</span>
-  <span class="score-metric-value score-metric-skel">&nbsp;</span>
-  <span class="score-metric-status score-metric-skel"><i class="score-dot" aria-hidden="true"></i>${statusLabels.pending}</span>
+      return `<div class="score-metric-item">
+  <div class="score-metric-row is-pending">
+    <span class="score-metric-name">${r.p}</span>
+    <span class="score-metric-range">${r.std}</span>
+    <span class="score-metric-value score-metric-skel">&nbsp;</span>
+    <span class="score-metric-status score-metric-skel"><i class="score-dot" aria-hidden="true"></i>${statusLabels.pending}</span>
+  </div>
 </div>`;
     }
     const statusLabel = statusLabels[statusKey];
-    return `<div class="score-metric-row is-${statusKey}">
-  <span class="score-metric-name">${r.p}</span>
-  <span class="score-metric-range">${r.std}</span>
-  <span class="score-metric-value">${r.r}</span>
-  <span class="score-metric-status"><i class="score-dot" aria-hidden="true"></i>${statusLabel}</span>
+    const expanded = S.scoreMetricOpen === key;
+    return `<div class="score-metric-item${expanded ? ' is-open' : ''}">
+  <button type="button" class="score-metric-row is-${statusKey}" aria-expanded="${expanded}" onclick="toggleScoreMetricDetail('${key}')">
+    <span class="score-metric-name">${r.p}</span>
+    <span class="score-metric-range">${r.std}</span>
+    <span class="score-metric-value">${r.r}</span>
+    <span class="score-metric-status"><i class="score-dot" aria-hidden="true"></i>${statusLabel}</span>
+    <span class="score-metric-caret" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+  </button>
+  <div class="score-metric-detail"${expanded ? '' : ' hidden'}>
+    <p class="score-metric-meaning">${paramMeaningText(r.p, statusKey === 'good' ? 'good' : 'attn')}</p>
+    <dl class="score-metric-facts">
+      <div><dt>${t('score.result')}</dt><dd>${r.r}</dd></div>
+      <div><dt>${t('score.standard')}</dt><dd>${r.std}</dd></div>
+      <div><dt>${t('score.status')}</dt><dd class="is-${statusKey}">${statusLabel}</dd></div>
+    </dl>
+  </div>
 </div>`;
   }).join('');
+}
+
+/** Expands one metric row's detail panel. Display-only — never recalculates a score. */
+function toggleScoreMetricDetail(key) {
+  S.scoreMetricOpen = S.scoreMetricOpen === key ? null : key;
+  renderScoreReadings();
 }
 
 /** "Fix first" / "Room to improve" — attention-status rows for the currently viewed location. */
