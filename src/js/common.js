@@ -38,6 +38,33 @@ function allJobStepsDone(pkg = S.pkg, stepsDone = S.stepsDone) {
   return missingJobSteps(pkg, stepsDone).length === 0;
 }
 
+function publishIdempotencyStorageKey(caseRef, intent) {
+  return `wm-pub-idem:${String(caseRef || '')}:${String(intent || 'publish')}`;
+}
+
+function getOrCreatePublishIdempotencyKey(caseRef, intent = 'publish') {
+  const storageKey = publishIdempotencyStorageKey(caseRef, intent);
+  try {
+    const existing = sessionStorage.getItem(storageKey);
+    if (existing) return existing;
+    const minted = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `idemp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    sessionStorage.setItem(storageKey, minted);
+    return minted;
+  } catch {
+    return `idemp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+}
+
+function clearPublishIdempotencyKey(caseRef, intent = 'publish') {
+  try {
+    sessionStorage.removeItem(publishIdempotencyStorageKey(caseRef, intent));
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Persist Water Score before close. Hard-fails — callers must not close / LINE on error.
  * Report token may be created here; closeCase() still guarantees token before LINE.
@@ -81,17 +108,25 @@ async function publishScoreBeforeClose(job) {
     error.code = 'NO_CASE';
     throw error;
   }
+  const intent = 'publish';
+  const idempotencyKey = getOrCreatePublishIdempotencyKey(caseRef, intent);
   const response = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/score`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey
+    },
     credentials: 'same-origin',
     body: JSON.stringify({
       score,
       resultSummary: `Water score ${Math.round(score)}/100`,
-      // Traceability metadata only — server may ignore this field entirely
-      // today; it changes no scoring/eligibility decision on either side.
       eligibilityVersion: eligibility?.calculationMetadata?.eligibilityVersion || 'unknown',
-      complianceStatus: S.currentScoreResult?.complianceStatus || null
+      complianceStatus: S.currentScoreResult?.complianceStatus || null,
+      intent,
+      idempotencyKey,
+      modelVersion: (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' && !alreadyPublished)
+        ? QUALITY_SCORE_ENGINE_VERSION
+        : undefined
     })
   });
   const payload = await response.json().catch(() => ({}));
@@ -100,17 +135,15 @@ async function publishScoreBeforeClose(job) {
     error.code = 'SCORE_SAVE_FAILED';
     throw error;
   }
+  clearPublishIdempotencyKey(caseRef, intent);
   job.result = {
     ...(job.result || {}),
-    waterScore: score,
+    waterScore: payload.score != null ? payload.score : score,
     reportUrl: payload.reportUrl || job.result?.reportUrl || '',
     publicReportToken: payload.reportToken || job.result?.publicReportToken || '',
-    // Which eligibility architecture produced this published score — 'v1' for
-    // a fresh gated publish, 'legacy-bypass' for a re-save of an
-    // already-published job. Client-side only for now (see Phase C report).
     eligibilityVersion: eligibility?.calculationMetadata?.eligibilityVersion || job.result?.eligibilityVersion || 'unknown'
   };
-  return score;
+  return Number.isFinite(Number(payload.score)) ? Number(payload.score) : score;
 }
 
 /**

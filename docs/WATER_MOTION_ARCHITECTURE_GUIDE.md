@@ -309,6 +309,7 @@ Production Notion databases:
 | Clients DB (`NOTION_DATABASE_ID`) | **Case** (primary operational aggregate) |
 | Customers DB (`NOTION_CUSTOMERS_DATABASE_ID`) | **Customer** (identity layer; incremental introduction) |
 | Feedback DB (`NOTION_CLIENT_FEEDBACK_DATABASE_ID`) | **Feedback** (linked to Case via `Client Page ID`) |
+| Score Publications DB (`NOTION_SCORE_PUBLICATIONS_DATABASE_ID`) | **Publication ledger** (Case-owned, append-only; linked via `Client Page ID`) |
 
 Case-scoped concerns stored **on the Case (Clients DB)**, not as separate Notion databases:
 
@@ -317,7 +318,7 @@ Case-scoped concerns stored **on the Case (Clients DB)**, not as separate Notion
 | Booking | Creates/updates a Case page |
 | Offer | Case property `Campaign Offer` |
 | Workflow | Case workflow properties (e.g. `Case Workflow Status`) |
-| Reports | Case tokens/properties (`Public Report Token`, report URL, score) |
+| Reports | Case tokens/properties (`Public Report Token`, report URL, `Latest Water Score` as **latest pointer**). Immutable historical artifacts live in the Score Publications ledger. |
 | Notifications | Case notification properties |
 
 Never rename production properties.

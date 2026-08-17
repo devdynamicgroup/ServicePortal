@@ -76,6 +76,27 @@ function careLifecycleMeta() {
   };
 }
 
+/** Gate A observability — never returns database IDs or secrets. */
+function scorePublicationLedgerMeta() {
+  try {
+    const {
+      isScorePublicationsConfigured
+    } = require('../services/notion/score-publications');
+    const configured = isScorePublicationsConfigured();
+    return {
+      configured,
+      status: configured ? 'configured' : 'not_configured',
+      code: configured ? 'RUNTIME_OK' : 'LEDGER_REQUIRED'
+    };
+  } catch {
+    return {
+      configured: false,
+      status: 'unavailable',
+      code: 'LEDGER_UNAVAILABLE'
+    };
+  }
+}
+
 function buildHealthPayload() {
   return {
     ok: true,
@@ -89,6 +110,7 @@ function buildHealthPayload() {
     notion: {
       configured: isNotionConfigured()
     },
+    scorePublicationLedger: scorePublicationLedgerMeta(),
     customerDomain: customerDomainMeta(),
     careLifecycle: careLifecycleMeta(),
     retry: {

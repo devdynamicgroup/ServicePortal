@@ -575,7 +575,10 @@ async function handleCaseFlowRoute(req, res, urlPath) {
   if (scoreMatch && req.method === 'POST') {
     if (!assertAppAuth(req, res)) return true;
     try {
-      const result = await publishCaseScore(decodeURIComponent(scoreMatch[1]), await readJson(req));
+      const body = await readJson(req);
+      const headerKey = String(req.headers['idempotency-key'] || '').trim();
+      if (headerKey && !body.idempotencyKey) body.idempotencyKey = headerKey;
+      const result = await publishCaseScore(decodeURIComponent(scoreMatch[1]), body);
       sendJson(res, 200, result);
     } catch (error) {
       sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
@@ -751,8 +754,12 @@ async function handleCaseFlowRoute(req, res, urlPath) {
 
   const reportApiMatch = urlPath.match(/^\/api\/report\/([^/]+)$/);
   if (reportApiMatch && req.method === 'GET') {
-    const report = await getReportByToken(decodeURIComponent(reportApiMatch[1]));
-    sendJson(res, report ? 200 : 404, report ? { ok: true, report } : { ok: false, error: 'Report not found' });
+    try {
+      const report = await getReportByToken(decodeURIComponent(reportApiMatch[1]));
+      sendJson(res, report ? 200 : 404, report ? { ok: true, report } : { ok: false, error: 'Report not found' });
+    } catch (error) {
+      sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
+    }
     return true;
   }
 
@@ -783,8 +790,12 @@ async function handleCaseFlowRoute(req, res, urlPath) {
 
   const reportPageMatch = urlPath.match(/^\/r\/([^/]+)$/);
   if (reportPageMatch && req.method === 'GET') {
-    const report = await getReportByToken(decodeURIComponent(reportPageMatch[1]));
-    sendHtml(res, report ? 200 : 404, reportHtml(report));
+    try {
+      const report = await getReportByToken(decodeURIComponent(reportPageMatch[1]));
+      sendHtml(res, report ? 200 : 404, reportHtml(report));
+    } catch (error) {
+      sendHtml(res, error.statusCode || 502, `<p>${escapeHtml(error.message || 'Report unavailable')}</p>`);
+    }
     return true;
   }
 

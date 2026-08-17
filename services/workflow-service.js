@@ -14,6 +14,7 @@ const {
   resolveNotifyLineDestination,
   applyDestinationToJob
 } = require('./customer-domain/notify-reader');
+const { createOrReusePublication } = require('./score-publication-service');
 
 const WORKFLOW_STATES = Object.freeze([
   'created', 'line_linked', 'service_in_progress', 'completed',
@@ -389,40 +390,13 @@ async function publishCaseScore(caseId, payload = {}) {
     throw error;
   }
 
-  const score = Number(payload.score);
-  if (!Number.isFinite(score) || score < 0 || score > 100) {
-    const error = new Error('Score must be between 0 and 100');
-    error.statusCode = 400;
-    throw error;
-  }
-
-  // Optional — a malformed/absent value never blocks the publish, since
-  // score is the only required field of this contract. Unrecognized values
-  // are dropped rather than persisted, so Notion never gets a bogus status.
-  const VALID_COMPLIANCE_STATUSES = ['PASS', 'WARNING', 'FAIL'];
-  const complianceStatus = VALID_COMPLIANCE_STATUSES.includes(payload.complianceStatus)
-    ? payload.complianceStatus
-    : undefined;
-
   return withCaseLock(initial.notionId, async () => {
     const job = await getClient(initial.notionId);
-    const reportToken = job.result?.publicReportToken || newToken('rpt');
-    const reportUrl = buildReportUrl(reportToken);
-    const updated = await updateClient(job.notionId, {
-      latestWaterScore: Math.round(score),
-      complianceStatus,
-      resultSummary: payload.resultSummary || `Water score ${Math.round(score)}/100`,
-      reportUrl,
-      publicReportToken: reportToken
+    return createOrReusePublication({
+      job,
+      payload,
+      caseId: initial.id
     });
-    return {
-      ok: true,
-      caseId: updated.id,
-      score: updated.result?.waterScore,
-      complianceStatus: updated.result?.complianceStatus,
-      reportToken,
-      reportUrl
-    };
   });
 }
 
@@ -493,23 +467,42 @@ async function closeCase(caseId, payload = {}) {
     }
 
     const now = new Date().toISOString();
-    const reportToken = job.result?.publicReportToken || newToken('rpt');
+    const hasPublishedPointer = Number.isFinite(Number(job.result?.waterScore))
+      && String(job.result?.publicReportToken || '').trim();
+    const closeScore = Number(payload.score);
+    if (!hasPublishedPointer && Number.isFinite(closeScore)) {
+      const published = await createOrReusePublication({
+        job,
+        payload: {
+          score: closeScore,
+          resultSummary: payload.resultSummary,
+          complianceStatus: payload.complianceStatus,
+          intent: 'publish',
+          idempotencyKey: payload.idempotencyKey || payload.scoreIdempotencyKey
+        },
+        caseId: initial.id
+      });
+      job = published.case || await getClient(initial.notionId);
+    } else if (hasPublishedPointer) {
+      job = await getClient(initial.notionId);
+    }
+
+    const reportToken = job.result?.publicReportToken || '';
     const feedbackToken = job.feedback?.token || newToken('fb');
-    const reportUrl = buildReportUrl(reportToken);
+    const reportUrl = job.result?.reportUrl || (reportToken ? buildReportUrl(reportToken) : '');
     const feedbackUrl = buildFeedbackUrl(feedbackToken);
     const reviewUrl = resolveReviewUrl(job, payload);
-    const score = payload.score ?? job.result?.waterScore ?? job.draft?.scoreVal ?? null;
+    const publishedScore = job.result?.waterScore;
 
     job = await updateClient(job.notionId, {
       caseWorkflowStatus: 'completed',
       serviceCompletedAt: job.workflow?.serviceCompletedAt || now,
       closedAt: job.workflow?.closedAt || now,
       completedBy: payload.completedBy || payload.staffName || job.workflow?.completedBy || 'Water Motion Specialist',
-      latestWaterScore: score,
-      resultSummary: payload.resultSummary || job.result?.summary || (score ? `Water score ${score}/100. Please review the full report.` : 'Water assessment report is ready.'),
+      resultSummary: payload.resultSummary || job.result?.summary || (Number.isFinite(Number(publishedScore)) ? `Water score ${publishedScore}/100. Please review the full report.` : 'Water assessment report is ready.'),
       recommendations: payload.recommendations || job.result?.recommendations || 'Please review the result and submit your satisfaction feedback.',
       reportUrl,
-      publicReportToken: reportToken,
+      publicReportToken: reportToken || undefined,
       feedbackToken,
       feedbackUrl,
       feedbackStatus: job.feedback?.status === 'submitted' ? 'submitted' : 'pending',

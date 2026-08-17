@@ -116,6 +116,8 @@ This is **OAuth 2 client** credentials for Google Business Profile — not a ser
 | `NOTION_CLIENT_FEEDBACK_DATA_SOURCE_ID` | Feedback data source | O | O | O |
 | `NOTION_FEEDBACK_DATABASE_ID` | Feedback / Google reviews Notion DB | Recommended | O | Recommended |
 | `NOTION_FEEDBACK_DATA_SOURCE_ID` | Reviews data source | O | O | O |
+| `NOTION_SCORE_PUBLICATIONS_DATABASE_ID` / `NOTION_PUBLICATION_LEDGER_DATABASE_ID` | Immutable Case-owned score publication ledger (PD-V7-09) | Required for new publications | O | **R before Gate A PASS** |
+| `NOTION_SCORE_PUBLICATIONS_DATA_SOURCE_ID` | Score publication ledger data-source override | O | O | O |
 | `NOTION_DEBUG_DATES` | Mapper debug | O | O | O |
 | `NOTION_CUSTOMERS_DATABASE_ID` | Customers identity DB (M8 Customer Domain) | O while flags OFF | O | O until M8 rollout |
 | `NOTION_CUSTOMERS_DATA_SOURCE_ID` | Customers data source override | O | O | O |

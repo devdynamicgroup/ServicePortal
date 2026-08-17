@@ -1,4 +1,5 @@
 const { findClientByReportToken, getClient } = require('../services/notion/clients');
+const { resolveReportByToken } = require('../services/score-publication-service');
 const {
   renderShareCardPng,
   cardOptionsFromJob,
@@ -83,12 +84,24 @@ async function handleScoreCardRoute(req, res, urlPath, urlObj) {
   if (tokenMatch && req.method === 'GET') {
     try {
       const token = decodeURIComponent(tokenMatch[1]);
-      const match = await findClientByReportToken(token);
-      if (!match?.clientPageId) {
-        sendJson(res, 404, { ok: false, error: 'Report not found' });
-        return true;
+      let job = null;
+      try {
+        job = await resolveReportByToken(token);
+      } catch (error) {
+        if (error.statusCode === 409) {
+          sendJson(res, 409, { ok: false, error: 'Report token conflict' });
+          return true;
+        }
+        throw error;
       }
-      const job = await getClient(match.clientPageId);
+      if (!job) {
+        const match = await findClientByReportToken(token);
+        if (!match?.clientPageId) {
+          sendJson(res, 404, { ok: false, error: 'Report not found' });
+          return true;
+        }
+        job = await getClient(match.clientPageId);
+      }
       if (!job || !Number.isFinite(Number(job.result?.waterScore))) {
         sendJson(res, 404, { ok: false, error: 'Score not published' });
         return true;

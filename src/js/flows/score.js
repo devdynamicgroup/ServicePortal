@@ -1427,15 +1427,31 @@ async function shareScore() {
   sharingScore = true;
   setShareButtonLoading(true);
   saveActiveJobState();
+  const intent = 'publish';
+  const idempotencyKey = typeof getOrCreatePublishIdempotencyKey === 'function'
+    ? getOrCreatePublishIdempotencyKey(caseRef, intent)
+    : `idemp-${Date.now()}`;
   try {
     const response = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/score`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey
+      },
       credentials: 'same-origin',
-      body: JSON.stringify({ score: Number(S.scoreVal), complianceStatus: S.currentScoreResult?.complianceStatus || null })
+      body: JSON.stringify({
+        score: Number(S.scoreVal),
+        complianceStatus: S.currentScoreResult?.complianceStatus || null,
+        intent,
+        idempotencyKey,
+        modelVersion: (!alreadyPublished && typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined')
+          ? QUALITY_SCORE_ENGINE_VERSION
+          : undefined
+      })
     });
     const result = await response.json();
     if (!response.ok || !result.reportUrl) throw new Error(result.error || 'Could not publish score');
+    if (typeof clearPublishIdempotencyKey === 'function') clearPublishIdempotencyKey(caseRef, intent);
 
     job.result = {
       ...(job.result || {}),
