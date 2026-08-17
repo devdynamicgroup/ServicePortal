@@ -1038,7 +1038,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-metric-list.is-loading .score-metric-status .score-dot{display:none}
 .score-metric-list.is-loading .score-metric-row{pointer-events:none}
 
-/* Water Score report: mockup density with readable product type. */
+/* Water Score report: metric cards matching product mockup. */
 .score-report{padding:10px 16px 24px}
 .score-summary-card{
   background:transparent;
@@ -1052,9 +1052,9 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:10px;
+  gap:12px;
   min-width:0;
-  margin:0 0 12px;
+  margin:14px 0 12px;
 }
 .score-report-filters .score-location-row,
 .score-report-filters .score-benchmark-row{
@@ -1065,12 +1065,12 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   border:0;
   min-width:0;
 }
-.score-report-filters .score-location-row{flex:1}
-.score-report-filters .score-benchmark-row{flex:0 1 auto;gap:4px}
-.score-report-filters .score-select-wrap{width:100%}
+.score-report-filters .score-location-row{flex:0 1 auto}
+.score-report-filters .score-benchmark-row{flex:0 0 auto;gap:6px;margin-left:auto}
+.score-report-filters .score-select-wrap{width:auto}
 .score-report-filters .score-benchmark-label{
-  color:var(--muted);
-  font-size:12px;
+  color:var(--text);
+  font-size:13px;
   font-weight:500;
   white-space:nowrap;
 }
@@ -1078,18 +1078,23 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-report-filters .score-select{
   width:auto;
   min-width:0;
-  max-width:148px;
-  padding:4px 22px 4px 0;
+  max-width:none;
   border:0;
   border-radius:0;
   background-color:transparent;
-  background-position:right 2px center;
-  font-size:12px;
+  background-position:right 8px center;
+  font-size:13px;
   font-weight:600;
   color:var(--text);
+  padding:8px 28px 8px 0;
 }
 .score-report-filters .score-location-row .score-select{
-  max-width:168px;
+  max-width:210px;
+  padding:8px 30px 8px 14px;
+  border-radius:999px;
+  background-color:#f3f4f6;
+  background-position:right 12px center;
+  font-weight:600;
 }
 .score-summary-head{margin:0 0 12px;gap:12px;align-items:flex-start}
 .score-summary-num{font-size:56px;font-weight:700;letter-spacing:-.05em}
@@ -1110,8 +1115,11 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   line-height:1.5;
   color:var(--muted);
 }
-.score-params-scope{margin:8px 0 2px;font-size:12px}
+.score-params-scope{margin:0 0 8px;font-size:12px}
 .score-metric-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
   margin:0;
   padding:0;
   border:0;
@@ -1119,41 +1127,70 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   background:transparent;
 }
 .score-metric-row{
-  min-height:36px;
-  padding:8px 2px;
-  gap:8px;
-  border-bottom:1px solid #f0eeeb;
+  min-height:44px;
+  padding:12px 14px;
+  gap:10px;
+  border:0;
+  border-bottom:0;
+  border-radius:12px;
+  background:#f3f4f6;
 }
-.score-metric-row:nth-child(even){background:#fafaf9}
-.score-metric-name{font-size:13px;font-weight:500}
-.score-metric-range{font-size:11px;color:var(--muted)}
-.score-metric-value{font-size:13px;font-weight:600}
-.score-metric-status{gap:5px;font-size:12px;font-weight:600}
-.score-dot{width:6px;height:6px}
-.score-bottom-media{margin:10px 0 0}
+.score-metric-row:nth-child(even){background:#f3f4f6}
+.score-metric-name{
+  flex:1.15;
+  min-width:0;
+  font-size:14px;
+  font-weight:650;
+  color:var(--text);
+}
+.score-metric-range{
+  flex:0 1 auto;
+  font-size:12px;
+  font-weight:500;
+  color:#9ca3af;
+  text-align:left;
+}
+.score-metric-value{
+  flex:0 0 auto;
+  min-width:2.5rem;
+  font-size:14px;
+  font-weight:700;
+  text-align:right;
+}
+.score-metric-status{
+  flex:0 0 auto;
+  min-width:3.6rem;
+  justify-content:flex-end;
+  gap:6px;
+  font-size:13px;
+  font-weight:650;
+}
+.score-dot{width:7px;height:7px}
+.score-metric-row.is-good .score-metric-status{color:#22c55e}
+.score-bottom-media{margin:12px 0 0}
 .score-photo-carousel{margin:0}
 .score-photo-track{border-radius:0}
 .score-photo-slide img{aspect-ratio:16/10;border-radius:0}
 .score-improve{margin:14px 0 0;padding-top:0}
-.score-improve-title{font-size:13px;font-weight:650;margin-bottom:6px}
-.score-improve-list{gap:0;margin:0}
+.score-improve-title{font-size:14px;font-weight:650;margin-bottom:8px}
+.score-improve-list{gap:8px;margin:0}
 .score-improve-row{
   gap:10px;
-  padding:10px 2px;
+  padding:12px 14px;
   border:0;
-  border-radius:0;
-  background:transparent;
-  border-bottom:1px solid #f0eeeb;
+  border-radius:12px;
+  background:#f3f4f6;
+  border-bottom:0;
 }
 .score-improve-icon{width:16px;height:16px;background:transparent;color:var(--blue)}
 .score-improve-icon svg{width:12px;height:12px}
-.score-improve-name,.score-improve-value{font-size:13px}
-.score-improve-range{font-size:11px}
+.score-improve-name,.score-improve-value{font-size:14px}
+.score-improve-range{font-size:12px}
 .score-photo-dots{margin:16px 0 4px}
 @media (max-width:414px){
   .score-summary-num{font-size:54px}
   .score-summary-note{font-size:13px;line-height:1.5}
-  .score-metric-row{padding:8px 2px;gap:8px}
+  .score-metric-row{padding:12px 14px;gap:10px}
   .score-benchmark-row,.score-location-row{gap:8px}
 }
 @media (max-width:390px){
@@ -1163,11 +1200,13 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   .score-summary-den{font-size:16px}
   .score-summary-count{font-size:12px}
   .score-summary-badge{font-size:15px}
-  .score-params-scope{margin-bottom:2px}
-  .score-metric-name,.score-metric-value{font-size:13px}
-  .score-metric-range,.score-metric-status{font-size:11px}
-  .score-improve-name,.score-improve-value{font-size:13px}
-  .score-report-filters .score-select{font-size:12px;padding:4px 22px 4px 0}
+  .score-params-scope{margin-bottom:6px}
+  .score-metric-name,.score-metric-value{font-size:14px}
+  .score-metric-range{font-size:12px}
+  .score-metric-status{font-size:13px}
+  .score-improve-name,.score-improve-value{font-size:14px}
+  .score-report-filters .score-select{font-size:13px}
+  .score-report-filters .score-location-row .score-select{padding:8px 30px 8px 14px}
 }
 @media (max-width:340px){
   .score-summary-num{font-size:36px}
