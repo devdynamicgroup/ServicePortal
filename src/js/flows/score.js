@@ -525,39 +525,16 @@ function renderScoreDisplay() {
   if (standardEl) {
     standardEl.textContent = t(context.standard.labelKey);
   }
-  // Hero label reflects the selected Country Benchmark comparison score (wq).
-  // Quality V3 remains on currentScoreResult / publish path — see renderWaterScore.
+  // Live report UI hides channel labels; Quality V3 publish path is unchanged.
   if (heroSourceEl) {
-    if (showScore) {
-      if (S.publicScoreView) {
-        heroSourceEl.textContent = t('score.hero.published');
-      } else {
-        const shortName = t(context.standard.shortKey);
-        heroSourceEl.textContent = t('score.hero.benchmark').replace('{name}', shortName);
-      }
-      heroSourceEl.hidden = false;
-    } else {
-      heroSourceEl.textContent = '';
-      heroSourceEl.hidden = true;
-    }
+    heroSourceEl.textContent = '';
+    heroSourceEl.hidden = true;
   }
   const complianceEl = document.getElementById('score-compliance-line');
   if (complianceEl) {
-    const status = S.currentScoreResult?.complianceStatus;
-    if (showScore && status) {
-      const statusKey = status === 'PASS'
-        ? 'score.compliance.pass'
-        : status === 'WARNING'
-          ? 'score.compliance.warning'
-          : 'score.compliance.fail';
-      complianceEl.textContent = t('score.compliance.label').replace('{status}', t(statusKey));
-      complianceEl.hidden = false;
-      complianceEl.dataset.status = status;
-    } else {
-      complianceEl.textContent = '';
-      complianceEl.hidden = true;
-      delete complianceEl.dataset.status;
-    }
+    complianceEl.textContent = '';
+    complianceEl.hidden = true;
+    delete complianceEl.dataset.status;
   }
 
   setScoreHeroLoading(!showScore);
