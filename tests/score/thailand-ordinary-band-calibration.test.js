@@ -60,7 +60,8 @@ const IDEAL = Object.freeze({ ph: 7.2, tds: 60, turbidity: 0.1, orp: 400, chlori
 console.log('\nWeakest-link + piecewise constants');
 {
   const L = sandbox.ThailandBenchmarkLimits;
-  assert(L.weakestLinkShare === 0.25, 'weakestLinkShare 0.25');
+  // 2026-08-17, PO-approved: raised from 0.25 to 0.5.
+  assert(L.weakestLinkShare === 0.5, 'weakestLinkShare 0.5');
   assert(L.ph.preferredMin === 6.8 && L.ph.preferredMax === 7.8, 'pH preferred kept');
   assert(L.tds.gradeExcellentMax === 80 && L.tds.passMax === 1000, 'TDS excellent/passMax kept');
   assert(L.orp.excellentMin === 350 && L.orp.excellentMax === 450, 'ORP inner kept');
@@ -76,7 +77,8 @@ console.log('\nReal-case ordering');
   const f = th(FAUCET).score;
   const s = th(SINK).score;
   console.log(`  test1=${t1} 811=${a} 810=${b} 13.28=${c} faucet=${f} sink=${s}`);
-  assert(c === 99, 'near-ideal still 99');
+  // Weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 98 (was 99), below the ceiling.
+  assert(c === 98, 'near-ideal now 98');
   assert(f < 70 && s < 70, 'degraded Cl=0 materially low');
   assert(f < a && a <= b && b < c, 'faucet < 8/11 ≤ 8/10 < 13.28');
   assert(t1 < 90, 'test1 ordinary not trapped in 90+');
@@ -120,7 +122,10 @@ console.log('\nOther engines + Q-V3 unchanged on New C 8/11');
 console.log('\nHero ceiling');
 {
   assert(sandbox.applyCountryBenchmarkHeroCeiling(100) === 99, 'ceiling 100→99');
-  assert(th(C_1328).score === 99, '13.28 uses ceiling');
+  // Weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves the raw
+  // composite to 98.35 (rounds to 98) -- below the ceiling, so the ceiling is
+  // now a no-op for this fixture (was exactly at the ceiling before).
+  assert(th(C_1328).score === 98, '13.28 no longer needs the ceiling (98 < 99)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

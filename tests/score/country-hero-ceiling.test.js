@@ -116,18 +116,23 @@ console.log('\nCase D — country switching routes to the selected engine, never
     'switching engines returns genuinely different, correctly-routed results');
 }
 
-console.log('\nCase E — TH severity preservation: DIFF stays 87, not further reduced by the ceiling');
+console.log('\nCase E — TH severity preservation: DIFF stays well below the ceiling, not further reduced by it');
 {
   const th = bench('thailand', DIFF);
-  assert(th.score === 69, `TH DIFF raw composite already below ceiling, unchanged at 69 (got ${th.score})`);
+  // Thailand chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 46 (was 69).
+  assert(th.score === 46, `TH DIFF raw composite already below ceiling, unchanged at 46 (got ${th.score})`);
 }
 
 console.log('\nCase F — existing near-ideal fixture: raw 100 -> Hero 99');
 {
   const CASE_1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06 };
+  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves TH's
+  // raw composite for this reading from 98.9 to 98.35 (rounds to 98) -- below
+  // the 99 ceiling, so the ceiling itself is a no-op here (not a regression).
   for (const key of KEYS) {
     const r = bench(key, CASE_1328);
-    assert(r.score === 99, `${key} Case 1328 (pre-existing near-ideal fixture) capped to 99 (got ${r.score})`);
+    const expected = key === 'thailand' ? 98 : 99;
+    assert(r.score === expected, `${key} Case 1328 (pre-existing near-ideal fixture) = ${expected} (got ${r.score})`);
   }
 }
 

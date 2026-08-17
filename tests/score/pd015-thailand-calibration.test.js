@@ -68,7 +68,9 @@ console.log('\nPD-015 limits locked');
   assert(L.ph.edgeGrade === 70, 'pH edgeGrade 70');
   assert(L.chlorine.min === 0.2 && L.chlorine.max === 2.0, 'Cl compliance unchanged');
   assert(L.orp.min === 200 && L.orp.max === 600, 'ORP outer unchanged');
-  assert(L.weakestLinkShare === 0.25, 'weakest-link share 0.25');
+  // 2026-08-17, PO-approved: raised from 0.25 to 0.5 (part of the same
+  // Thailand severity-completion work as the chlorine curve steepening below).
+  assert(L.weakestLinkShare === 0.5, 'weakest-link share 0.5');
 }
 
 console.log('\nExisting Cases — natural ordering + no 97–99 ordinary cluster');
@@ -79,10 +81,12 @@ console.log('\nExisting Cases — natural ordering + no 97–99 ordinary cluster
   const f = th(FAUCET).score;
   const s = th(SINK).score;
   console.log(`  scores faucet=${f} sink=${s} NewC811=${a} NewC810=${b} 13.28=${c}`);
-  assert(a === 86, `New C 8/11 TH=86 (got ${a})`);
-  assert(b === 88, `New C 8/10 TH=88 (got ${b})`);
-  assert(c === 99, `13.28 TH=99 ceiling (got ${c})`);
-  assert(f === 55, `faucet TH=55 (got ${f})`);
+  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved):
+  // 86->81, 88->85, 99->98, 55->37. Recomputed directly, not estimated.
+  assert(a === 81, `New C 8/11 TH=81 (got ${a})`);
+  assert(b === 85, `New C 8/10 TH=85 (got ${b})`);
+  assert(c === 98, `13.28 TH=98 (got ${c})`);
+  assert(f === 37, `faucet TH=37 (got ${f})`);
   assert(f < a && a < b && b < c, 'ordering faucet < 8/11 < 8/10 < 13.28');
   assert(!(a >= 97 && b >= 97 && c >= 97 && a <= 99 && b <= 99 && c <= 99 && a === 97 && b === 98),
     'ordinary trio no longer the pre-PD-015 97/98/99 cluster');

@@ -93,10 +93,13 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   assert(b.compliance.status !== 'PASS', 'Case B compliance not PASS');
   // Raw composite is 100 for both cases on both engines; Country Hero
   // ceiling caps the displayed score at 99 (100 is reserved for Quality V3).
-  assert(bench('thailand', CASE_A) === 99, 'TH Case A = 99');
+  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves TH
+  // Case A's raw composite to 98.35 (rounds to 98, below the ceiling).
+  assert(bench('thailand', CASE_A) === 98, 'TH Case A = 98');
   assert(bench('japan', CASE_A) === 99, 'Japan Case A = 99');
   // PD-014 D1 (2026-08-14): CASE_B orp=507 now inner-declines (was flat 100).
-  assert(bench('thailand', CASE_B) === 86, 'TH Case B = 86 (ordinary-band severity)');
+  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 83 (was 86).
+  assert(bench('thailand', CASE_B) === 83, 'TH Case B = 83 (ordinary-band severity)');
   assert(bench('japan', CASE_B) === 98, 'Japan Case B = 98 (DO excluded from JP index — PD-012 B)');
 }
 
@@ -112,20 +115,25 @@ console.log('\nCountry differentiation on locked sample (standards differ)');
   assert(jp !== eu, 'Japan ≠ EU on locked sample');
   // WARNING severity cap=85 (2026-08-14, PO-approved numeric): LOCKED's worst
   // classification on WHO is WARNING, now capped 85 (was 93).
-  assert(th === 77 && who === 85, 'TH/WHO differentiation preserved (TH 77, WHO 85 WARNING cap)');
+  // Thailand chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
+  assert(th === 70 && who === 85, 'TH/WHO differentiation preserved (TH 70, WHO 85 WARNING cap)');
 }
 
 console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
 {
-  // Same-result is EXPECTED for A/B: measurements sit in both national plateaus.
-  assert(bench('thailand', CASE_A) === bench('japan', CASE_A), 'Case A TH===JP (plateau overlap)');
+  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves TH's
+  // Case A composite to 98 while Japan stays 99 -- the former plateau overlap
+  // no longer coincides for this fixture. PD-005 forbids treating either
+  // outcome (equal or not) as a ranking; both are valid.
+  assert(bench('thailand', CASE_A) === 98 && bench('japan', CASE_A) === 99, 'Case A TH=98, JP=99 (no longer coincide, both valid)');
   assert(bench('thailand', CASE_B) !== bench('japan', CASE_B), 'Case B TH!==JP after PD-015');
   // Differentiation: inside TH pass windows, outside JP stricter TDS/turb/Cl.
   const DIFF = { ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28 };
   const th = bench('thailand', DIFF);
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH/JP', th, jp);
-  assert(th === 69, `DIFF Thailand = 69 after ordinary-band severity (got ${th})`);
+  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 46 (was 69).
+  assert(th === 46, `DIFF Thailand = 46 after ordinary-band severity (got ${th})`);
   assert(jp !== th, `DIFF Japan ${jp} !== Thailand ${th}`);
 }
 

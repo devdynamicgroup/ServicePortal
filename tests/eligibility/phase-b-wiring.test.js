@@ -172,7 +172,8 @@ console.log('\nCase 6 — benchmark outputs byte-identical when eligible (locked
   // on US EPA, now capped at 75 (was 91 uncapped).
   // WARNING severity cap=85 (2026-08-14, PO-approved numeric): FULL_READINGS'
   // turbidity=2.5 classifies WARNING on Japan/WHO, now capped 85 (was 96/93).
-  const expected = { thailand: 77, who: 85, eu: 65, japan: 85, usEpa: 75 };
+  // Thailand chlorine curve steepened + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
+  const expected = { thailand: 70, who: 85, eu: 65, japan: 85, usEpa: 75 };
   for (const key of Object.keys(expected)) {
     const score = sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS).score;
     assert(score === expected[key], `${key} score still locked at ${expected[key]} (got ${score}) after Phase B wiring`);

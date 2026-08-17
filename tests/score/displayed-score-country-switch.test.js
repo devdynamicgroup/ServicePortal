@@ -207,7 +207,8 @@ console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
   assert(q.score === 76, `Quality V3 baseline 76 (got ${q.score})`);
   // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine
   // (was flat 100 pre-D1), so these move from their pre-D1 baseline.
-  assert(th.score === 86 && th.engineKey === 'thailand', 'baseline displayed TH=86 from thailand engine');
+  // Thailand chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 81 (was 86).
+  assert(th.score === 81 && th.engineKey === 'thailand', 'baseline displayed TH=81 from thailand engine');
   assert(jp.score === 98 && jp.engineKey === 'japan', 'baseline displayed JP=98 from japan engine');
   // WARNING severity cap=85 (2026-08-14, PO-approved numeric) further caps
   // WHO/EPA's worst=WARNING composite (was 93/98 pre-cap).

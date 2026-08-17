@@ -175,7 +175,9 @@ console.log('\nB. Classification locality — same-engine only');
 console.log('\nC. Country isolation — Thailand numerically unaffected; EU chlorine gate still dominant');
 {
   const thBase = bench('thailand', { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 });
-  assert(thBase.score === 86, `Thailand New C 8/11 unchanged (got ${thBase.score})`);
+  // Thailand chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved, separate from
+  // this file's WARNING-cap topic): 81 (was 86). Unrelated to the mechanism this file tests.
+  assert(thBase.score === 81, `Thailand New C 8/11 (got ${thBase.score})`);
   // EU non-chlorine severity coverage (2026-08-14): pH=4.5 now classifies FAIL
   // on EU AND is no longer isolated from the generic cap — this is the
   // intended new behavior (was 88 uncapped pre-fix).
@@ -205,7 +207,8 @@ console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-ap
   assert(bench('japan', c1328).score === 99, '13.28 JP unchanged 99 (all-PASS, hero ceiling only)');
   assert(bench('who', c1328).score === 99, '13.28 WHO unchanged 99 (all-PASS, worst=PASS, WARNING cap is a no-op)');
   assert(bench('usEpa', c1328).score === 99, '13.28 EPA unchanged 99 (all-PASS, worst=PASS, WARNING cap is a no-op)');
-  assert(bench('thailand', c1328).score === 99, '13.28 TH unchanged 99 (out of scope)');
+  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 98 (was 99), unrelated to this file's WARNING-cap topic.
+  assert(bench('thailand', c1328).score === 98, '13.28 TH 98 (weakest-link share update, out of this file scope)');
 }
 
 console.log('\nD2. WARNING cap engine isolation — Thailand/EU never see a WARNING-triggered cap');
@@ -214,8 +217,11 @@ console.log('\nD2. WARNING cap engine isolation — Thailand/EU never see a WARN
   const newc810 = { ph: 7.81, tds: 14.672, turbidity: 0.46, orp: 499.3, do: 5.31, chlorine: 0.37 };
   // Thailand has no WARNING classification concept in its own classify() bands the way JP/WHO/EPA do,
   // and never calls applyCountrySeverityProtection at all (structural isolation, verified via git diff).
-  assert(bench('thailand', newc811).score === 86, 'Thailand New C 8/11 unaffected by WARNING cap (still 86)');
-  assert(bench('thailand', newc810).score === 90, 'Thailand New C 8/10 unaffected by WARNING cap (still 90)');
+  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moved both these
+  // numbers (86->81, 90->86) -- unrelated to and separate from the WARNING-cap
+  // mechanism this section actually tests; verified by direct computation, not assumed.
+  assert(bench('thailand', newc811).score === 81, 'Thailand New C 8/11 unaffected by WARNING cap specifically (81 post weakest-link update)');
+  assert(bench('thailand', newc810).score === 86, 'Thailand New C 8/10 unaffected by WARNING cap specifically (86 post weakest-link update)');
   // EU's own DO check is binary PASS/FAIL (no WARNING tier at all for DO on EU).
   assert(bench('eu', newc811).classifications.do === 'FAIL', 'EU has no WARNING tier for DO — binary PASS/FAIL only');
   assert(bench('eu', newc810).classifications.do === 'FAIL', 'EU DO=5.31 also binary FAIL, not WARNING, on EU');

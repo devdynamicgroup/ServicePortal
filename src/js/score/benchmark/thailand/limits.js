@@ -46,8 +46,13 @@ window.ThailandBenchmarkLimits = Object.freeze({
       context: 'DoH pipe-end surveillance residual — not adopted as this engine Compliance Ideal'
     }),
     noticeableMax: 1.0,
-    noticeableGrade: 78,
-    passEdgeGrade: 70
+    // 2026-08-17 (PO-approved, evidence: WHO Guidelines for Drinking-water
+    // Quality 4th ed. — average person detects chlorine taste/odor at
+    // 0.5-1.0 mg/L, an aesthetic threshold distinct from the cited 0.2-0.5
+    // ideal residual band above). Steepened from 78 so this range genuinely
+    // reads as degraded quality instead of "almost perfect".
+    noticeableGrade: 40,
+    passEdgeGrade: 10
   }),
   turbidity: Object.freeze({
     passMax: 5,
@@ -66,7 +71,9 @@ window.ThailandBenchmarkLimits = Object.freeze({
     goodMax: 500,
     goodGrade: 78
   }),
-  // After equal-weight mean: pull 25% toward the weakest scored parameter
-  // so four perfect grades cannot hide one material miss.
-  weakestLinkShare: 0.25
+  // After equal-weight mean: pull 50% toward the weakest scored parameter
+  // (2026-08-17, PO-approved; raised from 0.25) so one materially weak
+  // parameter has a proportionate effect on the composite instead of
+  // being diluted by four unrelated PASS parameters.
+  weakestLinkShare: 0.5
 });

@@ -153,7 +153,8 @@ console.log('\nFIXED — Thailand TDS / turbidity / chlorine in-band severity (P
   assert(sandbox.ThailandBenchmarkLimits.chlorine.min === 0.2
     && sandbox.ThailandBenchmarkLimits.chlorine.max === 2.0,
     'TH Cl compliance band ceiling unchanged');
-  assert(bench('thailand', DIFF).score === 69, `DIFF TH 69 after ordinary-band severity (got ${bench('thailand', DIFF).score})`);
+  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 46 (was 69).
+  assert(bench('thailand', DIFF).score === 46, `DIFF TH 46 after ordinary-band severity (got ${bench('thailand', DIFF).score})`);
 }
 
 console.log('\nNOT FIXED (governance) — pH flat-in-band for non-TH engines; TH uses PD-015 preferred');
@@ -236,11 +237,14 @@ console.log('\nMonotonicity — higher-is-worse params (TH TDS/turb; JP TDS)');
 
 console.log('\nAggregation dilution — documented limitation (no redesign)');
 {
+  // Weakest-link share 0.25->0.5 (2026-08-17, PO-approved): weakest parameter
+  // now dominates the composite even more, so these catastrophic fixtures
+  // drop further: 60->40, 45->30, 30->20.
   const one = bench('thailand', { ...IDEAL, tds: 5000 });
-  assert(one.params.tds === 0 && one.score === 60, 'TH 1 catastrophic → 60 (weakest-link)');
-  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 }).score === 45, 'TH 2 catastrophic → 45');
-  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 }).score === 30,
-    'TH 3 catastrophic → 30');
+  assert(one.params.tds === 0 && one.score === 40, 'TH 1 catastrophic → 40 (weakest-link)');
+  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 }).score === 30, 'TH 2 catastrophic → 30');
+  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 }).score === 20,
+    'TH 3 catastrophic → 20');
   // Country severity protection (2026-08-14): TDS=5000 is CRITICAL on EPA,
   // now capped at 60 (was 80 uncapped).
   assert(bench('usEpa', { ...IDEAL, tds: 5000 }).score === 60, 'EPA 1 catastrophic → 60 (CRITICAL cap)');
@@ -258,8 +262,8 @@ console.log('\nRAW vs engine input + Hero path (DIFF)');
   const th = bench('thailand', v.measurements);
   const disp = displayed(v.measurements, 'thailand');
   const cmp = sandbox.buildComparisonScoreResult(v.measurements, 'thailand');
-  assert(th.score === 69 && cmp.score === 69 && disp.score === 69,
-    'engine === comparison === displayed = 69');
+  assert(th.score === 46 && cmp.score === 46 && disp.score === 46,
+    'engine === comparison === displayed = 46');
   assert(disp.engineKey === 'thailand' && disp.source === 'country-benchmark', 'Hero country-benchmark');
   const q = sandbox.computeQualityScoreDetail(v.measurements).score;
   assert(q === 61 && q !== disp.score, `Q-V3 ${q} isolated from Hero ${disp.score}`);
@@ -381,8 +385,8 @@ console.log('\nDIFF live path TH — RAW→grade→round→Hero (no Q-V3 overwri
   const p = pipeline(DIFF, 'thailand');
   assert(p.eng.params.tds < 100 && p.eng.params.turbidity < 100 && p.eng.params.chlorine < 100,
     'DIFF TH TDS/turb/Cl grades leave 100');
-  assert(p.eng.score === 69 && p.disp.score === 69 && p.disp.engineKey === 'thailand',
-    `DIFF Hero ${p.disp.score} === engine 69`);
+  assert(p.eng.score === 46 && p.disp.score === 46 && p.disp.engineKey === 'thailand',
+    `DIFF Hero ${p.disp.score} === engine 46`);
   assert(p.q.score === 61, `DIFF Q-V3 isolated 61 (got ${p.q.score})`);
 }
 
@@ -428,11 +432,14 @@ console.log('\nWHO Cl 0 vs 1.0 (PD-014 D3, 2026-08-14 — below-min ramp authori
     'WHO Cl=-1 does not reach a finite score (validator strips implausible)');
 }
 
-console.log('\nTH Cl 0.51 — grade drops, Math.round still rounds raw composite to 100, Hero ceiling caps at 99');
+console.log('\nTH Cl 0.51 — grade drops just past the ideal band, composite still rounds to 99');
 {
   const r = bench('thailand', { ...IDEAL, chlorine: 0.51 });
-  assert(r.params.chlorine < 100 && r.params.chlorine >= 99, `TH Cl 0.51 grade ${r.params.chlorine} < 100`);
-  assert(r.score === 99, 'TH Cl 0.51 composite rounds to 100 pre-ceiling, Hero shows 99 (Math.round unchanged, ceiling applied)');
+  // Chlorine curve steepened (2026-08-17, PO-approved): grade at 0.51 is now
+  // 98.8 (was ~99.56) -- still just under 100, but the curve is materially
+  // steeper immediately past the 0.5 ideal-band edge.
+  assert(r.params.chlorine < 100 && r.params.chlorine >= 98, `TH Cl 0.51 grade ${r.params.chlorine} < 100`);
+  assert(r.score === 99, 'TH Cl 0.51 composite still rounds to 99 (weakest-link share 0.5 pulls it just under the ceiling directly)');
 }
 
 console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA only, 2026-08-14)');
@@ -460,7 +467,8 @@ console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA
   // JP LOCKED's turbidity=2.5 classifies WARNING on Japan; WARNING cap=85
   // now applies (was 96 uncapped pre-2026-08-14 WARNING-tier fix).
   assert(bench('japan', LOCKED).score === 85, 'JP LOCKED 85 (WARNING cap; was 96 pre-cap)');
-  assert(bench('thailand', LOCKED).score === 77, 'TH LOCKED 77 after ordinary-band severity (orp=350 still excellent)');
+  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
+  assert(bench('thailand', LOCKED).score === 70, 'TH LOCKED 70 after ordinary-band severity (orp=350 still excellent)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

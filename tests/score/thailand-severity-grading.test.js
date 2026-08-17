@@ -124,7 +124,8 @@ console.log('\nCompliance ceilings unchanged (PD-008 / TH-TDS / TH-TURB)');
   assert(L.tds.passEdgeGrade === 40, 'TDS passEdge 40');
   assert(L.turbidity.gradeExcellentMax === 0.3, 'turbidity excellentMax 0.3 (PD-015)');
   assert(L.turbidity.ordinaryMax === 1 && L.turbidity.ordinaryGrade === 70, 'turb ordinary 1 NTU → 70');
-  assert(L.weakestLinkShare === 0.25, 'weakest-link share 0.25');
+  // 2026-08-17, PO-approved: raised from 0.25 to 0.5.
+  assert(L.weakestLinkShare === 0.5, 'weakest-link share 0.5');
   assert(L.chlorine.citedSurveillanceResidual.max === 0.5, 'Cl inner uses cited residual 0.5');
   assert(L.ph.min === 6.5 && L.ph.max === 8.5, 'pH compliance band unchanged');
   assert(L.ph.preferredMin === 6.8 && L.ph.preferredMax === 7.8, 'pH preferred 6.8–7.8 (PD-015)');
@@ -150,7 +151,8 @@ console.log('\nTDS severity (others ideal)');
   assert(rows[5].g < rows[4].g && rows[4].g < 100, 'TDS 500→800 grade declines');
   assert(rows[5].s < 100 && rows[5].s < rows[0].s, 'TDS 800 final < 100');
   assert(rows[6].g === 40, 'TDS 1000 at passMax grade 40 (100-60)');
-  assert(rows[8].g === 0 && rows[8].s === 60, 'TDS 5000 grade 0 → composite 60 (weakest-link)');
+  // Weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 40 (was 60).
+  assert(rows[8].g === 0 && rows[8].s === 40, 'TDS 5000 grade 0 → composite 40 (weakest-link)');
   let prev = rows[0].g;
   for (const row of rows.slice(1)) {
     assert(row.g <= prev + 1e-9, `TDS ${row.v} grade ${row.g} not reversed vs ${prev}`);
@@ -181,10 +183,13 @@ console.log('\nChlorine severity (others ideal)');
     const r = th({ ...IDEAL, chlorine: v });
     return { v, g: r.params.chlorine, s: r.score };
   });
+  // Chlorine curve steepened + weakest-link share 0.25->0.5 (2026-08-17,
+  // PO-approved; evidence: WHO Guidelines for Drinking-water Quality 4th ed.,
+  // taste/odor detectable at 0.5-1.0 mg/L). Recomputed directly, not estimated.
   assert(rows[2].g === 100 && rows[4].g === 100, 'Cl 0.2–0.5 grade 100');
-  assert(Math.round(rows[5].g) === 91 && rows[5].s === 96, 'Cl 0.7 inside compliance, grade ~91');
-  assert(Math.round(rows[7].g) === 74 && rows[7].s === 90, 'Cl 1.5 grade ~74');
-  assert(rows[8].g === 70, 'Cl 2.0 at max grade 70');
+  assert(Math.round(rows[5].g) === 76 && rows[5].s === 86, 'Cl 0.7 inside compliance, grade ~76');
+  assert(Math.round(rows[7].g) === 25 && rows[7].s === 55, 'Cl 1.5 grade ~25');
+  assert(rows[8].g === 10, 'Cl 2.0 at max grade 10');
   assert(rows[5].g > rows[7].g && rows[7].g > rows[9].g, 'Cl high-side monotonically worse');
 }
 
@@ -196,9 +201,10 @@ console.log('\nDIFF pipeline retrace (RAW === engine input)');
   assert(t.grades.tds < 100 && t.grades.turbidity < 100 && t.grades.chlorine < 100,
     'DIFF TH TDS/turb/Cl grades leave 100');
   assert(t.grades.ph === 100 && t.grades.orp === 100, 'DIFF TH pH/ORP still 100');
-  assert(t.postRound === 69, `DIFF TH score 69 (got ${t.postRound})`);
-  assert(t.displayed === 69 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
-    'DIFF Hero = Thailand 69');
+  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 46 (was 69).
+  assert(t.postRound === 46, `DIFF TH score 46 (got ${t.postRound})`);
+  assert(t.displayed === 46 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
+    'DIFF Hero = Thailand 46');
   const jp = trace(DIFF, 'japan');
   // Country severity protection (2026-08-14): DIFF's TDS/Cl are FAIL on
   // Japan, now capped at 75 (was 78 uncapped).
@@ -210,15 +216,18 @@ console.log('\nDIFF pipeline retrace (RAW === engine input)');
 console.log('\nBASE / one-bad pipeline');
 {
   const base = trace(BASE, 'thailand');
-  assert(base.after.tds === 175 && Math.round(base.grades.chlorine) === 91, 'BASE Cl 0.7 grades ~91 (not 100)');
-  assert(base.postRound === 86 && base.displayed === 86, 'BASE TH 86');
+  // Chlorine curve steepened (2026-08-17, PO-approved): grade now ~76 (was ~91).
+  assert(base.after.tds === 175 && Math.round(base.grades.chlorine) === 76, 'BASE Cl 0.7 grades ~76 (not 100)');
+  assert(base.postRound === 81 && base.displayed === 81, 'BASE TH 81');
   assert(sandbox.computeQualityScoreDetail(BASE).score === 76, 'BASE Q-V3 76');
   const tds = trace({ ...IDEAL, tds: 800 }, 'thailand');
   const turb = trace({ ...IDEAL, turbidity: 3.5 }, 'thailand');
   const cl = trace({ ...IDEAL, chlorine: 1.5 }, 'thailand');
-  assert(tds.postRound === 79 && tds.grades.tds < 100, 'oneBad TDS TH 79');
-  assert(turb.postRound === 83 && turb.grades.turbidity < 100, 'oneBad turb TH 83');
-  assert(cl.postRound === 90 && cl.grades.chlorine < 100, 'oneBad Cl TH 90');
+  // Weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 79->69, 83->75.
+  assert(tds.postRound === 69 && tds.grades.tds < 100, 'oneBad TDS TH 69');
+  assert(turb.postRound === 75 && turb.grades.turbidity < 100, 'oneBad turb TH 75');
+  // Chlorine curve + weakest-link share (2026-08-17, PO-approved): 90->55.
+  assert(cl.postRound === 55 && cl.grades.chlorine < 100, 'oneBad Cl TH 55');
 }
 
 console.log('\nCross-engine isolation');
@@ -254,9 +263,10 @@ console.log('\nCatastrophic dilution (aggregation unchanged — known limitation
   const two = th({ ...IDEAL, tds: 5000, turbidity: 50 });
   const three = th({ ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 });
   const all = th({ ph: 3, tds: 5000, turbidity: 50, orp: -100, chlorine: 10, do: 0, temp: 80 });
-  assert(one.params.tds === 0 && one.score === 60, '1 catastrophic → 60 (weakest-link)');
-  assert(two.score === 45, '2 catastrophic → 45');
-  assert(three.score === 30, '3 catastrophic → 30');
+  // Weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 60->40, 45->30, 30->20.
+  assert(one.params.tds === 0 && one.score === 40, '1 catastrophic → 40 (weakest-link)');
+  assert(two.score === 30, '2 catastrophic → 30');
+  assert(three.score === 20, '3 catastrophic → 20');
   assert(all.score === 0, 'all catastrophic → 0');
 }
 
@@ -278,19 +288,22 @@ console.log('\nCross-country matrix (JP/EU/WHO/EPA/Q-V3 frozen)');
     // 85. EU (its own PD-002 gate) and Thailand (PD-015) are out of scope
     // and unaffected — values below verified unchanged for both.
     // Recomputed directly against current code, not estimated.
-    ['BASE', BASE, { th: 86, jp: 98, eu: 65, who: 85, epa: 85, q: 76 }],
-    ['DIFF', DIFF, { th: 69, jp: 75, eu: 61, who: 75, epa: 75, q: 61 }],
-    ['LOCKED', LOCKED, { th: 77, jp: 85, eu: 65, who: 85, epa: 75, q: 73 }],
+    // Thailand chlorine curve steepened + weakest-link share 0.25->0.5
+    // (2026-08-17, PO-approved) changes every `th` value below; JP/WHO/EU/EPA/Q
+    // columns are unaffected by this Thailand-only change.
+    ['BASE', BASE, { th: 81, jp: 98, eu: 65, who: 85, epa: 85, q: 76 }],
+    ['DIFF', DIFF, { th: 46, jp: 75, eu: 61, who: 75, epa: 75, q: 61 }],
+    ['LOCKED', LOCKED, { th: 70, jp: 85, eu: 65, who: 85, epa: 75, q: 73 }],
     // EU non-chlorine severity coverage (2026-08-14, PO-approved): tds/turbidity
     // FAIL (chlorine PASS in these three rows) now capped at 75 (was 93/89/82
     // uncapped). oneBadCl/threeBad/BASE/DIFF/LOCKED are chlorine-CRITICAL rows
     // where the existing 65 gate already dominated — confirmed unaffected by
     // direct recomputation.
-    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 79, jp: 75, eu: 75, who: 75, epa: 75, q: 90 }],
-    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 83, jp: 85, eu: 75, who: 85, epa: 75, q: 90 }],
-    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 90, jp: 75, eu: 65, who: 75, epa: 99, q: 90 }],
-    ['twoBad', twoBad, { th: 73, jp: 75, eu: 75, who: 75, epa: 75, q: 80 }],
-    ['threeBad', threeBad, { th: 69, jp: 75, eu: 62, who: 75, epa: 75, q: 69 }]
+    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 69, jp: 75, eu: 75, who: 75, epa: 75, q: 90 }],
+    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 75, jp: 85, eu: 75, who: 85, epa: 75, q: 90 }],
+    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 55, jp: 75, eu: 65, who: 75, epa: 99, q: 90 }],
+    ['twoBad', twoBad, { th: 65, jp: 75, eu: 75, who: 75, epa: 75, q: 80 }],
+    ['threeBad', threeBad, { th: 46, jp: 75, eu: 62, who: 75, epa: 75, q: 69 }]
   ];
   for (const [label, readings, exp] of rows) {
     const got = {

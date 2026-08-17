@@ -93,7 +93,11 @@ console.log('\nPD-008 — TH chlorine boundaries (numeric lock)');
       `TH Cl=${cl} compliance status ${r.statuses.chlorine}`);
     if (inExcellent) assert(r.params.chlorine === 100, `TH Cl=${cl} inner residual → grade 100`);
     if (inCompliance && !inExcellent) {
-      assert(r.params.chlorine < 100 && r.params.chlorine >= 70,
+      // Chlorine curve steepened (2026-08-17, PO-approved): grade now ranges
+      // down to 10 at cl=2.0 (was bounded at >=70) -- still classifies as
+      // in-compliance (status='good'), but the grade itself is far more
+      // severity-sensitive within the 0.5-2.0 band now.
+      assert(r.params.chlorine < 100 && r.params.chlorine >= 10,
         `TH Cl=${cl} still in 0.2–2.0 band but severity-graded (${r.params.chlorine})`);
     }
     if (!inCompliance) assert(r.params.chlorine < 100, `TH Cl=${cl} out-of-band → <100`);
@@ -196,7 +200,8 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
   const q = sandbox.computeScoreFromReadings(BASE);
   assert(q === 76, `Quality V3 still 76 (got ${q})`);
   // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine.
-  assert(bench('thailand', BASE).score === 86, 'TH baseline 86 (ordinary-band severity)');
+  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 81 (was 86).
+  assert(bench('thailand', BASE).score === 81, 'TH baseline 81 (ordinary-band severity)');
   assert(bench('japan', BASE).score === 98, 'JP baseline 98');
   // WARNING severity cap=85 (2026-08-14, PO-approved numeric): BASE's worst
   // classification on WHO/EPA is WARNING, now capped 85 (was 93/98).
