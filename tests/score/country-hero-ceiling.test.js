@@ -66,7 +66,12 @@ console.log('\nCase A — country raw composite 100 -> Hero 99');
 {
   for (const key of KEYS) {
     const r = bench(key, IDEAL);
-    assert(r.score === 99, `${key} raw-100 fixture (IDEAL) capped to 99 (got ${r.score})`);
+    // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): IDEAL's
+    // ph=7.2 is just past the cited 7.3-7.7 ideal window (grade 90), so
+    // Japan's raw composite for this fixture is no longer 100 -- the
+    // ceiling is correctly a no-op here (98 < 99), not a regression.
+    const expected = key === 'japan' ? 98 : 99;
+    assert(r.score === expected, `${key} raw-100 fixture (IDEAL) ${key === 'japan' ? 'below ceiling' : 'capped to 99'} (got ${r.score})`);
   }
 }
 
@@ -90,7 +95,9 @@ console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / 
   const quality = sandbox.computeQualityScoreDetail(BASE).score;
   assert(quality === 76, `Q-V3 BASE stays 76, unrounded by Country ceiling (got ${quality})`);
   const jp = bench('japan', BASE).score;
-  assert(jp === 98 && jp !== quality, 'Country Hero (98, PD-014 D1) numerically independent of Q-V3 (76)');
+  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): BASE's
+  // chlorine=0.7/pH=7.85 now decline, pulling Japan to 90 (was 98).
+  assert(jp === 90 && jp !== quality, 'Country Hero (90) numerically independent of Q-V3 (76)');
   // Direct proof the ceiling function itself never touches non-country scores:
   // it is a pure function applied only inside finalizeBenchmarkMetadata(),
   // never called by computeQualityScoreV2.js / computeProductionScore.js.
@@ -129,9 +136,12 @@ console.log('\nCase F — existing near-ideal fixture: raw 100 -> Hero 99');
   // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves TH's
   // raw composite for this reading from 98.9 to 98.35 (rounds to 98) -- below
   // the 99 ceiling, so the ceiling itself is a no-op here (not a regression).
+  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): CASE_1328's
+  // ph=7.79 is just past the cited 7.3-7.7 ideal window (grade 91), pulling
+  // Japan's raw composite below 100 too -- ceiling is a no-op (98 < 99).
   for (const key of KEYS) {
     const r = bench(key, CASE_1328);
-    const expected = key === 'thailand' ? 98 : 99;
+    const expected = key === 'thailand' || key === 'japan' ? 98 : 99;
     assert(r.score === expected, `${key} Case 1328 (pre-existing near-ideal fixture) = ${expected} (got ${r.score})`);
   }
 }

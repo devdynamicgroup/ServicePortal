@@ -206,10 +206,10 @@ console.log('\nDIFF pipeline retrace (RAW === engine input)');
   assert(t.displayed === 46 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
     'DIFF Hero = Thailand 46');
   const jp = trace(DIFF, 'japan');
-  // Japan turbidity inner curve (2026-08-17, PO-approved): DIFF's
-  // turbidity=3.5 now grades 40 (flat zone 2-6 NTU), CRITICAL (was
-  // FAIL/grade~78), severity-capped at 60 (was 75).
-  assert(jp.postRound === 60 && jp.displayed === 60, 'DIFF JP capped 60 (turbidity CRITICAL)');
+  // Japan turbidity/TDS/chlorine inner curves (2026-08-17, PO-approved):
+  // DIFF's turbidity=3.5, tds=800, chlorine=1.5 are all now CRITICAL. Raw
+  // composite is 54, already below the CRITICAL cap (60) -- ceiling, not floor.
+  assert(jp.postRound === 54 && jp.displayed === 54, 'DIFF JP 54 (tds/cl/turbidity CRITICAL, below cap)');
   const q = sandbox.computeQualityScoreDetail(DIFF).score;
   assert(q === 61, 'DIFF Q-V3 unchanged 61');
 }
@@ -238,7 +238,9 @@ console.log('\nCross-engine isolation');
   assert(sandbox.UsEpaBenchmarkLimits.chlorine.max === 4.0, 'EPA Cl max 4.0');
   const jp = sandbox.WaterScoreBenchmarkRegistry.calculate('japan', BASE);
   // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine.
-  assert(jp.score === 98 && jp.classifications.do === 'NOT_EVALUATED', 'JP BASE 98 / DO NE');
+  // Japan pH/chlorine inner curves (2026-08-17, PO-approved): BASE's
+  // chlorine=0.7/pH=7.85 also decline now, pulling Japan further to 90.
+  assert(jp.score === 90 && jp.classifications.do === 'NOT_EVALUATED', 'JP BASE 90 / DO NE');
   // WARNING severity cap=85 (2026-08-14, PO-approved): BASE's worst classification
   // on WHO/EPA is WARNING (chlorine=0.7 WHO tier / do=5.3), now capped 85 (was 93/98).
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', BASE).score === 85, 'WHO 85 (WARNING cap)');
@@ -296,19 +298,25 @@ console.log('\nCross-country matrix (JP/EU/WHO/EPA/Q-V3 frozen)');
     // turbidity in 2-6 NTU now grades 40 (flat zone) instead of a near-100
     // plateau, classifying CRITICAL (was PASS/WARNING/FAIL) and severity-
     // capped at 60. Recomputed directly against current code, not estimated.
-    ['BASE', BASE, { th: 81, jp: 98, eu: 65, who: 85, epa: 85, q: 76 }],
-    ['DIFF', DIFF, { th: 46, jp: 60, eu: 61, who: 75, epa: 75, q: 61 }],
+    // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): any row
+    // with tds/chlorine past their new project-defined ideal windows now
+    // grades lower (tds>200 declines, chlorine outside 0.2-0.5 declines);
+    // rows with tds/chlorine far enough out (800 / 1.5) now classify
+    // CRITICAL instead of PASS/FAIL, and composites recompute accordingly.
+    // Recomputed directly against current code, not estimated.
+    ['BASE', BASE, { th: 81, jp: 90, eu: 65, who: 85, epa: 85, q: 76 }],
+    ['DIFF', DIFF, { th: 46, jp: 54, eu: 61, who: 75, epa: 75, q: 61 }],
     ['LOCKED', LOCKED, { th: 70, jp: 60, eu: 65, who: 85, epa: 75, q: 73 }],
     // EU non-chlorine severity coverage (2026-08-14, PO-approved): tds/turbidity
     // FAIL (chlorine PASS in these three rows) now capped at 75 (was 93/89/82
     // uncapped). oneBadCl/threeBad/BASE/DIFF/LOCKED are chlorine-CRITICAL rows
     // where the existing 65 gate already dominated — confirmed unaffected by
     // direct recomputation.
-    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 69, jp: 75, eu: 75, who: 75, epa: 75, q: 90 }],
+    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 69, jp: 60, eu: 75, who: 75, epa: 75, q: 90 }],
     ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 75, jp: 60, eu: 75, who: 85, epa: 75, q: 90 }],
-    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 55, jp: 75, eu: 65, who: 75, epa: 99, q: 90 }],
+    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 55, jp: 60, eu: 65, who: 75, epa: 99, q: 90 }],
     ['twoBad', twoBad, { th: 65, jp: 60, eu: 75, who: 75, epa: 75, q: 80 }],
-    ['threeBad', threeBad, { th: 46, jp: 60, eu: 62, who: 75, epa: 75, q: 69 }]
+    ['threeBad', threeBad, { th: 46, jp: 54, eu: 62, who: 75, epa: 75, q: 69 }]
   ];
   for (const [label, readings, exp] of rows) {
     const got = {

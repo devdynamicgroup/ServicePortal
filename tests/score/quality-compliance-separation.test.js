@@ -72,9 +72,11 @@ function validated(raw) {
   // ceiling caps the displayed score at 99 (100 is reserved for Quality V3).
   // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves its
   // raw composite for this reading to 98.35 (rounds to 98, below the ceiling,
-  // so the ceiling is a no-op there); the other four engines are unaffected.
-  assert(th.score === 98 && jp.score === 99 && who.score === 99 && eu.score === 99 && epa.score === 99,
-    'Case 1328 scores 98 (Thailand) / 99 (Hero ceiling on all others), independent of Quality V3');
+  // so the ceiling is a no-op there). Japan pH inner curve (2026-08-17,
+  // PO-approved): pH=7.79 is just past the 7.3-7.7 ideal window (grade 91),
+  // also pulling Japan's raw composite below the ceiling to 98.
+  assert(th.score === 98 && jp.score === 98 && who.score === 99 && eu.score === 99 && epa.score === 99,
+    'Case 1328 scores 98 (Thailand/Japan, below ceiling) / 99 (Hero ceiling on WHO/EU/EPA), independent of Quality V3');
   assert(quality !== th.score, 'Quality V3 numerically differs from the (selected) country benchmark score');
 
   // Selecting a different benchmark must never change the Quality number.

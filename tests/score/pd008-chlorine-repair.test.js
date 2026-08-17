@@ -202,7 +202,9 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
   // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine.
   // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 81 (was 86).
   assert(bench('thailand', BASE).score === 81, 'TH baseline 81 (ordinary-band severity)');
-  assert(bench('japan', BASE).score === 98, 'JP baseline 98');
+  // Japan pH/chlorine inner curves (2026-08-17, PO-approved): chlorine=0.7 and
+  // pH=7.85 are past their new ideal windows, pulling Japan to 90 (was 98).
+  assert(bench('japan', BASE).score === 90, 'JP baseline 90');
   // WARNING severity cap=85 (2026-08-14, PO-approved numeric): BASE's worst
   // classification on WHO/EPA is WARNING, now capped 85 (was 93/98).
   assert(bench('who', BASE).score === 85, 'WHO baseline 85 (WARNING cap)');

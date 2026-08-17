@@ -56,11 +56,15 @@ const scoreFlowSrc = fs.readFileSync(path.join(root, 'src/js/flows/score.js'), '
 // WARNING severity cap=85 (2026-08-14, PO-approved numeric): this reading's
 // worst classification on WHO/EPA is WARNING (chlorine/do), now capped 85
 // (was 93/98).
+// Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): this
+// reading's chlorine=0.7 (past the 0.2-0.5 project-defined ideal) and
+// pH=7.85 (past the cited 7.3-7.7 ideal) now decline, pulling Japan to 90
+// (was 98).
 const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
   thailand: 81,
-  japan: 98,
+  japan: 90,
   who: 85,
   eu: 65,
   usEpa: 85
@@ -150,21 +154,24 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   const thOverlap = bench('thailand', overlap).score;
   const jpOverlap = bench('japan', overlap).score;
   // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves TH's
-  // raw composite for this reading from 98.9 to 98.35 (rounds to 98), while JP
-  // stays 99 (raw=100, ceiling-capped) — they no longer coincide for this
-  // fixture. PD-005 forbids treating either outcome (equal or unequal) as a
-  // ranking; both are valid, so this now demonstrates the "genuinely differ"
-  // case instead of the former coincidental overlap.
-  assert(thOverlap === 98 && jpOverlap === 99 && thOverlap !== jpOverlap,
-    'TH/JP scores need not be equal — PD-005 forbids ranking either way (98 vs 99)');
+  // raw composite for this reading from 98.9 to 98.35 (rounds to 98). Japan
+  // pH/TDS/chlorine inner curves (2026-08-17, PO-approved) independently pull
+  // JP's raw-100 composite for this same reading down to 98 too (pH=7.79 just
+  // past the cited 7.3-7.7 ideal). The two engines land on the same number
+  // again by coincidence — PD-005 forbids treating either outcome (equal or
+  // unequal) as a ranking; both are valid, so this now demonstrates the
+  // "equal is fine, not a ranking" case again.
+  assert(thOverlap === 98 && jpOverlap === 98 && thOverlap === jpOverlap,
+    'TH/JP scores may coincide — PD-005 forbids reading that as a ranking (98 = 98)');
   const thBaseline = bench('thailand', BASELINE.readings);
   const jpBaseline = bench('japan', BASELINE.readings);
-  // Thailand chlorine curve + weakest-link share (2026-08-17, PO-approved):
-  // TH (81) and JP (98) genuinely differ — no longer identical via any
+  // Thailand chlorine curve + weakest-link share (2026-08-17, PO-approved) and
+  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved) independently
+  // move TH to 81 and JP to 90 for this reading — no longer identical via any
   // mechanism. This is the intended product fix: ordinary water no longer
   // collapses to one shared number.
-  assert(thBaseline.score === 81 && jpBaseline.score === 98,
-    'BASELINE TH 81 !== JP 98 (real separation, not a ranking)');
+  assert(thBaseline.score === 81 && jpBaseline.score === 90,
+    'BASELINE TH 81 !== JP 90 (real separation, not a ranking)');
   assert(thBaseline.params.chlorine < 100, 'TH chlorine grade already below 100 pre-ceiling (in-band severity)');
   assert(jpBaseline.params.orp < 100, 'JP orp grade now below 100 for orp=515 (PD-014 D1 inner decline)');
   assert(!scoreFlowSrc.includes('strictest cleanliness expectations'),

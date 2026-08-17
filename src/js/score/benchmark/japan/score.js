@@ -15,21 +15,54 @@
   /** Scored Compliance Index params only — DO excluded (PD-012 B). */
   const SCORED_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp']);
 
+  function lerp(x, x0, x1, y0, y1) {
+    if (x1 === x0) return y0;
+    const t = (x - x0) / (x1 - x0);
+    return y0 + (y1 - y0) * Math.max(0, Math.min(1, t));
+  }
+  /**
+   * 2026-08-17 (PO-approved, evidence: MHLW-style municipal 水質管理目標設定項目
+   * tables cite the comfortable-water pH target at ~7.5). Legal band
+   * (5.8-8.6) unchanged; adds an inner ideal window (7.3-7.7) with a steep
+   * ramp to the project-chosen edge grade (40) by 6.7/8.3, then flat to the
+   * legal edge — mirrors the turbidity precedent (PASS != high grade).
+   */
   function gradePh(ph) {
-    if (ph >= L.ph.min && ph <= L.ph.max) return 100;
-    const dist = ph < L.ph.min ? L.ph.min - ph : ph - L.ph.max;
-    return clamp(100 - dist * 45);
+    const P = L.ph;
+    if (ph >= P.idealMin && ph <= P.idealMax) return 100;
+    if (ph < P.idealMin) {
+      if (ph >= P.steepEndLow) return clamp(lerp(ph, P.steepEndLow, P.idealMin, P.edgeGrade, 100));
+      return clamp(P.edgeGrade - (P.steepEndLow - ph) * 10);
+    }
+    if (ph <= P.steepEndHigh) return clamp(lerp(ph, P.idealMax, P.steepEndHigh, 100, P.edgeGrade));
+    return clamp(P.edgeGrade - (ph - P.steepEndHigh) * 10);
   }
+  /**
+   * 2026-08-17 (PO-approved, evidence: same municipal tables cite the
+   * comfortable-water TDS/evaporation-residue target at 30-200 mg/L). Legal
+   * ceiling (500) unchanged; adds a steep ramp from the cited 200 mg/L
+   * upper bound to the project-chosen edge grade (40) by 350, then flat to
+   * the legal ceiling.
+   */
   function gradeTds(tds) {
-    if (tds <= 300) return 100;
-    if (tds <= L.tds.displayMax) return clamp(100 - (tds - 300) / 200 * 20);
-    return clamp(75 - (tds - L.tds.displayMax) / 15);
+    const T = L.tds;
+    if (tds <= T.idealMax) return 100;
+    if (tds <= T.steepEnd) return clamp(lerp(tds, T.idealMax, T.steepEnd, 100, T.edgeGrade));
+    if (tds <= T.displayMax) return T.edgeGrade;
+    return clamp(T.edgeGrade - (tds - T.displayMax) / 15);
   }
+  /**
+   * 2026-08-17 (PO-approved): no official MHLW comfortable-water target
+   * exists for residual chlorine — this ideal window (0.2-0.5 mg/L) and its
+   * edge grade (40) at the legal boundary (0.1/1.0) are project-defined,
+   * explicitly approved by PO, reusing the Thailand chlorine ideal band as
+   * a project convention (not a Japan-specific citation).
+   */
   function gradeChlorine(cl) {
-    if (cl >= L.chlorine.min && cl <= L.chlorine.max) return 100;
-    if (cl < L.chlorine.min) return clamp(cl / L.chlorine.min * 55);
-    if (cl <= 1.5) return clamp(85 - (cl - L.chlorine.max) * 40);
-    return clamp(40 - (cl - 1.5) * 15);
+    const C = L.chlorine;
+    if (cl >= C.idealMin && cl <= C.idealMax) return 100;
+    if (cl < C.idealMin) return clamp(lerp(cl, C.min, C.idealMin, C.edgeGrade, 100));
+    return clamp(lerp(cl, C.idealMax, C.max, 100, C.edgeGrade));
   }
   /**
    * 2026-08-17 (PO-approved, evidence: MHLW 快適水質項目 aesthetic target =

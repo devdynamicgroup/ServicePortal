@@ -157,7 +157,7 @@ console.log('\nFIXED — Thailand TDS / turbidity / chlorine in-band severity (P
   assert(bench('thailand', DIFF).score === 46, `DIFF TH 46 after ordinary-band severity (got ${bench('thailand', DIFF).score})`);
 }
 
-console.log('\nNOT FIXED (governance) — pH flat-in-band for non-TH engines; TH uses PD-015 preferred');
+console.log('\nNOT FIXED (governance) — pH flat-in-band for non-TH/JP engines; TH/JP use inner curves');
 {
   for (const key of KEYS) {
     const L = sandbox.WaterScoreBenchmarkRegistry.get(key).limits.ph;
@@ -168,6 +168,15 @@ console.log('\nNOT FIXED (governance) — pH flat-in-band for non-TH engines; TH
       assert(grade(key, 'ph', 7.2) === 100, 'thailand pH preferred center = 100');
       assert(grade(key, 'ph', L.min) === 70, 'thailand pH at pass edge = 70');
       assert(grade(key, 'ph', L.max) === 70, 'thailand pH at pass edge high = 70');
+    } else if (key === 'japan') {
+      // Japan pH inner curve (2026-08-17, PO-approved, evidence: cited
+      // 快適水質 target ~7.5): 5.8-8.6 legal band no longer flat 100 — mid
+      // (7.2, just outside the 7.3-7.7 ideal window) and both near-edges
+      // now decline. Recomputed directly, not estimated.
+      assert(grade(key, 'ph', 7.5) === 100, 'japan pH cited target 7.5 = 100');
+      assert(Math.round(grade(key, 'ph', mid)) === 90, `japan pH mid-band (${mid}) declines to 90`);
+      assert(grade(key, 'ph', nearLow) < 100, 'japan pH near-low declines');
+      assert(grade(key, 'ph', nearHigh) < 100, 'japan pH near-high declines');
     } else {
       assert(grade(key, 'ph', mid) === 100, `${key} pH mid-band = 100 (compliance flat)`);
       assert(grade(key, 'ph', nearLow) === 100, `${key} pH near-low = 100`);
@@ -207,8 +216,12 @@ console.log('\nFIXED (PD-014 D2, 2026-08-14) — EPA Cl inner severity within lo
 
 console.log('\nAcceptable narrow residual / ideal plateaus (not the TH overfit defect)');
 {
-  assert(grade('japan', 'chlorine', 0.1) === 100 && grade('japan', 'chlorine', 1.0) === 100,
-    'JP Cl 0.1–1.0 residual band');
+  // Japan chlorine inner curve (2026-08-17, PO-approved, project-defined —
+  // no official MHLW target exists for chlorine): ideal 0.2-0.5 mg/L = 100;
+  // the legal edges (0.1/1.0) now decline to grade 40 instead of flat 100.
+  assert(grade('japan', 'chlorine', 0.3) === 100, 'JP Cl 0.3 (ideal) = 100');
+  assert(grade('japan', 'chlorine', 0.1) === 40 && grade('japan', 'chlorine', 1.0) === 40,
+    'JP Cl legal edges (0.1/1.0) decline to 40, no longer flat 100');
   assert(grade('japan', 'chlorine', 1.5) < 100, 'JP Cl 1.5 declines');
   assert(grade('eu', 'chlorine', 0.1) === 100 && grade('eu', 'chlorine', 0.5) === 100,
     'EU Cl 0.1–0.5 project residual');
@@ -314,8 +327,10 @@ console.log('\nCountry switch TH→JP→EU→WHO→EPA→TH (no stale cache)');
 console.log('\nMissing-data country semantics');
 {
   assert(bench('thailand', { ...IDEAL, ph: null }).score == null, 'TH missing pH incomplete');
-  // Raw composite is 100 (all other params ideal); Hero ceiling caps at 99.
-  assert(bench('japan', { ...IDEAL, do: null }).score === 99
+  // Japan pH inner curve (2026-08-17, PO-approved): IDEAL's ph=7.2 is just
+  // past the cited 7.3-7.7 ideal window (grade 90), so the raw composite is
+  // 98, not 100 — the Hero ceiling is correctly a no-op here.
+  assert(bench('japan', { ...IDEAL, do: null }).score === 98
     && bench('japan', { ...IDEAL, do: null }).classifications.do === 'NOT_EVALUATED',
     'JP missing DO still scores / NOT_EVALUATED');
   assert(bench('eu', { ...IDEAL, do: null }).score == null, 'EU missing DO incomplete');
@@ -450,7 +465,9 @@ console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA
 {
   // BASE orp=515 is now inside the D1 outer-decline ramp on every engine
   // (>450) — no longer flat 100, so JP/WHO/EPA BASE genuinely move down.
-  assert(bench('japan', BASE).score === 98, 'JP BASE 98 (was 99 pre-D1; orp=515 now inner-declines)');
+  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): BASE's
+  // chlorine=0.7/pH=7.85 also decline now, pulling Japan further to 90.
+  assert(bench('japan', BASE).score === 90, 'JP BASE 90 (chlorine/pH past ideal, orp inner-declines)');
   // WARNING severity cap=85 (2026-08-14, PO-approved numeric): BASE's worst
   // classification on WHO/EPA is WARNING -> capped 85 (was 93/98).
   assert(bench('who', BASE).score === 85, 'WHO BASE 85 (WARNING cap; was 93 pre-cap)');
@@ -460,10 +477,12 @@ console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA
   // DIFF orp=350 sits exactly on the D1 inner-plateau edge (still grade 100)
   // so only EPA DIFF moves, and only because D2 now grades its chlorine=1.5
   // below 100 (was flat 100 across the whole 0.2-4.0 window pre-D2).
-  // Japan turbidity inner curve (2026-08-17, PO-approved): DIFF's
-  // turbidity=3.5 now grades 40 (flat zone 2-6 NTU), CRITICAL (was
-  // FAIL/grade~78), severity-capped at 60 (was 75).
-  assert(bench('japan', DIFF).score === 60, 'JP DIFF 60 (turbidity CRITICAL, severity-capped)');
+  // Japan turbidity/TDS/chlorine inner curves (2026-08-17, PO-approved):
+  // DIFF's turbidity=3.5 (grade 40), tds=800 (grade 20, past the 500 legal
+  // ceiling too), and chlorine=1.5 (grade 40) are now all CRITICAL. Raw
+  // composite is 54, already below the CRITICAL cap (60) -- the cap is
+  // correctly a no-op (ceiling, not floor), not raised to 60.
+  assert(bench('japan', DIFF).score === 54, 'JP DIFF 54 (tds/cl/turbidity CRITICAL, raw already below cap)');
   assert(bench('eu', DIFF).score === 61, 'EU DIFF 61 (unaffected — D1 no-op at orp=350, D2/D3 out of scope for EU)');
   // Country severity protection (2026-08-14): DIFF's TDS=800/chlorine=1.5 are
   // FAIL on WHO/EPA, now capped at 75 (was 81/78 uncapped).

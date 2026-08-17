@@ -87,7 +87,9 @@ console.log('\nCase 13.28 — Quality V2 + benchmarks');
   // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves the
   // pre-ceiling raw composite from 98.9 to 98.35, rounding to 98 (below the
   // ceiling, so the ceiling itself does not apply here) instead of 99.
-  const expected = { thailand: 98, who: 99, eu: 99, japan: 99, usEpa: 99 };
+  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): pH=7.79 is
+  // just past the 7.3-7.7 ideal window (grade 91), pulling Japan to 98.
+  const expected = { thailand: 98, who: 99, eu: 99, japan: 98, usEpa: 99 };
   for (const [key, score] of Object.entries(expected)) {
     const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, CASE_1328);
     assert(result.score === score, `${key} Case 13.28 = ${score}`);

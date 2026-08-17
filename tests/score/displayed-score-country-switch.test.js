@@ -209,7 +209,9 @@ console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
   // (was flat 100 pre-D1), so these move from their pre-D1 baseline.
   // Thailand chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 81 (was 86).
   assert(th.score === 81 && th.engineKey === 'thailand', 'baseline displayed TH=81 from thailand engine');
-  assert(jp.score === 98 && jp.engineKey === 'japan', 'baseline displayed JP=98 from japan engine');
+  // Japan pH/chlorine inner curves (2026-08-17, PO-approved): chlorine=0.7 and
+  // pH=7.85 are past their new ideal windows, pulling Japan to 90 (was 98).
+  assert(jp.score === 90 && jp.engineKey === 'japan', 'baseline displayed JP=90 from japan engine');
   // WARNING severity cap=85 (2026-08-14, PO-approved numeric) further caps
   // WHO/EPA's worst=WARNING composite (was 93/98 pre-cap).
   assert(who.score === 85 && who.engineKey === 'who', 'baseline displayed WHO=85 from who engine');
@@ -253,8 +255,9 @@ console.log('\n10. Quality V3 unchanged');
   switchCountry('japan');
   assert(sandbox.S.currentScoreResult.computedScore === 76, 'publish computedScore stays Quality 76 after JP switch');
   assert(sandbox.S.scoreVal === 76, 'S.scoreVal (publish) stays Quality 76');
-  // Raw JP composite is 100; Hero ceiling caps at 99 — still independent of Quality V3 (76).
-  assert(sandbox.S.displayedScore.score === 98, 'displayed Japan score is 98 (PD-014 D1), not Quality 76');
+  // Japan pH/chlorine inner curves (2026-08-17, PO-approved) pull JP's raw
+  // composite for BASELINE to 90 — still independent of Quality V3 (76).
+  assert(sandbox.S.displayedScore.score === 90, 'displayed Japan score is 90, not Quality 76');
 }
 
 console.log('\nLive Hero must not fall back to Quality V3 when country score is incomplete');

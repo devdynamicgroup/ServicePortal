@@ -202,7 +202,9 @@ console.log('\nE. Second, independent real Case proves Japan persists through Sc
   sb.loadJobState(job2);
   assert(sb.S.scoreStandardKey === 'thailand', 'Case 2 also defaults to thailand (same generic default, no hardcoding)');
   sb.setScoreReferenceStandard('japan');
-  assert(sb.S.displayedScore.engineKey === 'japan' && sb.S.displayedScore.score === 99, 'Case 2 selects Japan, Hero=99');
+  // Japan pH inner curve (2026-08-17, PO-approved): pH=7.81 is just past the
+  // 7.3-7.7 ideal window (grade 89), pulling Japan to 97 (was 99).
+  assert(sb.S.displayedScore.engineKey === 'japan' && sb.S.displayedScore.score === 97, 'Case 2 selects Japan, Hero=97');
   sb.saveActiveJobState();
 
   sb = makeSandbox();
@@ -211,7 +213,7 @@ console.log('\nE. Second, independent real Case proves Japan persists through Sc
   assert(sb.S.scoreStandardKey === 'japan', 'Case 2 Japan selection restored after reload — proves generality, not a New-C-8/11-specific fix');
   sb.goScreen('s-score');
   assert(sb.S.scoreStandardKey === 'japan', 'Score navigation does not overwrite restored Japan');
-  assert(sb.S.displayedScore.engineKey === 'japan' && sb.S.displayedScore.score === 99, 'Japan Hero remains selected after Score navigation');
+  assert(sb.S.displayedScore.engineKey === 'japan' && sb.S.displayedScore.score === 97, 'Japan Hero remains selected after Score navigation');
 }
 
 console.log('\nF. Case A/B selection remains isolated through Score navigation');

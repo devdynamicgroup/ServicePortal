@@ -193,18 +193,23 @@ console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-ap
   const newc811 = { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 };
   const newc810 = { ph: 7.81, tds: 14.672, turbidity: 0.46, orp: 499.3, do: 5.31, chlorine: 0.37 };
   const c1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3 };
-  // JP: DO not indexed (PD-012 B) -> both real cases are all-PASS on Japan -> unaffected.
-  assert(bench('japan', newc811).score === 98, 'New C 8/11 JP unchanged 98 (all-PASS, DO not indexed)');
+  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): chlorine=0.7
+  // and pH=7.85 are past their new ideal windows, pulling Japan to 90 (was 98).
+  assert(bench('japan', newc811).score === 90, 'New C 8/11 JP 90 (chlorine/pH past ideal)');
   // WHO/EPA: worst=WARNING (chlorine and/or do) -> now capped at 85, was 93/98 pre-fix.
   assert(bench('who', newc811).score === 85, `New C 8/11 WHO worst=WARNING -> capped 85 (was 93 pre-fix)`);
   assert(bench('usEpa', newc811).score === 85, `New C 8/11 EPA worst=WARNING -> capped 85 (was 98 pre-fix)`);
   assert(bench('eu', newc811).score === 65, 'New C 8/11 EU unchanged 65 (chlorine CRITICAL dominates, generic cap does not lower it further)');
-  assert(bench('japan', newc810).score === 99, 'New C 8/10 JP unchanged 99 (all-PASS, DO not indexed)');
+  // Japan pH inner curve (2026-08-17, PO-approved): pH=7.81 is just past the
+  // 7.3-7.7 ideal window (grade 89), pulling Japan to 97 (was 99).
+  assert(bench('japan', newc810).score === 97, 'New C 8/10 JP 97 (pH past ideal)');
   assert(bench('who', newc810).score === 85, `New C 8/10 WHO worst=WARNING -> capped 85 (was 96 pre-fix)`);
   assert(bench('usEpa', newc810).score === 85, `New C 8/10 EPA worst=WARNING -> capped 85 (was 98 pre-fix)`);
   // EU non-chlorine severity coverage (2026-08-14): DO=FAIL now capped at 75 (was 98 uncapped pre-fix).
   assert(bench('eu', newc810).score === 75, 'New C 8/10 EU now capped 75 (DO FAIL, non-chlorine severity coverage)');
-  assert(bench('japan', c1328).score === 99, '13.28 JP unchanged 99 (all-PASS, hero ceiling only)');
+  // Japan pH inner curve (2026-08-17, PO-approved): pH=7.79 is just past the
+  // 7.3-7.7 ideal window (grade 91), pulling Japan to 98 (was 99).
+  assert(bench('japan', c1328).score === 98, '13.28 JP 98 (pH past ideal)');
   assert(bench('who', c1328).score === 99, '13.28 WHO unchanged 99 (all-PASS, worst=PASS, WARNING cap is a no-op)');
   assert(bench('usEpa', c1328).score === 99, '13.28 EPA unchanged 99 (all-PASS, worst=PASS, WARNING cap is a no-op)');
   // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 98 (was 99), unrelated to this file's WARNING-cap topic.
@@ -386,11 +391,15 @@ console.log('\nJ. WARNING presentation (2026-08-14) — reuses existing withinLi
   assert(jp811Verdict.label === 'score.benchmark.verdict.passBand', `Japan PASS (worst=PASS) still shows passBand (got "${jp811Verdict.label}")`);
 
   // Case 1328: all-PASS on JP/WHO/EPA — must remain passBand, unaffected by the new WARNING branch.
+  // Japan pH inner curve (2026-08-17, PO-approved): pH=7.79 is just past the
+  // 7.3-7.7 ideal window (grade 91), pulling Japan to 98 (was 99) — still PASS
+  // classification, so still passBand; only WHO/EPA stay at 99.
   for (const key of ['japan', 'who', 'usEpa']) {
     const r = switchAndRead(key, c1328);
     const v = sandbox.comparisonPresentationVerdict(r.score, r.classifications, r.engineKey);
     assert(v.label === 'score.benchmark.verdict.passBand', `Case 1328 ${key} still passBand (got "${v.label}")`);
-    assert(r.score === 99, `Case 1328 ${key} score numerically unchanged at 99 (got ${r.score})`);
+    const expected = key === 'japan' ? 98 : 99;
+    assert(r.score === expected, `Case 1328 ${key} score numerically ${expected} (got ${r.score})`);
   }
 
   // FAIL/CRITICAL branches must retain their exact pre-existing behavior.

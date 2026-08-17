@@ -154,7 +154,11 @@ console.log('\nE. Catastrophic sweep — cap composes correctly with the weakest
 console.log('\nF. Cross-engine isolation — Japan/WHO/EU/US EPA scores byte-unchanged by this fix');
 {
   const r = { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 }; // New C 8/11
-  assert(bench('japan', r).score === 98, `Japan unaffected (got ${bench('japan', r).score})`);
+  // Japan pH/chlorine inner curves (2026-08-17, PO-approved) are a separate,
+  // unrelated Japan-only change (not this Thailand severity-protection fix);
+  // this assertion only proves this file's Thailand change doesn't leak into
+  // Japan's own independently-current value.
+  assert(bench('japan', r).score === 90, `Japan unaffected by the Thailand-only fix in this file (got ${bench('japan', r).score})`);
   assert(bench('who', r).score === 85, `WHO unaffected (got ${bench('who', r).score})`);
   assert(bench('eu', r).score === 65, `EU unaffected (got ${bench('eu', r).score})`);
   assert(bench('usEpa', r).score === 85, `US EPA unaffected (got ${bench('usEpa', r).score})`);

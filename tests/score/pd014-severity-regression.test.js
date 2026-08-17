@@ -155,8 +155,10 @@ console.log('\nOrdinary/good/near-ideal separation — the actual product fix, p
     good: sandbox.WaterScoreBenchmarkRegistry.calculate('japan', CASE_B).score,
     ideal: sandbox.WaterScoreBenchmarkRegistry.calculate('japan', CASE_1328).score
   };
-  assert(jp.base === jp.good && jp.good < jp.ideal,
-    `JP: ordinary(${jp.base}) and good(${jp.good}) tie (real coincidence, not a plateau bug — verified via distinct params), both < near-ideal(${jp.ideal})`);
+  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): base/good/
+  // ideal no longer tie -- each now separates on its own merits, same as TH.
+  assert(jp.base < jp.good && jp.good < jp.ideal,
+    `JP: ordinary(${jp.base}) < better(${jp.good}) < near-ideal(${jp.ideal})`);
   assert(th.base !== 99 || th.good !== 99 || th.ideal !== 99, 'not all three still collapsed to a single shared 99');
 }
 
