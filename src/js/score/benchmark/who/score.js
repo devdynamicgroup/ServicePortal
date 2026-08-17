@@ -98,7 +98,7 @@
     const fcl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
     if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
-      return incomplete('WHO', 'who', { readings, engineVersion: 'v1.0', standardRevision: 'WHO-inspired guideline proximity engine (project scoring; not an official WHO index)' });
+      return incomplete('WHO', 'who', { readings, engineVersion: 'v2', standardRevision: 'WHO-inspired guideline proximity engine (project scoring; not an official WHO index)' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), turbidity: gradeTurbidity(turb),
@@ -106,7 +106,7 @@
     };
     let num = 0; let den = 0;
     Object.keys(W).forEach(key => { num += params[key] * W[key]; den += W[key]; });
-    const score = Math.round(num / den);
+    const rawScore = Math.round(num / den);
 
     const ideal = {
       ph: ph >= L.ph.min && ph <= L.ph.max,
@@ -154,7 +154,14 @@
       reasons.push({ parameter: 'orp', severity: classifications.orp.toLowerCase(), message: 'ORP is outside the shared project operational window used for WHO comparison (200–600 mV — not a WHO Ideal).' });
     }
 
-    const verdict = verdictFrom(score);
+    // Score Architecture V2 (2026-08-17, PO-approved additive contract):
+    // capture severity protection as an inspectable stage — same cap math as
+    // before, now exposed as a discrete sub-object.
+    const severity = (typeof computeCountrySeverityProtection === 'function')
+      ? computeCountrySeverityProtection(rawScore, classifications)
+      : { score: rawScore, applied: false, worstClassification: null, cap: null, preCapScore: rawScore };
+
+    const verdict = verdictFrom(rawScore);
     let summary = 'Meets this project’s WHO-inspired guideline proximity targets for the scored indicators.';
     if (reasons.length) summary = 'Does not fully meet this project’s WHO-inspired guideline proximity targets for all indicators.';
     if (verdict === 'Excellent' && !reasons.length) summary = 'Aligns closely with this project’s WHO-inspired proximity targets (not an official WHO score).';
@@ -180,13 +187,13 @@
     return wrap({
       engine: 'WHO',
       engineKey: 'who',
-      // Country severity protection (product decision, 2026-08-14): FAIL/CRITICAL
-      // classifications cap the composite. Explicit call, WHO-only — see
-      // src/js/score/util/benchmarkMetadata.js for the shared, engine-agnostic
-      // implementation. Does not affect grades, weights, or aggregation above.
-      score: (typeof applyCountrySeverityProtection === 'function')
-        ? applyCountrySeverityProtection(score, classifications)
-        : score,
+      // Country severity protection (product decision, 2026-08-14): FAIL/CRITICAL/
+      // WARNING classifications cap the composite. See src/js/score/util/
+      // benchmarkMetadata.js for the shared, engine-agnostic implementation.
+      // Does not affect grades, weights, or aggregation above.
+      score: severity.score,
+      rawAggregate: rawScore,
+      severityProtection: severity,
       verdict,
       summary,
       classifications,
@@ -197,7 +204,7 @@
       statuses,
       findings,
       readings,
-      engineVersion: 'v1.0',
+      engineVersion: 'v2',
       standardRevision: 'WHO-inspired guideline proximity engine (project scoring; not an official WHO index)'
     });
 

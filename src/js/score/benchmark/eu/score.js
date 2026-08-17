@@ -88,7 +88,7 @@
     const cl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
     if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
-      return incomplete('EU', 'eu', { readings, engineVersion: 'v1.0', standardRevision: 'EU-engine project benchmark (Directive-inspired; free-Cl residual project-defined)' });
+      return incomplete('EU', 'eu', { readings, engineVersion: 'v2', standardRevision: 'EU-engine project benchmark (Directive-inspired; free-Cl residual project-defined)' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
@@ -116,7 +116,15 @@
     };
 
     // EU chlorine-specific hard gate (PD-002, unchanged) — dominant for chlorine failures.
-    let score = chlorineFail ? Math.min(rawScore, L.gateCapOnChlorineFail) : rawScore;
+    // Score Architecture V2 (2026-08-17, PO-approved additive contract):
+    // captured as an inspectable countryGate stage — same math as before.
+    const gateScore = chlorineFail ? Math.min(rawScore, L.gateCapOnChlorineFail) : rawScore;
+    const countryGate = {
+      applied: Boolean(chlorineFail) && gateScore < rawScore,
+      type: 'EU-PD-002-chlorine-gate',
+      cap: L.gateCapOnChlorineFail,
+      preGateScore: rawScore
+    };
 
     // Non-chlorine severity-protection coverage (product decision, 2026-08-14):
     // reuses the exact shared mechanism already deployed for Japan/WHO/US EPA
@@ -125,11 +133,14 @@
     // call (forced to 'PASS' in a local copy) so a chlorine-CRITICAL reading
     // is governed only by the dedicated 65 gate above and can never be pulled
     // down to the generic CRITICAL=60 — the existing PD-002 outcome (65) stays
-    // dominant whenever chlorine itself is the failing parameter.
-    if (typeof applyCountrySeverityProtection === 'function') {
-      const nonChlorineClassifications = { ...classifications, chlorine: 'PASS' };
-      score = Math.min(score, applyCountrySeverityProtection(rawScore, nonChlorineClassifications));
-    }
+    // dominant whenever chlorine itself is the failing parameter. Now also
+    // captured as an inspectable severityProtection stage (same math as before).
+    const nonChlorineClassifications = { ...classifications, chlorine: 'PASS' };
+    const severity = (typeof computeCountrySeverityProtection === 'function')
+      ? computeCountrySeverityProtection(rawScore, nonChlorineClassifications)
+      : { score: rawScore, applied: false, worstClassification: null, cap: null, preCapScore: rawScore };
+
+    const score = Math.min(gateScore, severity.score);
 
     const reasons = [];
     if (cl > L.chlorine.max) {
@@ -177,6 +188,9 @@
       engine: 'EU',
       engineKey: 'eu',
       score,
+      rawAggregate: rawScore,
+      severityProtection: severity,
+      countryGate,
       verdict,
       summary,
       classifications,
@@ -187,7 +201,7 @@
       statuses,
       findings,
       readings,
-      engineVersion: 'v1.0',
+      engineVersion: 'v2',
       standardRevision: 'EU-engine project benchmark (Directive-inspired; free-Cl residual project-defined)',
       gated: chlorineFail
     });

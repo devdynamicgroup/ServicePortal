@@ -142,7 +142,7 @@
     if (![ph, tds, turb, orp, cl].every(Number.isFinite)) {
       return incomplete('Japan', 'japan', {
         readings,
-        engineVersion: 'v1.0',
+        engineVersion: 'v2',
         standardRevision: 'Japan-style Compliance Index (project engine; DO NOT_EVALUATED — PD-012 B; JP-WEIGHTS values unchanged — PD-013 A)'
       });
     }
@@ -164,7 +164,7 @@
       num += params[key] * W[key];
       den += W[key];
     });
-    const score = den > 0 ? Math.round(num / den) : null;
+    const rawScore = den > 0 ? Math.round(num / den) : null;
 
     const pass = {
       ph: ph >= L.ph.min && ph <= L.ph.max,
@@ -191,6 +191,14 @@
       )
     };
 
+    // Score Architecture V2 (2026-08-17, PO-approved additive contract):
+    // capture severity protection as an inspectable stage. Same cap math as
+    // before (applyCountrySeverityProtection, called internally) — this only
+    // exposes whether it fired and what the pre-cap score was.
+    const severity = (typeof computeCountrySeverityProtection === 'function')
+      ? computeCountrySeverityProtection(rawScore, classifications)
+      : { score: rawScore, applied: false, worstClassification: null, cap: null, preCapScore: rawScore };
+
     const reasons = [];
     if (!pass.turbidity) {
       reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds Japanese drinking-water recommendation (≤ 2 NTU).' });
@@ -207,7 +215,7 @@
       reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds Japan comparison ceiling (≤ 500 mg/L).' });
     }
 
-    const verdict = verdictFrom(score);
+    const verdict = verdictFrom(rawScore);
     let summary = 'Meets this project’s Japan-style Compliance Index criteria for this comparison (DO not evaluated — PD-012 B).';
     if (!reasons.length && verdict === 'Excellent') {
       summary = 'Strong alignment with this project’s Japan-style Compliance Index criteria (DO not evaluated — PD-012 B).';
@@ -238,13 +246,13 @@
     return wrap({
       engine: 'Japan',
       engineKey: 'japan',
-      // Country severity protection (product decision, 2026-08-14): FAIL/CRITICAL
-      // classifications cap the composite. Explicit call, Japan-only — see
-      // src/js/score/util/benchmarkMetadata.js for the shared, engine-agnostic
-      // implementation. Does not affect grades, weights, or aggregation above.
-      score: (typeof applyCountrySeverityProtection === 'function')
-        ? applyCountrySeverityProtection(score, classifications)
-        : score,
+      // Country severity protection (product decision, 2026-08-14): FAIL/CRITICAL/
+      // WARNING classifications cap the composite. See src/js/score/util/
+      // benchmarkMetadata.js for the shared, engine-agnostic implementation.
+      // Does not affect grades, weights, or aggregation above.
+      score: severity.score,
+      rawAggregate: rawScore,
+      severityProtection: severity,
       verdict,
       summary,
       classifications,
@@ -255,7 +263,13 @@
       statuses,
       findings,
       readings,
-      engineVersion: 'v1.0',
+      // v2 (2026-08-17, Score Architecture V2): marks the first version-tracked
+      // release. Versions before this point were never bumped despite real
+      // curve changes (turbidity commit 72512555, pH/TDS/chlorine commit
+      // e277362f both shipped as 'v1.0') — v1 does not correspond to any
+      // single historical baseline, so this is a fresh starting point, not a
+      // precise reconstruction of prior history.
+      engineVersion: 'v2',
       standardRevision: 'Japan-style Compliance Index (project engine; DO NOT_EVALUATED — PD-012 B; JP-WEIGHTS values unchanged — PD-013 A)'
     });
 

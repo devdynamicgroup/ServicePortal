@@ -931,7 +931,11 @@ function renderWaterScore(job, options = {}) {
     ? [...draft.taps]
     : (S.taps?.length ? [...S.taps] : ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest']);
 
-  if (job) S.activeJob = job;
+  // Score Architecture V2 (2026-08-17, PO-approved): a render function must
+  // not be able to change which Case is globally active as a side effect
+  // (Principle D / state-ownership finding from the architecture audit).
+  // Callers that open a Case set S.activeJob explicitly before rendering;
+  // this function only ever renders whatever `job` it was given.
   // Saved / shareable score stays on the Quality V2 path.
   S.scoreVal = productionScore;
   // Cache only real entered/OCR values — never demo fill-ins.
@@ -987,6 +991,8 @@ function calcAndShowScore() {
 }
 
 function renderPublishedScore(job) {
+  // Explicit — renderWaterScore() no longer sets S.activeJob as a side effect.
+  if (job) S.activeJob = job;
   return renderWaterScore(job, { publicView: true });
 }
 

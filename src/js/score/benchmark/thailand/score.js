@@ -139,7 +139,7 @@
     const orp = toFin(readings.orp);
     const cl = toFin(readings.chlorine);
     if (![ph, tds, turb, orp, cl].every(Number.isFinite)) {
-      return incomplete('Thailand', 'thailand', { readings, engineVersion: 'v1.0', standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–2.0 project-defined — PD-008)' });
+      return incomplete('Thailand', 'thailand', { readings, engineVersion: 'v2', standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–2.0 project-defined — PD-008)' });
     }
     const params = {
       ph: gradePh(ph),
@@ -157,12 +157,12 @@
       den += W[key];
       scoredGrades.push(params[key]);
     });
-    let score = null;
+    let rawScore = null;
     if (den > 0 && scoredGrades.length) {
       const mean = num / den;
       const weakest = Math.min(...scoredGrades);
       const share = Number(L.weakestLinkShare) || 0;
-      score = Math.round((1 - share) * mean + share * weakest);
+      rawScore = Math.round((1 - share) * mean + share * weakest);
     }
 
     const pass = {
@@ -192,9 +192,13 @@
     // weights, limits, classification thresholds, or the PD-015 weakest-link
     // blend above. This only caps the already-computed composite when
     // Thailand's own classification (unchanged) says WARNING/FAIL/CRITICAL.
-    if (typeof applyCountrySeverityProtection === 'function' && Number.isFinite(score)) {
-      score = applyCountrySeverityProtection(score, classifications);
-    }
+    // Score Architecture V2 (2026-08-17, PO-approved additive contract):
+    // now captured as an inspectable stage — same cap math, exposed as a
+    // discrete sub-object.
+    const severity = (typeof computeCountrySeverityProtection === 'function')
+      ? computeCountrySeverityProtection(rawScore, classifications)
+      : { score: rawScore, applied: false, worstClassification: null, cap: null, preCapScore: rawScore };
+    const score = severity.score;
 
     const reasons = [];
     if (!pass.chlorine && cl > L.chlorine.max) {
@@ -252,6 +256,8 @@
       engine: 'Thailand',
       engineKey: 'thailand',
       score,
+      rawAggregate: rawScore,
+      severityProtection: severity,
       verdict,
       summary,
       classifications,
@@ -262,7 +268,7 @@
       statuses,
       findings,
       readings,
-      engineVersion: 'v1.0',
+      engineVersion: 'v2',
       standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–2.0 project-defined — PD-008)'
     });
 

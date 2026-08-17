@@ -107,7 +107,7 @@
     const cl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
     if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
-      return incomplete('US EPA', 'usEpa', { readings, engineVersion: 'v1.0', standardRevision: 'US EPA-inspired Compliance Index (Cl: project floor 0.2 + MRDL 4.0; MCL/SMCL/TT-style)' });
+      return incomplete('US EPA', 'usEpa', { readings, engineVersion: 'v2', standardRevision: 'US EPA-inspired Compliance Index (Cl: project floor 0.2 + MRDL 4.0; MCL/SMCL/TT-style)' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
@@ -115,7 +115,7 @@
     };
     let num = 0; let den = 0;
     Object.keys(W).forEach(key => { num += params[key] * W[key]; den += W[key]; });
-    const score = Math.round(num / den);
+    const rawScore = Math.round(num / den);
 
     const pass = {
       ph: ph >= L.ph.min && ph <= L.ph.max,
@@ -160,7 +160,14 @@
       reasons.push({ parameter: 'do', severity: classifications.do.toLowerCase(), message: 'Dissolved oxygen is below the project EPA-engine DO floor (≥ 6 mg/L — not an EPA primary/secondary standard).' });
     }
 
-    const verdict = verdictFrom(score);
+    // Score Architecture V2 (2026-08-17, PO-approved additive contract):
+    // capture severity protection as an inspectable stage — same cap math as
+    // before, now exposed as a discrete sub-object.
+    const severity = (typeof computeCountrySeverityProtection === 'function')
+      ? computeCountrySeverityProtection(rawScore, classifications)
+      : { score: rawScore, applied: false, worstClassification: null, cap: null, preCapScore: rawScore };
+
+    const verdict = verdictFrom(rawScore);
     let summary = 'Meets US EPA comparison expectations for this reading set.';
     if (!reasons.length && verdict === 'Excellent') summary = 'Strong alignment with US EPA MCL/SMCL/TT-style comparison targets.';
     else if (reasons.length) summary = 'One or more US EPA comparison expectations need attention.';
@@ -186,13 +193,13 @@
     return wrap({
       engine: 'US EPA',
       engineKey: 'usEpa',
-      // Country severity protection (product decision, 2026-08-14): FAIL/CRITICAL
-      // classifications cap the composite. Explicit call, US EPA-only — see
-      // src/js/score/util/benchmarkMetadata.js for the shared, engine-agnostic
-      // implementation. Does not affect grades, weights, or aggregation above.
-      score: (typeof applyCountrySeverityProtection === 'function')
-        ? applyCountrySeverityProtection(score, classifications)
-        : score,
+      // Country severity protection (product decision, 2026-08-14): FAIL/CRITICAL/
+      // WARNING classifications cap the composite. See src/js/score/util/
+      // benchmarkMetadata.js for the shared, engine-agnostic implementation.
+      // Does not affect grades, weights, or aggregation above.
+      score: severity.score,
+      rawAggregate: rawScore,
+      severityProtection: severity,
       verdict,
       summary,
       classifications,
@@ -203,7 +210,7 @@
       statuses,
       findings,
       readings,
-      engineVersion: 'v1.0',
+      engineVersion: 'v2',
       standardRevision: 'US EPA-inspired Compliance Index (Cl: project floor 0.2 + MRDL 4.0; MCL/SMCL/TT-style)'
     });
 

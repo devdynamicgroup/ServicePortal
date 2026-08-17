@@ -79,6 +79,10 @@ function mountPublicWaterScore(report) {
 
   configurePublicScoreChrome();
   S.scoreStandardKey = typeof DEFAULT_SCORE_STANDARD_KEY !== 'undefined' ? DEFAULT_SCORE_STANDARD_KEY : 'thailand';
+  // Explicit — renderWaterScore() no longer sets S.activeJob as a side effect
+  // (Score Architecture V2, 2026-08-17). The public report page renders one
+  // Case; it owns setting the active-Case pointer for its own single render.
+  S.activeJob = report;
 
   const score = renderWaterScore(report, { publicView: true });
   console.log('[public-report] renderWaterScore finished', {

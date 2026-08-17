@@ -23,12 +23,16 @@ function applyCountryBenchmarkHeroCeiling(score) {
  * Country severity protection (product decision, 2026-08-14; WARNING tier
  * added 2026-08-14 per PO numeric approval, governance basis PD-014 D4=B
  * "general severity is now permitted in principle").
- * Scope: Japan / WHO / US EPA only — called explicitly from each of those
- * three engines' own calculate(), never from Thailand or EU, and never
- * invoked automatically by any shared dispatch path. This function itself
- * is engine-agnostic (reads whatever classifications object it's given) —
- * it does not know or care which country called it; the scoping guarantee
- * comes entirely from which files choose to call it.
+ * Scope (2026-08-17, corrected — was stale since Thailand's 2026-08-17
+ * severity-protection addition): called explicitly from Japan / WHO /
+ * US EPA / Thailand's own calculate(); EU calls it too but only against a
+ * non-chlorine copy of its classifications (chlorine forced to 'PASS' in
+ * that call) so its own dedicated PD-002 chlorine gate stays dominant for
+ * chlorine failures — see eu/score.js. Never invoked automatically by any
+ * shared dispatch path. This function itself is engine-agnostic (reads
+ * whatever classifications object it's given) — it does not know or care
+ * which country called it; the scoping guarantee comes entirely from which
+ * files choose to call it.
  *
  * Policy (locked numbers, not derived from any curve/weight):
  *   worst classification = CRITICAL -> score capped at 60
@@ -62,6 +66,31 @@ function applyCountrySeverityProtection(score, classifications) {
   if (worst === 'FAIL') return Math.min(score, COUNTRY_SEVERITY_CAPS.FAIL);
   if (worst === 'WARNING') return Math.min(score, COUNTRY_SEVERITY_CAPS.WARNING);
   return score;
+}
+
+/**
+ * Score Architecture V2 (2026-08-17, PO-approved scope: additive contract only,
+ * no grade-curve/weight/limit numbers changed). Same math as
+ * applyCountrySeverityProtection above (calls it internally) — this variant
+ * additionally returns the inspectable detail (was a cap applied, what was
+ * the cap, what was the score immediately before this step) so ScoreResult
+ * can surface severity protection as a discrete, traceable stage instead of
+ * folding it silently into the final number. applyCountrySeverityProtection
+ * itself is unchanged and still used wherever only the number is needed.
+ */
+function computeCountrySeverityProtection(score, classifications) {
+  const worst = Number.isFinite(score) ? worstBenchmarkClassification(classifications) : null;
+  const cappedScore = applyCountrySeverityProtection(score, classifications);
+  const cap = worst && Object.prototype.hasOwnProperty.call(COUNTRY_SEVERITY_CAPS, worst)
+    ? COUNTRY_SEVERITY_CAPS[worst]
+    : null;
+  return {
+    score: cappedScore,
+    applied: Number.isFinite(score) && Number.isFinite(cappedScore) && cappedScore < score,
+    worstClassification: worst,
+    cap,
+    preCapScore: Number.isFinite(score) ? score : null
+  };
 }
 
 function normalizeBenchmarkReadingValue(value) {
@@ -114,10 +143,14 @@ function finalizeBenchmarkMetadata(input) {
   const inputFingerprint = input.inputFingerprint
     || fingerprintBenchmarkInputs(input.readings || {});
 
+  const engineVersion = input.engineVersion || 'v1.0';
+  const preCeilingScore = Number.isFinite(input.score) ? input.score : null;
+  const ceiledScore = applyCountryBenchmarkHeroCeiling(input.score);
+
   return {
     engine: input.engine,
     engineKey: input.engineKey,
-    score: applyCountryBenchmarkHeroCeiling(input.score),
+    score: ceiledScore,
     verdict: input.verdict,
     summary: input.summary,
     passedParameters,
@@ -133,10 +166,25 @@ function finalizeBenchmarkMetadata(input) {
     findings: input.findings || [],
     gated: Boolean(input.gated),
     calculationId: input.calculationId || makeBenchmarkCalculationId(new Date(calculatedAt)),
-    engineVersion: input.engineVersion || 'v1.0',
+    engineVersion,
     standardRevision: input.standardRevision || '',
     calculatedAt,
-    inputFingerprint
+    inputFingerprint,
+
+    // Score Architecture V2 (2026-08-17, PO-approved additive contract —
+    // no scoring math changed by these fields; they only make stages that
+    // already existed inside the final `score` number inspectable).
+    modelVersion: input.modelVersion || `${input.engineKey}-${engineVersion}`,
+    complete: input.complete !== undefined ? Boolean(input.complete) : true,
+    reason: input.reason || null,
+    rawAggregate: Number.isFinite(input.rawAggregate) ? input.rawAggregate : null,
+    severityProtection: input.severityProtection || null,
+    countryGate: input.countryGate || null,
+    ceiling: {
+      applied: preCeilingScore != null && ceiledScore != null && ceiledScore < preCeilingScore,
+      value: COUNTRY_BENCHMARK_HERO_MAX,
+      preCeilingScore
+    }
   };
 }
 
@@ -156,6 +204,9 @@ function incompleteBenchmarkMetadata(engine, engineKey, options = {}) {
     findings: [],
     readings: options.readings || {},
     engineVersion: options.engineVersion || 'v1.0',
-    standardRevision: options.standardRevision || ''
+    standardRevision: options.standardRevision || '',
+    modelVersion: options.modelVersion,
+    complete: false,
+    reason: 'INCOMPLETE_READINGS'
   });
 }

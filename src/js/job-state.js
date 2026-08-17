@@ -422,6 +422,13 @@ function loadJobState(job) {
   S.currentScoreResult = null;
   S.comparisonScoreResult = null;
   S.displayedScore = null;
+  // Score Architecture V2 (2026-08-17, PO-approved): S.publicScoreView was
+  // the one score-related global excluded from this reset block (architecture
+  // audit finding). loadJobState() only ever runs in the operator app (the
+  // standalone public-report page calls mountPublicWaterScore() directly,
+  // never loadJobState()), so opening/switching a Case here must never leave
+  // a stale publicView=true from a previous render.
+  S.publicScoreView = false;
   const gaugeEl = typeof document !== 'undefined' ? document.getElementById('gauge-val') : null;
   if (gaugeEl) gaugeEl.textContent = '—';
   S.paymentSlipPhoto = draft.paymentSlipPhoto;
