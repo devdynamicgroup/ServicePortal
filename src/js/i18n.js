@@ -322,6 +322,7 @@ const I18N = {
     'score.readiness.photosProcessing': 'Loading photos from your assessment…',
     'score.status.pending': 'Reading…',
     'score.status.implausible': 'Too high to calculate',
+    'score.status.excluded': 'Not scored here',
     'score.finding.allOk': 'No major concerns detected',
     'score.concern.highChlorine': 'High chlorine',
     'score.concern.lowChlorine': 'Low chlorine',
@@ -353,6 +354,7 @@ const I18N = {
     'score.impact.temp': 'Temperature is outside the preferred comfort range',
     'score.impact.default': 'Related to overall water comfort',
     'score.meaning.implausible': 'This reading is outside the physically plausible range for this instrument, so it cannot be scored — please re-check and re-enter this measurement.',
+    'score.meaning.excluded': 'This value was measured, but the selected standard does not use this parameter in its score — it is shown for reference only.',
 
     'pay.title': 'Payment',
     'pay.selectedPkg': 'Selected Package',
@@ -716,6 +718,7 @@ const I18N = {
     'score.readiness.photosProcessing': 'กำลังโหลดรูปจากงานประเมิน…',
     'score.status.pending': 'กำลังอ่าน…',
     'score.status.implausible': 'ค่าสูงเกินจนไม่สามารถคำนวณได้',
+    'score.status.excluded': 'ไม่ใช้คำนวณในมาตรฐานนี้',
     'score.finding.allOk': 'ไม่พบประเด็นสำคัญ',
     'score.concern.highChlorine': 'คลอรีนสูง',
     'score.concern.lowChlorine': 'คลอรีนต่ำ',
@@ -747,6 +750,7 @@ const I18N = {
     'score.impact.temp': 'อุณหภูมิอยู่นอกช่วงที่สบายต่อการใช้งาน',
     'score.impact.default': 'เกี่ยวข้องกับความสบายของน้ำโดยรวม',
     'score.meaning.implausible': 'ค่านี้เกินช่วงที่เครื่องมือวัดได้จริง จึงไม่สามารถนำไปคำนวณคะแนนได้ กรุณาตรวจสอบและกรอกค่าใหม่อีกครั้ง',
+    'score.meaning.excluded': 'ค่านี้วัดได้จริง แต่มาตรฐานที่เลือกไม่ได้นำพารามิเตอร์นี้ไปใช้คำนวณคะแนน แสดงไว้เพื่อเป็นข้อมูลอ้างอิงเท่านั้น',
 
     'pay.title': 'การชำระเงิน',
     'pay.selectedPkg': 'แพ็กเกจที่เลือก',

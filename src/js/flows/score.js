@@ -331,6 +331,7 @@ function getScoreEvalContext(result = activeComparisonResult()) {
 function paramStatusUiKey(status) {
   if (status === 'pending') return 'pending';
   if (status === 'implausible') return 'implausible';
+  if (status === 'excluded') return 'excluded';
   return status === 'good' ? 'good' : 'attn';
 }
 
@@ -1127,6 +1128,14 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
         return { p: label, r: fmtFn(rawVal), std, st: 'implausible' };
       }
     }
+    // A real value is present, but this standard's engine deliberately never
+    // scores this param (e.g. Thailand excludes DO/Temp, Japan excludes DO —
+    // statusOf() always answers 'pending' for them regardless of the value).
+    // That is not "still loading" — show the measured value with a neutral
+    // "not scored here" note instead of shimmering forever (2026-08-17 fix).
+    if (status === 'pending' && Number.isFinite(computedVal)) {
+      return { p: label, r: fmtFn(computedVal), std, st: 'excluded' };
+    }
     return { p: label, r: fmtFn(computedVal), std, st: status };
   };
 
@@ -1166,7 +1175,8 @@ function renderScoreReadings(context = getScoreEvalContext()) {
     good: t('score.status.good'),
     attn: t('score.status.attn'),
     pending: t('score.status.pending'),
-    implausible: t('score.status.implausible')
+    implausible: t('score.status.implausible'),
+    excluded: t('score.status.excluded')
   };
 
   const countEl = document.getElementById('score-indicator-count');
@@ -1200,7 +1210,7 @@ function renderScoreReadings(context = getScoreEvalContext()) {
     <span class="score-metric-caret" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
   </button>
   <div class="score-metric-detail"${expanded ? '' : ' hidden'}>
-    <p class="score-metric-meaning">${statusKey === 'implausible' ? t('score.meaning.implausible') : paramMeaningText(r.p, statusKey === 'good' ? 'good' : 'attn')}</p>
+    <p class="score-metric-meaning">${statusKey === 'implausible' ? t('score.meaning.implausible') : statusKey === 'excluded' ? t('score.meaning.excluded') : paramMeaningText(r.p, statusKey === 'good' ? 'good' : 'attn')}</p>
     <dl class="score-metric-facts">
       <div><dt>${t('score.result')}</dt><dd>${r.r}</dd></div>
       <div><dt>${t('score.standard')}</dt><dd>${r.std}</dd></div>

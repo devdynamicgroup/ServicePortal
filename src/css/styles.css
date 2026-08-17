@@ -1021,6 +1021,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-metric-row.is-attn .score-metric-status{color:#f07b7b}
 .score-metric-row.is-pending .score-metric-status{color:var(--muted)}
 .score-metric-row.is-implausible .score-metric-status{color:#e0982a}
+.score-metric-row.is-excluded .score-metric-status{color:var(--muted)}
 .score-metric-skel{
   color:transparent!important;
   background:linear-gradient(90deg,#eceae6 0%,#f7f6f4 45%,#eceae6 90%);
@@ -1222,6 +1223,7 @@ button.score-metric-row:active{background:#faf9f8}
 .score-metric-facts dd.is-good{color:#22c55e}
 .score-metric-facts dd.is-attn{color:var(--coral)}
 .score-metric-facts dd.is-implausible{color:#e0982a}
+.score-metric-facts dd.is-excluded{color:var(--muted)}
 .score-metric-name{
   min-width:0;
   font-size:13px;
