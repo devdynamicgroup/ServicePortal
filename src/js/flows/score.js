@@ -374,7 +374,7 @@ function canDisplayScoreNumber(readiness, job = S.activeJob) {
   return scoreKeys.every(key => present[key] !== undefined);
 }
 
-function renderScoreStatusBar(wq, { loading = false } = {}) {
+function renderScoreStatusBar(wq, { loading = false, incomplete = false } = {}) {
   const bar = document.getElementById('score-status-bar');
   const knob = document.getElementById('score-progress-knob');
   const segments = [
@@ -385,11 +385,12 @@ function renderScoreStatusBar(wq, { loading = false } = {}) {
   const fillColor = scoreBarColorForScore(wq);
   if (bar) {
     bar.classList.toggle('is-loading', loading);
+    bar.classList.toggle('is-incomplete', loading && incomplete);
     bar.style.setProperty('--score-bar-fill', fillColor);
     bar.setAttribute(
       'aria-label',
       loading
-        ? t('score.readiness.processingTitle')
+        ? t(incomplete ? 'score.readiness.incompleteTitle' : 'score.readiness.processingTitle')
         : `Water Score ${Math.round(Math.max(0, Math.min(100, Number(wq) || 0)))} of 100`
     );
   }
@@ -409,12 +410,21 @@ function renderScoreStatusBar(wq, { loading = false } = {}) {
   if (knob) knob.style.left = `${score}%`;
 }
 
-function setScoreHeroLoading(loading) {
+/**
+ * incomplete=true means "this engine structurally cannot compute a score
+ * from what's currently available (e.g. a required measurement was
+ * stripped as implausible, or the selected engine needs a parameter that
+ * was never captured) — not "still capturing, wait a moment." The shimmer/
+ * indeterminate-bar animations only make sense for the latter; showing them
+ * indefinitely for the former reads as a stuck/broken page (2026-08-17 fix).
+ */
+function setScoreHeroLoading(loading, incomplete = false) {
   const card = document.querySelector('#score-hero .score-summary-card');
   const numEl = document.getElementById('gauge-val');
   const denEl = document.querySelector('#score-summary-score .score-summary-den');
   const loadingEl = document.getElementById('score-summary-loading');
   card?.classList.toggle('is-loading', loading);
+  card?.classList.toggle('is-incomplete', loading && incomplete);
   if (loadingEl) loadingEl.hidden = !loading;
   if (numEl) numEl.hidden = loading;
   if (denEl) denEl.hidden = loading;
@@ -537,7 +547,14 @@ function renderScoreDisplay() {
     delete complianceEl.dataset.status;
   }
 
-  setScoreHeroLoading(!showScore);
+  // "Incomplete" (static, no shimmer) vs "loading" (spinner, actively
+  // capturing) — genuinely distinct states (2026-08-17 fix). ocrBusy means a
+  // photo is still being processed right now; anything else that leaves
+  // showScore false (a required measurement missing/stripped for the
+  // selected engine) can never resolve on its own, so it must not animate
+  // as if it will.
+  const incomplete = !showScore && !readiness?.ocrBusy;
+  setScoreHeroLoading(!showScore, incomplete);
 
   // Presentation text comes only from the Eligibility Contract via the
   // Presentation formatter — UI never recomputes coverage/reason itself.
@@ -589,7 +606,7 @@ function renderScoreDisplay() {
     }
   }
 
-  renderScoreStatusBar(showScore ? wq : 0, { loading: !showScore });
+  renderScoreStatusBar(showScore ? wq : 0, { loading: !showScore, incomplete });
   if (!S.scoreTapFilter) {
     S.scoreTapFilter = (S.taps?.length || 0) > 1 ? 'all' : (S.taps?.[0] || 'all');
   }

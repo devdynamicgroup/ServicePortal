@@ -681,6 +681,18 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   color:var(--muted);
 }
 .score-report[data-tier=pending] .score-summary-card{--score-accent:#284dcd}
+/* 2026-08-17: "incomplete" (a required measurement is missing/stripped for
+   the selected engine) is not "still capturing" — freeze the shimmer/
+   indeterminate animations instead of looping forever, so the page reads
+   as a stopped/waiting state rather than a stuck spinner. */
+.score-summary-card.is-incomplete .score-loading-pulse{
+  animation:none;
+  background:#eceae6;
+}
+.score-progress.is-incomplete .score-progress-indeterminate{
+  animation:none;
+  opacity:.35;
+}
 .score-progress-indeterminate{
   display:none;
   position:absolute;
