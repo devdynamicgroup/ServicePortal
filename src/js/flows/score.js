@@ -7,15 +7,24 @@ function getScoreStyle(wq) {
 }
 
 /** Customer-facing verdict shown on the summary card (not the DWQI band legend).
- *  Bands follow Excel Report summary: ≥80 Excellent, ≥60 Acceptable, else Action.
+ *  Three tiers only: Excellent (blue) · Good (green) · Needs attention (red).
+ *  Bands follow Excel Report summary: ≥80 Excellent, ≥60 Good, else Needs attention.
  *  Used for Quality / published Water Score — NOT Country Benchmark comparison (PD-001).
  *  Callers on the Quality/publish path must use qualityPublishPresentation
  *  (PD-007 D + PD-009 B) so Compliance FAIL/WARNING cannot surface as
  *  Excellent/Good alone. */
+/** Three customer-facing bar colors only — Excellent / Good / Needs attention. */
+const SCORE_BAR_COLORS = Object.freeze({
+  high: '#284dcd', // Excellent — blue
+  mid: '#22c55e',  // Good — green
+  low: '#f07b7b',  // Needs attention — red
+  pending: '#22c55e'
+});
+
 function customerVerdict(wq) {
-  if (wq >= 80) return { label: t('score.verdict.excellent'), color: '#284dcd', tier: 'high' };
-  if (wq >= 60) return { label: t('score.verdict.good'), color: '#56d096', tier: 'mid' };
-  return { label: t('score.verdict.attention'), color: '#f07b7b', tier: 'low' };
+  if (wq >= 80) return { label: t('score.verdict.excellent'), color: SCORE_BAR_COLORS.high, tier: 'high' };
+  if (wq >= 60) return { label: t('score.verdict.good'), color: SCORE_BAR_COLORS.mid, tier: 'mid' };
+  return { label: t('score.verdict.attention'), color: SCORE_BAR_COLORS.low, tier: 'low' };
 }
 
 /**
@@ -29,7 +38,7 @@ function qualityPublishPresentation(wq, complianceStatus) {
   if (status === 'FAIL') {
     return {
       label: t('score.verdict.complianceFail'),
-      color: '#f07b7b',
+      color: SCORE_BAR_COLORS.low,
       tier: 'low',
       complianceOverride: true,
       complianceOverrideKind: 'FAIL'
@@ -38,7 +47,7 @@ function qualityPublishPresentation(wq, complianceStatus) {
   if (status === 'WARNING') {
     return {
       label: t('score.verdict.complianceWarning'),
-      color: '#d9a441',
+      color: SCORE_BAR_COLORS.low,
       tier: 'low',
       complianceOverride: true,
       complianceOverrideKind: 'WARNING'
@@ -76,20 +85,20 @@ function comparisonPresentationVerdict(wq, classifications, engineKey) {
     && typeof worstBenchmarkClassification === 'function') {
     const worst = worstBenchmarkClassification(classifications);
     if (worst === 'CRITICAL') {
-      return { label: t('score.verdict.complianceFail'), color: '#f07b7b', tier: 'low' };
+      return { label: t('score.verdict.complianceFail'), color: SCORE_BAR_COLORS.low, tier: 'low' };
     }
     if (worst === 'FAIL') {
-      return { label: t('score.verdict.complianceWarning'), color: '#f07b7b', tier: 'low' };
+      return { label: t('score.verdict.complianceWarning'), color: SCORE_BAR_COLORS.low, tier: 'low' };
     }
     if (worst === 'WARNING') {
-      return { label: t('score.benchmark.verdict.withinLimits'), color: '#56d096', tier: 'mid' };
+      return { label: t('score.benchmark.verdict.withinLimits'), color: SCORE_BAR_COLORS.mid, tier: 'mid' };
     }
   }
-  if (!Number.isFinite(Number(wq))) return { label: '—', color: '#284dcd', tier: 'pending' };
+  if (!Number.isFinite(Number(wq))) return { label: '—', color: SCORE_BAR_COLORS.high, tier: 'pending' };
   const n = Number(wq);
-  if (n >= 80) return { label: t('score.benchmark.verdict.passBand'), color: '#284dcd', tier: 'high' };
-  if (n >= 60) return { label: t('score.benchmark.verdict.withinLimits'), color: '#56d096', tier: 'mid' };
-  return { label: t('score.benchmark.verdict.outsideLimits'), color: '#f07b7b', tier: 'low' };
+  if (n >= 80) return { label: t('score.benchmark.verdict.passBand'), color: SCORE_BAR_COLORS.high, tier: 'high' };
+  if (n >= 60) return { label: t('score.benchmark.verdict.withinLimits'), color: SCORE_BAR_COLORS.mid, tier: 'mid' };
+  return { label: t('score.benchmark.verdict.outsideLimits'), color: SCORE_BAR_COLORS.low, tier: 'low' };
 }
 
 /** True when the hero/summary number is the selected Country Benchmark comparison score. */
@@ -291,17 +300,11 @@ function resolveDisplayedScore({
   };
 }
 
-const SCORE_BAR_COLORS = Object.freeze({
-  low: '#f07b7b',
-  mid: '#56d096',
-  high: '#284dcd',
-  pending: '#56d096'
-});
-
-function scoreBarColorForScore(wq) {
+function scoreBarColorForScore(wq, verdict = null) {
+  if (verdict?.color) return verdict.color;
+  if (verdict?.tier && SCORE_BAR_COLORS[verdict.tier]) return SCORE_BAR_COLORS[verdict.tier];
   if (!Number.isFinite(Number(wq))) return SCORE_BAR_COLORS.pending;
-  const verdict = customerVerdict(Number(wq));
-  return SCORE_BAR_COLORS[verdict.tier] || SCORE_BAR_COLORS.pending;
+  return customerVerdict(Number(wq)).color;
 }
 
 /**
@@ -381,7 +384,7 @@ function canDisplayScoreNumber(readiness, job = S.activeJob) {
   return scoreKeys.every(key => present[key] !== undefined);
 }
 
-function renderScoreStatusBar(wq, { loading = false, incomplete = false } = {}) {
+function renderScoreStatusBar(wq, { loading = false, incomplete = false, verdict = null } = {}) {
   const bar = document.getElementById('score-status-bar');
   const knob = document.getElementById('score-progress-knob');
   const segments = [
@@ -389,11 +392,13 @@ function renderScoreStatusBar(wq, { loading = false, incomplete = false } = {}) 
     { from: 50, to: 80, el: document.getElementById('score-seg-fill-1') },
     { from: 80, to: 100, el: document.getElementById('score-seg-fill-2') }
   ];
-  const fillColor = scoreBarColorForScore(wq);
+  // Fill amount follows the numeric score; fill color follows the 3-tier verdict.
+  const fillColor = scoreBarColorForScore(wq, verdict);
   if (bar) {
     bar.classList.toggle('is-loading', loading);
     bar.classList.toggle('is-incomplete', loading && incomplete);
     bar.style.setProperty('--score-bar-fill', fillColor);
+    bar.dataset.tier = verdict?.tier || (Number.isFinite(Number(wq)) ? customerVerdict(Number(wq)).tier : 'pending');
     bar.setAttribute(
       'aria-label',
       loading
@@ -613,7 +618,11 @@ function renderScoreDisplay() {
     }
   }
 
-  renderScoreStatusBar(showScore ? wq : 0, { loading: !showScore, incomplete });
+  renderScoreStatusBar(showScore ? wq : 0, {
+    loading: !showScore,
+    incomplete,
+    verdict: showScore ? verdict : null
+  });
   if (!S.scoreTapFilter) {
     S.scoreTapFilter = (S.taps?.length || 0) > 1 ? 'all' : (S.taps?.[0] || 'all');
   }
