@@ -11,13 +11,20 @@ has zero dependency on any scoring engine — see the accompanying test suite).
 
 ## Contents
 
-- [`evidence-registry/`](evidence-registry/) — **constant/clause** evidence registry (red-flag hunt baseline for Product Decision). Machine-readable [`constants.json`](evidence-registry/constants.json). Model remains frozen; `NO CITATION` is an explicit status, not a blank.
+- [`CANONICAL_SCORE_MODEL_SPECIFICATION_V1.md`](CANONICAL_SCORE_MODEL_SPECIFICATION_V1.md) — Canonical Score Model Spec V1 (design).
+- [`CANONICAL_SCORE_MODEL_V1_PRODUCT_DESIGN_GATE.md`](CANONICAL_SCORE_MODEL_V1_PRODUCT_DESIGN_GATE.md) — **DESIGN GATE APPROVED** (2026-08-17); package lock for PD-V7-01…09.
+- [`V7_IMPLEMENTATION_PROMPT.md`](V7_IMPLEMENTATION_PROMPT.md) — V7 implementation planning contract (phases A–E); **no scoring-code edits until plan + calibration gate**.
+- [`evidence-registry/`](evidence-registry/) — **constant/clause SoT** (red-flag hunt + governance locks). Machine-readable [`constants.json`](evidence-registry/constants.json). Model remains frozen; `NO CITATION` is an explicit status, not a blank.
+- [`MODEL_GOVERNANCE.md`](MODEL_GOVERNANCE.md) — Evidence Registry → Product Decision → gated Model Repair. PD-006…010 closed (008 partial; 009 B presentation; 010 B research).
 - [`evidence-registry.json`](evidence-registry.json) — machine-readable record of every known **measurement sample** (real or synthetic) and what it has/hasn't been used for. Distinct from constant/clause registry above.
 - [`CASE_1328_RECLASSIFICATION.md`](CASE_1328_RECLASSIFICATION.md) — why Case 1328 is calibration data, not validation evidence, and cannot become holdout evidence.
 - [`MODEL_PROVENANCE.md`](MODEL_PROVENANCE.md) — the authoritative record of what evidence Quality V3 `quality-v3.0` currently rests on.
 - [`PARAMETER_EVIDENCE_MATRIX.md`](PARAMETER_EVIDENCE_MATRIX.md) — per-parameter (pH/TDS/turbidity/ORP/chlorine/DO) evidence classification.
 - [`CALIBRATION_WORKFLOW.md`](CALIBRATION_WORKFLOW.md) — the four evidence categories, the partition rule, the anti-pattern this framework exists to prevent, and the required future workflow.
-- [`UNRESOLVED_DECISIONS.md`](UNRESOLVED_DECISIONS.md) — **Product Decision Log**. **All five PDs DECIDED A**: PD-005 (forbid magnitude ranking), PD-001 (pass-band presentation), PD-002 (EU gate 65 = project hard gate / UNSUPPORTED ANCHOR), PD-003 (Thailand DO excluded = project design), PD-004 (ORP 200–600 = shared operational / project band). Model/Score frozen.
+- [`UNRESOLVED_DECISIONS.md`](UNRESOLVED_DECISIONS.md) — **Product Decision Log**. **PD-001–PD-011** DECIDED (008 partial). PD-011 A×5 = Ideal KEEP+LABEL (PROJECT-DEFINED; no Ideal numeric change). Formula frozen; Case flow untouched.
+- [`research/PD-010-IDEAL-RESEARCH-TICKETS.md`](research/PD-010-IDEAL-RESEARCH-TICKETS.md) — PD-010 B research tickets.
+- [`research/PD-010-EVIDENCE-FINDINGS-R010.md`](research/PD-010-EVIDENCE-FINDINGS-R010.md) — PD-010 evidence findings (SAFE TO REPAIR NOW = none).
+- [`research/PD-011-IDEAL-DISPOSITION-MATRIX.md`](research/PD-011-IDEAL-DISPOSITION-MATRIX.md) — PO Ideal disposition matrix (OPEN; not decided).
 - [`EVIDENCE_ACQUISITION_PROTOCOL.md`](EVIDENCE_ACQUISITION_PROTOCOL.md) — the required process for adding new real samples to the registry, including the novelty check that blocks re-using known fixture values as if they were new evidence.
 - [`SAMPLE_INTAKE_TEMPLATE.json`](SAMPLE_INTAKE_TEMPLATE.json) — the intake form for a new candidate sample.
 - [`DECISION_MATRIX.md`](DECISION_MATRIX.md) — every open decision point in one table, plus two empirical (not decision-making) findings: aggregation-sensitivity numbers for Case A/B under alternative aggregation formulas, and a country-plateau audit of how wide the flat-100 region is inside each engine's own PASS window. Selects nothing; still requires human sign-off per `CALIBRATION_WORKFLOW.md` §5.
