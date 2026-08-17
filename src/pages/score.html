@@ -70,8 +70,7 @@
 
         <section class="score-bottom-media" aria-label="Room photos">
           <div class="score-photo-carousel" id="score-photo-carousel" hidden>
-            <div class="score-photo-track" id="score-photo-track"></div>
-            <div class="score-photo-dots" id="score-photo-dots"></div>
+            <div class="score-photo-track" id="score-photo-track" tabindex="0" role="region" aria-label="Room photo gallery"></div>
           </div>
           <div class="score-photo-placeholder" id="score-photo-placeholder" hidden>
             <span class="score-photo-placeholder-icon" aria-hidden="true">
@@ -88,6 +87,8 @@
           </h2>
           <div id="score-improve-list" class="score-improve-list"></div>
         </section>
+
+        <div class="score-photo-dots" id="score-photo-dots" hidden></div>
 
         <section class="score-all-good" id="score-all-good" hidden>
           <div class="score-all-good-card">

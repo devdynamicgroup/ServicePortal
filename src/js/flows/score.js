@@ -1230,16 +1230,27 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
     return typeof photo === 'string' ? photo : '';
   };
 
-  const images = indices.map(i => {
+  // Prefer one representative photo per room so "All locations (N)" can swipe room-by-room.
+  const images = [];
+  const seen = new Set();
+  indices.forEach(i => {
     const photos = tapData[i]?.photos || {};
-    const src = photoSrc(photos.tapphoto) || photoSrc(photos.visual) || photoSrc(photos.meter);
-    return src ? { label: taps[i] || '', src } : null;
-  }).filter(Boolean);
+    const label = taps[i] || `Room ${i + 1}`;
+    const candidates = [photos.tapphoto, photos.visual, photos.meter];
+    for (const photo of candidates) {
+      const src = photoSrc(photo);
+      if (!src || seen.has(src)) continue;
+      seen.add(src);
+      images.push({ label, src });
+      break;
+    }
+  });
 
   if (!images.length) {
     wrap.hidden = true;
     track.replaceChildren();
     dotsEl.replaceChildren();
+    dotsEl.hidden = true;
     if (placeholder) {
       placeholder.hidden = false;
       if (placeholderText) {
@@ -1253,19 +1264,39 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
 
   if (placeholder) placeholder.hidden = true;
   wrap.hidden = false;
-  track.innerHTML = images.map(img => `<div class="score-photo-slide"><img src="${img.src}" alt="${img.label}" loading="lazy"></div>`).join('');
-  dotsEl.innerHTML = images.map((_, i) => `<span class="score-photo-dot${i === 0 ? ' is-active' : ''}"></span>`).join('');
-  dotsEl.style.display = images.length > 1 ? '' : 'none';
+  track.innerHTML = images.map(img => `<div class="score-photo-slide"><img src="${img.src}" alt="${img.label}" draggable="false" loading="lazy"></div>`).join('');
+  const showDots = images.length > 1;
+  dotsEl.hidden = !showDots;
+  dotsEl.innerHTML = images.map((_, i) =>
+    `<button type="button" class="score-photo-dot${i === 0 ? ' is-active' : ''}" aria-label="Photo ${i + 1} of ${images.length}" data-photo-index="${i}"></button>`
+  ).join('');
 
-  if (images.length > 1) {
-    const dots = Array.from(dotsEl.children);
-    track.onscroll = () => {
-      const idx = Math.round(track.scrollLeft / track.clientWidth);
-      dots.forEach((d, i) => d.classList.toggle('is-active', i === idx));
-    };
-  } else {
-    track.onscroll = null;
-  }
+  const syncDots = () => {
+    const width = track.clientWidth || 1;
+    const idx = Math.max(0, Math.min(images.length - 1, Math.round(track.scrollLeft / width)));
+    Array.from(dotsEl.children).forEach((d, i) => d.classList.toggle('is-active', i === idx));
+  };
+
+  const goTo = (index) => {
+    const width = track.clientWidth || 0;
+    if (!width) return;
+    track.scrollTo({ left: index * width, behavior: 'smooth' });
+  };
+
+  track.onscroll = showDots ? syncDots : null;
+  dotsEl.onclick = showDots
+    ? (event) => {
+      const btn = event.target.closest('[data-photo-index]');
+      if (!btn) return;
+      goTo(Number(btn.dataset.photoIndex) || 0);
+    }
+    : null;
+
+  // Keep swipe feel stable after re-render.
+  requestAnimationFrame(() => {
+    track.scrollLeft = 0;
+    syncDots();
+  });
 }
 
 function renderLocationSelect() {
