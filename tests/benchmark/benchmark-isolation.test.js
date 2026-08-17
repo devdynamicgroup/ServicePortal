@@ -234,7 +234,10 @@ console.log('\nTest 7 — Benchmark scores locked (must not drift)');
   // WARNING severity cap=85 (2026-08-14, PO-approved numeric): this fixture's
   // turbidity=2.5 classifies WARNING on Japan/WHO, now capped 85 (was 96/93).
   // Thailand chlorine curve steepened + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
-  const expected = { thailand: 70, who: 85, eu: 65, japan: 85, usEpa: 75 };
+  // Japan turbidity inner curve (2026-08-17, PO-approved): turbidity=2.5 now
+  // grades 40 (flat zone 2-6 NTU, PO-approved edge grade), CRITICAL (was
+  // WARNING/grade~88), severity-capped at 60 (was 85).
+  const expected = { thailand: 70, who: 85, eu: 65, japan: 60, usEpa: 75 };
   for (const key of KEYS) {
     const score = reg.calculate(key, SAMPLE).score;
     assert(score === expected[key], `${key} score locked at ${expected[key]} (got ${score})`);

@@ -31,10 +31,24 @@
     if (cl <= 1.5) return clamp(85 - (cl - L.chlorine.max) * 40);
     return clamp(40 - (cl - 1.5) * 15);
   }
+  /**
+   * 2026-08-17 (PO-approved, evidence: MHLW 快適水質項目 aesthetic target =
+   * half the legal standard, i.e. 1 NTU vs the 2 NTU legal limit). The 2 NTU
+   * compliance/PASS boundary (L.turbidity.ideal) is unchanged; this adds an
+   * inner grade-100 threshold at the cited 1 NTU target and a steep ramp
+   * down to the PASS-edge grade at 2 NTU, mirroring the Thailand chlorine
+   * noticeable-band precedent (PASS does not imply a high grade).
+   */
   function gradeTurbidity(turb) {
-    if (turb <= L.turbidity.ideal) return 100;
+    const excellent = L.turbidity.excellentMax;
+    const idealEdge = L.turbidity.ideal;
+    const edgeGrade = L.turbidity.passEdgeGrade;
+    if (turb <= excellent) return 100;
+    if (turb <= idealEdge) {
+      return clamp(100 - (turb - excellent) / (idealEdge - excellent) * (100 - edgeGrade));
+    }
     if (turb <= L.turbidity.steepEnd) {
-      return clamp(100 - (turb - L.turbidity.ideal) / (L.turbidity.steepEnd - L.turbidity.ideal) * 50);
+      return clamp(edgeGrade + (turb - idealEdge) / (L.turbidity.steepEnd - idealEdge) * (40 - edgeGrade));
     }
     return clamp(40 - (turb - L.turbidity.steepEnd) * 6);
   }

@@ -215,8 +215,12 @@ console.log('\nAcceptable narrow residual / ideal plateaus (not the TH overfit d
   assert(bench('eu', { ...IDEAL, chlorine: 0.7 }).score <= 65, 'EU Cl fail gated ≤65');
   assert(grade('who', 'chlorine', 0.3) === 100 && grade('who', 'chlorine', 0.7) === 80,
     'WHO Cl ideal 0.2–0.5 then tiered');
-  assert(grade('japan', 'turbidity', 2) === 100 && grade('japan', 'turbidity', 3.5) < 100,
-    'JP turb ≤2 then declines');
+  // Japan turbidity inner curve (2026-08-17, PO-approved): grade-100 now
+  // only holds ≤1 NTU (cited MHLW aesthetic target); 2 NTU (legal compliance
+  // edge, still PASS) grades 40, and 3.5 NTU (past compliance) also grades
+  // 40 (flat zone 2-6 NTU, unchanged from the compliance edge).
+  assert(grade('japan', 'turbidity', 1) === 100 && grade('japan', 'turbidity', 2) === 40 && grade('japan', 'turbidity', 3.5) === 40,
+    'JP turb ≤1 ideal, 2-6 flat at compliance-edge grade');
 }
 
 console.log('\nMonotonicity — higher-is-worse params (TH TDS/turb; JP TDS)');
@@ -456,17 +460,19 @@ console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA
   // DIFF orp=350 sits exactly on the D1 inner-plateau edge (still grade 100)
   // so only EPA DIFF moves, and only because D2 now grades its chlorine=1.5
   // below 100 (was flat 100 across the whole 0.2-4.0 window pre-D2).
-  // Country severity protection (2026-08-14): DIFF's TDS=800/chlorine=1.5 are
-  // FAIL on Japan, now capped at 75 (was 78 uncapped).
-  assert(bench('japan', DIFF).score === 75, 'JP DIFF 75 (TDS/Cl FAIL, severity-capped)');
+  // Japan turbidity inner curve (2026-08-17, PO-approved): DIFF's
+  // turbidity=3.5 now grades 40 (flat zone 2-6 NTU), CRITICAL (was
+  // FAIL/grade~78), severity-capped at 60 (was 75).
+  assert(bench('japan', DIFF).score === 60, 'JP DIFF 60 (turbidity CRITICAL, severity-capped)');
   assert(bench('eu', DIFF).score === 61, 'EU DIFF 61 (unaffected — D1 no-op at orp=350, D2/D3 out of scope for EU)');
   // Country severity protection (2026-08-14): DIFF's TDS=800/chlorine=1.5 are
   // FAIL on WHO/EPA, now capped at 75 (was 81/78 uncapped).
   assert(bench('who', DIFF).score === 75, 'WHO DIFF 75 (TDS/Cl FAIL, severity-capped)');
   assert(bench('usEpa', DIFF).score === 75, 'EPA DIFF 75 (TDS FAIL, severity-capped)');
-  // JP LOCKED's turbidity=2.5 classifies WARNING on Japan; WARNING cap=85
-  // now applies (was 96 uncapped pre-2026-08-14 WARNING-tier fix).
-  assert(bench('japan', LOCKED).score === 85, 'JP LOCKED 85 (WARNING cap; was 96 pre-cap)');
+  // Japan turbidity inner curve (2026-08-17, PO-approved): LOCKED's
+  // turbidity=2.5 now grades 40 (flat zone 2-6 NTU), CRITICAL (was
+  // WARNING/grade~88), severity-capped at 60 (was 85).
+  assert(bench('japan', LOCKED).score === 60, 'JP LOCKED 60 (turbidity CRITICAL, severity-capped)');
   // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
   assert(bench('thailand', LOCKED).score === 70, 'TH LOCKED 70 after ordinary-band severity (orp=350 still excellent)');
 }

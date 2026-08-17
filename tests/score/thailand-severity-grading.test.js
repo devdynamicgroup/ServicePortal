@@ -206,9 +206,10 @@ console.log('\nDIFF pipeline retrace (RAW === engine input)');
   assert(t.displayed === 46 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
     'DIFF Hero = Thailand 46');
   const jp = trace(DIFF, 'japan');
-  // Country severity protection (2026-08-14): DIFF's TDS/Cl are FAIL on
-  // Japan, now capped at 75 (was 78 uncapped).
-  assert(jp.postRound === 75 && jp.displayed === 75, 'DIFF JP capped 75 (TDS/Cl FAIL)');
+  // Japan turbidity inner curve (2026-08-17, PO-approved): DIFF's
+  // turbidity=3.5 now grades 40 (flat zone 2-6 NTU), CRITICAL (was
+  // FAIL/grade~78), severity-capped at 60 (was 75).
+  assert(jp.postRound === 60 && jp.displayed === 60, 'DIFF JP capped 60 (turbidity CRITICAL)');
   const q = sandbox.computeQualityScoreDetail(DIFF).score;
   assert(q === 61, 'DIFF Q-V3 unchanged 61');
 }
@@ -289,21 +290,25 @@ console.log('\nCross-country matrix (JP/EU/WHO/EPA/Q-V3 frozen)');
     // and unaffected — values below verified unchanged for both.
     // Recomputed directly against current code, not estimated.
     // Thailand chlorine curve steepened + weakest-link share 0.25->0.5
-    // (2026-08-17, PO-approved) changes every `th` value below; JP/WHO/EU/EPA/Q
+    // (2026-08-17, PO-approved) changes every `th` value below; WHO/EU/EPA/Q
     // columns are unaffected by this Thailand-only change.
+    // Japan turbidity inner curve (2026-08-17, PO-approved): any row with
+    // turbidity in 2-6 NTU now grades 40 (flat zone) instead of a near-100
+    // plateau, classifying CRITICAL (was PASS/WARNING/FAIL) and severity-
+    // capped at 60. Recomputed directly against current code, not estimated.
     ['BASE', BASE, { th: 81, jp: 98, eu: 65, who: 85, epa: 85, q: 76 }],
-    ['DIFF', DIFF, { th: 46, jp: 75, eu: 61, who: 75, epa: 75, q: 61 }],
-    ['LOCKED', LOCKED, { th: 70, jp: 85, eu: 65, who: 85, epa: 75, q: 73 }],
+    ['DIFF', DIFF, { th: 46, jp: 60, eu: 61, who: 75, epa: 75, q: 61 }],
+    ['LOCKED', LOCKED, { th: 70, jp: 60, eu: 65, who: 85, epa: 75, q: 73 }],
     // EU non-chlorine severity coverage (2026-08-14, PO-approved): tds/turbidity
     // FAIL (chlorine PASS in these three rows) now capped at 75 (was 93/89/82
     // uncapped). oneBadCl/threeBad/BASE/DIFF/LOCKED are chlorine-CRITICAL rows
     // where the existing 65 gate already dominated — confirmed unaffected by
     // direct recomputation.
     ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 69, jp: 75, eu: 75, who: 75, epa: 75, q: 90 }],
-    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 75, jp: 85, eu: 75, who: 85, epa: 75, q: 90 }],
+    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 75, jp: 60, eu: 75, who: 85, epa: 75, q: 90 }],
     ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 55, jp: 75, eu: 65, who: 75, epa: 99, q: 90 }],
-    ['twoBad', twoBad, { th: 65, jp: 75, eu: 75, who: 75, epa: 75, q: 80 }],
-    ['threeBad', threeBad, { th: 46, jp: 75, eu: 62, who: 75, epa: 75, q: 69 }]
+    ['twoBad', twoBad, { th: 65, jp: 60, eu: 75, who: 75, epa: 75, q: 80 }],
+    ['threeBad', threeBad, { th: 46, jp: 60, eu: 62, who: 75, epa: 75, q: 69 }]
   ];
   for (const [label, readings, exp] of rows) {
     const got = {

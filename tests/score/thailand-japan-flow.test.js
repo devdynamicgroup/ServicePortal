@@ -307,10 +307,11 @@ console.log('\nFull matrix (execution evidence)');
   // longer coincides (TH=98, JP=99); B and DIFF also moved (chlorine curve + share).
   assert(matrix.A.thailand === 98 && matrix.A.japan === 99, 'matrix A TH=98, JP=99');
   assert(matrix.B.thailand === 83 && matrix.B.japan === 98, 'matrix B TH=83 JP=98');
-  // Country severity protection (2026-08-14): DIFF's TDS/Cl are FAIL on
-  // Japan, now capped at 75 (was 78 uncapped). Thailand's own chlorine curve +
-  // weakest-link update (2026-08-17) separately moves its DIFF score to 46.
-  assert(matrix.DIFF.thailand === 46 && matrix.DIFF.japan === 75, 'matrix DIFF TH=46 JP=75');
+  // Japan turbidity inner curve (2026-08-17, PO-approved): DIFF's
+  // turbidity=3.5 now grades 40 (flat zone 2-6 NTU), CRITICAL (was
+  // FAIL/grade~78), severity-capped at 60 (was 75). Thailand's own chlorine
+  // curve + weakest-link update (2026-08-17) separately moves its DIFF score to 46.
+  assert(matrix.DIFF.thailand === 46 && matrix.DIFF.japan === 60, 'matrix DIFF TH=46 JP=60');
   assert(matrix.DIFF.thailand !== matrix.DIFF.japan, 'matrix DIFF TH!==JP');
 }
 
