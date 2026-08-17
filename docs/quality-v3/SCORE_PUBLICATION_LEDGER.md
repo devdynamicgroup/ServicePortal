@@ -1,7 +1,7 @@
 # Score Publication Ledger — Gate A contract
 
-**Status:** Application implementation PASS; durable Notion ledger provisioned; **GATE A = BLOCKED** pending production configuration and end-to-end verification  
-**Live ledger:** requires ops-created `NOTION_SCORE_PUBLICATIONS_DATABASE_ID`  
+**Status:** Phase A code deployed (`19d2ab24`); **GATE A = BLOCKED** — production env `NOTION_SCORE_PUBLICATIONS_DATABASE_ID` still `not_configured` (`LEDGER_REQUIRED`)  
+**Live ledger:** Notion DB provisioned `eb1026b8-bc27-47ae-9996-97711d9fe672`; set that ID in Render Dashboard for `water-motion-service-portal`  
 **Scoring:** frozen — this contract does not change Quality V3, country engines, α, or F  
 **Phase B:** LOCKED until Gate A PASS
 
@@ -17,17 +17,16 @@ Latest Water Score → compatibility pointer only
 ```text
 Application implementation   PASS
 Immutability logic            PASS
-Republish 90 → 80             PASS (in-memory / app tests)
-Old token remains frozen      PASS (in-memory / app tests)
-Public route ledger-first     PASS
-Close-case path               PASS
-Reconciler safety             PASS
 Gate A tests                  PASS
 Existing regressions          PASS
+Phase A commit on main        PASS (19d2ab24)
+Production runtime version    PASS (19d2ab24)
+Health ledger field           PASS (reports LEDGER_REQUIRED when unset)
 
-Durable Notion ledger         PROVISIONED
+Durable Notion ledger DB      PROVISIONED
 NOTION_SCORE_PUBLICATIONS_DATABASE_ID
-                              NOT CONFIGURED IN PRODUCTION
+                              NOT CONFIGURED IN PRODUCTION RUNTIME
+                              (health: configured=false, code=LEDGER_REQUIRED)
 
 GATE A                       BLOCKED
 PHASE B                      LOCKED
@@ -40,7 +39,7 @@ REAL SCORE                   UNCHANGED
 
 ### Post-provision verification (required before Gate A PASS)
 
-After ops configures `NOTION_SCORE_PUBLICATIONS_DATABASE_ID` in production and deploys (+ integration share already verified):
+After ops sets `NOTION_SCORE_PUBLICATIONS_DATABASE_ID=eb1026b8-bc27-47ae-9996-97711d9fe672` in Render and confirms health `scorePublicationLedger.code=RUNTIME_OK`:
 
 1. Use an **existing** allowed test Case only — do not create synthetic production Cases.
 2. Publish `90` → `TOKEN_A`.
@@ -63,6 +62,8 @@ V7 SCORING: OFF
 ```
 
 Phase B (when unlocked) still must not choose α or F; canonical skeleton remains `NOT_CALIBRATED` until Calibration Gate.
+
+Canonical V7 simulation does **not** require this env var. See [`CANONICAL_SCORE_MODEL_SKELETON.md`](CANONICAL_SCORE_MODEL_SKELETON.md) and [`PRODUCTION_LEDGER_CONFIG_FORENSICS.md`](PRODUCTION_LEDGER_CONFIG_FORENSICS.md).
 
 ---
 

@@ -15,6 +15,8 @@ has zero dependency on any scoring engine — see the accompanying test suite).
 - [`CANONICAL_SCORE_MODEL_V1_PRODUCT_DESIGN_GATE.md`](CANONICAL_SCORE_MODEL_V1_PRODUCT_DESIGN_GATE.md) — **DESIGN GATE APPROVED** (2026-08-17); package lock for PD-V7-01…09.
 - [`V7_IMPLEMENTATION_PROMPT.md`](V7_IMPLEMENTATION_PROMPT.md) — V7 implementation planning contract (phases A–E); **no scoring-code edits until plan + calibration gate**.
 - [`SCORE_PUBLICATION_LEDGER.md`](SCORE_PUBLICATION_LEDGER.md) — Gate A write-once publication contract (satellite ledger; Latest Water Score is a pointer).
+- [`PRODUCTION_LEDGER_CONFIG_FORENSICS.md`](PRODUCTION_LEDGER_CONFIG_FORENSICS.md) — why production still reports `LEDGER_REQUIRED`; Gate A is independent of the canonical skeleton.
+- [`CANONICAL_SCORE_MODEL_SKELETON.md`](CANONICAL_SCORE_MODEL_SKELETON.md) — isolated V7 simulation (`NOT_CALIBRATED`); Hero OFF; no α/F.
 - [`evidence-registry/`](evidence-registry/) — **constant/clause SoT** (red-flag hunt + governance locks). Machine-readable [`constants.json`](evidence-registry/constants.json). Model remains frozen; `NO CITATION` is an explicit status, not a blank.
 - [`MODEL_GOVERNANCE.md`](MODEL_GOVERNANCE.md) — Evidence Registry → Product Decision → gated Model Repair. PD-006…010 closed (008 partial; 009 B presentation; 010 B research).
 - [`evidence-registry.json`](evidence-registry.json) — machine-readable record of every known **measurement sample** (real or synthetic) and what it has/hasn't been used for. Distinct from constant/clause registry above.
