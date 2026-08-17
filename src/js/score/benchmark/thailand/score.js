@@ -185,6 +185,17 @@
       temp: 'NOT_EVALUATED'
     };
 
+    // Thailand severity-protection coverage (product decision, 2026-08-17):
+    // reuses the exact shared mechanism already deployed for Japan/WHO/US EPA/EU
+    // (applyCountrySeverityProtection / worstBenchmarkClassification) — no new
+    // mechanism, no new cap values, no change to Thailand's own grade curves,
+    // weights, limits, classification thresholds, or the PD-015 weakest-link
+    // blend above. This only caps the already-computed composite when
+    // Thailand's own classification (unchanged) says WARNING/FAIL/CRITICAL.
+    if (typeof applyCountrySeverityProtection === 'function' && Number.isFinite(score)) {
+      score = applyCountrySeverityProtection(score, classifications);
+    }
+
     const reasons = [];
     if (!pass.chlorine && cl > L.chlorine.max) {
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is above the Thailand project compliance band (0.2–2.0 mg/L; not a verified DoH Ideal — PD-008).' });
