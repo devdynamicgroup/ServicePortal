@@ -502,13 +502,62 @@ function persistJobs() {
   }
 }
 
+function isKnownScoreStandardKey(value) {
+  return ['thailand', 'japan', 'eu', 'who', 'usEpa'].includes(String(value || ''));
+}
+
+/**
+ * Persist only the Case-owned Country Score preference. This intentionally
+ * does not schedule an assessment sync or rewrite Case measurements.
+ */
+async function persistActiveCaseScoreStandard(standardKey = S.scoreStandardKey) {
+  const key = isKnownScoreStandardKey(standardKey) ? standardKey : 'thailand';
+  const job = S.activeJob;
+  if (!job) return { ok: false, reason: 'no_active_case' };
+
+  const draft = getJobDraft(job);
+  draft.scoreStandardKey = key;
+  S.scoreStandardKey = key;
+  persistJobs();
+
+  if (!job.notionId || job.manualPending) {
+    return { ok: true, localOnly: true, scoreStandardKey: key };
+  }
+
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(job.notionId)}/score-standard`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ scoreStandardKey: key })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) {
+      throw new Error(payload.error || `http_${response.status}`);
+    }
+    if (payload.case) mergeApiCaseIntoJob(job, payload.case);
+    return { ok: true, scoreStandardKey: key };
+  } catch (error) {
+    console.warn('[persistActiveCaseScoreStandard] failed', error);
+    return { ok: false, scoreStandardKey: key, error: error.message || 'network_error' };
+  }
+}
+
 function mergeApiCaseIntoJob(localJob, apiCase) {
   if (!localJob || !apiCase) return localJob;
   const preservedDraft = localJob.draft || getJobDraft(localJob);
   const remoteDraft = apiCase.draft || null;
-  const mergedDraft = (typeof AssessmentSnapshot !== 'undefined' && AssessmentSnapshot.preferDraft)
+  const preferredDraft = (typeof AssessmentSnapshot !== 'undefined' && AssessmentSnapshot.preferDraft)
     ? (AssessmentSnapshot.preferDraft(preservedDraft, remoteDraft) || preservedDraft)
     : preservedDraft;
+  const remoteScoreStandard = remoteDraft?.scoreStandardKey;
+  const localScoreStandard = preservedDraft?.scoreStandardKey;
+  const mergedDraft = {
+    ...preferredDraft,
+    ...(isKnownScoreStandardKey(remoteScoreStandard)
+      ? { scoreStandardKey: remoteScoreStandard }
+      : (isKnownScoreStandardKey(localScoreStandard) ? { scoreStandardKey: localScoreStandard } : {}))
+  };
   const keepInProgress = localJob.status === 'in_progress';
   Object.assign(localJob, apiCase, {
     draft: mergedDraft,
@@ -1025,12 +1074,17 @@ async function loadJobsFromApi() {
           ? AssessmentSnapshot.preferDraft(localDraft, job.draft)
           : (localDraft || job.draft);
         if (preferred) {
-          // The assessment snapshot merger selects one whole draft based on
-          // measurement recency. Keep this independent, locally persisted
-          // Case preference from being replaced by the API's default draft.
-          const draft = localDraft?.scoreStandardKey
-            ? { ...preferred, scoreStandardKey: localDraft.scoreStandardKey }
-            : preferred;
+          // Country selection is Case-owned and API-backed. A valid value
+          // returned from the Case wins; local storage only fills legacy
+          // Cases whose API draft predates this field.
+          const remoteScoreStandard = job.draft?.scoreStandardKey;
+          const localScoreStandard = localDraft?.scoreStandardKey;
+          const draft = {
+            ...preferred,
+            ...(isKnownScoreStandardKey(remoteScoreStandard)
+              ? { scoreStandardKey: remoteScoreStandard }
+              : (isKnownScoreStandardKey(localScoreStandard) ? { scoreStandardKey: localScoreStandard } : {}))
+          };
           next.draft = draft;
           syncJobMetaFromDraft(next, draft);
         }

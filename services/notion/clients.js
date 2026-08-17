@@ -447,6 +447,7 @@ function buildNotionProperties(payload, schemaProperties = {}) {
   // Phase 4 — Cal.com correlation key (CAL-G02). Written once at create by
   // the Cal adapter; no other caller sets this.
   setText(FIELD_ALIASES.calBookingId, payload.calBookingId);
+  setSelect(FIELD_ALIASES.countryScoreStandard, payload.countryScoreStandard);
   // Assessment measurement snapshot (JSON). Uses chunked rich_text when long.
   setAssessmentSnapshot(FIELD_ALIASES.assessmentSnapshot, payload.assessmentSnapshot);
 

@@ -96,6 +96,7 @@ function makeSandbox() {
       setItem: (key, value) => storage.set(key, String(value)),
       removeItem: (key) => storage.delete(key)
     },
+    fetch: async () => ({ ok: true, status: 200, json: async () => ({ ok: true }) }),
     OperatorNotificationBridge: null,
     OperatorNotificationObserver: null,
     goScreen: () => {},
@@ -246,13 +247,13 @@ console.log('\nG. New Cases default exactly like existing ones (defaultJobDraft 
 }
 
 (async () => {
-  console.log('\nH. API refresh preserves a local country selection over the API default draft');
+  console.log('\nH. API refresh preserves local selection only for legacy API drafts without a stored value');
   const local = makeJob('real-newc811', '3b99a92d-fb61-81f2-a65a-c34db7f6179d', newc811);
   local.draft.scoreStandardKey = 'eu';
   local.draft.assessmentUpdatedAt = '2026-08-14T10:00:00.000Z';
 
   const remote = JSON.parse(JSON.stringify(local));
-  remote.draft.scoreStandardKey = 'thailand';
+  delete remote.draft.scoreStandardKey;
   remote.draft.assessmentUpdatedAt = '2026-08-14T11:00:00.000Z';
 
   const sb = makeSandbox();
@@ -263,7 +264,7 @@ console.log('\nG. New Cases default exactly like existing ones (defaultJobDraft 
   });
   await sb.loadJobsFromApi();
   const refreshed = sb.JOBS.find(job => job.notionId === local.notionId);
-  assert(refreshed?.draft?.scoreStandardKey === 'eu', 'API refresh keeps local EU over the API default country selection');
+  assert(refreshed?.draft?.scoreStandardKey === 'eu', 'API refresh keeps local EU when the legacy API draft has no country selection');
   sb.S.activeJob = refreshed;
   sb.loadJobState(refreshed);
   sb.goScreen('s-score');

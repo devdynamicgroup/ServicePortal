@@ -64,6 +64,9 @@ const FIELD_ALIASES = {
   // at create, immutable thereafter. Primary Cal↔Case correlation; exact-match
   // lookup only, never fuzzy.
   calBookingId: ['Cal Booking ID', 'calBookingId'],
+  // Additive Case-owned preference. It must be selected from the Country
+  // Benchmark registry; it is not a published Quality V3 score.
+  countryScoreStandard: ['Country Score Standard', 'countryScoreStandard'],
   // Measurement / assessment persistence (Case-level JSON in rich_text).
   assessmentSnapshot: ['Assessment Snapshot', 'assessmentSnapshot']
 };
@@ -357,6 +360,8 @@ function notionPageToJob(page, index) {
   };
   job.draft.msConcerns = concern ? [concern] : [];
   job.draft.pkg = pkg;
+  const countryScoreStandard = getPropertyValue(properties, FIELD_ALIASES.countryScoreStandard);
+  if (countryScoreStandard) job.draft.scoreStandardKey = String(countryScoreStandard);
 
   // Reconstruct measurement state from Assessment Snapshot when present.
   // Missing / invalid / empty snapshot → leave empty default tapData (no invented values).

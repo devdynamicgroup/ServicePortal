@@ -662,6 +662,9 @@ function setScoreReferenceStandard(standardKey) {
     standardKey: key
   });
   S.scoreParamOpen = null;
+  if (typeof persistActiveCaseScoreStandard === 'function') {
+    persistActiveCaseScoreStandard(key);
+  }
   console.log('STANDARD SWITCH', {
     key,
     readings,
@@ -906,6 +909,9 @@ function readingsFromJob(job) {
 function renderWaterScore(job, options = {}) {
   const publicView = Boolean(options.publicView);
   const draft = job?.draft || {};
+  if (!publicView && benchmarkRegistry()?.has?.(draft.scoreStandardKey)) {
+    S.scoreStandardKey = draft.scoreStandardKey;
+  }
   // Always resolve from tapData / fields / DOM — do not trust stale score-only cache.
   const readings = resolveScoreReadings(job);
 
