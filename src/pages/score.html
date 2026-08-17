@@ -9,6 +9,17 @@
     <section class="score-report" id="score-hero">
       <div class="score-report-inner score-reveal">
         <div class="score-summary-card">
+          <div class="score-report-filters">
+            <div class="score-location-row">
+              <div class="score-select-wrap" id="score-room-select-wrap">
+                <select class="score-select" id="score-room-select" aria-label="Location"></select>
+              </div>
+            </div>
+            <div class="score-benchmark-row">
+              <label class="score-benchmark-label" for="score-standard-select" data-i18n="score.benchmark">Benchmark</label>
+              <select class="score-select" id="score-standard-select" aria-label="Reference standard"></select>
+            </div>
+          </div>
           <div class="score-summary-head">
             <div class="score-summary-score" id="score-summary-score">
               <span class="score-summary-num" id="gauge-val">—</span>
@@ -42,11 +53,6 @@
           </div>
 
           <p class="score-summary-note" id="score-summary-note"></p>
-
-          <div class="score-benchmark-row">
-            <label class="score-benchmark-label" for="score-standard-select" data-i18n="score.benchmark">Benchmark</label>
-            <select class="score-select" id="score-standard-select" aria-label="Reference standard"></select>
-          </div>
         </div>
 
         <div class="score-readiness" id="score-readiness" hidden>
@@ -59,14 +65,21 @@
           </div>
         </div>
 
-        <div class="score-location-row">
-          <div class="score-select-wrap" id="score-room-select-wrap">
-            <select class="score-select" id="score-room-select" aria-label="Location"></select>
-          </div>
-        </div>
-
         <p class="score-params-scope" id="score-params-scope" hidden data-i18n="score.paramsOverall">Overall average across taps</p>
         <div class="score-metric-list" id="score-readings-rows"></div>
+
+        <section class="score-bottom-media" aria-label="Room photos">
+          <div class="score-photo-carousel" id="score-photo-carousel" hidden>
+            <div class="score-photo-track" id="score-photo-track"></div>
+            <div class="score-photo-dots" id="score-photo-dots"></div>
+          </div>
+          <div class="score-photo-placeholder" id="score-photo-placeholder" hidden>
+            <span class="score-photo-placeholder-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </span>
+            <span class="score-photo-placeholder-text" id="score-photo-placeholder-text">Photos will appear once captured</span>
+          </div>
+        </section>
 
         <section class="score-improve" id="score-improve-section" hidden>
           <h2 class="score-improve-title">
@@ -85,18 +98,6 @@
           </div>
         </section>
 
-        <section class="score-bottom-media" aria-label="Room photos">
-          <div class="score-photo-carousel" id="score-photo-carousel" hidden>
-            <div class="score-photo-track" id="score-photo-track"></div>
-            <div class="score-photo-dots" id="score-photo-dots"></div>
-          </div>
-          <div class="score-photo-placeholder" id="score-photo-placeholder" hidden>
-            <span class="score-photo-placeholder-icon" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            </span>
-            <span class="score-photo-placeholder-text" id="score-photo-placeholder-text">Photos will appear once captured</span>
-          </div>
-        </section>
       </div>
     </section>
   </div>
