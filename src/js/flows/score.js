@@ -318,13 +318,19 @@ function getScoreEvalContext(result = activeComparisonResult()) {
     standard,
     standardLimits: standard.limits,
     display: standard.display,
-    readings
+    readings,
+    // Pre-validation values + per-field validator verdicts, so a row can
+    // still show a captured-but-implausible number (e.g. DO = 70) instead
+    // of a blank/pending cell (2026-08-17 fix).
+    rawReadings: S.lastReadingsPresent || {},
+    validationFields: S.lastReadingsValidation?.fields || null
   };
 }
 
 /** UI status: only values inside the selected standard's recommended band are Good. */
 function paramStatusUiKey(status) {
   if (status === 'pending') return 'pending';
+  if (status === 'implausible') return 'implausible';
   return status === 'good' ? 'good' : 'attn';
 }
 
@@ -883,6 +889,10 @@ function resolveScoreReadings(job) {
     });
   }
   S.lastReadingsValidation = validation;
+  // Raw, pre-validation values — kept only so a stripped-as-implausible
+  // reading can still be SHOWN (with a "too high to calculate" note)
+  // instead of silently vanishing from the parameter list (2026-08-17 fix).
+  S.lastReadingsPresent = present;
 
   console.log('INPUT READINGS', { readings, validation });
 
@@ -1103,14 +1113,31 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   const orp = toFin(readings.orp);
   const doVal = toFin(readings.do);
   const temp = toFin(readings.temp);
+
+  // A value the validator stripped as physically implausible (e.g. DO = 70,
+  // beyond the sensor guard) must still be shown — with a "too high to
+  // calculate" note — instead of reading as blank/pending forever
+  // (2026-08-17 fix). Row-level fallback only; scoring math is unaffected.
+  const rawReadings = context.rawReadings || {};
+  const validationFields = context.validationFields || null;
+  const buildRow = (key, label, computedVal, fmtFn, std, status) => {
+    if (!Number.isFinite(computedVal) && validationFields?.[key]?.state === 'IMPLAUSIBLE') {
+      const rawVal = toFin(rawReadings[key]);
+      if (Number.isFinite(rawVal)) {
+        return { p: label, r: fmtFn(rawVal), std, st: 'implausible' };
+      }
+    }
+    return { p: label, r: fmtFn(computedVal), std, st: status };
+  };
+
   return [
-    { p: 'pH', r: fmt(ph, 1), std: stdLabel(display.ph), st: evaluateParamStatus('ph', ph, standardKey) },
-    { p: 'TDS', r: fmtInt(tds, ' mg/L'), std: stdLabel(display.tds), st: evaluateParamStatus('tds', tds, standardKey) },
-    { p: 'Chlorine', r: fmt(chlorine, 1, ' mg/L'), std: stdLabel(display.chlorine), st: evaluateParamStatus('chlorine', chlorine, standardKey) },
-    { p: 'Turbidity', r: fmt(turbidity, 1, ' NTU'), std: stdLabel(display.turbidity), st: evaluateParamStatus('turbidity', turbidity, standardKey) },
-    { p: 'ORP', r: fmtInt(orp, ' mV'), std: stdLabel(display.orp), st: evaluateParamStatus('orp', orp, standardKey) },
-    { p: 'DO', r: fmt(doVal, 1, ' mg/L'), std: stdLabel(display.do), st: evaluateParamStatus('do', doVal, standardKey) },
-    { p: 'Temp', r: fmt(temp, 1, '°C'), std: stdLabel(display.temp), st: evaluateParamStatus('temp', temp, standardKey) }
+    buildRow('ph', 'pH', ph, (n) => fmt(n, 1), stdLabel(display.ph), evaluateParamStatus('ph', ph, standardKey)),
+    buildRow('tds', 'TDS', tds, (n) => fmtInt(n, ' mg/L'), stdLabel(display.tds), evaluateParamStatus('tds', tds, standardKey)),
+    buildRow('chlorine', 'Chlorine', chlorine, (n) => fmt(n, 1, ' mg/L'), stdLabel(display.chlorine), evaluateParamStatus('chlorine', chlorine, standardKey)),
+    buildRow('turbidity', 'Turbidity', turbidity, (n) => fmt(n, 1, ' NTU'), stdLabel(display.turbidity), evaluateParamStatus('turbidity', turbidity, standardKey)),
+    buildRow('orp', 'ORP', orp, (n) => fmtInt(n, ' mV'), stdLabel(display.orp), evaluateParamStatus('orp', orp, standardKey)),
+    buildRow('do', 'DO', doVal, (n) => fmt(n, 1, ' mg/L'), stdLabel(display.do), evaluateParamStatus('do', doVal, standardKey)),
+    buildRow('temp', 'Temp', temp, (n) => fmt(n, 1, '°C'), stdLabel(display.temp), evaluateParamStatus('temp', temp, standardKey))
   ];
 }
 
@@ -1138,7 +1165,8 @@ function renderScoreReadings(context = getScoreEvalContext()) {
   const statusLabels = {
     good: t('score.status.good'),
     attn: t('score.status.attn'),
-    pending: t('score.status.pending')
+    pending: t('score.status.pending'),
+    implausible: t('score.status.implausible')
   };
 
   const countEl = document.getElementById('score-indicator-count');
@@ -1172,7 +1200,7 @@ function renderScoreReadings(context = getScoreEvalContext()) {
     <span class="score-metric-caret" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
   </button>
   <div class="score-metric-detail"${expanded ? '' : ' hidden'}>
-    <p class="score-metric-meaning">${paramMeaningText(r.p, statusKey === 'good' ? 'good' : 'attn')}</p>
+    <p class="score-metric-meaning">${statusKey === 'implausible' ? t('score.meaning.implausible') : paramMeaningText(r.p, statusKey === 'good' ? 'good' : 'attn')}</p>
     <dl class="score-metric-facts">
       <div><dt>${t('score.result')}</dt><dd>${r.r}</dd></div>
       <div><dt>${t('score.standard')}</dt><dd>${r.std}</dd></div>
