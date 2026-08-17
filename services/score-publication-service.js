@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const { getClient, updateClient, findClientByReportToken } = require('./notion/clients');
 const { createNotionPublicationStore, isScorePublicationsConfigured } = require('./notion/score-publications');
+const { withPublicationStoreContract } = require('./publication-store');
 const { buildReportUrl } = require('./url-builder');
 const {
   UNKNOWN,
@@ -48,7 +49,7 @@ function resetPublicationDependencies() {
 }
 
 function getPublicationStore() {
-  return injectedStore || createNotionPublicationStore();
+  return withPublicationStoreContract(injectedStore || createNotionPublicationStore());
 }
 
 function ledgerAvailable() {

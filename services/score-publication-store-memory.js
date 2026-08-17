@@ -56,6 +56,14 @@ function createMemoryPublicationStore() {
       if (!matches.length) return null;
       return clone(matches[matches.length - 1]);
     },
+    async listByClientPageId(clientPageId) {
+      const id = String(clientPageId || '').trim();
+      return rows.filter((row) => row.clientPageId === id).map(clone);
+    },
+    async listByCaseId(caseId) {
+      const id = String(caseId || '').trim();
+      return rows.filter((row) => String(row.caseId || '') === id).map(clone);
+    },
     async updatePointerSyncState(publicationId, pointerSyncState) {
       const row = rows.find((item) => item.publicationId === publicationId);
       if (!row) return null;

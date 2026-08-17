@@ -223,13 +223,25 @@ function createNotionPublicationStore() {
       return pages[0] ? pageToRecord(pages[0]) : null;
     },
     async findLatestByClientPageId(clientPageId) {
-      if (!isScorePublicationsConfigured() || !clientPageId) return null;
+      const records = await this.listByClientPageId(clientPageId);
+      if (!records.length) return null;
+      return records[records.length - 1];
+    },
+    async listByClientPageId(clientPageId) {
+      if (!isScorePublicationsConfigured() || !clientPageId) return [];
       const { dataSourceId, properties: schema } = await ensureScorePublicationsSchema();
       const pages = await queryEquals(schema, dataSourceId, 'clientPageId', clientPageId, 100);
-      if (!pages.length) return null;
       const records = pages.map(pageToRecord);
       records.sort((a, b) => String(a.publishedAt || '').localeCompare(String(b.publishedAt || '')));
-      return records[records.length - 1];
+      return records;
+    },
+    async listByCaseId(caseId) {
+      if (!isScorePublicationsConfigured() || !caseId) return [];
+      const { dataSourceId, properties: schema } = await ensureScorePublicationsSchema();
+      const pages = await queryEquals(schema, dataSourceId, 'caseId', caseId, 100);
+      const records = pages.map(pageToRecord);
+      records.sort((a, b) => String(a.publishedAt || '').localeCompare(String(b.publishedAt || '')));
+      return records;
     },
     async updatePointerSyncState(publicationId, pointerSyncState) {
       const existing = await this.findByPublicationId(publicationId);

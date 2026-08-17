@@ -57,6 +57,9 @@ function buildSnapshot(input = {}) {
     readings: compactReadings(input.readings)
   };
   if (snapshot.readings === undefined) delete snapshot.readings;
+  if (input.scorePayload && typeof input.scorePayload === 'object') {
+    snapshot.scorePayload = input.scorePayload;
+  }
   return snapshot;
 }
 
