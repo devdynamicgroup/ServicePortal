@@ -7,8 +7,10 @@
  * report) and via the isolation assertions below.
  * Numeric layer: src/js/score/util/benchmarkMetadata.js (worstBenchmarkClassification,
  *   applyCountrySeverityProtection), called explicitly from japan/who/usEpa score.js.
- * Presentation layer: src/js/flows/score.js comparisonPresentationVerdict(),
- *   scoped by COUNTRY_SEVERITY_PRESENTATION_ENGINES.
+ * Presentation layer (2026-08-18, PO-approved): comparisonPresentationVerdict()
+ *   in src/js/flows/score.js no longer lets classification override the
+ *   label or color — both always follow the same numeric 3-tier mapping.
+ *   COUNTRY_SEVERITY_PRESENTATION_ENGINES was removed along with that override.
  * Run: node tests/score/country-severity-protection.test.js
  */
 const fs = require('fs');
@@ -392,7 +394,7 @@ console.log('\nI. NOT_EVALUATED / NOT_MEASURED must not trigger protection');
     'WHO temp absence does not read as a failure state');
 }
 
-console.log('\nJ. WARNING presentation (2026-08-14) — reuses existing withinLimits copy, distinct from passBand/complianceWarning');
+console.log('\nJ. Presentation label/color always numeric (2026-08-18, PO-approved) — classification never overrides either');
 {
   const jobFromReadings = (readings) => ({
     id: 'warning-presentation-test', notionId: 'warning-presentation-test', draft: { tapData: [{ standardMeasurement: readings }] }
@@ -406,77 +408,60 @@ console.log('\nJ. WARNING presentation (2026-08-14) — reuses existing withinLi
   const newc811 = { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 };
   const c1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3 };
 
-  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepening
-  // crosses newc811's chlorine=0.7 from WARNING into FAIL classification, so
-  // this fixture no longer demonstrates the WARNING presentation branch on
-  // WHO -- it now correctly takes the FAIL path instead. Raw base (76) is
-  // already below the 75 FAIL ceiling, so the 2026-08-18 guaranteed minimum
-  // deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.FAIL=6) is what actually moves
-  // it: 76 - 6 = 70.
+  // A classification of FAIL/CRITICAL/WARNING no longer changes the label —
+  // it only ever affects the NUMBER (via the severity cap/guaranteed
+  // deduction elsewhere), and the label always reflects that number's own
+  // tier. This used to force "Needs attention"-style compliance wording
+  // regardless of the number, which visibly disagreed with the (already
+  // numeric-only) color once a high score still classified WARNING/FAIL.
   const who811 = switchAndRead('who', newc811);
   assert(who811.score === 70 && who811.classifications && sandbox.worstBenchmarkClassification(who811.classifications) === 'FAIL',
     'New C 8/11 WHO is score=70, worst=FAIL (chlorine steepening crosses WARNING->FAIL, guaranteed deduction)');
   const who811Verdict = sandbox.comparisonPresentationVerdict(who811.score, who811.classifications, who811.engineKey);
-  assert(who811Verdict.label === 'score.verdict.complianceWarning',
-    `WHO FAIL label is complianceWarning (got "${who811Verdict.label}")`);
-  assert(who811Verdict.label !== 'score.benchmark.verdict.passBand', 'WHO FAIL label is NOT passBand');
-  assert(who811Verdict.label !== 'score.benchmark.verdict.withinLimits', 'WHO FAIL label is NOT the WARNING-tier withinLimits string (distinct tiers)');
+  assert(who811Verdict.label === 'score.benchmark.verdict.withinLimits',
+    `WHO score=70 label is the numeric 51-80 tier (withinLimits), not compliance wording (got "${who811Verdict.label}")`);
+  assert(who811Verdict.tier === 'mid', 'WHO score=70 tier is mid (51-80), matching the label');
 
-  // 2026-08-18 (PO-approved): newc810's do=5.31 no longer reaches WARNING
-  // under the shared curve (see A2 above — DO tops out at grade 68 below
-  // WHO/EPA's own do>=6 ideal floor, never reaching the WARNING threshold of
-  // 80). A ph-based WARNING fixture demonstrates the same presentation
-  // branch instead.
   const phWarnFixture = { ph: 6.47, tds: 80, turbidity: 0.1, orp: 400, do: 8.0, chlorine: 0.3 };
   const who810 = switchAndRead('who', phWarnFixture);
   assert(who810.score === 85 && who810.classifications && sandbox.worstBenchmarkClassification(who810.classifications) === 'WARNING',
     'ph=6.47 WHO is score=85, worst=WARNING');
   const who810Verdict = sandbox.comparisonPresentationVerdict(who810.score, who810.classifications, who810.engineKey);
-  assert(who810Verdict.label === 'score.benchmark.verdict.withinLimits',
-    `WHO WARNING label is withinLimits, not passBand (got "${who810Verdict.label}")`);
+  assert(who810Verdict.label === 'score.benchmark.verdict.passBand' && who810Verdict.tier === 'high',
+    `WHO score=85 (WARNING classification) still shows the 81+ passBand tier — number, not classification, drives the label (got "${who810Verdict.label}")`);
 
   const epa811 = switchAndRead('usEpa', phWarnFixture);
   const epa811Verdict = sandbox.comparisonPresentationVerdict(epa811.score, epa811.classifications, epa811.engineKey);
-  assert(epa811Verdict.label === 'score.benchmark.verdict.withinLimits', `EPA WARNING label is withinLimits (got "${epa811Verdict.label}")`);
+  assert(epa811Verdict.label === 'score.benchmark.verdict.passBand', `EPA score=85 shows passBand regardless of its WARNING classification (got "${epa811Verdict.label}")`);
 
-  // 2026-08-18 (PO-approved): japan is included in COUNTRY_SEVERITY_PRESENTATION_ENGINES,
-  // and its worst classification here is PASS (falls through to the numeric
-  // fallback branch), so the label depends on the numeric score (>=80 =
-  // passBand). newc811's shared base (76) falls below that threshold, so it
-  // now genuinely shows withinLimits, not passBand — a real outcome of the
-  // new shared grading, not a bug.
   const jp811 = switchAndRead('japan', newc811);
   const jp811Verdict = sandbox.comparisonPresentationVerdict(jp811.score, jp811.classifications, jp811.engineKey);
-  assert(jp811Verdict.label === 'score.benchmark.verdict.withinLimits', `Japan PASS (worst=PASS) shows withinLimits at score 76 (got "${jp811Verdict.label}")`);
+  assert(jp811Verdict.label === 'score.benchmark.verdict.withinLimits', `Japan score=76 shows withinLimits (51-80 tier) (got "${jp811Verdict.label}")`);
 
-  // Case 1328: all-PASS on WHO/EPA, shared base 92 (>=80) — passBand. Japan
-  // is the exception: pH=7.79 misses its own tighter comfortable-water
-  // target (7.3-7.7), so worst=WARNING and it shows withinLimits at 85,
-  // same reasoning as jp811 above.
   for (const key of ['who', 'usEpa']) {
     const r = switchAndRead(key, c1328);
     const v = sandbox.comparisonPresentationVerdict(r.score, r.classifications, r.engineKey);
-    assert(v.label === 'score.benchmark.verdict.passBand', `Case 1328 ${key} still passBand (got "${v.label}")`);
+    assert(v.label === 'score.benchmark.verdict.passBand', `Case 1328 ${key} passBand (got "${v.label}")`);
     assert(r.score === 92, `Case 1328 ${key} score numerically 92 (got ${r.score})`);
   }
   const jp1328 = switchAndRead('japan', c1328);
   const jp1328Verdict = sandbox.comparisonPresentationVerdict(jp1328.score, jp1328.classifications, jp1328.engineKey);
-  assert(jp1328Verdict.label === 'score.benchmark.verdict.withinLimits', `Case 1328 japan withinLimits, not passBand (got "${jp1328Verdict.label}")`);
+  assert(jp1328Verdict.label === 'score.benchmark.verdict.passBand',
+    `Case 1328 japan score=85 shows the 81+ passBand tier despite its own WARNING classification (got "${jp1328Verdict.label}")`);
   assert(jp1328.score === 85, `Case 1328 japan score numerically 85 (got ${jp1328.score})`);
 
-  // FAIL/CRITICAL branches must retain their exact pre-existing behavior.
+  // FAIL/CRITICAL classifications also no longer override the label — same
+  // numeric tier as any other score at that value, regardless of engineKey.
   const failWho = sandbox.comparisonPresentationVerdict(75, { ph: 'FAIL', tds: 'PASS', turbidity: 'PASS', orp: 'PASS', chlorine: 'PASS', do: 'PASS' }, 'who');
-  assert(failWho.label === 'score.verdict.complianceWarning', 'FAIL still shows complianceWarning (unchanged)');
+  assert(failWho.label === 'score.benchmark.verdict.withinLimits', `FAIL classification no longer overrides the label (got "${failWho.label}")`);
   const critWho = sandbox.comparisonPresentationVerdict(60, { ph: 'CRITICAL', tds: 'PASS', turbidity: 'PASS', orp: 'PASS', chlorine: 'PASS', do: 'PASS' }, 'who');
-  assert(critWho.label === 'score.verdict.complianceFail', 'CRITICAL still shows complianceFail (unchanged)');
+  assert(critWho.label === 'score.benchmark.verdict.withinLimits', `CRITICAL classification no longer overrides the label (got "${critWho.label}")`);
 
-  // Thailand/EU must never activate the WARNING presentation branch — engineKey
-  // gate excludes them, so even a WARNING-shaped classifications object falls
-  // through to the pure numeric branch untouched by this fix.
+  // Thailand/EU were already numeric-only for both label and color — unaffected.
   const thVerdict = sandbox.comparisonPresentationVerdict(86, { ph: 'WARNING' }, 'thailand');
-  assert(thVerdict.label === 'score.benchmark.verdict.passBand', 'Thailand ignores WARNING classifications entirely, pure numeric passBand at 86');
+  assert(thVerdict.label === 'score.benchmark.verdict.passBand', 'Thailand ignores classifications entirely, pure numeric passBand at 86');
   const euVerdict = sandbox.comparisonPresentationVerdict(86, { ph: 'WARNING' }, 'eu');
-  assert(euVerdict.label === 'score.benchmark.verdict.passBand', 'EU ignores WARNING classifications entirely, pure numeric passBand at 86');
+  assert(euVerdict.label === 'score.benchmark.verdict.passBand', 'EU ignores classifications entirely, pure numeric passBand at 86');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

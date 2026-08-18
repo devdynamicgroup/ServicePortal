@@ -32,55 +32,40 @@ function customerVerdict(wq) {
 /**
  * PD-007 D + PD-009 B — Quality / publish presentation hybrid.
  * Numeric Quality score (mean/6) is unchanged. Compliance math unchanged.
- * When Compliance is FAIL or WARNING, do not present Excellent/Good alone —
- * quality index ≠ safety clearance. WARNING uses distinct copy from FAIL.
+ *
+ * 2026-08-18 (PO-approved): label/color/tier now always come from
+ * customerVerdict(wq) — the same 3-tier numeric mapping shown everywhere
+ * else — no exceptions. This used to force the label AND color to
+ * "Needs attention" / red whenever Compliance was FAIL/WARNING, regardless
+ * of the numeric score, so a high-scoring reading could show a red
+ * "Needs attention" box — confusing once color was made numeric-only
+ * elsewhere. complianceOverride/complianceOverrideKind are kept (still
+ * computed from status) so the separate compliance note below the score
+ * (score.msg.complianceFailOverride/complianceWarningOverride, rendered
+ * only on this Quality/publish path) still surfaces the "quality index is
+ * not a safety clearance" message — that note is where the compliance
+ * signal now lives, not the main tier label.
  */
 function qualityPublishPresentation(wq, complianceStatus) {
   const status = String(complianceStatus || '').toUpperCase();
-  if (status === 'FAIL') {
-    return {
-      label: t('score.verdict.complianceFail'),
-      color: SCORE_BAR_COLORS.low,
-      tier: 'low',
-      complianceOverride: true,
-      complianceOverrideKind: 'FAIL'
-    };
-  }
-  if (status === 'WARNING') {
-    return {
-      label: t('score.verdict.complianceWarning'),
-      color: SCORE_BAR_COLORS.low,
-      tier: 'low',
-      complianceOverride: true,
-      complianceOverrideKind: 'WARNING'
-    };
-  }
-  return { ...customerVerdict(wq), complianceOverride: false, complianceOverrideKind: null };
+  const complianceOverride = status === 'FAIL' || status === 'WARNING';
+  const complianceOverrideKind = status === 'FAIL' ? 'FAIL' : (status === 'WARNING' ? 'WARNING' : null);
+  return { ...customerVerdict(wq), complianceOverride, complianceOverrideKind };
 }
-
-/** Engines with numeric severity protection (product decision, 2026-08-14) —
- *  presentation override below is scoped to exactly this set. EU/Thailand
- *  are not in this set, so they always fall through to the unchanged
- *  numeric-only branch below, regardless of their own classifications. */
-const COUNTRY_SEVERITY_PRESENTATION_ENGINES = Object.freeze(['japan', 'who', 'usEpa']);
 
 /**
  * PD-001 — Country Benchmark presentation verdict (pass-band language).
  * Presentation only: does not change engine math or numeric score.
  * Flat-100 ⇒ within pass band, not “Excellent” quality gradient.
  *
- * 2026-08-18 (PO-approved): color/tier always follow the same 3-tier
- * numeric mapping as customerVerdict (81+ blue, 51-80 green, 0-50 red) — no
- * exceptions. Only the LABEL TEXT may still switch to compliance wording
- * (complianceFail/complianceWarning/withinLimits) when engineKey is one of
- * COUNTRY_SEVERITY_PRESENTATION_ENGINES (Japan/WHO/US EPA) and a parameter
- * classifies FAIL/CRITICAL/WARNING — reusing existing copy already used
- * elsewhere in the score UI, no new wording invented. Previously the color
- * switched with the label too (e.g. an 85 reading green instead of blue for
- * a WARNING classification) — that read as wrong once Japan's own stricter
- * thresholds made WARNING far more common; the number on screen must always
- * predict the color a customer sees. EU/Thailand/unspecified engines were
- * already numeric-only for both label and color; unaffected either way.
+ * 2026-08-18 (PO-approved): label/color/tier now always come from the same
+ * 3-tier numeric mapping — no exceptions. This used to let a FAIL/CRITICAL/
+ * WARNING classification override the LABEL to compliance wording (e.g.
+ * "Needs attention — compliance warning") even after color was already
+ * made numeric-only, so the label and color could still visibly disagree
+ * (a green/blue box still reading "Needs attention"). classifications/
+ * engineKey are accepted for signature compatibility but no longer change
+ * the result — kept so existing call sites don't need updating.
  */
 function comparisonPresentationVerdict(wq, classifications, engineKey) {
   const n = Number(wq);
@@ -91,14 +76,6 @@ function comparisonPresentationVerdict(wq, classifications, engineKey) {
       : n >= 51
         ? { label: t('score.benchmark.verdict.withinLimits'), color: SCORE_BAR_COLORS.mid, tier: 'mid' }
         : { label: t('score.benchmark.verdict.outsideLimits'), color: SCORE_BAR_COLORS.low, tier: 'low' };
-
-  if (classifications && COUNTRY_SEVERITY_PRESENTATION_ENGINES.includes(engineKey)
-    && typeof worstBenchmarkClassification === 'function') {
-    const worst = worstBenchmarkClassification(classifications);
-    if (worst === 'CRITICAL') return { ...numeric, label: t('score.verdict.complianceFail') };
-    if (worst === 'FAIL') return { ...numeric, label: t('score.verdict.complianceWarning') };
-    if (worst === 'WARNING') return { ...numeric, label: t('score.benchmark.verdict.withinLimits') };
-  }
   return numeric;
 }
 

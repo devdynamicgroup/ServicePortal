@@ -208,15 +208,21 @@ console.log('\nPD-001 — comparison presentation is pass-band, not Excellent');
   assert(qualityVerdict.label === 'score.verdict.excellent', 'customer customerVerdict still Excellent for high scores');
 
   assert(typeof sandbox.qualityPublishPresentation === 'function', 'qualityPublishPresentation exists');
+  // 2026-08-18 (PO-approved): label/color/tier now always come from
+  // customerVerdict(wq) — no compliance-driven override — so a high score
+  // still reads Excellent/blue even when compliance FAILs. The compliance
+  // signal survives only via complianceOverride/complianceOverrideKind,
+  // which drive a separate note (score.msg.complianceFailOverride/
+  // complianceWarningOverride), not the main tier label.
   const failOverride = sandbox.qualityPublishPresentation(92, 'FAIL');
-  assert(failOverride.label === 'score.verdict.complianceFail', `FAIL overrides Excellent (got ${failOverride.label})`);
-  assert(failOverride.tier === 'low', 'FAIL override tier is low');
-  assert(failOverride.complianceOverride === true, 'FAIL sets complianceOverride');
+  assert(failOverride.label === 'score.verdict.excellent', `FAIL no longer overrides the label (got ${failOverride.label})`);
+  assert(failOverride.tier === 'high', 'FAIL no longer overrides the tier');
+  assert(failOverride.complianceOverride === true, 'FAIL still sets complianceOverride (for the separate note)');
   assert(failOverride.complianceOverrideKind === 'FAIL', 'FAIL sets complianceOverrideKind');
   const warnOverride = sandbox.qualityPublishPresentation(92, 'WARNING');
-  assert(warnOverride.label === 'score.verdict.complianceWarning', `WARNING overrides Excellent (got ${warnOverride.label})`);
-  assert(warnOverride.tier === 'low', 'WARNING override tier is low');
-  assert(warnOverride.complianceOverride === true, 'WARNING sets complianceOverride');
+  assert(warnOverride.label === 'score.verdict.excellent', `WARNING no longer overrides the label (got ${warnOverride.label})`);
+  assert(warnOverride.tier === 'high', 'WARNING no longer overrides the tier');
+  assert(warnOverride.complianceOverride === true, 'WARNING still sets complianceOverride (for the separate note)');
   assert(warnOverride.complianceOverrideKind === 'WARNING', 'WARNING sets complianceOverrideKind');
   const warnGood = sandbox.qualityPublishPresentation(65, 'WARNING');
   assert(warnGood.complianceOverride === true, 'WARNING also blocks Good/Acceptable');
