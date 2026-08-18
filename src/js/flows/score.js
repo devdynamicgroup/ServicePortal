@@ -67,38 +67,37 @@ const COUNTRY_SEVERITY_PRESENTATION_ENGINES = Object.freeze(['japan', 'who', 'us
  * Presentation only: does not change engine math or numeric score.
  * Flat-100 ⇒ within pass band, not “Excellent” quality gradient.
  *
- * classifications/engineKey are optional. When engineKey is one of
- * COUNTRY_SEVERITY_PRESENTATION_ENGINES (Japan/WHO/US EPA — the same scope
- * as the numeric cap in benchmarkMetadata.js) and classifications shows a
- * FAIL/CRITICAL/WARNING parameter, the label reflects that instead of the
- * numeric pass-band language, reusing existing copy already used elsewhere
- * in the score UI (PD-007 D + PD-009 B for complianceFail/complianceWarning;
- * the pre-existing 60-79 numeric band for withinLimits) — no new wording
- * invented. WARNING (2026-08-14, presentation-only follow-up to the WARNING
- * numeric cap) reuses score.benchmark.verdict.withinLimits — the same string
- * already shown for an ungated 60-79 score — so a WARNING-capped 85 reads as
- * "within limits" rather than the "passBand" language reserved for a
- * genuinely clean composite. EU/Thailand/unspecified engines are unaffected.
+ * 2026-08-18 (PO-approved): color/tier always follow the same 3-tier
+ * numeric mapping as customerVerdict (≥80 blue, ≥60 green, else red) — no
+ * exceptions. Only the LABEL TEXT may still switch to compliance wording
+ * (complianceFail/complianceWarning/withinLimits) when engineKey is one of
+ * COUNTRY_SEVERITY_PRESENTATION_ENGINES (Japan/WHO/US EPA) and a parameter
+ * classifies FAIL/CRITICAL/WARNING — reusing existing copy already used
+ * elsewhere in the score UI, no new wording invented. Previously the color
+ * switched with the label too (e.g. an 85 reading green instead of blue for
+ * a WARNING classification) — that read as wrong once Japan's own stricter
+ * thresholds made WARNING far more common; the number on screen must always
+ * predict the color a customer sees. EU/Thailand/unspecified engines were
+ * already numeric-only for both label and color; unaffected either way.
  */
 function comparisonPresentationVerdict(wq, classifications, engineKey) {
+  const n = Number(wq);
+  const numeric = !Number.isFinite(n)
+    ? { label: '—', color: SCORE_BAR_COLORS.high, tier: 'pending' }
+    : n >= 80
+      ? { label: t('score.benchmark.verdict.passBand'), color: SCORE_BAR_COLORS.high, tier: 'high' }
+      : n >= 60
+        ? { label: t('score.benchmark.verdict.withinLimits'), color: SCORE_BAR_COLORS.mid, tier: 'mid' }
+        : { label: t('score.benchmark.verdict.outsideLimits'), color: SCORE_BAR_COLORS.low, tier: 'low' };
+
   if (classifications && COUNTRY_SEVERITY_PRESENTATION_ENGINES.includes(engineKey)
     && typeof worstBenchmarkClassification === 'function') {
     const worst = worstBenchmarkClassification(classifications);
-    if (worst === 'CRITICAL') {
-      return { label: t('score.verdict.complianceFail'), color: SCORE_BAR_COLORS.low, tier: 'low' };
-    }
-    if (worst === 'FAIL') {
-      return { label: t('score.verdict.complianceWarning'), color: SCORE_BAR_COLORS.low, tier: 'low' };
-    }
-    if (worst === 'WARNING') {
-      return { label: t('score.benchmark.verdict.withinLimits'), color: SCORE_BAR_COLORS.mid, tier: 'mid' };
-    }
+    if (worst === 'CRITICAL') return { ...numeric, label: t('score.verdict.complianceFail') };
+    if (worst === 'FAIL') return { ...numeric, label: t('score.verdict.complianceWarning') };
+    if (worst === 'WARNING') return { ...numeric, label: t('score.benchmark.verdict.withinLimits') };
   }
-  if (!Number.isFinite(Number(wq))) return { label: '—', color: SCORE_BAR_COLORS.high, tier: 'pending' };
-  const n = Number(wq);
-  if (n >= 80) return { label: t('score.benchmark.verdict.passBand'), color: SCORE_BAR_COLORS.high, tier: 'high' };
-  if (n >= 60) return { label: t('score.benchmark.verdict.withinLimits'), color: SCORE_BAR_COLORS.mid, tier: 'mid' };
-  return { label: t('score.benchmark.verdict.outsideLimits'), color: SCORE_BAR_COLORS.low, tier: 'low' };
+  return numeric;
 }
 
 /** True when the hero/summary number is the selected Country Benchmark comparison score. */
