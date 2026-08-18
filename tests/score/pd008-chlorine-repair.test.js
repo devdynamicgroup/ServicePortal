@@ -163,13 +163,28 @@ console.log('\nPD-008 — EU chlorine boundaries + gate 65');
     'EPA standardRevision splits project floor vs MRDL');
 }
 
-console.log('\nPD-008 — missing chlorine must not coerce to 0');
+console.log('\n2026-08-18 (PO-approved) — missing chlorine computes a capped score, never incomplete');
 {
   for (const bad of [null, undefined, '', false, NaN, Infinity]) {
     const th = bench('thailand', withCl(bad));
-    assert(th.score === null || th.score === undefined || !Number.isFinite(th.score),
-      `TH missing Cl (${String(bad)}) → incomplete (score=${th.score})`);
+    assert(Number.isFinite(th.score), `TH missing Cl (${String(bad)}) → finite score (got ${th.score})`);
+    assert(th.score <= 79, `TH missing Cl (${String(bad)}) → capped ≤79 (got ${th.score})`);
+    assert(th.classifications.chlorine === 'NOT_MEASURED', `TH missing Cl (${String(bad)}) → NOT_MEASURED`);
+    assert(th.params.chlorine === undefined, `TH missing Cl (${String(bad)}) → params omit graded chlorine`);
+    assert((th.reasons || []).some((r) => r.parameter === 'chlorine' && /not been measured/i.test(r.message)),
+      `TH missing Cl (${String(bad)}) → provisional reason present`);
   }
+  // Every engine — not just Thailand — must honor the same rule.
+  for (const key of ['thailand', 'japan', 'who', 'eu', 'usEpa']) {
+    const r = bench(key, withCl(null));
+    assert(Number.isFinite(r.score), `${key} missing Cl → finite score (got ${r.score})`);
+    assert(r.score <= 79, `${key} missing Cl → capped ≤79 (got ${r.score})`);
+  }
+  // A genuinely clean reading set without chlorine must still be capped —
+  // proves the cap is not merely a side effect of other params being weak.
+  const cleanTh = bench('thailand', { ph: 7.2, tds: 150, turbidity: 0.5, orp: 400, chlorine: null });
+  assert(Number.isFinite(cleanTh.score) && cleanTh.score <= 79,
+    `TH clean reading set minus chlorine still capped ≤79 (got ${cleanTh.score})`);
 }
 
 console.log('\nPD-008 / PD-012 — JP DO excluded from Compliance Index (PD-012 B)');

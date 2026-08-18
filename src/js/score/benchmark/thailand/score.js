@@ -138,13 +138,19 @@
     const turb = toFin(readings.turbidity);
     const orp = toFin(readings.orp);
     const cl = toFin(readings.chlorine);
-    if (![ph, tds, turb, orp, cl].every(Number.isFinite)) {
+    // 2026-08-18 (PO-approved): chlorine alone no longer blocks the score —
+    // it may genuinely not be measured yet. The other four params are still
+    // required; only chlorine's absence is tolerated here.
+    if (![ph, tds, turb, orp].every(Number.isFinite)) {
       return incomplete('Thailand', 'thailand', { readings, engineVersion: 'v2', standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–2.0 project-defined — PD-008)' });
     }
     const params = {
       ph: gradePh(ph),
       tds: gradeTds(tds),
-      chlorine: gradeChlorine(cl),
+      // Grade chlorine only when present, so the weighted-mean/weakest-link
+      // loop below (which already skips non-finite params) excludes it
+      // naturally instead of scoring a phantom reading.
+      chlorine: Number.isFinite(cl) ? gradeChlorine(cl) : undefined,
       turbidity: gradeTurbidity(turb),
       orp: gradeOrp(orp)
     };
@@ -175,7 +181,12 @@
     const classifications = {
       ph: classify(params.ph, pass.ph),
       tds: classify(params.tds, pass.tds),
-      chlorine: classify(params.chlorine, pass.chlorine),
+      // Missing chlorine is an absent measurement, not a failed one —
+      // NOT_MEASURED (same convention already used for temp elsewhere) so
+      // severity protection ignores it instead of reading it as
+      // CRITICAL/FAIL. The explicit score cap below (not this
+      // classification) is what stops it from presenting as a pass.
+      chlorine: Number.isFinite(cl) ? classify(params.chlorine, pass.chlorine) : 'NOT_MEASURED',
       turbidity: classify(params.turbidity, pass.turbidity),
       orp: classify(params.orp, pass.orp),
       // PD-003: DO/Temp are excluded by project design. They must never classify
@@ -198,10 +209,17 @@
     const severity = (typeof computeCountrySeverityProtection === 'function')
       ? computeCountrySeverityProtection(rawScore, classifications)
       : { score: rawScore, applied: false, worstClassification: null, cap: null, preCapScore: rawScore };
-    const score = severity.score;
+    // 2026-08-18 (PO-approved): a score computed without chlorine must never
+    // present as a pass/good verdict — cap below the pass-band threshold
+    // regardless of how well the other params scored.
+    const score = (!Number.isFinite(cl) && Number.isFinite(severity.score))
+      ? Math.min(severity.score, 79)
+      : severity.score;
 
     const reasons = [];
-    if (!pass.chlorine && cl > L.chlorine.max) {
+    if (!Number.isFinite(cl)) {
+      reasons.push({ parameter: 'chlorine', severity: 'warning', message: 'Free chlorine has not been measured yet — this score is provisional and excludes chlorine until it is captured.' });
+    } else if (!pass.chlorine && cl > L.chlorine.max) {
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is above the Thailand project compliance band (0.2–2.0 mg/L; not a verified DoH Ideal — PD-008).' });
     } else if (!pass.chlorine && cl < L.chlorine.min) {
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below the Thailand project compliance band (≥ 0.2 mg/L) — disinfection residual may be insufficient.' });

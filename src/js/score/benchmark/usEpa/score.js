@@ -106,16 +106,24 @@
     const orp = toFin(readings.orp);
     const cl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
-    if (![ph, tds, turb, orp, cl, do_].every(Number.isFinite)) {
+    // 2026-08-18 (PO-approved): chlorine alone no longer blocks the score —
+    // it may genuinely not be measured yet. ph/tds/turbidity/orp/do remain required.
+    if (![ph, tds, turb, orp, do_].every(Number.isFinite)) {
       return incomplete('US EPA', 'usEpa', { readings, engineVersion: 'v3', standardRevision: 'US EPA-inspired Compliance Index (Cl: project floor 0.2 + MRDL 4.0; MCL/SMCL/TT-style)' });
     }
     const params = {
-      ph: gradePh(ph), tds: gradeTds(tds), chlorine: gradeChlorine(cl),
+      ph: gradePh(ph), tds: gradeTds(tds),
+      // Grade chlorine only when present, so the weighted-mean/weakest-link
+      // loop below excludes it naturally instead of scoring a phantom reading.
+      chlorine: Number.isFinite(cl) ? gradeChlorine(cl) : undefined,
       turbidity: gradeTurbidity(turb), orp: gradeOrp(orp), do: gradeDo(do_)
     };
     let num = 0; let den = 0;
     const scoredGrades = [];
-    Object.keys(W).forEach(key => { num += params[key] * W[key]; den += W[key]; scoredGrades.push(params[key]); });
+    Object.keys(W).forEach(key => {
+      if (!Number.isFinite(params[key])) return;
+      num += params[key] * W[key]; den += W[key]; scoredGrades.push(params[key]);
+    });
     // 2026-08-17 (PO-approved, weakest-link share 0.25 — weaker than
     // Thailand's 0.5): pulls the raw weighted mean 25% toward the single
     // weakest scored parameter so it isn't diluted away by the other five.
@@ -141,7 +149,12 @@
     const classifications = {
       ph: classify(params.ph, pass.ph, false),
       tds: classify(params.tds, pass.tds, false),
-      chlorine: classify(params.chlorine, pass.chlorine, false),
+      // Missing chlorine is an absent measurement, not a failed one —
+      // NOT_MEASURED (same convention already used for temp below) so
+      // severity protection ignores it instead of reading it as
+      // CRITICAL/FAIL. The explicit score cap below (not this
+      // classification) is what stops it from presenting as a pass.
+      chlorine: Number.isFinite(cl) ? classify(params.chlorine, pass.chlorine, false) : 'NOT_MEASURED',
       turbidity: classify(params.turbidity, pass.turbidity, true),
       orp: classify(params.orp, pass.orp, false),
       do: classify(params.do, pass.do, false),
@@ -155,7 +168,9 @@
     if (!pass.tds) {
       reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds US EPA secondary (SMCL) aesthetic guideline (≤ 500 mg/L).' });
     }
-    if (!pass.chlorine && cl > (L.chlorine.mrdlMax ?? L.chlorine.max)) {
+    if (!Number.isFinite(cl)) {
+      reasons.push({ parameter: 'chlorine', severity: 'warning', message: 'Free chlorine has not been measured yet — this score is provisional and excludes chlorine until it is captured.' });
+    } else if (!pass.chlorine && cl > (L.chlorine.mrdlMax ?? L.chlorine.max)) {
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine exceeds US EPA MRDL ceiling (≤ 4.0 mg/L as Cl2; 40 CFR 141.65).' });
     } else if (!pass.chlorine && cl < (L.chlorine.projectMin ?? L.chlorine.min)) {
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below the project residual floor used with EPA comparison (≥ 0.2 mg/L — not an EPA MRDL lower bound).' });
@@ -173,6 +188,12 @@
     const severity = (typeof computeCountrySeverityProtection === 'function')
       ? computeCountrySeverityProtection(rawScore, classifications)
       : { score: rawScore, applied: false, worstClassification: null, cap: null, preCapScore: rawScore };
+    // 2026-08-18 (PO-approved): a score computed without chlorine must never
+    // present as a pass/good verdict — cap below the pass-band threshold
+    // regardless of how well the other params scored.
+    const finalScore = (!Number.isFinite(cl) && Number.isFinite(severity.score))
+      ? Math.min(severity.score, 79)
+      : severity.score;
 
     const verdict = verdictFrom(rawScore);
     let summary = 'Meets US EPA comparison expectations for this reading set.';
@@ -204,7 +225,7 @@
       // WARNING classifications cap the composite. See src/js/score/util/
       // benchmarkMetadata.js for the shared, engine-agnostic implementation.
       // Does not affect grades, weights, or aggregation above.
-      score: severity.score,
+      score: finalScore,
       rawAggregate: rawScore,
       severityProtection: severity,
       verdict,

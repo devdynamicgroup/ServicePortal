@@ -111,16 +111,25 @@
     const orp = toFin(readings.orp);
     const fcl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
-    if (![ph, tds, turb, orp, fcl, do_].every(Number.isFinite)) {
+    // 2026-08-18 (PO-approved): chlorine alone no longer blocks the score —
+    // it may genuinely not be measured yet. ph/tds/turbidity/orp/do remain required.
+    if (![ph, tds, turb, orp, do_].every(Number.isFinite)) {
       return incomplete('WHO', 'who', { readings, engineVersion: 'v3', standardRevision: 'WHO-inspired guideline proximity engine (project scoring; not an official WHO index)' });
     }
     const params = {
       ph: gradePh(ph), tds: gradeTds(tds), turbidity: gradeTurbidity(turb),
-      orp: gradeOrp(orp), chlorine: gradeChlorine(fcl), do: gradeDo(do_)
+      orp: gradeOrp(orp),
+      // Grade chlorine only when present — gradeChlorine's final branch
+      // returns a fixed constant rather than propagating NaN, so an
+      // un-finite fcl must be excluded explicitly rather than relying on
+      // NaN-propagation like the other graded params here.
+      chlorine: Number.isFinite(fcl) ? gradeChlorine(fcl) : undefined,
+      do: gradeDo(do_)
     };
     let num = 0; let den = 0;
     const scoredGrades = [];
     Object.keys(W).forEach(key => {
+      if (!Number.isFinite(params[key])) return;
       num += params[key] * W[key]; den += W[key];
       scoredGrades.push(params[key]);
     });
@@ -149,7 +158,12 @@
     const classifications = {
       ph: classify(params.ph, ideal.ph),
       tds: classify(params.tds, ideal.tds),
-      chlorine: classify(params.chlorine, ideal.chlorine),
+      // Missing chlorine is an absent measurement, not a failed one —
+      // NOT_MEASURED (same convention already used for temp below) so
+      // severity protection ignores it instead of reading it as
+      // CRITICAL/FAIL. The explicit score cap below (not this
+      // classification) is what stops it from presenting as a pass.
+      chlorine: Number.isFinite(fcl) ? classify(params.chlorine, ideal.chlorine) : 'NOT_MEASURED',
       turbidity: classify(params.turbidity, ideal.turbidity),
       orp: classify(params.orp, ideal.orp),
       do: classify(params.do, ideal.do),
@@ -157,7 +171,9 @@
     };
 
     const reasons = [];
-    if (!ideal.chlorine && fcl > L.chlorine.idealMax) {
+    if (!Number.isFinite(fcl)) {
+      reasons.push({ parameter: 'chlorine', severity: 'warning', message: 'Free chlorine has not been measured yet — this score is provisional and excludes chlorine until it is captured.' });
+    } else if (!ideal.chlorine && fcl > L.chlorine.idealMax) {
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine exceeds the WHO residual-guidance band used by this project engine (0.2–0.5 mg/L).' });
     } else if (!ideal.chlorine && fcl < L.chlorine.idealMin) {
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below the WHO residual-guidance band used by this project engine (0.2–0.5 mg/L).' });
@@ -184,6 +200,12 @@
     const severity = (typeof computeCountrySeverityProtection === 'function')
       ? computeCountrySeverityProtection(rawScore, classifications)
       : { score: rawScore, applied: false, worstClassification: null, cap: null, preCapScore: rawScore };
+    // 2026-08-18 (PO-approved): a score computed without chlorine must never
+    // present as a pass/good verdict — cap below the pass-band threshold
+    // regardless of how well the other params scored.
+    const finalScore = (!Number.isFinite(fcl) && Number.isFinite(severity.score))
+      ? Math.min(severity.score, 79)
+      : severity.score;
 
     const verdict = verdictFrom(rawScore);
     let summary = 'Meets this project’s WHO-inspired guideline proximity targets for the scored indicators.';
@@ -215,7 +237,7 @@
       // WARNING classifications cap the composite. See src/js/score/util/
       // benchmarkMetadata.js for the shared, engine-agnostic implementation.
       // Does not affect grades, weights, or aggregation above.
-      score: severity.score,
+      score: finalScore,
       rawAggregate: rawScore,
       severityProtection: severity,
       verdict,

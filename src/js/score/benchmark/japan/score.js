@@ -138,8 +138,10 @@
     const orp = toFin(readings.orp);
     const cl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
-    // PD-012 B: five scored params only — DO not required for a complete Japan score.
-    if (![ph, tds, turb, orp, cl].every(Number.isFinite)) {
+    // PD-012 B: DO not required for a complete Japan score. 2026-08-18
+    // (PO-approved): chlorine is no longer required either — it may
+    // genuinely not be measured yet. ph/tds/turbidity/orp remain required.
+    if (![ph, tds, turb, orp].every(Number.isFinite)) {
       return incomplete('Japan', 'japan', {
         readings,
         engineVersion: 'v3',
@@ -149,7 +151,10 @@
     const params = {
       ph: gradePh(ph),
       tds: gradeTds(tds),
-      chlorine: gradeChlorine(cl),
+      // Grade chlorine only when present, so the weighted-mean/weakest-link
+      // loop below (which already skips non-finite params) excludes it
+      // naturally instead of scoring a phantom reading.
+      chlorine: Number.isFinite(cl) ? gradeChlorine(cl) : undefined,
       turbidity: gradeTurbidity(turb),
       orp: gradeOrp(orp)
       // do intentionally omitted from graded params (PD-012 B)
@@ -189,7 +194,12 @@
     const classifications = {
       ph: classify(params.ph, pass.ph),
       tds: classify(params.tds, pass.tds),
-      chlorine: classify(params.chlorine, pass.chlorine),
+      // Missing chlorine is an absent measurement, not a failed one —
+      // NOT_MEASURED (same convention already used for temp below) so
+      // severity protection ignores it instead of reading it as
+      // CRITICAL/FAIL. The explicit score cap below (not this
+      // classification) is what stops it from presenting as a pass.
+      chlorine: Number.isFinite(cl) ? classify(params.chlorine, pass.chlorine) : 'NOT_MEASURED',
       turbidity: classify(params.turbidity, pass.turbidity),
       orp: classify(params.orp, pass.orp),
       // PD-012 B: DO excluded from Japan Compliance Index.
@@ -209,12 +219,20 @@
     const severity = (typeof computeCountrySeverityProtection === 'function')
       ? computeCountrySeverityProtection(rawScore, classifications)
       : { score: rawScore, applied: false, worstClassification: null, cap: null, preCapScore: rawScore };
+    // 2026-08-18 (PO-approved): a score computed without chlorine must never
+    // present as a pass/good verdict — cap below the pass-band threshold
+    // regardless of how well the other params scored.
+    const finalScore = (!Number.isFinite(cl) && Number.isFinite(severity.score))
+      ? Math.min(severity.score, 79)
+      : severity.score;
 
     const reasons = [];
     if (!pass.turbidity) {
       reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds Japanese drinking-water recommendation (≤ 2 NTU).' });
     }
-    if (!pass.chlorine && cl > L.chlorine.max) {
+    if (!Number.isFinite(cl)) {
+      reasons.push({ parameter: 'chlorine', severity: 'warning', message: 'Free chlorine has not been measured yet — this score is provisional and excludes chlorine until it is captured.' });
+    } else if (!pass.chlorine && cl > L.chlorine.max) {
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine exceeds Japan residual recommendation (≤ 1 mg/L).' });
     } else if (!pass.chlorine && cl < L.chlorine.min) {
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below Japan residual recommendation (≥ 0.1 mg/L).' });
@@ -261,7 +279,7 @@
       // WARNING classifications cap the composite. See src/js/score/util/
       // benchmarkMetadata.js for the shared, engine-agnostic implementation.
       // Does not affect grades, weights, or aggregation above.
-      score: severity.score,
+      score: finalScore,
       rawAggregate: rawScore,
       severityProtection: severity,
       verdict,
