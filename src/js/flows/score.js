@@ -69,14 +69,8 @@ function qualityPublishPresentation(wq, complianceStatus) {
  */
 function comparisonPresentationVerdict(wq, classifications, engineKey) {
   const n = Number(wq);
-  const numeric = !Number.isFinite(n)
-    ? { label: '—', color: SCORE_BAR_COLORS.high, tier: 'pending' }
-    : n >= 81
-      ? { label: t('score.benchmark.verdict.passBand'), color: SCORE_BAR_COLORS.high, tier: 'high' }
-      : n >= 51
-        ? { label: t('score.benchmark.verdict.withinLimits'), color: SCORE_BAR_COLORS.mid, tier: 'mid' }
-        : { label: t('score.benchmark.verdict.outsideLimits'), color: SCORE_BAR_COLORS.low, tier: 'low' };
-  return numeric;
+  if (!Number.isFinite(n)) return { label: '—', color: SCORE_BAR_COLORS.high, tier: 'pending' };
+  return customerVerdict(n);
 }
 
 /** True when the hero/summary number is the selected Country Benchmark comparison score. */
