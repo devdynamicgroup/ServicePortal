@@ -8,7 +8,9 @@ function getScoreStyle(wq) {
 
 /** Customer-facing verdict shown on the summary card (not the DWQI band legend).
  *  Three tiers only: Excellent (blue) · Good (green) · Needs attention (red).
- *  Bands follow Excel Report summary: ≥80 Excellent, ≥60 Good, else Needs attention.
+ *  2026-08-18 (PO-approved): bands are 0-50 Needs attention, 51-80 Good,
+ *  81+ Excellent (previously 60/80 — moved so the color tiers line up with
+ *  the score bar's own 0-50/50-80/80-100 segment breakpoints).
  *  Used for Quality / published Water Score — NOT Country Benchmark comparison (PD-001).
  *  Callers on the Quality/publish path must use qualityPublishPresentation
  *  (PD-007 D + PD-009 B) so Compliance FAIL/WARNING cannot surface as
@@ -22,8 +24,8 @@ const SCORE_BAR_COLORS = Object.freeze({
 });
 
 function customerVerdict(wq) {
-  if (wq >= 80) return { label: t('score.verdict.excellent'), color: SCORE_BAR_COLORS.high, tier: 'high' };
-  if (wq >= 60) return { label: t('score.verdict.good'), color: SCORE_BAR_COLORS.mid, tier: 'mid' };
+  if (wq >= 81) return { label: t('score.verdict.excellent'), color: SCORE_BAR_COLORS.high, tier: 'high' };
+  if (wq >= 51) return { label: t('score.verdict.good'), color: SCORE_BAR_COLORS.mid, tier: 'mid' };
   return { label: t('score.verdict.attention'), color: SCORE_BAR_COLORS.low, tier: 'low' };
 }
 
@@ -68,7 +70,7 @@ const COUNTRY_SEVERITY_PRESENTATION_ENGINES = Object.freeze(['japan', 'who', 'us
  * Flat-100 ⇒ within pass band, not “Excellent” quality gradient.
  *
  * 2026-08-18 (PO-approved): color/tier always follow the same 3-tier
- * numeric mapping as customerVerdict (≥80 blue, ≥60 green, else red) — no
+ * numeric mapping as customerVerdict (81+ blue, 51-80 green, 0-50 red) — no
  * exceptions. Only the LABEL TEXT may still switch to compliance wording
  * (complianceFail/complianceWarning/withinLimits) when engineKey is one of
  * COUNTRY_SEVERITY_PRESENTATION_ENGINES (Japan/WHO/US EPA) and a parameter
@@ -84,9 +86,9 @@ function comparisonPresentationVerdict(wq, classifications, engineKey) {
   const n = Number(wq);
   const numeric = !Number.isFinite(n)
     ? { label: '—', color: SCORE_BAR_COLORS.high, tier: 'pending' }
-    : n >= 80
+    : n >= 81
       ? { label: t('score.benchmark.verdict.passBand'), color: SCORE_BAR_COLORS.high, tier: 'high' }
-      : n >= 60
+      : n >= 51
         ? { label: t('score.benchmark.verdict.withinLimits'), color: SCORE_BAR_COLORS.mid, tier: 'mid' }
         : { label: t('score.benchmark.verdict.outsideLimits'), color: SCORE_BAR_COLORS.low, tier: 'low' };
 
@@ -109,8 +111,9 @@ function isShowingCountryBenchmarkComparison() {
 
 function scoreSummaryNote(wq, findings) {
   const attnCount = (findings || []).length;
-  if (wq >= 80) return t('score.msg.excellent');
-  if (wq >= 60) return t('score.msg.goodDetail');
+  // 2026-08-18 (PO-approved): matches customerVerdict's tier boundaries (81+/51-80/0-50).
+  if (wq >= 81) return t('score.msg.excellent');
+  if (wq >= 51) return t('score.msg.goodDetail');
   if (attnCount > 0) {
     return t('score.msg.attentionDetail').replace('{n}', String(attnCount));
   }
