@@ -668,11 +668,14 @@ function compressImageDataUrl(dataUrl, options = {}) {
   });
 }
 
-async function fetchDriveContentObjectUrl(fileId) {
-  const id = String(fileId || '').trim();
-  if (!id) throw driveClientError('Missing file id', 'INVALID_IMAGE');
-  if (DriveContentBlobCache.has(id)) return DriveContentBlobCache.get(id);
+const DRIVE_CONTENT_RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const DRIVE_CONTENT_RETRY_DELAYS_MS = [400, 1200]; // 3 attempts total
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchDriveContentOnce(id) {
   const response = await fetch(`/api/drive/images/${encodeURIComponent(id)}/content`, {
     method: 'GET',
     headers: { ...getDriveAuthHeaders() },
@@ -683,10 +686,43 @@ async function fetchDriveContentObjectUrl(fileId) {
     const data = await response.json().catch(() => ({}));
     throw mapUploadHttpError(response.status, data.error, data.code);
   }
-  const blob = await response.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  DriveContentBlobCache.set(id, objectUrl);
-  return objectUrl;
+  return response.blob();
+}
+
+/**
+ * 2026-08-18 (PO-approved): photos are never cached server-side — every
+ * display re-downloads the file live from Drive (see downloadImageContent
+ * in services/google-drive.js), so a photo whose upload already succeeded
+ * (fileId on record) could still fail to DISPLAY on a transient hiccup —
+ * most visibly right after a deploy, when the server process has just
+ * restarted. That previously surfaced as "the photo is just gone" with no
+ * retry. Retries transient-looking failures (429/5xx or a network error)
+ * a couple of times with a short backoff before giving up; permanent-looking
+ * failures (401/403/404/413) are NOT retried — retrying an auth or
+ * not-found error can't fix it and just delays the real error/sign-in
+ * prompt reaching the user.
+ */
+async function fetchDriveContentObjectUrl(fileId) {
+  const id = String(fileId || '').trim();
+  if (!id) throw driveClientError('Missing file id', 'INVALID_IMAGE');
+  if (DriveContentBlobCache.has(id)) return DriveContentBlobCache.get(id);
+
+  let lastError = null;
+  for (let attempt = 0; attempt <= DRIVE_CONTENT_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const blob = await fetchDriveContentOnce(id);
+      const objectUrl = URL.createObjectURL(blob);
+      DriveContentBlobCache.set(id, objectUrl);
+      return objectUrl;
+    } catch (error) {
+      lastError = error;
+      const retryable = !Number.isFinite(error?.status) || DRIVE_CONTENT_RETRYABLE_STATUS.has(error.status);
+      const delay = DRIVE_CONTENT_RETRY_DELAYS_MS[attempt];
+      if (!retryable || delay === undefined) throw error;
+      await sleep(delay);
+    }
+  }
+  throw lastError;
 }
 
 /**

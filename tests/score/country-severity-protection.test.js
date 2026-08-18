@@ -11,6 +11,9 @@
  *   in src/js/flows/score.js no longer lets classification override the
  *   label or color — both always follow the same numeric 3-tier mapping.
  *   COUNTRY_SEVERITY_PRESENTATION_ENGINES was removed along with that override.
+ *   (Further simplified by external commit f586d40a to delegate straight to
+ *   customerVerdict — labels are score.verdict.excellent/good/attention now,
+ *   not a separate passBand/withinLimits/outsideLimits vocabulary.)
  * Run: node tests/score/country-severity-protection.test.js
  */
 const fs = require('fs');
@@ -414,12 +417,17 @@ console.log('\nJ. Presentation label/color always numeric (2026-08-18, PO-approv
   // tier. This used to force "Needs attention"-style compliance wording
   // regardless of the number, which visibly disagreed with the (already
   // numeric-only) color once a high score still classified WARNING/FAIL.
+  // 2026-08-18 (post dbd161d2, external commit f586d40a): comparisonPresentationVerdict
+  // was further simplified to delegate straight to customerVerdict — labels
+  // are now score.verdict.excellent/good/attention (81+/51-80/0-50), the
+  // same set used everywhere else, not a separate passBand/withinLimits/
+  // outsideLimits vocabulary.
   const who811 = switchAndRead('who', newc811);
   assert(who811.score === 70 && who811.classifications && sandbox.worstBenchmarkClassification(who811.classifications) === 'FAIL',
     'New C 8/11 WHO is score=70, worst=FAIL (chlorine steepening crosses WARNING->FAIL, guaranteed deduction)');
   const who811Verdict = sandbox.comparisonPresentationVerdict(who811.score, who811.classifications, who811.engineKey);
-  assert(who811Verdict.label === 'score.benchmark.verdict.withinLimits',
-    `WHO score=70 label is the numeric 51-80 tier (withinLimits), not compliance wording (got "${who811Verdict.label}")`);
+  assert(who811Verdict.label === 'score.verdict.good',
+    `WHO score=70 label is the numeric 51-80 tier (good), not compliance wording (got "${who811Verdict.label}")`);
   assert(who811Verdict.tier === 'mid', 'WHO score=70 tier is mid (51-80), matching the label');
 
   const phWarnFixture = { ph: 6.47, tds: 80, turbidity: 0.1, orp: 400, do: 8.0, chlorine: 0.3 };
@@ -427,41 +435,41 @@ console.log('\nJ. Presentation label/color always numeric (2026-08-18, PO-approv
   assert(who810.score === 85 && who810.classifications && sandbox.worstBenchmarkClassification(who810.classifications) === 'WARNING',
     'ph=6.47 WHO is score=85, worst=WARNING');
   const who810Verdict = sandbox.comparisonPresentationVerdict(who810.score, who810.classifications, who810.engineKey);
-  assert(who810Verdict.label === 'score.benchmark.verdict.passBand' && who810Verdict.tier === 'high',
-    `WHO score=85 (WARNING classification) still shows the 81+ passBand tier — number, not classification, drives the label (got "${who810Verdict.label}")`);
+  assert(who810Verdict.label === 'score.verdict.excellent' && who810Verdict.tier === 'high',
+    `WHO score=85 (WARNING classification) still shows the 81+ excellent tier — number, not classification, drives the label (got "${who810Verdict.label}")`);
 
   const epa811 = switchAndRead('usEpa', phWarnFixture);
   const epa811Verdict = sandbox.comparisonPresentationVerdict(epa811.score, epa811.classifications, epa811.engineKey);
-  assert(epa811Verdict.label === 'score.benchmark.verdict.passBand', `EPA score=85 shows passBand regardless of its WARNING classification (got "${epa811Verdict.label}")`);
+  assert(epa811Verdict.label === 'score.verdict.excellent', `EPA score=85 shows excellent regardless of its WARNING classification (got "${epa811Verdict.label}")`);
 
   const jp811 = switchAndRead('japan', newc811);
   const jp811Verdict = sandbox.comparisonPresentationVerdict(jp811.score, jp811.classifications, jp811.engineKey);
-  assert(jp811Verdict.label === 'score.benchmark.verdict.withinLimits', `Japan score=76 shows withinLimits (51-80 tier) (got "${jp811Verdict.label}")`);
+  assert(jp811Verdict.label === 'score.verdict.good', `Japan score=76 shows good (51-80 tier) (got "${jp811Verdict.label}")`);
 
   for (const key of ['who', 'usEpa']) {
     const r = switchAndRead(key, c1328);
     const v = sandbox.comparisonPresentationVerdict(r.score, r.classifications, r.engineKey);
-    assert(v.label === 'score.benchmark.verdict.passBand', `Case 1328 ${key} passBand (got "${v.label}")`);
+    assert(v.label === 'score.verdict.excellent', `Case 1328 ${key} excellent (got "${v.label}")`);
     assert(r.score === 92, `Case 1328 ${key} score numerically 92 (got ${r.score})`);
   }
   const jp1328 = switchAndRead('japan', c1328);
   const jp1328Verdict = sandbox.comparisonPresentationVerdict(jp1328.score, jp1328.classifications, jp1328.engineKey);
-  assert(jp1328Verdict.label === 'score.benchmark.verdict.passBand',
-    `Case 1328 japan score=85 shows the 81+ passBand tier despite its own WARNING classification (got "${jp1328Verdict.label}")`);
+  assert(jp1328Verdict.label === 'score.verdict.excellent',
+    `Case 1328 japan score=85 shows the 81+ excellent tier despite its own WARNING classification (got "${jp1328Verdict.label}")`);
   assert(jp1328.score === 85, `Case 1328 japan score numerically 85 (got ${jp1328.score})`);
 
   // FAIL/CRITICAL classifications also no longer override the label — same
   // numeric tier as any other score at that value, regardless of engineKey.
   const failWho = sandbox.comparisonPresentationVerdict(75, { ph: 'FAIL', tds: 'PASS', turbidity: 'PASS', orp: 'PASS', chlorine: 'PASS', do: 'PASS' }, 'who');
-  assert(failWho.label === 'score.benchmark.verdict.withinLimits', `FAIL classification no longer overrides the label (got "${failWho.label}")`);
+  assert(failWho.label === 'score.verdict.good', `FAIL classification no longer overrides the label (got "${failWho.label}")`);
   const critWho = sandbox.comparisonPresentationVerdict(60, { ph: 'CRITICAL', tds: 'PASS', turbidity: 'PASS', orp: 'PASS', chlorine: 'PASS', do: 'PASS' }, 'who');
-  assert(critWho.label === 'score.benchmark.verdict.withinLimits', `CRITICAL classification no longer overrides the label (got "${critWho.label}")`);
+  assert(critWho.label === 'score.verdict.good', `CRITICAL classification no longer overrides the label (got "${critWho.label}")`);
 
   // Thailand/EU were already numeric-only for both label and color — unaffected.
   const thVerdict = sandbox.comparisonPresentationVerdict(86, { ph: 'WARNING' }, 'thailand');
-  assert(thVerdict.label === 'score.benchmark.verdict.passBand', 'Thailand ignores classifications entirely, pure numeric passBand at 86');
+  assert(thVerdict.label === 'score.verdict.excellent', 'Thailand ignores classifications entirely, pure numeric excellent at 86');
   const euVerdict = sandbox.comparisonPresentationVerdict(86, { ph: 'WARNING' }, 'eu');
-  assert(euVerdict.label === 'score.benchmark.verdict.passBand', 'EU ignores classifications entirely, pure numeric passBand at 86');
+  assert(euVerdict.label === 'score.verdict.excellent', 'EU ignores classifications entirely, pure numeric excellent at 86');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

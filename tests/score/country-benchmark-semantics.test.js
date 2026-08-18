@@ -193,16 +193,20 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
     'dropdown order comment no longer implies quality ranking');
 }
 
-console.log('\nPD-001 — comparison presentation is pass-band, not Excellent');
+console.log('\nPD-001 (superseded 2026-08-18, commit f586d40a) — comparison presentation now reuses Excellent/Good/Needs attention wording, same as customerVerdict');
 {
+  // 2026-08-18 (post dbd161d2, external commit f586d40a): comparisonPresentationVerdict
+  // was further simplified to delegate straight to customerVerdict — the
+  // distinct "passBand/withinLimits/outsideLimits" wording this section used
+  // to lock in no longer exists; country comparison and Quality/publish now
+  // share one label set, not two.
   assert(typeof sandbox.comparisonPresentationVerdict === 'function', 'comparisonPresentationVerdict exists');
   const present100 = sandbox.comparisonPresentationVerdict(100);
   const present95 = sandbox.comparisonPresentationVerdict(95);
   const present65 = sandbox.comparisonPresentationVerdict(65);
-  assert(present100.label === 'score.benchmark.verdict.passBand', `100 → passBand (got ${present100.label})`);
-  assert(present95.label === 'score.benchmark.verdict.passBand', `95 → passBand (got ${present95.label})`);
-  assert(present65.label === 'score.benchmark.verdict.withinLimits', `65 → withinLimits (got ${present65.label})`);
-  assert(!String(present100.label).toLowerCase().includes('excellent'), 'comparison presentation is not Excellent');
+  assert(present100.label === 'score.verdict.excellent', `100 → excellent (got ${present100.label})`);
+  assert(present95.label === 'score.verdict.excellent', `95 → excellent (got ${present95.label})`);
+  assert(present65.label === 'score.verdict.good', `65 → good (got ${present65.label})`);
 
   const qualityVerdict = sandbox.customerVerdict(92);
   assert(qualityVerdict.label === 'score.verdict.excellent', 'customer customerVerdict still Excellent for high scores');
@@ -239,11 +243,9 @@ console.log('\nPD-001 — comparison presentation is pass-band, not Excellent');
 
   const compare = sandbox.buildComparisonScoreResult(BASELINE.readings, 'thailand');
   assert(compare.score === 76, 'comparison numeric score matches Thailand engine (76, shared grading base)');
-  // 2026-08-18 (PO-approved): Thailand's numeric comparisonPresentationVerdict
-  // threshold for passBand is >=80; the shared-base raw score here is 76, so
-  // it falls into withinLimits, not passBand — a genuine outcome of the new
-  // shared grading, not a bug (Thailand is not in COUNTRY_SEVERITY_PRESENTATION_ENGINES).
-  assert(compare.verdict === 'score.benchmark.verdict.withinLimits', `comparison result.verdict is within-limits (got ${compare.verdict})`);
+  // 2026-08-18 (post dbd161d2, external commit f586d40a): comparisonPresentationVerdict
+  // now delegates to customerVerdict — 76 falls in the 51-80 "good" tier.
+  assert(compare.verdict === 'score.verdict.good', `comparison result.verdict is good (got ${compare.verdict})`);
   assert(compare.engineVerdict === 'Good', `engineVerdict is Good for ordinary baseline (got ${compare.engineVerdict})`);
 
   assert(i18nSrc.includes("'score.benchmark.verdict.passBand'"), 'passBand i18n key exists');
