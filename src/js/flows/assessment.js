@@ -277,16 +277,15 @@ function validateAssessmentForComplete({ showErrors = true } = {}) {
     ? computeScoreFromReadings(readings)
     : null;
 
-  const valid = missingTasks.length === 0
-    && readiness.ready === true
+  // 2026-08-18 (PO-approved): the per-task checklist (tapphoto/visual/meter/
+  // chlorine) no longer blocks Complete — only whether a score can actually
+  // be computed does. missingTasks is still returned for callers that want
+  // to show it informationally, just no longer enforced here.
+  const valid = readiness.ready === true
     && Number.isFinite(Number(score));
 
   if (!valid && showErrors) {
-    if (missingTasks.length) {
-      showToast(
-        typeof t === 'function' ? t('assess.err.tasks') : 'Complete all required assessment tasks first'
-      );
-    } else if (readiness.ocrBusy) {
+    if (readiness.ocrBusy) {
       showToast(
         S.lang === 'th' ? 'กำลังอ่านค่าจากภาพ กรุณารอสักครู่' : 'Still reading meter image — please wait'
       );
