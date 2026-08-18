@@ -59,14 +59,12 @@ const CASE_1328 = {
 console.log('\nLocked sample (legacy DWQI freeze)');
 {
   assert(sandbox.computeLegacyDwqiScore(LOCKED) === 93, 'Legacy DWQI locked = 93');
-  // Country severity protection (2026-08-14): LOCKED's turbidity=2.5 is FAIL
-  // on US EPA (steepEnd threshold), now capped at 75 (was 91 uncapped).
-  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): this fixture's
-  // turbidity=2.5 classifies WARNING on Japan/WHO, now capped 85 (was 96/93).
-  // Thailand chlorine curve steepened + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
-  // Score Architecture V6 (2026-08-17, PO-approved): Japan/WHO/EU/US EPA now
-  // use weakest-link aggregation (share=0.25); WHO chlorine steepened.
-  const expected = { thailand: 70, who: 75, eu: 65, japan: 57, usEpa: 75 };
+  // 2026-08-18 (PO-approved): all 5 engines now share one grading formula
+  // (computeSharedBenchmarkBase); raw base for LOCKED = 73 for every engine.
+  // Thailand/Japan have no severity cap binding here, so they stay at raw 73.
+  // WHO/US EPA both classify turbidity=2.5 as CRITICAL, capping at 60.
+  // EU's PD-002 chlorine gate (chlorine classifies CRITICAL) caps at 65.
+  const expected = { thailand: 73, who: 60, eu: 65, japan: 73, usEpa: 60 };
   for (const [key, score] of Object.entries(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, LOCKED).score === score,
       `${key} locked = ${score}`);
@@ -81,17 +79,11 @@ console.log('\nCase 13.28 — Quality V2 + benchmarks');
   assert(quality <= 94, `Quality V3 Case 13.28 not overfit (got ${quality})`);
   assert(quality < 96, `Quality V3 below prior V2 Case A band (got ${quality})`);
   assert(sandbox.QUALITY_SCORE_ENGINE_VERSION === 'quality-v3.0', 'engine version quality-v3.0');
-  // Raw composite is 100 on every engine for this reading; Country Hero ceiling
-  // caps the displayed/composite score at 99 (100 is reserved for Quality V3).
-  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves the
-  // pre-ceiling raw composite from 98.9 to 98.35, rounding to 98 (below the
-  // ceiling, so the ceiling itself does not apply here) instead of 99.
-  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): pH=7.79 is
-  // just past the 7.3-7.7 ideal window (grade 91).
-  // Score Architecture V6 (2026-08-17, PO-approved): Japan now uses
-  // weakest-link aggregation (share=0.25), pulling the composite slightly
-  // toward the weakest (pH=91) grade: 98 -> 97.
-  const expected = { thailand: 98, who: 99, eu: 99, japan: 97, usEpa: 99 };
+  // 2026-08-18 (PO-approved): all 5 engines share one grading formula; raw
+  // base for CASE_1328 = 92 for every engine (all params classify PASS on
+  // every engine, so no severity cap or gate binds, and the Country Hero
+  // ceiling only applies when the raw composite is 100 — it isn't here).
+  const expected = { thailand: 92, who: 92, eu: 92, japan: 92, usEpa: 92 };
   for (const [key, score] of Object.entries(expected)) {
     const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, CASE_1328);
     assert(result.score === score, `${key} Case 13.28 = ${score}`);
@@ -117,8 +109,9 @@ console.log('\nBoundary still reduces Quality V2 score');
   assert(sandbox.computeScoreFromReadings({ ...CASE_1328, ph: 9.5 }) < base, 'pH out of band reduces Quality');
   assert(sandbox.computeScoreFromReadings({ ...CASE_1328, chlorine: 0.8 }) < base, 'Cl 0.8 reduces Quality');
   const thCl = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', { ...CASE_1328, chlorine: 0.8 });
-  // Chlorine curve steepened + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 78 (was 94).
-  assert(thCl.score === 78, `Thai Cl 0.8 severity-graded to 78 (got ${thCl.score}), still inside 0.2–2.0`);
+  // 2026-08-18 (PO-approved): shared chlorine curve grades 0.8 at 67.6 (past
+  // the 0.2-0.5 plateau), pulling the shared base average from 92 to 87.
+  assert(thCl.score === 87, `Thai Cl 0.8 severity-graded to 87 (got ${thCl.score}), still inside 0.2–2.0`);
   assert(thCl.statuses.chlorine === 'good', 'Thai Cl 0.8 remains compliance-pass');
 }
 

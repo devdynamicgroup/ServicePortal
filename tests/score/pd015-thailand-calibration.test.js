@@ -81,12 +81,11 @@ console.log('\nExisting Cases — natural ordering + no 97–99 ordinary cluster
   const f = th(FAUCET).score;
   const s = th(SINK).score;
   console.log(`  scores faucet=${f} sink=${s} NewC811=${a} NewC810=${b} 13.28=${c}`);
-  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved):
-  // 86->81, 88->85, 99->98, 55->37. Recomputed directly, not estimated.
-  assert(a === 81, `New C 8/11 TH=81 (got ${a})`);
-  assert(b === 85, `New C 8/10 TH=85 (got ${b})`);
-  assert(c === 98, `13.28 TH=98 (got ${c})`);
-  assert(f === 37, `faucet TH=37 (got ${f})`);
+  // 2026-08-18 (PO-approved): shared grading base. Recomputed directly, not estimated.
+  assert(a === 76, `New C 8/11 TH=76 (got ${a})`);
+  assert(b === 81, `New C 8/10 TH=81 (got ${b})`);
+  assert(c === 92, `13.28 TH=92 (got ${c})`);
+  assert(f === 60, `faucet TH=60 (CRITICAL cap, chlorine=0) (got ${f})`);
   assert(f < a && a < b && b < c, 'ordering faucet < 8/11 < 8/10 < 13.28');
   assert(!(a >= 97 && b >= 97 && c >= 97 && a <= 99 && b <= 99 && c <= 99 && a === 97 && b === 98),
     'ordinary trio no longer the pre-PD-015 97/98/99 cluster');
@@ -125,15 +124,13 @@ console.log('\nDistribution fixtures — not collapsed into 97–99');
 console.log('\nOther engines unchanged on baseline New C readings');
 {
   const r = NEW_C_811;
-  // Japan pH/chlorine inner curves (2026-08-17, PO-approved): chlorine=0.7
-  // and pH=7.85 are past their new ideal windows. Score Architecture V6
-  // (2026-08-17, PO-approved): weakest-link aggregation pulls Japan to 86.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 86, 'JP 86');
-  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepening
-  // crosses New C 8/11's chlorine=0.7 from WARNING into FAIL, FAIL cap (75) applies.
+  // 2026-08-18 (PO-approved): shared grading base for r = 76 for every
+  // engine. Japan has no severity cap binding here, so it stays at raw 76.
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 76, 'JP 76');
+  // WHO/EPA both classify do=5.3 as FAIL, FAIL cap (75) applies.
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', r).score === 75, 'WHO 75 (FAIL cap)');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', r).score === 65, 'EU unchanged 65');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 85, 'EPA 85 (WARNING cap)');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 75, 'EPA 75 (FAIL cap)');
   assert(sandbox.computeQualityScoreDetail(r).score === 76, 'Q-V3 unchanged 76');
 }
 

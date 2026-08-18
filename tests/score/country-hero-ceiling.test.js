@@ -6,7 +6,7 @@
  *   C. Q-V3 independence -> ceiling never mutates S.scoreVal / published Q-V3
  *   D. Country switching -> routes to the selected engine, never >99
  *   E. TH severity preservation -> DIFF still 87, not further reduced
- *   F. Existing near-ideal fixture -> raw 100 -> Hero 99
+ *   F. Existing near-ideal fixture -> raw 92, below ceiling, unchanged
  * Run: node tests/score/country-hero-ceiling.test.js
  */
 const fs = require('fs');
@@ -66,32 +66,25 @@ console.log('\nCase A — country raw composite 100 -> Hero 99');
 {
   for (const key of KEYS) {
     const r = bench(key, IDEAL);
-    // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): IDEAL's
-    // ph=7.2 is just past the cited 7.3-7.7 ideal window (grade 90). Score
-    // Architecture V6 (2026-08-17, PO-approved): Japan's weakest-link
-    // aggregation (share=0.25) pulls the composite further toward that
-    // weakest grade -- 96, not 98 -- still correctly below the 99 ceiling.
-    const expected = key === 'japan' ? 96 : 99;
-    assert(r.score === expected, `${key} raw-100 fixture (IDEAL) ${key === 'japan' ? 'below ceiling' : 'capped to 99'} (got ${r.score})`);
+    // 2026-08-18 (PO-approved): all 5 engines share one grading formula;
+    // IDEAL grades 100 on every param for every engine, so the raw
+    // composite is 100 everywhere and the Country Hero ceiling caps all
+    // five uniformly at 99.
+    assert(r.score === 99, `${key} raw-100 fixture (IDEAL) capped to 99 (got ${r.score})`);
   }
 }
 
 console.log('\nCase B — country raw composite below ceiling stays unaffected BY THE CEILING');
 {
-  // PD-014 D1/D2 (2026-08-14) changed WHO/EPA's own grading, so these values
-  // moved from their pre-PD-014 baseline (95/79) — that movement is the
-  // intended severity fix, not a ceiling effect. WARNING severity cap=85
-  // (2026-08-14, PO-approved numeric) then further caps BASE's worst=WARNING
-  // composite (was 93 pre-cap). What this case still proves is that values
-  // already below 99 pass through the (unrelated, unmodified) ceiling untouched.
-  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepened
-  // (0.7mg/L grades lower, crossing WARNING->FAIL) + weakest-link aggregation.
+  // 2026-08-18 (PO-approved): grading is shared, but each engine's own
+  // classification/gate still applies. WHO classifies BASE's do as FAIL,
+  // binding the FAIL cap. EU's PD-002 chlorine gate binds regardless.
+  // What this case still proves is that values already below 99 pass
+  // through the (unrelated, unmodified) ceiling untouched.
   assert(bench('who', BASE).score === 75, 'WHO BASE 75 (FAIL cap; still < 99, ceiling no-op)');
   assert(bench('eu', BASE).score === 65, 'EU BASE 65 unaffected (chlorine gate dominates; ceiling no-op)');
-  // Country severity protection (2026-08-14): DIFF's TDS=800 is FAIL on EPA.
-  // Score Architecture V6 (2026-08-17, PO-approved): US EPA weakest-link
-  // aggregation pulls the raw composite further, but the FAIL cap (75) still binds.
-  assert(bench('usEpa', DIFF).score === 71, 'EPA DIFF 71 (weakest-link pulls raw below the 75 FAIL cap)');
+  // DIFF's tds/turbidity classify CRITICAL on US EPA, binding the CRITICAL cap (60).
+  assert(bench('usEpa', DIFF).score === 60, 'EPA DIFF 60 (CRITICAL cap; still < 99, ceiling no-op)');
 }
 
 console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / published Q-V3');
@@ -99,11 +92,17 @@ console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / 
   const quality = sandbox.computeQualityScoreDetail(BASE).score;
   assert(quality === 76, `Q-V3 BASE stays 76, unrounded by Country ceiling (got ${quality})`);
   const jp = bench('japan', BASE).score;
-  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): BASE's
-  // chlorine=0.7/pH=7.85 now decline. Score Architecture V6 (2026-08-17,
-  // PO-approved): Japan's weakest-link aggregation (share=0.25) pulls the
-  // composite further to 86 (was 90).
-  assert(jp === 86 && jp !== quality, 'Country Hero (86) numerically independent of Q-V3 (76)');
+  // 2026-08-18 (PO-approved): grading is now shared, so when no severity cap
+  // or gate binds, a country's score CAN numerically coincide with Quality V3
+  // (both 76 here) — that's expected, not a leak. Independence is proven by
+  // showing the two are computed by genuinely separate code paths (grep
+  // check below) AND by a fixture where a country-specific cap makes them
+  // diverge: DIFF's tds/turbidity classify CRITICAL on Japan (cap 60),
+  // while Quality V3 has no such cap and stays at its own raw value.
+  assert(jp === quality, 'Country Hero (76) coincides with Q-V3 (76) here — same shared grading formula, no cap binds');
+  const jpDiff = bench('japan', DIFF).score;
+  const qualityDiff = sandbox.computeQualityScoreDetail(DIFF).score;
+  assert(jpDiff !== qualityDiff, `Country Hero (${jpDiff}) diverges from Q-V3 (${qualityDiff}) once Japan's own severity cap binds — proves independence`);
   // Direct proof the ceiling function itself never touches non-country scores:
   // it is a pure function applied only inside finalizeBenchmarkMetadata(),
   // never called by computeQualityScoreV2.js / computeProductionScore.js.
@@ -132,24 +131,23 @@ console.log('\nCase D — country switching routes to the selected engine, never
 console.log('\nCase E — TH severity preservation: DIFF stays well below the ceiling, not further reduced by it');
 {
   const th = bench('thailand', DIFF);
-  // Thailand chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 46 (was 69).
-  assert(th.score === 46, `TH DIFF raw composite already below ceiling, unchanged at 46 (got ${th.score})`);
+  // 2026-08-18 (PO-approved): shared grading base for DIFF = 61; Thailand
+  // has no severity cap binding here (all its own classifications stay
+  // within PASS), so the raw 61 passes through both severity protection
+  // and the ceiling (well below 99) unchanged.
+  assert(th.score === 61, `TH DIFF raw composite already below ceiling, unchanged at 61 (got ${th.score})`);
 }
 
-console.log('\nCase F — existing near-ideal fixture: raw 100 -> Hero 99');
+console.log('\nCase F — existing near-ideal fixture: raw 92 (below ceiling), unchanged across engines');
 {
   const CASE_1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06 };
-  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves TH's
-  // raw composite for this reading from 98.9 to 98.35 (rounds to 98) -- below
-  // the 99 ceiling, so the ceiling itself is a no-op here (not a regression).
-  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): CASE_1328's
-  // ph=7.79 is just past the cited 7.3-7.7 ideal window (grade 91). Score
-  // Architecture V6 (2026-08-17, PO-approved): Japan's weakest-link
-  // aggregation (share=0.25) pulls the composite further to 97 (was 98).
+  // 2026-08-18 (PO-approved): shared grading base for CASE_1328 = 92 for
+  // every engine; every param classifies PASS on every engine, so no
+  // severity cap or gate binds anywhere, and the raw composite (92, not
+  // 100) never reaches the ceiling.
   for (const key of KEYS) {
     const r = bench(key, CASE_1328);
-    const expected = key === 'thailand' ? 98 : (key === 'japan' ? 97 : 99);
-    assert(r.score === expected, `${key} Case 1328 (pre-existing near-ideal fixture) = ${expected} (got ${r.score})`);
+    assert(r.score === 92, `${key} Case 1328 (pre-existing near-ideal fixture) = 92 (got ${r.score})`);
   }
 }
 

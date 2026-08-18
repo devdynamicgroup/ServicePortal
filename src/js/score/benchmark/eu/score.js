@@ -1,5 +1,9 @@
 ﻿/**
  * EU benchmark engine — parametric / indicator comparison philosophy.
+ * 2026-08-18 (PO-approved): the base score is computed by the shared
+ * cross-country formula (computeSharedBenchmarkBase); this engine's own job
+ * is only the EU-specific PASS/FAIL thresholds, severity handling, and its
+ * own PD-002 chlorine gate below.
  * Free-chlorine residual band is PROJECT-DEFINED (PD-008) — not Directive 2020/2184.
  * Critical chlorine outside project band triggers hard composite cap (PD-002 gate 65).
  * Owns EU-specific metadata explanations.
@@ -7,51 +11,9 @@
 (function registerEuBenchmarkEngine() {
   const L = window.EuBenchmarkLimits;
   const W = window.EuBenchmarkWeights;
-  const clamp = typeof scoreClamp === 'function' ? scoreClamp : (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
   const wrap = typeof finalizeBenchmarkMetadata === 'function' ? finalizeBenchmarkMetadata : (x) => x;
   const incomplete = typeof incompleteBenchmarkMetadata === 'function'
     ? incompleteBenchmarkMetadata : () => ({ score: null });
-
-  function gradePh(ph) {
-    if (ph >= L.ph.min && ph <= L.ph.max) return 100;
-    const dist = ph < L.ph.min ? L.ph.min - ph : ph - L.ph.max;
-    return clamp(100 - dist * 40);
-  }
-  function gradeTds(tds) {
-    if (tds <= 300) return 100;
-    if (tds <= L.tds.displayMax) return clamp(100 - (tds - 300) / 200 * 25);
-    return clamp(70 - (tds - L.tds.steepAfter) / 20);
-  }
-  function gradeChlorine(cl) {
-    if (cl >= L.chlorine.min && cl <= L.chlorine.max) return 100;
-    if (cl < L.chlorine.min) return clamp(cl / L.chlorine.min * 40);
-    if (cl <= 1.0) return clamp(55 - (cl - L.chlorine.max) * 50);
-    return clamp(25 - (cl - 1) * 10);
-  }
-  function gradeTurbidity(turb) {
-    if (turb <= L.turbidity.ideal) return 100;
-    if (turb <= L.turbidity.hardFail) return clamp(100 - (turb - L.turbidity.ideal) / (L.turbidity.hardFail - L.turbidity.ideal) * 55);
-    return clamp(35 - (turb - L.turbidity.hardFail) * 8);
-  }
-  /**
-   * PD-014 D1 (2026-08-14): project-defined inner severity within the locked
-   * 200/600 outer band. No cited standard — see UNRESOLVED_DECISIONS.md
-   * PD-014 §D1. Outer limits (200/600) unchanged.
-   */
-  function gradeOrp(orp) {
-    // Outer branches anchored at 70 (not 100) to stay continuous with the
-    // new inner ramp's edge value — the old formulas anchored at 100, which
-    // would jump upward just past 200/600 if left unanchored (monotonicity bug).
-    if (orp < L.orp.min) return clamp(orp / L.orp.min * 70);
-    if (orp > L.orp.max) return clamp(70 - (orp - L.orp.max) / 10);
-    if (orp >= 350 && orp <= 450) return 100;
-    if (orp < 350) return clamp(70 + (orp - 200) / 150 * 30);
-    return clamp(100 - (orp - 450) / 150 * 30);
-  }
-  function gradeDo(doValue) {
-    if (doValue >= L.do.min) return 100;
-    return clamp(doValue / L.do.min * 100);
-  }
 
   function verdictFrom(score, chlorineFail) {
     if (chlorineFail && score <= L.gateCapOnChlorineFail) {
@@ -87,31 +49,21 @@
     const orp = toFin(readings.orp);
     const cl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
-    // 2026-08-18 (PO-approved): chlorine alone no longer blocks the score —
-    // it may genuinely not be measured yet. ph/tds/turbidity/orp/do remain required.
-    if (![ph, tds, turb, orp, do_].every(Number.isFinite)) {
+    // 2026-08-18 (PO-approved): chlorine and DO alone no longer block the
+    // score — either may genuinely not be measured yet. ph/tds/turbidity/orp
+    // remain required.
+    if (![ph, tds, turb, orp].every(Number.isFinite)) {
       return incomplete('EU', 'eu', { readings, engineVersion: 'v3', standardRevision: 'EU-engine project benchmark (Directive-inspired; free-Cl residual project-defined)' });
     }
-    const params = {
-      ph: gradePh(ph), tds: gradeTds(tds),
-      // Grade chlorine only when present, so the weighted-mean/weakest-link
-      // loop below excludes it naturally instead of scoring a phantom reading.
-      chlorine: Number.isFinite(cl) ? gradeChlorine(cl) : undefined,
-      turbidity: gradeTurbidity(turb), orp: gradeOrp(orp), do: gradeDo(do_)
-    };
-    let num = 0; let den = 0;
-    const scoredGrades = [];
-    Object.keys(W).forEach(key => {
-      if (!Number.isFinite(params[key])) return;
-      num += params[key] * W[key]; den += W[key]; scoredGrades.push(params[key]);
-    });
-    // 2026-08-17 (PO-approved, weakest-link share 0.25 — weaker than
-    // Thailand's 0.5): pulls the raw weighted mean 25% toward the single
-    // weakest scored parameter so it isn't diluted away by the other five.
-    const mean = num / den;
-    const weakest = Math.min(...scoredGrades);
-    const share = Number(L.weakestLinkShare) || 0;
-    const rawScore = Math.round((1 - share) * mean + share * weakest);
+    // 2026-08-18 (PO-approved): one shared grading formula (Quality V3's
+    // curves), computed once and reused as every country's base score. EU
+    // differs from the other engines only in the PASS/FAIL thresholds,
+    // severity handling, and its own PD-002 chlorine gate below — never in
+    // how a value is graded. See computeSharedBenchmarkBase in
+    // computeQualityScoreV2.js.
+    const base = computeSharedBenchmarkBase(readings);
+    const params = base.params;
+    const rawScore = base.score;
     const chlorineFail = cl < L.chlorine.min || cl > L.chlorine.max;
 
     const classifications = {
@@ -125,7 +77,9 @@
       chlorine: !Number.isFinite(cl) ? 'NOT_MEASURED' : (chlorineFail ? 'CRITICAL' : 'PASS'),
       turbidity: turb <= L.turbidity.ideal ? 'PASS' : (turb <= L.turbidity.hardFail ? 'FAIL' : 'CRITICAL'),
       orp: (orp >= L.orp.min && orp <= L.orp.max) ? 'PASS' : 'WARNING',
-      do: do_ >= L.do.min ? 'PASS' : 'FAIL',
+      // Missing DO is an absent measurement, not a failed one — same
+      // NOT_MEASURED convention as chlorine/temp (2026-08-18).
+      do: !Number.isFinite(do_) ? 'NOT_MEASURED' : (do_ >= L.do.min ? 'PASS' : 'FAIL'),
       // Not Measured must never read as PASS. temp is not part of the EU
       // scoring formula (zero weight — see weights.js), so this only affects
       // the classification/metadata bucket, never the score.
@@ -185,7 +139,9 @@
     if (ph < L.ph.min || ph > L.ph.max) {
       reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside EU drinking-water range (6.5–9.5).' });
     }
-    if (do_ < L.do.min) {
+    if (!Number.isFinite(do_)) {
+      reasons.push({ parameter: 'do', severity: 'warning', message: 'Dissolved oxygen has not been measured yet — this score is provisional and excludes DO until it is captured.' });
+    } else if (do_ < L.do.min) {
       reasons.push({ parameter: 'do', severity: 'fail', message: 'Dissolved oxygen is below EU comparison minimum (≥ 6 mg/L).' });
     }
 

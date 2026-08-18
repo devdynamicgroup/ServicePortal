@@ -20,14 +20,15 @@
  * those numbers). Thailand's own grade curves are simply lenient enough
  * that these specific readings never cross into WARNING.
  *
- * IMPORTANT — cap is a ceiling, not a floor: with the 2026-08-17 weakest-link
- * share raised to 0.5, a single catastrophic parameter (grade near 0, all
- * others perfect) already produces a raw composite AT OR BELOW the
- * CRITICAL/FAIL cap on its own (verified by direct computation below) — the
- * cap is a no-op there, exactly as expected ("ceiling not floor"). This file
- * therefore asserts `score <= cap` for the general single-parameter cases,
- * and separately proves the cap DOES bind (raw > cap, final == cap) using
- * fixtures found by direct search rather than assumed.
+ * 2026-08-18 (PO-approved): grading itself moved to one shared cross-country
+ * formula (computeSharedBenchmarkBase) — Thailand's own former grade curves
+ * and the PD-015 weakest-link blend referenced below no longer exist; every
+ * numeric fixture in this file was recomputed directly against the current
+ * code, not estimated from the old formula's behavior.
+ *
+ * IMPORTANT — cap is a ceiling, not a floor: this file asserts `score <= cap`
+ * throughout, and separately proves the cap DOES genuinely bind (raw > cap,
+ * final == cap) using fixtures found by direct search rather than assumed.
  *
  * Run: node tests/score/thailand-severity-protection.test.js
  */
@@ -86,40 +87,34 @@ console.log('\nA. Clean reading — worst=PASS, no cap fires, matches pre-fix be
 
 console.log('\nB. CRITICAL classification never exceeds 60 (ceiling, not floor)');
 {
-  // Single-catastrophic-parameter fixtures: with weakest-link share=0.5, raw
-  // composite already lands AT the cap or below on its own (40 for
-  // chlorine=0/tds=5000) -- cap is correctly a no-op, does NOT raise them to 60.
+  // 2026-08-18 (PO-approved): grading is now the shared cross-country formula
+  // (computeSharedBenchmarkBase) — recomputed directly against it below.
   const r1 = bench('thailand', { ...IDEAL, chlorine: 0 });
   assert(r1.classifications.chlorine === 'CRITICAL', 'chlorine=0 classifies CRITICAL on Thailand');
-  assert(r1.score <= 60 && r1.score === 40, `chlorine CRITICAL: raw already below cap, stays 40, not raised to 60 (got ${r1.score})`);
+  assert(r1.score <= 60 && r1.score === 60, `chlorine CRITICAL: capped at 60 (got ${r1.score})`);
 
   const r2 = bench('thailand', { ...IDEAL, tds: 5000 });
   assert(r2.classifications.tds === 'CRITICAL', 'tds=5000 classifies CRITICAL on Thailand');
-  assert(r2.score <= 60 && r2.score === 40, `tds CRITICAL: raw already below cap, stays 40, not raised to 60 (got ${r2.score})`);
+  assert(r2.score <= 60 && r2.score === 60, `tds CRITICAL: capped at 60 (got ${r2.score})`);
 
-  // Fixture where the cap genuinely binds (raw=63 > cap=60), found by direct
-  // search: tds=1020 gives grade=38.6 (CRITICAL) with the other 4 params
-  // perfect, producing a raw composite of 63 that the cap correctly pulls
-  // down to exactly 60.
   const r3 = bench('thailand', { ...IDEAL, tds: 1020 });
   assert(r3.classifications.tds === 'CRITICAL', 'tds=1020 classifies CRITICAL on Thailand');
-  assert(r3.score === 60, `tds=1020: cap genuinely binds, raw 63 -> capped 60 (got ${r3.score})`);
+  assert(r3.score === 60, `tds=1020: capped at 60 (got ${r3.score})`);
 }
 
 console.log('\nC. FAIL classification never exceeds 75 (ceiling, not floor)');
 {
-  // turbidity=6: raw composite (68) is already below the FAIL cap (75) --
-  // cap is correctly a no-op here, not raised to 75.
+  // 2026-08-18 (PO-approved): under the shared formula, turbidity=6 now
+  // classifies CRITICAL (not FAIL) on Thailand — the shared curve's
+  // thresholds differ from Thailand's own deleted curve. Moved to section B's
+  // CRITICAL coverage; this section keeps a genuine FAIL-tier fixture (orp=199).
   const r = bench('thailand', { ...IDEAL, turbidity: 6 });
-  assert(r.classifications.turbidity === 'FAIL', 'turbidity=6 classifies FAIL on Thailand');
-  assert(r.score <= 75 && r.score === 68, `turbidity=6 FAIL: raw already below cap, stays 68, not raised to 75 (got ${r.score})`);
+  assert(r.classifications.turbidity === 'CRITICAL', 'turbidity=6 now classifies CRITICAL on Thailand (shared curve)');
+  assert(r.score === 60, `turbidity=6 CRITICAL: capped at 60 (got ${r.score})`);
 
-  // Fixture where the FAIL cap genuinely binds (raw~76 > cap=75), found by
-  // direct search: orp=199 gives grade=69.65 (FAIL, just past the 200 outer
-  // limit) with the other 4 params perfect.
   const r2 = bench('thailand', { ...IDEAL, orp: 199 });
   assert(r2.classifications.orp === 'FAIL', 'orp=199 classifies FAIL on Thailand');
-  assert(r2.score === 75, `orp=199: cap genuinely binds, raw >75 -> capped 75 (got ${r2.score})`);
+  assert(r2.score === 75, `orp=199: cap genuinely binds, capped 75 (got ${r2.score})`);
 }
 
 console.log('\nD. Real Cases: worst=PASS on Thailand (unaffected by this cap); numeric values are');
@@ -143,26 +138,26 @@ console.log('\nE. Catastrophic sweep — cap composes correctly with the weakest
   const two = bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 });
   const three = bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 });
   const all = bench('thailand', { ph: 3, tds: 5000, turbidity: 50, orp: -100, chlorine: 10, do: 0, temp: 80 });
-  // Weakest-link share 0.5 (2026-08-17) already drives these below the CRITICAL
-  // cap (60) on its own -- the cap is correctly a no-op, never raising them.
-  assert(one.score <= 60 && one.score === 40, `1 catastrophic -> 40, not raised to 60 (got ${one.score})`);
-  assert(two.score <= 60 && two.score === 30, `2 catastrophic -> 30, not raised to 60 (got ${two.score})`);
-  assert(three.score <= 60 && three.score === 20, `3 catastrophic -> 20, not raised to 60 (got ${three.score})`);
-  assert(all.score === 0, `all catastrophic -> 0, not raised to 60 (got ${all.score})`);
+  // 2026-08-18 (PO-approved): shared formula, plain equal-weight mean (no
+  // weakest-link blend) — the CRITICAL cap (60) is what actually holds these
+  // down now, correctly still a ceiling (never raises a lower raw score).
+  assert(one.score <= 60 && one.score === 60, `1 catastrophic -> capped 60 (got ${one.score})`);
+  assert(two.score <= 60 && two.score === 60, `2 catastrophic -> capped 60 (got ${two.score})`);
+  assert(three.score <= 60 && three.score === 44, `3 catastrophic -> 44, below the cap, cap is a no-op (got ${three.score})`);
+  assert(all.score === 7, `all catastrophic -> 7, below the cap, cap is a no-op (got ${all.score})`);
 }
 
 console.log('\nF. Cross-engine isolation — Japan/WHO/EU/US EPA scores byte-unchanged by this fix');
 {
   const r = { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 }; // New C 8/11
-  // Japan pH/chlorine inner curves + Score Architecture V6 weakest-link
-  // aggregation (2026-08-17, PO-approved) are separate, unrelated Japan/WHO/
-  // EU/EPA-wide changes (not this Thailand severity-protection fix); these
-  // assertions only prove this file's Thailand change doesn't leak into the
-  // other engines' own independently-current values.
-  assert(bench('japan', r).score === 86, `Japan unaffected by the Thailand-only fix in this file (got ${bench('japan', r).score})`);
+  // 2026-08-18 (PO-approved): all 5 engines now share the same base formula
+  // — these assertions only prove this file's Thailand fixtures don't leak
+  // mutation into the other engines' independently-current values, not that
+  // the numbers themselves are Thailand-independent (they aren't anymore).
+  assert(bench('japan', r).score === 76, `Japan unaffected by the Thailand-only fixtures in this file (got ${bench('japan', r).score})`);
   assert(bench('who', r).score === 75, `WHO unaffected (got ${bench('who', r).score})`);
   assert(bench('eu', r).score === 65, `EU unaffected (got ${bench('eu', r).score})`);
-  assert(bench('usEpa', r).score === 85, `US EPA unaffected (got ${bench('usEpa', r).score})`);
+  assert(bench('usEpa', r).score === 75, `US EPA unaffected (got ${bench('usEpa', r).score})`);
 }
 
 console.log('\nG. Severity ordering holds: PASS > FAIL-cap-bound > CRITICAL-cap-bound for Thailand too');

@@ -50,28 +50,20 @@ const decisionDoc = fs.readFileSync(path.join(root, 'docs/quality-v3/UNRESOLVED_
 const i18nSrc = fs.readFileSync(path.join(root, 'src/js/i18n.js'), 'utf8');
 const scoreFlowSrc = fs.readFileSync(path.join(root, 'src/js/flows/score.js'), 'utf8');
 
-// PD-014 D1/D2/D3 (2026-08-14): orp=515 now inner-declines on every engine
-// (was flat 100 for the whole 200-600 band); Q-V3 (76) and EU (65, gated by
-// chlorine) are unaffected by D1-D3.
-// WARNING severity cap=85 (2026-08-14, PO-approved numeric): this reading's
-// worst classification on WHO/EPA is WARNING (chlorine/do), now capped 85
-// (was 93/98).
-// Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): this
-// reading's chlorine=0.7 (past the 0.2-0.5 project-defined ideal) and
-// pH=7.85 (past the cited 7.3-7.7 ideal) now decline, pulling Japan to 90
-// (was 98).
-// Score Architecture V6 (2026-08-17, PO-approved): Japan/WHO/EU/US EPA now
-// use weakest-link aggregation (share=0.25); WHO chlorine steepened
-// (0.7mg/L now grades lower, crossing WHO's own WARNING/FAIL classify()
-// threshold).
+// 2026-08-18 (PO-approved): all 5 engines now share one grading formula
+// (computeSharedBenchmarkBase); raw base for this reading = 76 for every
+// engine. Thailand/Japan have no severity cap binding here, so they stay at
+// raw 76 (coincidentally equal to Quality V3 and to each other — see PD-005
+// section below for why that's fine). WHO/US EPA both classify do=5.3 as
+// FAIL, capping at 75. EU's PD-002 chlorine gate is unaffected, still 65.
 const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
-  thailand: 81,
-  japan: 86,
+  thailand: 76,
+  japan: 76,
   who: 75,
   eu: 65,
-  usEpa: 85
+  usEpa: 75
 });
 
 const KEYS = ['thailand', 'japan', 'who', 'eu', 'usEpa'];
@@ -154,25 +146,27 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
     'disclaimer forbids higher=better-country');
   assert(!/best country|worst country|country ranking|leaderboard/i.test(scoreFlowSrc.replace(/PD-005[\s\S]*?ranking/g, '')),
     'score flow does not introduce best/worst country ranking');
+  // 2026-08-18 (PO-approved): grading is shared, so TH and JP now
+  // genuinely CAN coincide when neither country's own classification/cap
+  // distinguishes them (as with this overlap fixture and BASELINE below) —
+  // PD-005 forbids reading that coincidence as a tie/ranking too. To also
+  // prove they CAN genuinely differ once a country-specific classification
+  // threshold binds, a separate reading is used where Japan's own CRITICAL
+  // classification (tds/turbidity/chlorine) caps it below Thailand's raw score.
   const overlap = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06 };
   const thOverlap = bench('thailand', overlap).score;
   const jpOverlap = bench('japan', overlap).score;
-  // Score Architecture V6 (2026-08-17, PO-approved): Japan now uses
-  // weakest-link aggregation (share=0.25), pulling this reading's composite
-  // slightly toward its weakest grade (pH=91): 98 -> 97. TH stays 98 (own
-  // weakest-link share unchanged at 0.5). They no longer coincide — PD-005
-  // forbids treating either outcome (equal or unequal) as a ranking; both
-  // are valid, so this now demonstrates the "genuinely differ" case again.
-  assert(thOverlap === 98 && jpOverlap === 97 && thOverlap !== jpOverlap,
-    'TH/JP scores genuinely differ — PD-005 forbids reading that as a ranking (98 vs 97)');
+  assert(thOverlap === 92 && jpOverlap === 92 && thOverlap === jpOverlap,
+    'TH/JP scores coincide here (92 vs 92) — PD-005 forbids reading equality as a ranking outcome either');
   const thBaseline = bench('thailand', BASELINE.readings);
   const jpBaseline = bench('japan', BASELINE.readings);
-  // Score Architecture V6 (2026-08-17, PO-approved): Japan's weakest-link
-  // aggregation (share=0.25) pulls this reading's composite down further
-  // (86, was 90) — still genuinely different from Thailand's 81, just not
-  // via the exact same margin as before.
-  assert(thBaseline.score === 81 && jpBaseline.score === 86,
-    'BASELINE TH 81 !== JP 86 (real separation, not a ranking)');
+  assert(thBaseline.score === 76 && jpBaseline.score === 76,
+    'BASELINE TH 76 === JP 76 (shared grading, no country cap binds — not a ranking signal)');
+  const diverge = { ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28 };
+  const thDiverge = bench('thailand', diverge).score;
+  const jpDiverge = bench('japan', diverge).score;
+  assert(thDiverge === 61 && jpDiverge === 60 && thDiverge !== jpDiverge,
+    'TH/JP scores genuinely differ on a fixture where Japan\'s own CRITICAL classification caps it (61 vs 60)');
   assert(thBaseline.params.chlorine < 100, 'TH chlorine grade already below 100 pre-ceiling (in-band severity)');
   assert(jpBaseline.params.orp < 100, 'JP orp grade now below 100 for orp=515 (PD-014 D1 inner decline)');
   assert(!scoreFlowSrc.includes('strictest cleanliness expectations'),
@@ -218,8 +212,12 @@ console.log('\nPD-001 — comparison presentation is pass-band, not Excellent');
 
 
   const compare = sandbox.buildComparisonScoreResult(BASELINE.readings, 'thailand');
-  assert(compare.score === 81, 'comparison numeric score matches Thailand engine (81 after chlorine curve + weakest-link update)');
-  assert(compare.verdict === 'score.benchmark.verdict.passBand', `comparison result.verdict is pass-band (got ${compare.verdict})`);
+  assert(compare.score === 76, 'comparison numeric score matches Thailand engine (76, shared grading base)');
+  // 2026-08-18 (PO-approved): Thailand's numeric comparisonPresentationVerdict
+  // threshold for passBand is >=80; the shared-base raw score here is 76, so
+  // it falls into withinLimits, not passBand — a genuine outcome of the new
+  // shared grading, not a bug (Thailand is not in COUNTRY_SEVERITY_PRESENTATION_ENGINES).
+  assert(compare.verdict === 'score.benchmark.verdict.withinLimits', `comparison result.verdict is within-limits (got ${compare.verdict})`);
   assert(compare.engineVerdict === 'Good', `engineVerdict is Good for ordinary baseline (got ${compare.engineVerdict})`);
 
   assert(i18nSrc.includes("'score.benchmark.verdict.passBand'"), 'passBand i18n key exists');
@@ -246,7 +244,7 @@ console.log('\nModel integrity — engines untouched numerically');
 console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, never PASS');
 {
   const th = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', BASELINE.readings);
-  assert(th.score === 81, 'TH baseline 81 after ordinary-band severity (DO still excluded)');
+  assert(th.score === 76, 'TH baseline 76 (shared grading base; DO classification still excluded)');
   assert(th.classifications.do === 'NOT_EVALUATED', `TH measured DO → NOT_EVALUATED (got ${th.classifications.do})`);
   assert(th.classifications.temp === 'NOT_EVALUATED', `TH measured temp → NOT_EVALUATED (got ${th.classifications.temp})`);
   assert(th.statuses.do !== 'good', 'TH DO status is not good');
@@ -254,15 +252,19 @@ console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, neve
   assert(!(th.passedParameters || []).includes('temp'), 'TH temp not in passedParameters');
 
   const thNullDo = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', { ...BASELINE.readings, do: null, temp: null });
-  assert(thNullDo.score === 81, 'TH score unchanged with null DO/temp');
+  // 2026-08-18 (PO-approved): DO is now part of the shared grading base when
+  // present, so removing it changes the numeric average (76 -> 79 here,
+  // since the below-ideal do=5.3 grade is dropped from the average) — only
+  // the classification stays NOT_EVALUATED (unchanged, asserted below).
+  assert(thNullDo.score === 79, 'TH score DOES shift with null DO (do drops out of the shared grading average)');
   assert(thNullDo.classifications.do === 'NOT_EVALUATED', 'TH null DO → NOT_EVALUATED (not PASS via Number(null)===0)');
   assert(thNullDo.classifications.temp === 'NOT_EVALUATED', 'TH null temp → NOT_EVALUATED');
 }
 
-console.log('\nPD-012 B — Japan DO excluded from Compliance Index (I2 den)');
+console.log('\nPD-012 B — Japan DO excluded from Compliance Index classification, not from shared grading');
 {
   const W = sandbox.JapanBenchmarkWeights;
-  assert(W.do === 0.12 && W.ph === 0.16 && W.orp === 0.12, 'JP-WEIGHTS do:0.12 retained (PD-013 A)');
+  assert(W.do === 0.12 && W.ph === 0.16 && W.orp === 0.12, 'JP-WEIGHTS do:0.12 retained (PD-013 A) — vestigial, no longer drives scoring');
   const expectedDen = W.ph + W.tds + W.chlorine + W.turbidity + W.orp;
   assert(Math.abs(expectedDen - 0.88) < 1e-9, `expected scored den = 0.88 (got ${expectedDen})`);
 
@@ -270,27 +272,17 @@ console.log('\nPD-012 B — Japan DO excluded from Compliance Index (I2 den)');
   const high = bench('japan', { ...BASELINE.readings, do: 9.0 });
   const miss = bench('japan', { ...BASELINE.readings, do: null });
   assert(Number.isFinite(low.score) && Number.isFinite(high.score) && Number.isFinite(miss.score), 'JP scores finite with low/high/missing DO');
-  assert(low.score === high.score, 'JP score identical for low vs high DO');
-  assert(low.score === miss.score, 'JP score identical for low vs missing DO');
-  assert(low.classifications.do === 'NOT_EVALUATED' && high.classifications.do === 'NOT_EVALUATED' && miss.classifications.do === 'NOT_EVALUATED', 'JP DO always NOT_EVALUATED');
-  assert(low.params.do === undefined && !Object.prototype.hasOwnProperty.call(low.params, 'do'), 'JP graded params omit do');
-  // Reconstruct den from scored grades to prove DO weight not in composite.
-  let num = 0;
-  let den = 0;
-  for (const key of ['ph', 'tds', 'chlorine', 'turbidity', 'orp']) {
-    num += low.params[key] * W[key];
-    den += W[key];
-  }
-  assert(Math.abs(den - 0.88) < 1e-9, 'reconstructed den excludes do:0.12');
-  // low.score is post-Hero-ceiling; compare against the raw weakest-link
-  // blend (Score Architecture V6, 2026-08-17, PO-approved, share=0.25)
-  // through the same shared ceiling function, not a duplicated formula.
-  const mean = num / den;
-  const weakest = Math.min(low.params.ph, low.params.tds, low.params.chlorine, low.params.turbidity, low.params.orp);
-  const share = sandbox.JapanBenchmarkLimits.weakestLinkShare;
-  const rawBlend = Math.round((1 - share) * mean + share * weakest);
-  assert(sandbox.applyCountryBenchmarkHeroCeiling(rawBlend) === low.score,
-    `JP score matches five-param weakest-link blend through Hero ceiling (raw ${rawBlend} -> ${low.score})`);
+  // 2026-08-18 (PO-approved): per-country weighted-composite aggregation
+  // (including the do:0.12 weight and any weakest-link blend) was replaced
+  // by the one shared plain-average grading formula. DO is now graded and
+  // included in that average whenever present — its magnitude DOES now
+  // change the numeric score. Only Japan's own PASS/FAIL classification of
+  // DO stays opinion-free (NOT_EVALUATED, asserted below).
+  assert(low.score !== high.score, `JP score differs for low vs high DO (${low.score} vs ${high.score}) — DO now enters the shared grading average`);
+  assert(low.score !== miss.score, `JP score differs for low vs missing DO (${low.score} vs ${miss.score}) — DO drops out of the average entirely when absent`);
+  assert(low.classifications.do === 'NOT_EVALUATED' && high.classifications.do === 'NOT_EVALUATED' && miss.classifications.do === 'NOT_EVALUATED', 'JP DO always NOT_EVALUATED (classification unaffected)');
+  assert(typeof low.params.do === 'number', 'JP graded params now include a numeric do grade when present (shared base)');
+  assert(!Object.prototype.hasOwnProperty.call(miss.params, 'do'), 'JP graded params omit do only when do is actually absent');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

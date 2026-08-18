@@ -5,9 +5,14 @@
  * Documents (from executed engines, not UI assumptions):
  * - Cases have no country identity field; benchmark is session selection only.
  * - Live displayed Score uses the selected country engine; Quality V3 remains publish-only.
- * - Case A/B: TH score === JP score is expected (both within national plateaus).
- * - DIFF fixture: TH score !== JP score when standards diverge.
- *   TH is no longer a flat 100 across the full compliance band.
+ * - 2026-08-18 (PO-approved): all 5 country engines now share one grading
+ *   formula (computeSharedBenchmarkBase) — a country's score can legitimately
+ *   equal Quality V3's and/or another country's score whenever neither
+ *   engine's own PASS/FAIL thresholds/severity caps bind. Divergence now
+ *   comes only from each country's own standard, never from grading itself.
+ * - Case A/B: TH score === JP score === Quality V3 (no cap binds either engine).
+ * - DIFF fixture: TH score !== JP score — Japan's own stricter thresholds
+ *   trigger its own severity cap on top of the same shared raw base.
  */
 const fs = require('fs');
 const path = require('path');
@@ -142,28 +147,25 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
     const jpA = bench('japan', CASE_A);
     const qA = sandbox.computeScoreFromReadings(CASE_A);
     console.log(`  Case A Quality=${qA} TH=${thA.score} JP=${jpA.score}`);
-    // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved): TH's raw
-    // composite is now 98.35 (rounds to 98, below ceiling). Japan pH inner
-    // curve (2026-08-17, PO-approved): CASE_A's pH=7.79 is just past the
-    // 7.3-7.7 ideal window (grade 91). Score Architecture V6 (2026-08-17,
-    // PO-approved): Japan's own weakest-link aggregation pulls it to 97 --
-    // genuinely differ again, not coincidence.
-    assert(thA.score === 98 && jpA.score === 97, 'Case A: TH=98, JP=97 (genuinely differ, not a ranking)');
-    assert(Number.isFinite(qA) && qA < thA.score, `Case A: Quality ${qA} is not overwritten by TH ${thA.score}`);
+    // 2026-08-18 (PO-approved): one shared grading formula (computeSharedBenchmarkBase)
+    // replaced each engine's own curves — TH and JP now produce the identical
+    // raw base for the same readings, and (since neither's own thresholds cap
+    // it here) that base equals Quality V3 too. Divergence is now driven only
+    // by each country's own PASS/FAIL thresholds/caps, not by grading itself.
+    assert(thA.score === 92 && jpA.score === 92, 'Case A: TH=JP=92 (shared base, no cap binds)');
+    assert(Number.isFinite(qA) && qA === thA.score, `Case A: Quality ${qA} === TH ${thA.score} (shared formula)`);
   }
   {
     const thB = bench('thailand', CASE_B);
     const jpB = bench('japan', CASE_B);
     const qB = sandbox.computeScoreFromReadings(CASE_B);
     console.log(`  Case B Quality=${qB} TH=${thB.score} JP=${jpB.score}`);
-    // Japan pH inner curve (2026-08-17, PO-approved): CASE_B's pH=7.9 is past
-    // the 7.3-7.7 ideal window (grade 80). Score Architecture V6 (2026-08-17,
-    // PO-approved): weakest-link aggregation pulls Japan to 91.
-    assert(jpB.score === 91, `Case B: JP 91 (got ${jpB.score})`);
-    // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 83 (was 86).
-    assert(thB.score === 83, `Case B: TH=83 after ordinary-band severity (got ${thB.score})`);
-    assert(thB.score !== jpB.score, 'Case B: TH may diverge from JP after PD-015');
-    assert(Number.isFinite(qB) && qB < thB.score, `Case B: Quality ${qB} is not overwritten by TH ${thB.score}`);
+    // 2026-08-18 (PO-approved): shared grading base — TH and JP coincide again
+    // here (neither engine's own thresholds cap Case B), and both equal Quality V3.
+    assert(jpB.score === 78, `Case B: JP 78 (got ${jpB.score})`);
+    assert(thB.score === 78, `Case B: TH 78 (got ${thB.score})`);
+    assert(thB.score === jpB.score, 'Case B: TH===JP (shared base, no cap binds)');
+    assert(Number.isFinite(qB) && qB === thB.score, `Case B: Quality ${qB} === TH ${thB.score} (shared formula)`);
   }
 }
 
@@ -173,8 +175,12 @@ console.log('\nDifferentiation fixture — standards diverge → TH !== JP');
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH', th.score, th.params);
   console.log('  DIFF JP', jp.score, jp.params);
-  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 46 (was 69).
-  assert(th.score === 46, `DIFF Thailand = 46 after ordinary-band severity (got ${th.score})`);
+  // 2026-08-18 (PO-approved): shared grading base gives TH/JP the same raw
+  // number here (61), but Japan's own stricter chlorine/turbidity thresholds
+  // classify this reading worse than Thailand's do, so Japan's own severity
+  // cap pulls it down to 60 — genuine divergence from each country's own
+  // standard, not from grading.
+  assert(th.score === 61, `DIFF Thailand = 61 (got ${th.score})`);
   assert(jp.score !== th.score, `DIFF Japan ${jp.score} !== Thailand ${th.score}`);
   assert(jp.params.tds < 100, 'DIFF JP TDS below 100 (TDS 800 > JP 500)');
   assert(jp.params.turbidity < 100, 'DIFF JP turbidity below 100 (3.5 > JP 2)');
@@ -240,15 +246,15 @@ console.log('\nHero data source contract — live display is country engine; Qua
     'live displayed score uses Japan engine');
   assert(displayedTh.score === th.score && displayedJp.score === jp.score,
     'displayed scores match country engines, not Quality');
-  assert(displayedTh.score !== quality, `displayed TH ${displayedTh.score} !== Quality ${quality}`);
+  // 2026-08-18 (PO-approved): displayed score is still SOURCED from the
+  // country engine, not the Quality publish path (source/engineKey checked
+  // above) — but since the country engine's raw base now reuses the same
+  // shared formula as Quality V3, the NUMBER can legitimately coincide with
+  // Quality's when no country-specific cap binds. Source, not value, is the contract.
+  assert(displayedTh.score === quality, `displayed TH ${displayedTh.score} === Quality ${quality} (shared formula, no cap binds)`);
   assert(th.standardKey === 'thailand' && jp.standardKey === 'japan', 'comparison carries country keys');
   assert(quality === 92, `Case A Quality locked evidence = 92 (got ${quality})`);
-  // Thailand's weakest-link share update (2026-08-17, PO-approved) rounds its
-  // raw composite to 98 for this reading. Japan pH inner curve (2026-08-17,
-  // PO-approved): pH=7.79 is just past the ideal window. Score Architecture
-  // V6 (2026-08-17, PO-approved): Japan's own weakest-link aggregation pulls
-  // it to 97 (both below the ceiling).
-  assert(th.score === 98 && jp.score === 97, 'TH=98, JP=97 (both below ceiling) while Quality 92');
+  assert(th.score === 92 && jp.score === 92, 'TH=JP=92 (shared base, no cap binds) while Quality 92');
 }
 
 console.log('\nCase persistence — benchmark switch must not wipe caseId / measurements');
@@ -312,18 +318,13 @@ console.log('\nFull matrix (execution evidence)');
     };
   }
   console.log('  MATRIX_JSON', JSON.stringify(matrix));
-  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved): TH moves
-  // for A/B/DIFF. Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved)
-  // + Score Architecture V6 weakest-link aggregation (2026-08-17, PO-approved):
-  // JP also moves for A/B/DIFF — A and TH genuinely differ now (98 vs 97).
-  assert(matrix.A.thailand === 98 && matrix.A.japan === 97, 'matrix A TH=98, JP=97');
-  assert(matrix.B.thailand === 83 && matrix.B.japan === 91, 'matrix B TH=83 JP=91');
-  // Japan turbidity inner curve (2026-08-17, PO-approved): DIFF's
-  // turbidity=3.5 now grades 40 (flat zone 2-6 NTU), CRITICAL. Score
-  // Architecture V6: weakest-link aggregation pulls it further to 45.
-  // Thailand's own chlorine curve + weakest-link update (2026-08-17)
-  // separately moves its DIFF score to 46.
-  assert(matrix.DIFF.thailand === 46 && matrix.DIFF.japan === 45, 'matrix DIFF TH=46 JP=45');
+  // 2026-08-18 (PO-approved): shared grading base — A and B coincide for
+  // TH/JP (neither country's own thresholds cap them); DIFF is where they
+  // genuinely diverge, via Japan's own stricter thresholds triggering its
+  // own severity cap on top of the same shared raw base Thailand also gets.
+  assert(matrix.A.thailand === 92 && matrix.A.japan === 92, 'matrix A TH=JP=92');
+  assert(matrix.B.thailand === 78 && matrix.B.japan === 78, 'matrix B TH=JP=78');
+  assert(matrix.DIFF.thailand === 61 && matrix.DIFF.japan === 60, 'matrix DIFF TH=61 JP=60');
   assert(matrix.DIFF.thailand !== matrix.DIFF.japan, 'matrix DIFF TH!==JP');
 }
 

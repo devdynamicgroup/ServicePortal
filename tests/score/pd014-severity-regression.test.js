@@ -39,17 +39,21 @@ const gradeOrp = (key, orp) => sandbox.WaterScoreBenchmarkRegistry.calculate(key
 const gradeEpaCl = (cl) => sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', { ...IDEAL, chlorine: cl }).params.chlorine;
 const gradeWhoCl = (cl) => sandbox.WaterScoreBenchmarkRegistry.calculate('who', { ...IDEAL, chlorine: cl }).params.chlorine;
 
-console.log('\nD1 — ORP boundary values, all 5 engines');
+console.log('\n2026-08-18: ORP boundary values now come from one shared curve, identical across all 5 engines');
 {
+  // 2026-08-18 (PO-approved): per-country ORP curves were replaced by the
+  // shared gradeOrp curve (center 400±25 = 100, wider plateau to 92.2 at
+  // 350/450, declining to 58 at 200/600) — no longer the old
+  // Thailand-specific 200=70/350-450 plateau=100/600=70 shape.
   const points = [200, 250, 300, 349.99, 350, 400, 450, 450.01, 500, 550, 600];
-  const expected = { 200: 70, 350: 100, 400: 100, 450: 100, 600: 70 };
+  const expected = { 200: 58, 350: 92.22222222222223, 400: 100, 450: 92.22222222222223, 600: 58 };
   for (const key of KEYS) {
     for (const orp of points) {
       const g = gradeOrp(key, orp);
       if (expected[orp] !== undefined) assert(g === expected[orp], `${key} ORP ${orp} = ${expected[orp]} (got ${g})`);
     }
-    assert(gradeOrp(key, 349.99) < 100 && gradeOrp(key, 349.99) >= 99, `${key} ORP 349.99 just under plateau`);
-    assert(gradeOrp(key, 450.01) < 100 && gradeOrp(key, 450.01) >= 99, `${key} ORP 450.01 just under plateau`);
+    assert(gradeOrp(key, 349.99) < 100, `${key} ORP 349.99 just under the exact-center plateau`);
+    assert(gradeOrp(key, 450.01) < 100, `${key} ORP 450.01 just under the exact-center plateau`);
   }
 }
 
@@ -68,9 +72,13 @@ console.log('\nD1 — ORP outer limits still 200/600, and monotonicity both side
   }
 }
 
-console.log('\nD2 — EPA chlorine boundary values');
+console.log('\n2026-08-18: EPA chlorine boundary values now come from the shared curve');
 {
-  const expected = { 0.2: 100, 0.5: 100, 1.0: 100, 4.0: 60 };
+  // 2026-08-18 (PO-approved): per-country chlorine curves were replaced by
+  // the shared gradeChlorine curve — EPA's own inner plateau (0.2-1.0=100)
+  // no longer exists; the shared plateau is 0.2-0.5=100, declining steeply
+  // afterward (1.0 grades 46, 4.0 grades 12, not a flat MRDL floor of 60).
+  const expected = { 0.2: 100, 0.5: 100, 1.0: 46, 4.0: 12 };
   for (const [cl, exp] of Object.entries(expected)) {
     assert(gradeEpaCl(Number(cl)) === exp, `EPA Cl ${cl} = ${exp} (got ${gradeEpaCl(Number(cl))})`);
   }
@@ -82,12 +90,13 @@ console.log('\nD2 — EPA chlorine boundary values');
   assert(gradeEpaCl(0.1) < 100, 'EPA Cl below floor still declines (pre-existing, untouched by D2)');
 }
 
-console.log('\nD3 — WHO chlorine below-min boundary values');
+console.log('\n2026-08-18: WHO chlorine below-min boundary values now come from the shared curve');
 {
-  // Score Architecture V6 (2026-08-17, PO-approved, evidence: WHO Technical
-  // Notes 11.1-11.4): 1.0/2.0 steepened (were 80/50, flat tiers) to a ramp
-  // 100->40 (0.5-1.0) continued to 25 by 2.0.
-  const expected = { 0: 0, 0.1: 40, 0.19: 76, 0.2: 100, 0.5: 100, 1.0: 40, 2.0: 25 };
+  // 2026-08-18 (PO-approved): per-country chlorine curves were replaced by
+  // the shared gradeChlorine curve — WHO's own below-min ramp/steepened
+  // decline no longer exists; below-min floors at 5 (not 0), and the
+  // high-side decline is the shared curve's own shape.
+  const expected = { 0: 5, 0.1: 52.5, 0.19: 95.25, 0.2: 100, 0.5: 100, 1.0: 46, 2.0: 28 };
   for (const [cl, exp] of Object.entries(expected)) {
     assert(gradeWhoCl(Number(cl)) === exp, `WHO Cl ${cl} = ${exp} (got ${gradeWhoCl(Number(cl))})`);
   }
@@ -95,11 +104,10 @@ console.log('\nD3 — WHO chlorine below-min boundary values');
   for (let i = 1; i < ramp.length; i++) assert(ramp[i] >= ramp[i - 1], `WHO Cl below-min ramp monotonic non-decreasing (${ramp[i - 1]}->${ramp[i]})`);
   assert(sandbox.WhoBenchmarkLimits.chlorine.idealMin === 0.2 && sandbox.WhoBenchmarkLimits.chlorine.idealMax === 0.5,
     'WHO Cl outer tier boundaries unchanged (PD-013)');
-  // Score Architecture V6 (2026-08-17, PO-approved): steepened decline
-  // (0.51 was 80 flat-tier, now 98.8 just past the ideal edge; 1.5 was 50,
-  // now 32.5 on the steeper ramp; 3 stays 25, the unchanged poor-tier floor).
-  assert(gradeWhoCl(0.51) === 98.8 && gradeWhoCl(1.5) === 32.5 && gradeWhoCl(3) === 25,
-    'WHO Cl steepened decline (2026-08-17)');
+  // Shared curve high-side decline: 0.51 just past the ideal edge, 1.5 and 3
+  // continue declining (not WHO's own steepened shape).
+  assert(gradeWhoCl(0.51) === 98.92 && gradeWhoCl(1.5) === 37 && gradeWhoCl(3) === 20,
+    'WHO Cl shared high-side decline');
 }
 
 console.log('\nParameter isolation — changing ORP does not move any other parameter grade');

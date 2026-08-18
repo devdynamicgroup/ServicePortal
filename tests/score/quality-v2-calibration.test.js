@@ -91,22 +91,14 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   assert(a.score < 96, `Case A below previous V2 overfit band (got ${a.score})`);
   assert(a.compliance.status === 'PASS', 'Case A compliance PASS');
   assert(b.compliance.status !== 'PASS', 'Case B compliance not PASS');
-  // Raw composite is 100 for both cases on both engines; Country Hero
-  // ceiling caps the displayed score at 99 (100 is reserved for Quality V3).
-  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves TH
-  // Case A's raw composite to 98.35 (rounds to 98, below the ceiling).
-  assert(bench('thailand', CASE_A) === 98, 'TH Case A = 98');
-  // Japan pH inner curve (2026-08-17, PO-approved): CASE_A's pH=7.79 is just
-  // past the 7.3-7.7 ideal window (grade 91). Score Architecture V6
-  // (2026-08-17, PO-approved): weakest-link aggregation pulls Japan to 97.
-  assert(bench('japan', CASE_A) === 97, 'Japan Case A = 97');
-  // PD-014 D1 (2026-08-14): CASE_B orp=507 now inner-declines (was flat 100).
-  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 83 (was 86).
-  assert(bench('thailand', CASE_B) === 83, 'TH Case B = 83 (ordinary-band severity)');
-  // Japan pH inner curve (2026-08-17, PO-approved): CASE_B's pH=7.9 is past
-  // the 7.3-7.7 ideal window (grade 80). Score Architecture V6 (2026-08-17,
-  // PO-approved): weakest-link aggregation pulls Japan to 91.
-  assert(bench('japan', CASE_B) === 91, 'Japan Case B = 91 (DO excluded from JP index — PD-012 B)');
+  // 2026-08-18 (PO-approved): shared grading base; all params classify PASS
+  // on both TH/JP for both cases, so no severity cap binds and the raw
+  // composite (below 100 for both cases, so the Country Hero ceiling never
+  // applies) is 92 for Case A and 78 for Case B on both engines.
+  assert(bench('thailand', CASE_A) === 92, 'TH Case A = 92');
+  assert(bench('japan', CASE_A) === 92, 'Japan Case A = 92');
+  assert(bench('thailand', CASE_B) === 78, 'TH Case B = 78');
+  assert(bench('japan', CASE_B) === 78, 'Japan Case B = 78 (DO excluded from JP classification, still shared grading)');
 }
 
 console.log('\nCountry differentiation on locked sample (standards differ)');
@@ -119,28 +111,30 @@ console.log('\nCountry differentiation on locked sample (standards differ)');
   console.log('  locked TH/JP/WHO/EU', th, jp, who, eu);
   assert(th !== eu, 'Thailand ≠ EU on locked sample');
   assert(jp !== eu, 'Japan ≠ EU on locked sample');
-  // Thailand chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
-  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepening
-  // crosses LOCKED's chlorine=0.8 from WARNING into FAIL, FAIL cap (75) applies.
-  assert(th === 70 && who === 75, 'TH/WHO differentiation preserved (TH 70, WHO 75 FAIL cap)');
+  // 2026-08-18 (PO-approved): one shared grading formula (computeSharedBenchmarkBase)
+  // replaced each engine's own per-parameter curves — TH and JP now share the
+  // same raw base (73) since neither's own classification caps it here; WHO's
+  // own chlorine threshold still classifies this reading FAIL, so WHO's severity
+  // cap (75) applies below its shared raw base — still genuinely different from EU.
+  assert(th === 73 && who === 60, 'TH/WHO differentiation preserved (TH 73, WHO 60 CRITICAL cap)');
 }
 
 console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
 {
-  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves TH's
-  // Case A composite to 98. Score Architecture V6 (2026-08-17, PO-approved):
-  // Japan's own weakest-link aggregation pulls it to 97 instead -- the two no
-  // longer coincide. PD-005 forbids treating either outcome (equal or not) as
-  // a ranking; both are valid.
-  assert(bench('thailand', CASE_A) === 98 && bench('japan', CASE_A) === 97, 'Case A TH=98, JP=97 (genuinely differ, not a ranking)');
-  assert(bench('thailand', CASE_B) !== bench('japan', CASE_B), 'Case B TH!==JP after PD-015');
-  // Differentiation: inside TH pass windows, outside JP stricter TDS/turb/Cl.
+  // 2026-08-18 (PO-approved): one shared grading formula means TH and JP now
+  // produce the IDENTICAL raw base for the same readings — they only diverge
+  // when one country's own classification/severity/gate actually caps it.
+  // Case A/B: neither engine's own thresholds bind here, so TH and JP coincide
+  // (PD-005: coincidence is not evidence of a ranking either way).
+  assert(bench('thailand', CASE_A) === 92 && bench('japan', CASE_A) === 92, 'Case A TH=JP=92 (shared base, no cap binds)');
+  assert(bench('thailand', CASE_B) === bench('japan', CASE_B), 'Case B TH===JP (shared base, no cap binds)');
+  // Differentiation: outside JP's stricter TDS/turbidity/chlorine thresholds,
+  // still inside TH's own — this is where the two are expected to genuinely diverge.
   const DIFF = { ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28 };
   const th = bench('thailand', DIFF);
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH/JP', th, jp);
-  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 46 (was 69).
-  assert(th === 46, `DIFF Thailand = 46 after ordinary-band severity (got ${th})`);
+  assert(th === 61, `DIFF Thailand = 61 (shared base, TH's own thresholds don't cap it) (got ${th})`);
   assert(jp !== th, `DIFF Japan ${jp} !== Thailand ${th}`);
 }
 
@@ -218,7 +212,12 @@ console.log('\nBenchmark isolation — Quality unchanged');
   }
   assert(qA !== 100 || bench('thailand', CASE_A) === 100,
     'Quality is not forced equal to Thailand when both high');
-  assert(qA < bench('thailand', CASE_A), `Quality ${qA} < TH benchmark ${bench('thailand', CASE_A)}`);
+  // 2026-08-18 (PO-approved): Quality V3 and every country benchmark's raw
+  // base now share the same underlying formula (computeSharedBenchmarkBase
+  // reuses computeQualityScoreDetail's own curves) — when a country's own
+  // classification doesn't cap the result, the two are expected to be equal,
+  // not strictly less-than. Thailand's own thresholds don't bind on CASE_A.
+  assert(qA === bench('thailand', CASE_A), `Quality ${qA} === TH benchmark ${bench('thailand', CASE_A)} (shared formula, no cap binds)`);
 }
 
 console.log('\nDO barely-compliant is not near-ideal');

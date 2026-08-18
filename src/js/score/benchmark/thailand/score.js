@@ -1,99 +1,20 @@
 ﻿/**
  * Thailand benchmark engine — local acceptability philosophy.
- * Soft Pass/Fail index. DO and Temp are not scored.
+ * 2026-08-18 (PO-approved): the base score is computed by the shared
+ * cross-country formula (computeSharedBenchmarkBase); this engine's own job
+ * is only the Thailand-specific PASS/FAIL thresholds and severity handling
+ * below. Thailand still has no PASS/FAIL opinion on DO or Temp (classified
+ * NOT_EVALUATED, unchanged) — if DO is present it still enters the shared
+ * base number like any other engine, but Thailand never judges it.
  * Owns Thailand-specific metadata explanations.
  */
 (function registerThailandBenchmarkEngine() {
   const L = window.ThailandBenchmarkLimits;
   const W = window.ThailandBenchmarkWeights;
-  const clamp = typeof scoreClamp === 'function' ? scoreClamp : (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
   const wrap = typeof finalizeBenchmarkMetadata === 'function' ? finalizeBenchmarkMetadata : (x) => x;
   const incomplete = typeof incompleteBenchmarkMetadata === 'function'
     ? incompleteBenchmarkMetadata
     : () => ({ score: null });
-
-  function lerp(x, x0, x1, y0, y1) {
-    if (x1 === x0) return y0;
-    const t = (x - x0) / (x1 - x0);
-    return y0 + (y1 - y0) * Math.max(0, Math.min(1, t));
-  }
-  function gradePh(ph) {
-    // Outer branches anchored at edgeGrade (not 100) to stay continuous with
-    // the inner branch's value at min/max — anchoring at 100 made the grade
-    // jump upward just past 6.5/8.5 (monotonicity bug, found in acceptance
-    // review of bf3342db). Same decline slope (35/unit), same edgeGrade (70),
-    // same min/max — only the vertical anchor moved.
-    const edge = L.ph.edgeGrade;
-    if (ph < L.ph.min) {
-      return clamp(edge - (L.ph.min - ph) * 35);
-    }
-    if (ph > L.ph.max) {
-      return clamp(edge - (ph - L.ph.max) * 35);
-    }
-    const prefMin = L.ph.preferredMin;
-    const prefMax = L.ph.preferredMax;
-    if (ph >= prefMin && ph <= prefMax) return 100;
-    if (ph < prefMin) return clamp(lerp(ph, L.ph.min, prefMin, edge, 100));
-    return clamp(lerp(ph, prefMax, L.ph.max, 100, edge));
-  }
-  /**
-   * Piecewise in-pass TDS: excellent / good / ordinary / remaining pass.
-   * passMax / softEnd unchanged. passEdgeGrade keeps PD-015 continuity at 1000.
-   */
-  function gradeTds(tds) {
-    const excellent = L.tds.gradeExcellentMax;
-    const passEdge = L.tds.passEdgeGrade;
-    if (tds <= excellent) return 100;
-    if (tds <= L.tds.goodMax) return clamp(lerp(tds, excellent, L.tds.goodMax, 100, L.tds.goodGrade));
-    if (tds <= L.tds.ordinaryMax) return clamp(lerp(tds, L.tds.goodMax, L.tds.ordinaryMax, L.tds.goodGrade, L.tds.ordinaryGrade));
-    if (tds <= L.tds.passMax) return clamp(lerp(tds, L.tds.ordinaryMax, L.tds.passMax, L.tds.ordinaryGrade, passEdge));
-    if (tds <= L.tds.softEnd) {
-      return clamp(passEdge - (tds - L.tds.passMax) / (L.tds.softEnd - L.tds.passMax) * 35);
-    }
-    return clamp(Math.max(0, passEdge - 35) - (tds - L.tds.softEnd) / 50);
-  }
-  function gradeChlorine(cl) {
-    const excellentMax = L.chlorine.citedSurveillanceResidual.max;
-    if (cl >= L.chlorine.min && cl <= excellentMax) return 100;
-    if (cl < L.chlorine.min) return clamp(cl / L.chlorine.min * 70);
-    if (cl <= L.chlorine.noticeableMax) {
-      return clamp(lerp(cl, excellentMax, L.chlorine.noticeableMax, 100, L.chlorine.noticeableGrade));
-    }
-    if (cl <= L.chlorine.max) {
-      return clamp(lerp(cl, L.chlorine.noticeableMax, L.chlorine.max, L.chlorine.noticeableGrade, L.chlorine.passEdgeGrade));
-    }
-    return clamp(L.chlorine.passEdgeGrade - (cl - L.chlorine.max) * 25);
-  }
-  function gradeTurbidity(turb) {
-    const excellent = L.turbidity.gradeExcellentMax;
-    const passEdge = L.turbidity.passEdgeGrade;
-    if (turb <= excellent) return 100;
-    if (turb <= L.turbidity.ordinaryMax) {
-      return clamp(lerp(turb, excellent, L.turbidity.ordinaryMax, 100, L.turbidity.ordinaryGrade));
-    }
-    if (turb <= L.turbidity.passMax) {
-      return clamp(lerp(turb, L.turbidity.ordinaryMax, L.turbidity.passMax, L.turbidity.ordinaryGrade, passEdge));
-    }
-    if (turb <= L.turbidity.softEnd) {
-      return clamp(passEdge - (turb - L.turbidity.passMax) / (L.turbidity.softEnd - L.turbidity.passMax) * 20);
-    }
-    return clamp(Math.max(0, passEdge - 20) - (turb - L.turbidity.softEnd) * 4);
-  }
-  /**
-   * PD-014 D1 inner 350–450 kept. Ordinary 250–300 / 500–520 now occupies the
-   * good/remaining segments instead of a shallow linear ramp across 200–600.
-   */
-  function gradeOrp(orp) {
-    if (orp < L.orp.min) return clamp(orp / L.orp.min * 70);
-    if (orp > L.orp.max) return clamp(70 - (orp - L.orp.max) / 10);
-    if (orp >= L.orp.excellentMin && orp <= L.orp.excellentMax) return 100;
-    if (orp < L.orp.excellentMin) {
-      if (orp >= L.orp.goodMin) return clamp(lerp(orp, L.orp.goodMin, L.orp.excellentMin, L.orp.goodGrade, 100));
-      return clamp(lerp(orp, L.orp.min, L.orp.goodMin, 70, L.orp.goodGrade));
-    }
-    if (orp <= L.orp.goodMax) return clamp(lerp(orp, L.orp.excellentMax, L.orp.goodMax, 100, L.orp.goodGrade));
-    return clamp(lerp(orp, L.orp.goodMax, L.orp.max, L.orp.goodGrade, 70));
-  }
 
   function classify(grade, inPass) {
     if (inPass && grade >= 95) return 'PASS';
@@ -142,34 +63,16 @@
     // it may genuinely not be measured yet. The other four params are still
     // required; only chlorine's absence is tolerated here.
     if (![ph, tds, turb, orp].every(Number.isFinite)) {
-      return incomplete('Thailand', 'thailand', { readings, engineVersion: 'v2', standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–2.0 project-defined — PD-008)' });
+      return incomplete('Thailand', 'thailand', { readings, engineVersion: 'v3', standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–2.0 project-defined — PD-008)' });
     }
-    const params = {
-      ph: gradePh(ph),
-      tds: gradeTds(tds),
-      // Grade chlorine only when present, so the weighted-mean/weakest-link
-      // loop below (which already skips non-finite params) excludes it
-      // naturally instead of scoring a phantom reading.
-      chlorine: Number.isFinite(cl) ? gradeChlorine(cl) : undefined,
-      turbidity: gradeTurbidity(turb),
-      orp: gradeOrp(orp)
-    };
-    let num = 0;
-    let den = 0;
-    const scoredGrades = [];
-    Object.keys(W).forEach(key => {
-      if (!Number.isFinite(params[key])) return;
-      num += params[key] * W[key];
-      den += W[key];
-      scoredGrades.push(params[key]);
-    });
-    let rawScore = null;
-    if (den > 0 && scoredGrades.length) {
-      const mean = num / den;
-      const weakest = Math.min(...scoredGrades);
-      const share = Number(L.weakestLinkShare) || 0;
-      rawScore = Math.round((1 - share) * mean + share * weakest);
-    }
+    // 2026-08-18 (PO-approved): one shared grading formula (Quality V3's
+    // curves), computed once and reused as every country's base score.
+    // Thailand differs from the other engines only in the PASS/FAIL
+    // thresholds and severity handling below — never in how a value is
+    // graded. See computeSharedBenchmarkBase in computeQualityScoreV2.js.
+    const base = computeSharedBenchmarkBase(readings);
+    const params = base.params;
+    const rawScore = base.score;
 
     const pass = {
       ph: ph >= L.ph.min && ph <= L.ph.max,
@@ -286,7 +189,7 @@
       statuses,
       findings,
       readings,
-      engineVersion: 'v2',
+      engineVersion: 'v3',
       standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–2.0 project-defined — PD-008)'
     });
 

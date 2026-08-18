@@ -7,99 +7,9 @@
 (function registerJapanBenchmarkEngine() {
   const L = window.JapanBenchmarkLimits;
   const W = window.JapanBenchmarkWeights;
-  const clamp = typeof scoreClamp === 'function' ? scoreClamp : (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
   const wrap = typeof finalizeBenchmarkMetadata === 'function' ? finalizeBenchmarkMetadata : (x) => x;
   const incomplete = typeof incompleteBenchmarkMetadata === 'function'
     ? incompleteBenchmarkMetadata : () => ({ score: null });
-
-  /** Scored Compliance Index params only — DO excluded (PD-012 B). */
-  const SCORED_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp']);
-
-  function lerp(x, x0, x1, y0, y1) {
-    if (x1 === x0) return y0;
-    const t = (x - x0) / (x1 - x0);
-    return y0 + (y1 - y0) * Math.max(0, Math.min(1, t));
-  }
-  /**
-   * 2026-08-17 (PO-approved, evidence: MHLW-style municipal 水質管理目標設定項目
-   * tables cite the comfortable-water pH target at ~7.5). Legal band
-   * (5.8-8.6) unchanged; adds an inner ideal window (7.3-7.7) with a steep
-   * ramp to the project-chosen edge grade (40) by 6.7/8.3, then flat to the
-   * legal edge — mirrors the turbidity precedent (PASS != high grade).
-   */
-  function gradePh(ph) {
-    const P = L.ph;
-    if (ph >= P.idealMin && ph <= P.idealMax) return 100;
-    if (ph < P.idealMin) {
-      if (ph >= P.steepEndLow) return clamp(lerp(ph, P.steepEndLow, P.idealMin, P.edgeGrade, 100));
-      return clamp(P.edgeGrade - (P.steepEndLow - ph) * 10);
-    }
-    if (ph <= P.steepEndHigh) return clamp(lerp(ph, P.idealMax, P.steepEndHigh, 100, P.edgeGrade));
-    return clamp(P.edgeGrade - (ph - P.steepEndHigh) * 10);
-  }
-  /**
-   * 2026-08-17 (PO-approved, evidence: same municipal tables cite the
-   * comfortable-water TDS/evaporation-residue target at 30-200 mg/L). Legal
-   * ceiling (500) unchanged; adds a steep ramp from the cited 200 mg/L
-   * upper bound to the project-chosen edge grade (40) by 350, then flat to
-   * the legal ceiling.
-   */
-  function gradeTds(tds) {
-    const T = L.tds;
-    if (tds <= T.idealMax) return 100;
-    if (tds <= T.steepEnd) return clamp(lerp(tds, T.idealMax, T.steepEnd, 100, T.edgeGrade));
-    if (tds <= T.displayMax) return T.edgeGrade;
-    return clamp(T.edgeGrade - (tds - T.displayMax) / 15);
-  }
-  /**
-   * 2026-08-17 (PO-approved): no official MHLW comfortable-water target
-   * exists for residual chlorine — this ideal window (0.2-0.5 mg/L) and its
-   * edge grade (40) at the legal boundary (0.1/1.0) are project-defined,
-   * explicitly approved by PO, reusing the Thailand chlorine ideal band as
-   * a project convention (not a Japan-specific citation).
-   */
-  function gradeChlorine(cl) {
-    const C = L.chlorine;
-    if (cl >= C.idealMin && cl <= C.idealMax) return 100;
-    if (cl < C.idealMin) return clamp(lerp(cl, C.min, C.idealMin, C.edgeGrade, 100));
-    return clamp(lerp(cl, C.idealMax, C.max, 100, C.edgeGrade));
-  }
-  /**
-   * 2026-08-17 (PO-approved, evidence: MHLW 快適水質項目 aesthetic target =
-   * half the legal standard, i.e. 1 NTU vs the 2 NTU legal limit). The 2 NTU
-   * compliance/PASS boundary (L.turbidity.ideal) is unchanged; this adds an
-   * inner grade-100 threshold at the cited 1 NTU target and a steep ramp
-   * down to the PASS-edge grade at 2 NTU, mirroring the Thailand chlorine
-   * noticeable-band precedent (PASS does not imply a high grade).
-   */
-  function gradeTurbidity(turb) {
-    const excellent = L.turbidity.excellentMax;
-    const idealEdge = L.turbidity.ideal;
-    const edgeGrade = L.turbidity.passEdgeGrade;
-    if (turb <= excellent) return 100;
-    if (turb <= idealEdge) {
-      return clamp(100 - (turb - excellent) / (idealEdge - excellent) * (100 - edgeGrade));
-    }
-    if (turb <= L.turbidity.steepEnd) {
-      return clamp(edgeGrade + (turb - idealEdge) / (L.turbidity.steepEnd - idealEdge) * (40 - edgeGrade));
-    }
-    return clamp(40 - (turb - L.turbidity.steepEnd) * 6);
-  }
-  /**
-   * PD-014 D1 (2026-08-14): project-defined inner severity within the locked
-   * 200/600 outer band. No cited standard — see UNRESOLVED_DECISIONS.md
-   * PD-014 §D1. Outer limits (200/600) unchanged.
-   */
-  function gradeOrp(orp) {
-    // Outer branches anchored at 70 (not 100) to stay continuous with the
-    // new inner ramp's edge value — the old formulas anchored at 100, which
-    // would jump upward just past 200/600 if left unanchored (monotonicity bug).
-    if (orp < L.orp.min) return clamp(orp / L.orp.min * 70);
-    if (orp > L.orp.max) return clamp(70 - (orp - L.orp.max) / 10);
-    if (orp >= 350 && orp <= 450) return 100;
-    if (orp < 350) return clamp(70 + (orp - 200) / 150 * 30);
-    return clamp(100 - (orp - 450) / 150 * 30);
-  }
 
   function classify(grade, pass) {
     if (pass) return 'PASS';
@@ -148,39 +58,16 @@
         standardRevision: 'Japan-style Compliance Index (project engine; DO NOT_EVALUATED — PD-012 B; JP-WEIGHTS values unchanged — PD-013 A)'
       });
     }
-    const params = {
-      ph: gradePh(ph),
-      tds: gradeTds(tds),
-      // Grade chlorine only when present, so the weighted-mean/weakest-link
-      // loop below (which already skips non-finite params) excludes it
-      // naturally instead of scoring a phantom reading.
-      chlorine: Number.isFinite(cl) ? gradeChlorine(cl) : undefined,
-      turbidity: gradeTurbidity(turb),
-      orp: gradeOrp(orp)
-      // do intentionally omitted from graded params (PD-012 B)
-    };
-    let num = 0;
-    let den = 0;
-    // PD-012 B + PD-013 A (I2): keep W.do = 0.12 in weights.js; exclude from both num and den.
-    const scoredGrades = [];
-    Object.keys(W).forEach((key) => {
-      if (key === 'do') return;
-      if (!SCORED_KEYS.includes(key)) return;
-      if (!Number.isFinite(params[key])) return;
-      num += params[key] * W[key];
-      den += W[key];
-      scoredGrades.push(params[key]);
-    });
-    // 2026-08-17 (PO-approved, weakest-link share 0.25 — weaker than
-    // Thailand's 0.5): pulls the raw weighted mean 25% toward the single
-    // weakest scored parameter so it isn't diluted away by the other four.
-    let rawScore = null;
-    if (den > 0 && scoredGrades.length) {
-      const mean = num / den;
-      const weakest = Math.min(...scoredGrades);
-      const share = Number(L.weakestLinkShare) || 0;
-      rawScore = Math.round((1 - share) * mean + share * weakest);
-    }
+    // 2026-08-18 (PO-approved): one shared grading formula (Quality V3's
+    // curves), computed once and reused as every country's base score.
+    // Japan differs from the other engines only in the PASS/FAIL thresholds
+    // and severity handling below — never in how a value is graded.
+    // See computeSharedBenchmarkBase in computeQualityScoreV2.js. DO still
+    // has no PASS/FAIL opinion in Japan's own classification (PD-012 B,
+    // unchanged) even though it now enters the shared base like any engine.
+    const base = computeSharedBenchmarkBase(readings);
+    const params = base.params;
+    const rawScore = base.score;
 
     const pass = {
       ph: ph >= L.ph.min && ph <= L.ph.max,

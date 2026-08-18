@@ -77,8 +77,9 @@ console.log('\nReal-case ordering');
   const f = th(FAUCET).score;
   const s = th(SINK).score;
   console.log(`  test1=${t1} 811=${a} 810=${b} 13.28=${c} faucet=${f} sink=${s}`);
-  // Weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 98 (was 99), below the ceiling.
-  assert(c === 98, 'near-ideal now 98');
+  // 2026-08-18 (PO-approved): shared grading base (computeSharedBenchmarkBase)
+  // replaced Thailand's own curves — 92, below the ceiling.
+  assert(c === 92, 'near-ideal now 92 (shared base)');
   assert(f < 70 && s < 70, 'degraded Cl=0 materially low');
   assert(f < a && a <= b && b < c, 'faucet < 8/11 ≤ 8/10 < 13.28');
   assert(t1 < 90, 'test1 ordinary not trapped in 90+');
@@ -90,7 +91,10 @@ console.log('\nOne miss cannot hide behind four perfect grades');
   const ideal = th(IDEAL).score;
   const tdsMiss = th({ ...IDEAL, tds: 250 }).score;
   assert(ideal >= 98, `ideal high (got ${ideal})`);
-  assert(tdsMiss <= 90, `TDS 250 on otherwise ideal is not still Excellent (got ${tdsMiss})`);
+  // 2026-08-18 (PO-approved): shared grading base (Quality V3's TDS curve)
+  // grades TDS 250 less harshly than Thailand's own former curve did — 96,
+  // still clearly below ideal, but not as low as the old ≤90 threshold.
+  assert(tdsMiss <= 96, `TDS 250 on otherwise ideal is not still Excellent (got ${tdsMiss})`);
   assert(tdsMiss < ideal, 'TDS miss lowers score');
 }
 
@@ -110,25 +114,24 @@ console.log('\nMonotonicity');
 console.log('\nOther engines + Q-V3 unchanged on New C 8/11');
 {
   const r = NEW_C_811;
-  // Japan pH/chlorine inner curves (2026-08-17, PO-approved): chlorine=0.7
-  // and pH=7.85 are past their new ideal windows. Score Architecture V6
-  // (2026-08-17, PO-approved): weakest-link aggregation pulls Japan to 86.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 86, 'JP 86');
-  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepening
-  // crosses New C 8/11's chlorine=0.7 from WARNING into FAIL, FAIL cap (75) applies.
+  // 2026-08-18 (PO-approved): shared grading base — Japan's raw base now
+  // equals Quality V3's (76); no Japan-specific cap binds this reading.
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 76, 'JP 76 (shared base)');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', r).score === 75, 'WHO 75 (FAIL cap)');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', r).score === 65, 'EU 65');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 85, 'EPA 85 (WARNING cap)');
+  // 2026-08-18 (PO-approved): DO=5.3 is below EPA's own DO floor (≥6), which
+  // EPA (unlike Thailand/Japan) does classify — FAIL, so EPA's severity cap
+  // (75) binds instead of the old WARNING cap (85).
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 75, 'EPA 75 (FAIL cap)');
   assert(sandbox.computeQualityScoreDetail(r).score === 76, 'Q-V3 76');
 }
 
 console.log('\nHero ceiling');
 {
   assert(sandbox.applyCountryBenchmarkHeroCeiling(100) === 99, 'ceiling 100→99');
-  // Weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves the raw
-  // composite to 98.35 (rounds to 98) -- below the ceiling, so the ceiling is
-  // now a no-op for this fixture (was exactly at the ceiling before).
-  assert(th(C_1328).score === 98, '13.28 no longer needs the ceiling (98 < 99)');
+  // 2026-08-18 (PO-approved): shared grading base — 92, well below the
+  // ceiling, so the ceiling is a no-op for this fixture.
+  assert(th(C_1328).score === 92, '13.28 no longer needs the ceiling (92 < 99)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

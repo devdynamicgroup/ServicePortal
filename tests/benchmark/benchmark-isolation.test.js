@@ -229,22 +229,15 @@ console.log('\nTest 6 — Registry independence (dummy engine)');
 console.log('\nTest 7 — Benchmark scores locked (must not drift)');
 {
   restoreAll();
-  // Country severity protection (2026-08-14): LOCKED's turbidity=2.5 is FAIL
-  // on US EPA, now capped at 75 (was 91 uncapped).
-  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): this fixture's
-  // turbidity=2.5 classifies WARNING on Japan/WHO, now capped 85 (was 96/93).
-  // Thailand chlorine curve steepened + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
-  // Japan turbidity inner curve (2026-08-17, PO-approved): turbidity=2.5 now
-  // grades 40 (flat zone 2-6 NTU, PO-approved edge grade), CRITICAL.
-  // Score Architecture V6 (2026-08-17, PO-approved): Japan/WHO/EU/US EPA now
-  // use weakest-link aggregation (share=0.25); WHO pH ceiling (<8.0) +
-  // chlorine steepening added. LOCKED: japan 60->57 (weakest-link pulls the
-  // already-CRITICAL-capped composite's raw aggregate below 60 itself, so
-  // the cap is now a no-op). WHO: chlorine=0.8 now grades 64 (steepened
-  // curve) instead of the old flat 80, crossing WHO's own classify()
-  // threshold from WARNING into FAIL, so the FAIL cap (75) now applies
-  // instead of the WARNING cap (85).
-  const expected = { thailand: 70, who: 75, eu: 65, japan: 57, usEpa: 75 };
+  // 2026-08-18 (PO-approved): all 5 engines now share one grading formula
+  // (computeSharedBenchmarkBase); raw base for SAMPLE = 73 for every engine.
+  // Each country then applies only its own classification/severity-cap/gate
+  // on top of that shared 73: Thailand/Japan have no severity cap binding
+  // here (worst classification stays within their own tolerance) so they
+  // stay at raw 73. WHO/US EPA both classify turbidity=2.5 as CRITICAL,
+  // capping at 60. EU's PD-002 chlorine gate (chlorine classifies CRITICAL)
+  // caps at 65, overriding the raw 73.
+  const expected = { thailand: 73, who: 60, eu: 65, japan: 73, usEpa: 60 };
   for (const key of KEYS) {
     const score = reg.calculate(key, SAMPLE).score;
     assert(score === expected[key], `${key} score locked at ${expected[key]} (got ${score})`);

@@ -1,79 +1,16 @@
 ﻿/**
  * WHO benchmark engine — WHO guideline proximity / DWQI-style index.
+ * 2026-08-18 (PO-approved): the base score is computed by the shared
+ * cross-country formula (computeSharedBenchmarkBase); this engine's own job
+ * is only the WHO-specific PASS/FAIL thresholds and severity handling below.
  * Owns WHO-specific metadata explanations (does not call production).
  */
 (function registerWhoBenchmarkEngine() {
   const L = window.WhoBenchmarkLimits;
   const W = window.WhoBenchmarkWeights;
-  const clamp = typeof scoreClamp === 'function' ? scoreClamp : (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
   const wrap = typeof finalizeBenchmarkMetadata === 'function' ? finalizeBenchmarkMetadata : (x) => x;
   const incomplete = typeof incompleteBenchmarkMetadata === 'function'
     ? incompleteBenchmarkMetadata : () => ({ score: null });
-
-  function lerp(x, x0, x1, y0, y1) {
-    if (x1 === x0) return y0;
-    const t = (x - x0) / (x1 - x0);
-    return y0 + (y1 - y0) * Math.max(0, Math.min(1, t));
-  }
-  /**
-   * 2026-08-17 (PO-approved, evidence: WHO/SDE/WSH/07.01/1 "pH should
-   * preferably be less than 8.0" for effective chlorine disinfection).
-   * Legal band (6.5-8.5) unchanged; adds a cited upper ceiling (8.0) with a
-   * ramp to the project-chosen edge grade (40) at the legal max (8.5). No
-   * lower-bound evidence exists, so 6.5-8.0 stays flat 100 as before.
-   */
-  function gradePh(ph) {
-    if (ph >= L.ph.min && ph <= L.ph.idealCeiling) return 100;
-    if (ph > L.ph.idealCeiling && ph <= L.ph.max) return clamp(lerp(ph, L.ph.idealCeiling, L.ph.max, 100, L.ph.edgeGrade));
-    if (ph > L.ph.max) return clamp(L.ph.edgeGrade - (ph - L.ph.max) * 10);
-    if (ph >= L.ph.fairMin && ph <= L.ph.fairMax) return 70;
-    if (ph >= L.ph.poorMin && ph <= L.ph.poorMax) return 40;
-    return 15;
-  }
-  function gradeTds(tds) {
-    if (tds <= L.tds.ideal) return 100;
-    if (tds <= L.tds.fair) return 100 - (tds - L.tds.ideal) / (L.tds.fair - L.tds.ideal) * 20;
-    if (tds <= L.tds.poor) return 80 - (tds - L.tds.fair) / (L.tds.poor - L.tds.fair) * 30;
-    return clamp(50 - (tds - L.tds.poor) / 30);
-  }
-  function gradeTurbidity(turb) {
-    if (turb <= L.turbidity.ideal) return 100;
-    if (turb <= L.turbidity.fair) return 100 - (turb - L.turbidity.ideal) / (L.turbidity.fair - L.turbidity.ideal) * 30;
-    if (turb <= L.turbidity.poor) return 70 - (turb - L.turbidity.fair) / (L.turbidity.poor - L.turbidity.fair) * 40;
-    return clamp(30 - (turb - L.turbidity.poor) * 3);
-  }
-  /**
-   * PD-014 D1 (2026-08-14): project-defined inner severity within the locked
-   * 200/600 outer band. No cited standard — see UNRESOLVED_DECISIONS.md
-   * PD-014 §D1. Outer limits (200/600) unchanged.
-   */
-  function gradeOrp(orp) {
-    // Outer branches anchored at 70 (not 100) to stay continuous with the
-    // new inner ramp's edge value — the old formulas anchored at 100, which
-    // would jump upward just past 200/600 if left unanchored (monotonicity bug).
-    if (orp < L.orp.min) return clamp(orp / L.orp.min * 70);
-    if (orp > L.orp.max) return clamp(70 - (orp - L.orp.max) / 10);
-    if (orp >= 350 && orp <= 450) return 100;
-    if (orp < 350) return clamp(70 + (orp - 200) / 150 * 30);
-    return clamp(100 - (orp - 450) / 150 * 30);
-  }
-  /**
-   * PD-014 D3 (2026-08-14): project-defined below-minimum ramp, anchored to
-   * the existing fair-tier score (80) at the existing 0.2 boundary — no new
-   * endpoint invented, only the interpolation shape below it. Tiers >=0.2
-   * (100/80/50/25, PD-013) unchanged — see UNRESOLVED_DECISIONS.md PD-014 §D3.
-   */
-  function gradeChlorine(fcl) {
-    if (fcl >= L.chlorine.idealMin && fcl <= L.chlorine.idealMax) return 100;
-    if (fcl < L.chlorine.idealMin) return clamp(fcl / L.chlorine.idealMin * 80);
-    if (fcl <= L.chlorine.fair) return clamp(lerp(fcl, L.chlorine.idealMax, L.chlorine.fair, 100, L.chlorine.noticeableGrade));
-    if (fcl <= L.chlorine.poor) return clamp(lerp(fcl, L.chlorine.fair, L.chlorine.poor, L.chlorine.noticeableGrade, L.chlorine.poorGrade));
-    return L.chlorine.poorGrade;
-  }
-  function gradeDo(doValue) {
-    if (doValue >= L.do.min) return 100;
-    return clamp(doValue / L.do.min * 100);
-  }
 
   function classify(grade, inIdeal) {
     if (inIdeal) return 'PASS';
@@ -111,35 +48,20 @@
     const orp = toFin(readings.orp);
     const fcl = toFin(readings.chlorine);
     const do_ = toFin(readings.do);
-    // 2026-08-18 (PO-approved): chlorine alone no longer blocks the score —
-    // it may genuinely not be measured yet. ph/tds/turbidity/orp/do remain required.
-    if (![ph, tds, turb, orp, do_].every(Number.isFinite)) {
+    // 2026-08-18 (PO-approved): chlorine and DO alone no longer block the
+    // score — either may genuinely not be measured yet. ph/tds/turbidity/orp
+    // remain required.
+    if (![ph, tds, turb, orp].every(Number.isFinite)) {
       return incomplete('WHO', 'who', { readings, engineVersion: 'v3', standardRevision: 'WHO-inspired guideline proximity engine (project scoring; not an official WHO index)' });
     }
-    const params = {
-      ph: gradePh(ph), tds: gradeTds(tds), turbidity: gradeTurbidity(turb),
-      orp: gradeOrp(orp),
-      // Grade chlorine only when present — gradeChlorine's final branch
-      // returns a fixed constant rather than propagating NaN, so an
-      // un-finite fcl must be excluded explicitly rather than relying on
-      // NaN-propagation like the other graded params here.
-      chlorine: Number.isFinite(fcl) ? gradeChlorine(fcl) : undefined,
-      do: gradeDo(do_)
-    };
-    let num = 0; let den = 0;
-    const scoredGrades = [];
-    Object.keys(W).forEach(key => {
-      if (!Number.isFinite(params[key])) return;
-      num += params[key] * W[key]; den += W[key];
-      scoredGrades.push(params[key]);
-    });
-    // 2026-08-17 (PO-approved, weakest-link share 0.25 — weaker than
-    // Thailand's 0.5): pulls the raw weighted mean 25% toward the single
-    // weakest scored parameter so it isn't diluted away by the other five.
-    const mean = num / den;
-    const weakest = Math.min(...scoredGrades);
-    const share = Number(L.weakestLinkShare) || 0;
-    const rawScore = Math.round((1 - share) * mean + share * weakest);
+    // 2026-08-18 (PO-approved): one shared grading formula (Quality V3's
+    // curves), computed once and reused as every country's base score. WHO
+    // differs from the other engines only in the PASS/FAIL thresholds and
+    // severity handling below — never in how a value is graded. See
+    // computeSharedBenchmarkBase in computeQualityScoreV2.js.
+    const base = computeSharedBenchmarkBase(readings);
+    const params = base.params;
+    const rawScore = base.score;
 
     const ideal = {
       ph: ph >= L.ph.min && ph <= L.ph.max,
@@ -166,7 +88,9 @@
       chlorine: Number.isFinite(fcl) ? classify(params.chlorine, ideal.chlorine) : 'NOT_MEASURED',
       turbidity: classify(params.turbidity, ideal.turbidity),
       orp: classify(params.orp, ideal.orp),
-      do: classify(params.do, ideal.do),
+      // Missing DO is an absent measurement, not a failed one — same
+      // NOT_MEASURED convention as chlorine/temp (2026-08-18).
+      do: Number.isFinite(do_) ? classify(params.do, ideal.do) : 'NOT_MEASURED',
       temp: !Number.isFinite(tempVal) ? 'NOT_MEASURED' : (ideal.temp ? 'PASS' : 'WARNING')
     };
 
@@ -187,7 +111,9 @@
     if (!ideal.ph) {
       reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside the WHO-style comparison band used by this project engine (6.5–8.5).' });
     }
-    if (!ideal.do) {
+    if (!Number.isFinite(do_)) {
+      reasons.push({ parameter: 'do', severity: 'warning', message: 'Dissolved oxygen has not been measured yet — this score is provisional and excludes DO until it is captured.' });
+    } else if (!ideal.do) {
       reasons.push({ parameter: 'do', severity: classifications.do.toLowerCase(), message: 'Dissolved oxygen is below the project WHO-engine DO floor (≥ 6 mg/L — not a WHO Ideal / health guideline).' });
     }
     if (!ideal.orp) {

@@ -112,6 +112,51 @@
     return clamp((doValue / 3) * 28, 5, 28);
   }
 
+  /**
+   * Shared benchmark base (2026-08-18, PO-approved): a single grading
+   * formula — this module's existing curves — computed once and reused as
+   * the base score for every country engine (Thailand/Japan/WHO/EU/US EPA),
+   * replacing each engine's own separate per-parameter grade curves. Countries
+   * keep differing ONLY in their own PASS/WARNING/FAIL/CRITICAL thresholds,
+   * severity caps, and gates (e.g. EU's PD-002 chlorine gate) — applied by
+   * each engine on top of this shared number, never in the grading itself.
+   *
+   * Deliberately more tolerant than computeQualityScoreDetail (the Quality V3
+   * publish/share score) above: ph/tds/turbidity/orp are required, but
+   * chlorine and do are graded only when present and simply excluded from
+   * the average otherwise, so a Case missing either can still produce a
+   * benchmark base score instead of every country going incomplete at once.
+   * This does not change computeQualityScoreDetail's own (stricter, all-6)
+   * requirement — that publish-path score is untouched.
+   */
+  function computeSharedBenchmarkBase(readings) {
+    const toFin = typeof toFiniteReading === 'function' ? toFiniteReading : (v) => { if (v === null || v === undefined || v === '' || v === false) return NaN; const n = Number(v); return Number.isFinite(n) ? n : NaN; };
+    const ph = toFin(readings.ph);
+    const tds = toFin(readings.tds);
+    const turb = toFin(readings.turbidity);
+    const orp = toFin(readings.orp);
+    const fcl = toFin(readings.chlorine);
+    const do_ = toFin(readings.do);
+
+    if (![ph, tds, turb, orp].every(Number.isFinite)) {
+      return { score: null, params: null, complete: false };
+    }
+
+    const params = {
+      ph: gradePh(ph),
+      tds: gradeTds(tds),
+      turbidity: gradeTurbidity(turb),
+      orp: gradeOrp(orp)
+    };
+    if (Number.isFinite(fcl)) params.chlorine = gradeChlorine(fcl);
+    if (Number.isFinite(do_)) params.do = gradeDo(do_);
+
+    const grades = Object.values(params);
+    const score = Math.round(grades.reduce((sum, g) => sum + g, 0) / grades.length);
+
+    return { score, params, complete: true };
+  }
+
   function evaluateCompliance(readings) {
     const toFin = typeof toFiniteReading === 'function' ? toFiniteReading : (v) => { if (v === null || v === undefined || v === '' || v === false) return NaN; const n = Number(v); return Number.isFinite(n) ? n : NaN; };
     const ph = toFin(readings.ph);
@@ -219,6 +264,7 @@
   global.computeQualityScoreV2 = computeQualityScoreDetail;
   global.computeQualityScoreV3 = computeQualityScoreDetail;
   global.computeScoreFromReadings = computeScoreFromReadings;
+  global.computeSharedBenchmarkBase = computeSharedBenchmarkBase;
   global.QUALITY_SCORE_ENGINE_VERSION = ENGINE_VERSION;
 
   if (typeof window !== 'undefined') {
@@ -226,6 +272,7 @@
     window.computeQualityScoreV2 = computeQualityScoreDetail;
     window.computeQualityScoreV3 = computeQualityScoreDetail;
     window.computeScoreFromReadings = computeScoreFromReadings;
+    window.computeSharedBenchmarkBase = computeSharedBenchmarkBase;
     window.QUALITY_SCORE_ENGINE_VERSION = ENGINE_VERSION;
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

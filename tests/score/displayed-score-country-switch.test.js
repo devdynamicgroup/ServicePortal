@@ -145,8 +145,14 @@ console.log('\n1–5. Same Case + each country → displayed Score uses that eng
     assert(viaHelper.showScore === true, `${key}: showScore true`);
   }
   const quality = sandbox.computeQualityScoreDetail(DIFF).score;
-  assert(displayed(DIFF, 'thailand').score !== quality,
-    `displayed TH ${displayed(DIFF, 'thailand').score} !== Quality V3 ${quality}`);
+  // 2026-08-18 (PO-approved): grading is now shared, so Thailand's displayed
+  // score CAN numerically coincide with Quality V3 when no severity cap
+  // binds (both compute the same shared base for DIFF) — that's expected,
+  // not a leak. Independence is proven structurally: they're computed via
+  // genuinely separate functions (resolveDisplayedScore/registry.calculate
+  // vs computeQualityScoreDetail), verified in country-hero-ceiling.test.js.
+  assert(displayed(DIFF, 'thailand').score === quality,
+    `displayed TH ${displayed(DIFF, 'thailand').score} coincides with Quality V3 ${quality} (same shared base, no cap)`);
 }
 
 console.log('\n6–7. Thailand → Japan → Thailand via setScoreReferenceStandard');
@@ -205,25 +211,30 @@ console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
     }
   });
   assert(q.score === 76, `Quality V3 baseline 76 (got ${q.score})`);
-  // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine
-  // (was flat 100 pre-D1), so these move from their pre-D1 baseline.
-  // Thailand chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 81 (was 86).
-  assert(th.score === 81 && th.engineKey === 'thailand', 'baseline displayed TH=81 from thailand engine');
-  // Japan pH/chlorine inner curves (2026-08-17, PO-approved): chlorine=0.7 and
-  // pH=7.85 are past their new ideal windows. Score Architecture V6
-  // (2026-08-17, PO-approved): weakest-link aggregation pulls Japan to 86.
-  assert(jp.score === 86 && jp.engineKey === 'japan', 'baseline displayed JP=86 from japan engine');
-  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepening
-  // crosses this reading's chlorine=0.7 from WARNING into FAIL, FAIL cap (75) applies.
+  // 2026-08-18 (PO-approved): shared grading base for BASELINE = 76 for
+  // every engine. Thailand/Japan have no severity cap binding here, so they
+  // stay at raw 76 (coincidentally equal to Quality V3 — see below). WHO/US
+  // EPA both classify do=5.3 as FAIL, capping at 75. EU's PD-002 chlorine
+  // gate is unaffected, still 65.
+  assert(th.score === 76 && th.engineKey === 'thailand', 'baseline displayed TH=76 from thailand engine');
+  assert(jp.score === 76 && jp.engineKey === 'japan', 'baseline displayed JP=76 from japan engine');
   assert(who.score === 75 && who.engineKey === 'who', 'baseline displayed WHO=75 from who engine');
   assert(eu.score === 65 && eu.engineKey === 'eu', 'baseline displayed EU=65 from eu engine');
-  assert(epa.score === 85 && epa.engineKey === 'usEpa', 'baseline displayed EPA=85 from usEpa engine');
-  assert(th.score !== q.score, 'baseline Hero is not Quality V3 76');
+  assert(epa.score === 75 && epa.engineKey === 'usEpa', 'baseline displayed EPA=75 from usEpa engine');
+  // Thailand's Hero coincides numerically with Quality V3 here (both 76,
+  // same shared base, no cap binds) — expected under the new architecture,
+  // not a leak (independence is structural, proven elsewhere).
+  assert(th.score === q.score, 'baseline Hero coincides with Quality V3 76 (shared base, no cap)');
   assert(jp.engineKey !== th.engineKey, 'TH vs JP call different engines even when scores are close');
 }
 
-console.log('\n8. Japan DO 5.3 / 0 / null / 20 — same displayed Japan score, NOT_EVALUATED');
+console.log('\n8. Japan DO 5.3 / 0 / null / 20 — DO numerically graded when present, NOT_EVALUATED classification always');
 {
+  // 2026-08-18 (PO-approved): DO is now part of the shared grading base for
+  // every engine, including Japan, when present — only Japan's own
+  // PASS/FAIL classification of DO stays opinion-free (NOT_EVALUATED). The
+  // numeric displayed score DOES now shift with DO's value; it's only
+  // absent from graded params when DO itself is absent (null).
   const scores = [];
   for (const doVal of [5.3, 0, null, 20]) {
     const readings = { ...BASELINE, do: doVal };
@@ -232,10 +243,14 @@ console.log('\n8. Japan DO 5.3 / 0 / null / 20 — same displayed Japan score, N
     assert(out.engineKey === 'japan', `DO=${doVal}: displayed engine is japan`);
     assert(out.classifications?.do === 'NOT_EVALUATED', `DO=${doVal}: classification.do=NOT_EVALUATED`);
     assert(out.showScore === true && Number.isFinite(out.score), `DO=${doVal}: displayed score finite (${out.score})`);
-    assert(!Object.prototype.hasOwnProperty.call(out.comparison.paramScores || {}, 'do'),
-      `DO=${doVal}: do absent from graded params`);
+    const hasDoParam = Object.prototype.hasOwnProperty.call(out.comparison.paramScores || {}, 'do');
+    if (doVal === null) {
+      assert(!hasDoParam, `DO=${doVal}: do absent from graded params (DO itself absent)`);
+    } else {
+      assert(hasDoParam, `DO=${doVal}: do present in graded params (shared base grades it when present)`);
+    }
   }
-  assert(scores.every(s => s === scores[0]), `Japan DO variants same displayed score ${scores.join(',')}`);
+  assert(new Set(scores).size === scores.length, `Japan DO variants produce genuinely different displayed scores ${scores.join(',')} (DO enters the shared grading average)`);
 }
 
 console.log('\n9. Missing Japan required parameter (pH) → displayed incomplete/null');
@@ -256,10 +271,10 @@ console.log('\n10. Quality V3 unchanged');
   switchCountry('japan');
   assert(sandbox.S.currentScoreResult.computedScore === 76, 'publish computedScore stays Quality 76 after JP switch');
   assert(sandbox.S.scoreVal === 76, 'S.scoreVal (publish) stays Quality 76');
-  // Japan pH/chlorine inner curves + Score Architecture V6 weakest-link
-  // aggregation (2026-08-17, PO-approved) pull JP's raw composite for
-  // BASELINE to 86 — still independent of Quality V3 (76).
-  assert(sandbox.S.displayedScore.score === 86, 'displayed Japan score is 86, not Quality 76');
+  // 2026-08-18 (PO-approved): shared base for BASELINE = 76 for Japan too —
+  // numerically coincides with Quality V3 here (no cap binds), which is
+  // expected; independence between the two is structural, not numeric.
+  assert(sandbox.S.displayedScore.score === 76, 'displayed Japan score is 76 (coincides with Quality 76, shared base)');
 }
 
 console.log('\nLive Hero must not fall back to Quality V3 when country score is incomplete');

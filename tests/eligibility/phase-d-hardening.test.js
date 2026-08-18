@@ -57,17 +57,13 @@ function assert(cond, msg) {
 const FULL_READINGS = { ph: 7.2, tds: 450, chlorine: 0.8, turbidity: 2.5, orp: 350, do: 6.5, temp: 28 };
 const FULL_TASKS = { tapphoto: true, meter: true, visual: true, chlorine: true };
 const COUNTRY_KEYS = ['thailand', 'who', 'eu', 'japan', 'usEpa'];
-// Country severity protection (2026-08-14): LOCKED's turbidity=2.5 is FAIL
-// on US EPA, now capped at 75 (was 91 uncapped).
-// WARNING severity cap=85 (2026-08-14, PO-approved numeric): FULL_READINGS'
-// turbidity=2.5 classifies WARNING on Japan/WHO, now capped 85 (was 96/93).
-// Thailand chlorine curve steepened + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
-// Japan turbidity inner curve (2026-08-17, PO-approved): turbidity=2.5 now
-// grades 40 (flat zone 2-6 NTU, PO-approved edge grade), CRITICAL (was
-// WARNING/grade~88), severity-capped at 60 (was 85).
-// Score Architecture V6 (2026-08-17, PO-approved): Japan/WHO/EU/US EPA now
-// use weakest-link aggregation (share=0.25); WHO chlorine steepened.
-const LOCKED_SCORES = { thailand: 70, who: 75, eu: 65, japan: 57, usEpa: 75 };
+// 2026-08-18 (PO-approved): all 5 engines now share one grading formula
+// (computeSharedBenchmarkBase); raw base for FULL_READINGS = 73 for every
+// engine. Thailand/Japan have no severity cap binding here, so they stay
+// at raw 73. WHO/US EPA both classify turbidity=2.5 as CRITICAL, capping
+// at 60. EU's PD-002 chlorine gate (chlorine classifies CRITICAL) caps
+// at 65, overriding the raw 73.
+const LOCKED_SCORES = { thailand: 73, who: 60, eu: 65, japan: 73, usEpa: 60 };
 
 console.log('\nCase 1 — Complete assessment: canCalculateScore + canPublishReport, coverage 100, score calculated');
 {
@@ -180,7 +176,12 @@ console.log('\nCase 5 — Missing Temp: never silently becomes PASS (the confirm
   const thaiNoDo = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', readingsNoDo);
   assert(thaiWithDo.classifications.do === 'NOT_EVALUATED', 'Thailand: measured do is NOT_EVALUATED, never PASS');
   assert(thaiNoDo.classifications.do === 'NOT_EVALUATED', 'Thailand: missing do is NOT_EVALUATED (excluded), not PASS');
-  assert(thaiNoDo.score === thaiWithDo.score, 'Thailand: score unaffected by do presence (Thailand does not score do)');
+  // 2026-08-18 (PO-approved): DO is now part of the shared grading base
+  // (computeSharedBenchmarkBase) for every engine, including Thailand, when
+  // present — only Thailand's own PASS/FAIL classification of DO stays
+  // opinion-free (NOT_EVALUATED, asserted above). The numeric score DOES
+  // now shift with DO presence since it enters the shared average.
+  assert(thaiNoDo.score !== thaiWithDo.score, 'Thailand: score DOES shift with do presence now (do enters the shared grading base) — got ' + thaiNoDo.score + ' vs ' + thaiWithDo.score);
   assert(!(thaiWithDo.passedParameters || []).includes('do'), 'Thailand: do must not appear in passedParameters');
 }
 

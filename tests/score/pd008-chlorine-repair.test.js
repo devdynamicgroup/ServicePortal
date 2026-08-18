@@ -111,16 +111,19 @@ console.log('\nPD-008 — TH chlorine boundaries (numeric lock)');
 
 console.log('\nPD-008 — EPA chlorine boundaries (numeric lock + MRDL semantic)');
 {
-  // PD-014 D2 (2026-08-14): the 0.2-4.0 window is no longer flat 100 — only
-  // its own inner plateau (0.2-1.0) is. 0.2/4.0 themselves remain the LOCKED
-  // outer boundaries (still distinguishable from outside-the-window values).
+  // 2026-08-18 (PO-approved): per-country chlorine curves were replaced by
+  // one shared formula (computeSharedBenchmarkBase's gradeChlorine) — EPA no
+  // longer has its own inner plateau to test here. The shared curve's own
+  // plateau is 0.2-0.5 (flat 100), then declines monotonically to a floor;
+  // EPA's numeric window (0.2-4.0) and MRDL semantics/messaging below are
+  // still EPA-owned and asserted unchanged.
   const pts = [0.19, 0.20, 0.49, 0.50, 1.0, 2.0, 3.9, 4.0, 4.01];
   for (const cl of pts) {
     const r = bench('usEpa', withCl(cl));
-    const inPlateau = cl >= 0.2 && cl <= 1.0;
+    const inPlateau = cl >= 0.2 && cl <= 0.5;
     const inWindow = cl >= 0.2 && cl <= 4.0;
-    if (inPlateau) assert(r.params.chlorine === 100, `EPA Cl=${cl} in inner plateau → 100`);
-    else if (inWindow) assert(r.params.chlorine < 100 && r.params.chlorine >= 60, `EPA Cl=${cl} in window but declining → [60,100)`);
+    if (inPlateau) assert(r.params.chlorine === 100, `EPA Cl=${cl} in shared plateau → 100`);
+    else if (inWindow) assert(r.params.chlorine < 100, `EPA Cl=${cl} in window but declining → <100`);
     else assert(r.params.chlorine < 100, `EPA Cl=${cl} outside → <100`);
   }
   const hi = bench('usEpa', withCl(4.01));
@@ -135,12 +138,16 @@ console.log('\nPD-008 — EPA chlorine boundaries (numeric lock + MRDL semantic)
 
 console.log('\nPD-008 — EU chlorine boundaries + gate 65');
 {
+  // 2026-08-18 (PO-approved): per-country chlorine curves were replaced by
+  // one shared formula — EU's own "in-band = grade 100" curve shape no
+  // longer applies (the shared curve's own plateau is narrower, 0.2-0.5,
+  // and EU's compliance band starts at 0.1). Gate behavior (EU's own,
+  // PD-002, unchanged) is still tested below.
   const pts = [0.09, 0.10, 0.49, 0.50, 0.51];
   for (const cl of pts) {
     const r = bench('eu', withCl(cl));
     const inBand = cl >= 0.1 && cl <= 0.5;
     if (inBand) {
-      assert(r.params.chlorine === 100, `EU Cl=${cl} in-band → 100`);
       assert(r.gated !== true, `EU Cl=${cl} not gated`);
     } else {
       assert(r.score <= 65, `EU Cl=${cl} score capped ≤65 (got ${r.score})`);
@@ -198,10 +205,14 @@ console.log('\nPD-008 / PD-012 — JP DO excluded from Compliance Index (PD-012 
   const below = bench('japan', { ...BASE, do: 4.9 });
   assert(Number.isFinite(at.score), 'JP DO=5 → finite score');
   assert(Number.isFinite(below.score), 'JP DO=4.9 → finite score');
-  assert(at.score === below.score, 'JP score identical for DO above/below former floor (PD-012 B)');
   assert(at.classifications.do === 'NOT_EVALUATED', 'JP DO=5 → NOT_EVALUATED');
   assert(below.classifications.do === 'NOT_EVALUATED', 'JP DO=4.9 → NOT_EVALUATED');
-  assert(at.params.do === undefined, 'JP params omit graded do');
+  // 2026-08-18 (PO-approved): DO is now part of the shared grading base for
+  // every engine, including Japan, when present — only Japan's own
+  // PASS/FAIL classification of DO stays opinion-free (NOT_EVALUATED,
+  // asserted above). The numeric grade DOES now reflect DO when present.
+  assert(typeof at.params.do === 'number', 'JP params DO now numerically graded when present (shared base)');
+  assert(at.params.do !== below.params.do, 'JP graded DO differs between 5.0 and 4.9 (shared curve is sensitive there)');
   assert(!(at.topPositiveFactors || []).some((s) => /dissolved oxygen/i.test(s)), 'JP no DO positive factor');
   assert(!(at.reasons || []).some((r) => r.parameter === 'do'), 'JP no DO reason');
 
@@ -214,18 +225,16 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
 {
   const q = sandbox.computeScoreFromReadings(BASE);
   assert(q === 76, `Quality V3 still 76 (got ${q})`);
-  // PD-014 D1 (2026-08-14): orp=515 now inner-declines on every engine.
-  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 81 (was 86).
-  assert(bench('thailand', BASE).score === 81, 'TH baseline 81 (ordinary-band severity)');
-  // Japan pH/chlorine inner curves (2026-08-17, PO-approved): chlorine=0.7 and
-  // pH=7.85 are past their new ideal windows. Score Architecture V6
-  // (2026-08-17, PO-approved): weakest-link aggregation pulls Japan to 86.
-  assert(bench('japan', BASE).score === 86, 'JP baseline 86');
-  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepening
-  // crosses BASE's chlorine=0.7 from WARNING into FAIL, FAIL cap (75) applies.
+  // 2026-08-18 (PO-approved): all 5 engines now share one grading formula
+  // (computeSharedBenchmarkBase); raw base for BASE = 76 for every engine.
+  // Thailand/Japan have no severity cap binding here, so they stay at raw 76.
+  assert(bench('thailand', BASE).score === 76, 'TH baseline 76 (shared base, no cap)');
+  assert(bench('japan', BASE).score === 76, 'JP baseline 76 (shared base, no cap)');
+  // WHO classifies do=5.3 as FAIL; FAIL cap (75) does not lower a raw 76 below itself,
+  // but WHO's own severity protection still binds at the FAIL cap value.
   assert(bench('who', BASE).score === 75, 'WHO baseline 75 (FAIL cap)');
   assert(bench('eu', BASE).score === 65, 'EU baseline 65');
-  assert(bench('usEpa', BASE).score === 85, 'EPA baseline 85 (WARNING cap)');
+  assert(bench('usEpa', BASE).score === 75, 'EPA baseline 75 (FAIL cap, do classifies FAIL)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

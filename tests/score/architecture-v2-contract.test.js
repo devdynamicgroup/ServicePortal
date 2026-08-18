@@ -111,19 +111,21 @@ console.log('\nD. Aggregation dilution matrix — one catastrophic parameter, fi
   // CATASTROPHIC values chosen to be unambiguously bad on every engine's own
   // classification thresholds (near-zero grade), not calibration-sensitive.
   const CATASTROPHIC = { ph: 3, tds: 5000, turbidity: 50, orp: -100, chlorine: 15, do: 0 };
-  // Score Architecture V6 (2026-08-17, PO-approved): Japan/WHO/EU/US EPA now
-  // use weakest-link aggregation (share=0.25, weaker than Thailand's 0.5),
-  // closing the exact gap the original version of this test documented
-  // (plain weighted mean alone relied entirely on the classification-based
-  // severity cap to prevent dilution). Locked expected outcomes verified by
-  // direct computation before writing this test — regression guard, not
-  // calibration evidence.
+  // 2026-08-18 (PO-approved): all engines now use the one shared grading
+  // formula (computeSharedBenchmarkBase, plain equal-weight average — no
+  // weakest-link aggregation) for the raw base, then each engine applies
+  // only its own classification-based severity cap (and, for EU, its own
+  // PD-002 chlorine gate) on top. The classification-based severity cap
+  // alone is what prevents a single catastrophic parameter from being
+  // diluted away by five excellent ones. Thailand/Japan classify DO as
+  // NOT_EVALUATED (never CRITICAL), so a catastrophic DO value never caps
+  // their score — it only lowers the raw average.
   const expected = {
-    thailand: { ph: 40, tds: 40, turbidity: 40, orp: 40, chlorine: 40, do: 99 },
-    japan: { ph: 60, tds: 60, turbidity: 55, orp: 60, chlorine: 60, do: 96 },
+    thailand: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 84 },
+    japan: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 84 },
     who: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 60 },
-    eu: { ph: 64, tds: 64, turbidity: 56, orp: 68, chlorine: 56, do: 68 },
-    usEpa: { ph: 60, tds: 60, turbidity: 53, orp: 60, chlorine: 60, do: 60 }
+    eu: { ph: 75, tds: 75, turbidity: 60, orp: 85, chlorine: 65, do: 75 },
+    usEpa: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 60 }
   };
   for (const key of KEYS) {
     for (const param of Object.keys(CATASTROPHIC)) {
@@ -146,24 +148,22 @@ console.log('\nD. Aggregation dilution matrix — one catastrophic parameter, fi
 
 console.log('\nE. EU countryGate — dedicated chlorine gate captured as an inspectable stage, still dominant over generic severity');
 {
-  // Score Architecture V6 (2026-08-17, PO-approved): with weakest-link
-  // aggregation (share=0.25) now live on EU, an extreme chlorine value
-  // (e.g. 15) pulls the raw aggregate itself below the 65 gate cap, making
-  // the gate a correct no-op (ceiling, not floor) rather than the binding
-  // value. chlorine=0.7 is a milder-but-still-CRITICAL fixture where the
-  // gate still genuinely binds (rawAggregate=76 > cap=65) — this is the
-  // fixture that actually demonstrates gate dominance now.
+  // 2026-08-18 (PO-approved): the raw base is now the shared plain
+  // equal-weight average (no weakest-link aggregation), so a single
+  // catastrophic chlorine value among five excellent params still leaves
+  // the raw aggregate well above the gate cap (85), regardless of exactly
+  // how extreme chlorine itself is. EU's own PD-002 gate (unchanged
+  // mechanism) therefore binds and dominates the generic CRITICAL=60
+  // severity floor for both a milder-but-still-CRITICAL value (0.7) and an
+  // extreme one (15).
   const r = bench('eu', { ...EXCELLENT, chlorine: 0.7 });
   assert(r.countryGate && r.countryGate.applied === true, 'EU chlorine=0.7: countryGate.applied=true');
   assert(r.countryGate.cap === 65, `EU chlorine=0.7: countryGate.cap=65 (got ${r.countryGate.cap})`);
   assert(r.score === 65, `EU chlorine=0.7: final score is the gate value 65, not the generic CRITICAL=60 (got ${r.score})`);
 
-  // Extreme chlorine (15): weakest-link now pulls the raw aggregate itself
-  // below the gate cap -- the gate is correctly a no-op, and the lower raw
-  // value stands (ceiling, not floor).
   const extreme = bench('eu', { ...EXCELLENT, chlorine: 15 });
-  assert(extreme.countryGate && extreme.countryGate.applied === false, 'EU chlorine=15: countryGate.applied=false (raw already below cap)');
-  assert(extreme.score === 56, `EU chlorine=15: final score is the diluted raw aggregate 56, not raised to the gate value 65 (got ${extreme.score})`);
+  assert(extreme.countryGate && extreme.countryGate.applied === true, 'EU chlorine=15: countryGate.applied=true (raw aggregate still above cap)');
+  assert(extreme.score === 65, `EU chlorine=15: final score is the gate value 65 (got ${extreme.score})`);
 }
 
 console.log('\nF. modelVersion is stable across repeated calls with the same readings (determinism)');

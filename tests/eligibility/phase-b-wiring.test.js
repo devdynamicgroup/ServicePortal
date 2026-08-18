@@ -168,17 +168,13 @@ console.log('\nCase 5 — production score identical before/after integration (l
 console.log('\nCase 6 — benchmark outputs byte-identical when eligible (locked)');
 {
   const sandbox = makeSandbox();
-  // Country severity protection (2026-08-14): LOCKED's turbidity=2.5 is FAIL
-  // on US EPA, now capped at 75 (was 91 uncapped).
-  // WARNING severity cap=85 (2026-08-14, PO-approved numeric): FULL_READINGS'
-  // turbidity=2.5 classifies WARNING on Japan/WHO, now capped 85 (was 96/93).
-  // Thailand chlorine curve steepened + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
-  // Japan turbidity inner curve (2026-08-17, PO-approved): turbidity=2.5 now
-  // grades 40 (flat zone 2-6 NTU, PO-approved edge grade), CRITICAL (was
-  // WARNING/grade~88), severity-capped at 60 (was 85).
-  // Score Architecture V6 (2026-08-17, PO-approved): Japan/WHO/EU/US EPA now
-  // use weakest-link aggregation (share=0.25); WHO chlorine steepened.
-  const expected = { thailand: 70, who: 75, eu: 65, japan: 57, usEpa: 75 };
+  // 2026-08-18 (PO-approved): all 5 engines now share one grading formula
+  // (computeSharedBenchmarkBase); raw base for FULL_READINGS = 73 for every
+  // engine. Thailand/Japan have no severity cap binding here, so they stay
+  // at raw 73. WHO/US EPA both classify turbidity=2.5 as CRITICAL, capping
+  // at 60. EU's PD-002 chlorine gate (chlorine classifies CRITICAL) caps
+  // at 65, overriding the raw 73.
+  const expected = { thailand: 73, who: 60, eu: 65, japan: 73, usEpa: 60 };
   for (const key of Object.keys(expected)) {
     const score = sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS).score;
     assert(score === expected[key], `${key} score still locked at ${expected[key]} (got ${score}) after Phase B wiring`);

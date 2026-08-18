@@ -120,17 +120,20 @@ console.log('\nGovernance locks that forbid inventing pH/ORP/EPA-Cl severity cur
     'shared ORP band present on JP/EPA');
 }
 
-console.log('\nMatrix — which params are scored');
+console.log('\nMatrix — which params are classified (all 5 now grade DO numerically when present)');
 {
   const th = bench('thailand', IDEAL);
   const jp = bench('japan', IDEAL);
   const eu = bench('eu', IDEAL);
-  assert(th.params.do === undefined && th.classifications.do === 'NOT_EVALUATED', 'TH DO not scored');
-  assert(jp.params.do === undefined && jp.classifications.do === 'NOT_EVALUATED', 'JP DO not scored (PD-012 B)');
+  // 2026-08-18 (PO-approved): DO is now part of the shared grading base for
+  // every engine when present — TH/JP's own identity is that they never
+  // classify it PASS/FAIL (NOT_EVALUATED), not that they omit it numerically.
+  assert(Number.isFinite(th.params.do) && th.classifications.do === 'NOT_EVALUATED', 'TH DO numerically graded, never classified');
+  assert(Number.isFinite(jp.params.do) && jp.classifications.do === 'NOT_EVALUATED', 'JP DO numerically graded, never classified (PD-012 B)');
   assert(Number.isFinite(eu.params.do) && Number.isFinite(bench('who', IDEAL).params.do)
     && Number.isFinite(bench('usEpa', IDEAL).params.do),
-    'EU/WHO/EPA DO are scored');
-  assert(sandbox.JapanBenchmarkWeights.do === 0.12, 'JP do weight metadata 0.12 retained');
+    'EU/WHO/EPA DO are scored and classified');
+  assert(sandbox.JapanBenchmarkWeights.do === 0.12, 'JP do weight metadata 0.12 retained (vestigial — no longer drives scoring)');
   const W = sandbox.JapanBenchmarkWeights;
   const den = W.ph + W.tds + W.chlorine + W.turbidity + W.orp;
   assert(Math.abs(den - 0.88) < 1e-9, `JP scored den 0.88 (got ${den})`);
@@ -142,7 +145,11 @@ console.log('\nFIXED — Thailand TDS / turbidity / chlorine in-band severity (P
   assert(grade('thailand', 'tds', 300) < 100, 'TH TDS 300 leaves excellent under PD-015');
   assert(grade('thailand', 'tds', 800) < 100 && grade('thailand', 'tds', 800) > grade('thailand', 'tds', 1000),
     'TH TDS 800 < 100 and better than 1000');
-  assert(grade('thailand', 'turbidity', 0.3) === 100, 'TH turb ≤0.3 = 100 (PD-015)');
+  // 2026-08-18 (PO-approved): per-country curves were replaced by one
+  // shared formula — the shared curve's own ideal ceiling is turb<=0.1
+  // (not Thailand's old <=0.3), so 0.3 now genuinely declines below 100.
+  assert(grade('thailand', 'turbidity', 0.1) === 100, 'TH turb ≤0.1 = 100 (shared curve ideal)');
+  assert(grade('thailand', 'turbidity', 0.3) < 100, 'TH turb 0.3 now declines under the shared curve');
   assert(grade('thailand', 'turbidity', 1) < 100, 'TH turb 1 leaves excellent under PD-015');
   assert(grade('thailand', 'turbidity', 3.5) < 100, 'TH turb 3.5 < 100');
   assert(grade('thailand', 'chlorine', 0.3) === 100, 'TH Cl 0.3 = 100');
@@ -153,99 +160,74 @@ console.log('\nFIXED — Thailand TDS / turbidity / chlorine in-band severity (P
   assert(sandbox.ThailandBenchmarkLimits.chlorine.min === 0.2
     && sandbox.ThailandBenchmarkLimits.chlorine.max === 2.0,
     'TH Cl compliance band ceiling unchanged');
-  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 46 (was 69).
-  assert(bench('thailand', DIFF).score === 46, `DIFF TH 46 after ordinary-band severity (got ${bench('thailand', DIFF).score})`);
+  // 2026-08-18 (PO-approved): shared grading base for DIFF = 61; Thailand's
+  // own classifications all stay within PASS here, so no severity cap binds.
+  assert(bench('thailand', DIFF).score === 61, `DIFF TH 61 (shared base, no cap) (got ${bench('thailand', DIFF).score})`);
 }
 
-console.log('\nNOT FIXED (governance) — pH flat-in-band for non-TH/JP engines; TH/JP use inner curves');
+console.log('\n2026-08-18: per-country pH curves (TH edge=70, JP cited-target, WHO 8.0 ceiling, flat-compliance EU/EPA) were replaced by one shared formula (computeSharedBenchmarkBase) — this section now asserts the new invariant: identical pH grading across all 5 engines, plus the still-true generic decline-outside-preferred-band behavior.');
 {
   for (const key of KEYS) {
     const L = sandbox.WaterScoreBenchmarkRegistry.get(key).limits.ph;
-    const mid = (L.min + L.max) / 2;
-    const nearLow = L.min + 0.1;
-    const nearHigh = L.max - 0.1;
-    if (key === 'thailand') {
-      assert(grade(key, 'ph', 7.2) === 100, 'thailand pH preferred center = 100');
-      assert(grade(key, 'ph', L.min) === 70, 'thailand pH at pass edge = 70');
-      assert(grade(key, 'ph', L.max) === 70, 'thailand pH at pass edge high = 70');
-    } else if (key === 'japan') {
-      // Japan pH inner curve (2026-08-17, PO-approved, evidence: cited
-      // 快適水質 target ~7.5): 5.8-8.6 legal band no longer flat 100 — mid
-      // (7.2, just outside the 7.3-7.7 ideal window) and both near-edges
-      // now decline. Recomputed directly, not estimated.
-      assert(grade(key, 'ph', 7.5) === 100, 'japan pH cited target 7.5 = 100');
-      assert(Math.round(grade(key, 'ph', mid)) === 90, `japan pH mid-band (${mid}) declines to 90`);
-      assert(grade(key, 'ph', nearLow) < 100, 'japan pH near-low declines');
-      assert(grade(key, 'ph', nearHigh) < 100, 'japan pH near-high declines');
-    } else if (key === 'who') {
-      // Score Architecture V6 (2026-08-17, PO-approved, evidence: WHO/SDE/
-      // WSH/07.01/1 "pH should preferably be less than 8.0"): asymmetric —
-      // only an upper ceiling is cited, so 6.5-8.0 stays flat 100 (no lower-
-      // bound evidence), but above 8.0 now declines toward the legal max (8.5).
-      assert(grade(key, 'ph', mid) === 100, `who pH mid-band (${mid}, below 8.0 ceiling) = 100`);
-      assert(grade(key, 'ph', nearLow) === 100, 'who pH near-low = 100 (below 8.0 ceiling)');
-      assert(grade(key, 'ph', nearHigh) < 100, 'who pH near-high (8.4, past 8.0 ceiling) declines');
-    } else {
-      assert(grade(key, 'ph', mid) === 100, `${key} pH mid-band = 100 (compliance flat)`);
-      assert(grade(key, 'ph', nearLow) === 100, `${key} pH near-low = 100`);
-      assert(grade(key, 'ph', nearHigh) === 100, `${key} pH near-high = 100`);
+    // Every engine now grades pH via the exact same shared curve (center 7.2).
+    for (const v of [6.0, 6.5, 7.2, 7.5, 8.0, 8.5, 9.0]) {
+      assert(grade(key, 'ph', v) === grade('thailand', 'ph', v),
+        `${key} pH grade(${v}) matches shared curve (thailand as reference)`);
     }
+    assert(grade(key, 'ph', 7.2) === 100, `${key} pH preferred center = 100 (shared curve)`);
     assert(grade(key, 'ph', L.min - 0.5) < 100, `${key} pH below band declines`);
     assert(grade(key, 'ph', L.max + 0.5) < 100, `${key} pH above band declines`);
   }
 }
 
-console.log('\nFIXED (PD-014 D1, 2026-08-14) — ORP inner severity within locked 200-600');
+console.log('\nORP severity within locked 200-600 (shared curve, identical across all 5 engines)');
 {
   for (const key of KEYS) {
-    assert(grade(key, 'orp', 200) === 70, `${key} ORP 200 = 70 (outer edge of inner ramp)`);
-    assert(grade(key, 'orp', 350) === 100, `${key} ORP 350 = 100 (inner plateau starts)`);
-    assert(grade(key, 'orp', 400) === 100, `${key} ORP 400 = 100 (inner plateau center)`);
-    assert(grade(key, 'orp', 450) === 100, `${key} ORP 450 = 100 (inner plateau ends)`);
-    assert(grade(key, 'orp', 600) === 70, `${key} ORP 600 = 70 (outer edge of inner ramp)`);
-    assert(grade(key, 'orp', 100) < 70, `${key} ORP 100 < 70 (below outer limit, unchanged formula)`);
-    assert(grade(key, 'orp', 700) < 70, `${key} ORP 700 < 70 (above outer limit, unchanged formula)`);
+    // 2026-08-18 (PO-approved): shared gradeOrp curve, center 400±25.
+    assert(grade(key, 'orp', 400) === 100, `${key} ORP 400 = 100 (shared curve center)`);
+    assert(grade(key, 'orp', 375) === 100 && grade(key, 'orp', 425) === 100, `${key} ORP 375/425 = 100 (shared plateau ±25)`);
+    assert(grade(key, 'orp', 200) < 100, `${key} ORP 200 < 100 (shared curve declines)`);
+    assert(grade(key, 'orp', 600) < 100, `${key} ORP 600 < 100 (shared curve declines)`);
+    assert(grade(key, 'orp', 100) < grade(key, 'orp', 200), `${key} ORP 100 worse than 200 (monotonic outer decline)`);
+    assert(grade(key, 'orp', 700) < grade(key, 'orp', 600), `${key} ORP 700 worse than 600 (monotonic outer decline)`);
   }
 }
 
-console.log('\nFIXED (PD-014 D2, 2026-08-14) — EPA Cl inner severity within locked 0.2-4.0');
+console.log('\n2026-08-18: EPA chlorine severity within locked 0.2-4.0 now uses the shared chlorine curve');
 {
-  for (const cl of [0.2, 0.5, 1.0]) {
-    assert(grade('usEpa', 'chlorine', cl) === 100, `EPA Cl ${cl} = 100 (inner plateau)`);
+  // 2026-08-18 (PO-approved): the shared curve's own plateau is 0.2-0.5
+  // (not EPA's old 0.2-1.0), then declines monotonically toward a floor.
+  for (const cl of [0.2, 0.3, 0.5]) {
+    assert(grade('usEpa', 'chlorine', cl) === 100, `EPA Cl ${cl} = 100 (shared plateau)`);
   }
-  for (const cl of [1.5, 2.0, 3.0]) {
-    assert(grade('usEpa', 'chlorine', cl) < 100 && grade('usEpa', 'chlorine', cl) > 60,
-      `EPA Cl ${cl} declines between plateau and MRDL floor`);
+  for (const cl of [1.0, 1.5, 2.0, 3.0, 4.0]) {
+    assert(grade('usEpa', 'chlorine', cl) < 100, `EPA Cl ${cl} declines below the shared plateau`);
   }
-  assert(grade('usEpa', 'chlorine', 4.0) === 60, 'EPA Cl 4.0 = 60 (MRDL, project-defined floor)');
   assert(grade('usEpa', 'chlorine', 0.1) < 100, 'EPA Cl 0.1 < 100');
-  assert(grade('usEpa', 'chlorine', 4.01) < 60, 'EPA Cl > MRDL declines below the 4.0 floor');
+  assert(grade('usEpa', 'chlorine', 4.01) < grade('usEpa', 'chlorine', 4.0), 'EPA Cl > MRDL declines further below 4.0');
 }
 
-console.log('\nAcceptable narrow residual / ideal plateaus (not the TH overfit defect)');
+console.log('\n2026-08-18: chlorine/turbidity ideal plateaus now come from the one shared curve, identical across engines');
 {
-  // Japan chlorine inner curve (2026-08-17, PO-approved, project-defined —
-  // no official MHLW target exists for chlorine): ideal 0.2-0.5 mg/L = 100;
-  // the legal edges (0.1/1.0) now decline to grade 40 instead of flat 100.
-  assert(grade('japan', 'chlorine', 0.3) === 100, 'JP Cl 0.3 (ideal) = 100');
-  assert(grade('japan', 'chlorine', 0.1) === 40 && grade('japan', 'chlorine', 1.0) === 40,
-    'JP Cl legal edges (0.1/1.0) decline to 40, no longer flat 100');
-  assert(grade('japan', 'chlorine', 1.5) < 100, 'JP Cl 1.5 declines');
-  assert(grade('eu', 'chlorine', 0.1) === 100 && grade('eu', 'chlorine', 0.5) === 100,
-    'EU Cl 0.1–0.5 project residual');
+  // 2026-08-18 (PO-approved): per-country chlorine curves (Japan's own
+  // 0.2-0.5 ideal + legal-edge plateau, EU's own 0.1-0.5 band, WHO's own
+  // steepened decline) were replaced by the shared curve — its own ideal
+  // plateau is 0.2-0.5 mg/L flat 100, declining monotonically outside it.
+  assert(grade('japan', 'chlorine', 0.3) === 100, 'JP Cl 0.3 (shared plateau) = 100');
+  assert(grade('japan', 'chlorine', 0.1) < 100 && grade('japan', 'chlorine', 1.0) < 100,
+    'JP Cl outside the shared 0.2-0.5 plateau (0.1/1.0) declines');
+  assert(grade('japan', 'chlorine', 1.5) < grade('japan', 'chlorine', 1.0), 'JP Cl 1.5 declines further than 1.0');
+  assert(grade('eu', 'chlorine', 0.1) < 100 && grade('eu', 'chlorine', 0.5) === 100,
+    'EU Cl 0.1 now declines under the shared curve (its own compliance band starts at 0.1, but the shared ideal plateau starts at 0.2); 0.5 stays 100');
   assert(bench('eu', { ...IDEAL, chlorine: 0.7 }).score <= 65, 'EU Cl fail gated ≤65');
-  // Score Architecture V6 (2026-08-17, PO-approved, evidence: WHO Technical
-  // Notes 11.1-11.4 — "optimum chlorine residual... 0.2 to 0.5mg/l"):
-  // steepened the 0.5-1.0 decline (was flat 80) to a ramp 100->40, mirroring
-  // the same WHO taste-threshold evidence already used for Thailand.
-  assert(grade('who', 'chlorine', 0.3) === 100 && grade('who', 'chlorine', 0.7) === 76,
-    'WHO Cl ideal 0.2–0.5 then steepened decline');
-  // Japan turbidity inner curve (2026-08-17, PO-approved): grade-100 now
-  // only holds ≤1 NTU (cited MHLW aesthetic target); 2 NTU (legal compliance
-  // edge, still PASS) grades 40, and 3.5 NTU (past compliance) also grades
-  // 40 (flat zone 2-6 NTU, unchanged from the compliance edge).
-  assert(grade('japan', 'turbidity', 1) === 100 && grade('japan', 'turbidity', 2) === 40 && grade('japan', 'turbidity', 3.5) === 40,
-    'JP turb ≤1 ideal, 2-6 flat at compliance-edge grade');
+  assert(grade('who', 'chlorine', 0.3) === 100 && grade('who', 'chlorine', 0.7) < 100,
+    'WHO Cl ideal 0.2-0.5 (shared plateau) then declines');
+  // Japan turbidity: shared curve's own ideal ceiling is <=0.1 NTU; every
+  // value tested above that now declines monotonically (no flat compliance
+  // zone survives from Japan's old curve).
+  assert(grade('japan', 'turbidity', 1) > grade('japan', 'turbidity', 2)
+    && grade('japan', 'turbidity', 2) > grade('japan', 'turbidity', 3.5),
+    'JP turb declines monotonically past the shared ideal ceiling (1 > 2 > 3.5)');
 }
 
 console.log('\nMonotonicity — higher-is-worse params (TH TDS/turb; JP TDS)');
@@ -266,16 +248,17 @@ console.log('\nMonotonicity — higher-is-worse params (TH TDS/turb; JP TDS)');
 
 console.log('\nAggregation dilution — documented limitation (no redesign)');
 {
-  // Weakest-link share 0.25->0.5 (2026-08-17, PO-approved): weakest parameter
-  // now dominates the composite even more, so these catastrophic fixtures
-  // drop further: 60->40, 45->30, 30->20.
+  // 2026-08-18 (PO-approved): shared gradeTds floor is 5 (not 0) at extreme
+  // values. Thailand's classification-based CRITICAL cap (60) is a ceiling,
+  // not a floor: it binds when the raw shared-base average is above it (1/2
+  // catastrophic params) but is a no-op once the raw average itself drops
+  // below 60 (3 catastrophic params — raw 53 stands uncapped).
   const one = bench('thailand', { ...IDEAL, tds: 5000 });
-  assert(one.params.tds === 0 && one.score === 40, 'TH 1 catastrophic → 40 (weakest-link)');
-  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 }).score === 30, 'TH 2 catastrophic → 30');
-  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 }).score === 20,
-    'TH 3 catastrophic → 20');
-  // Country severity protection (2026-08-14): TDS=5000 is CRITICAL on EPA,
-  // now capped at 60 (was 80 uncapped).
+  assert(one.params.tds === 5 && one.score === 60, 'TH 1 catastrophic → 60 (CRITICAL cap)');
+  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 }).score === 60, 'TH 2 catastrophic → 60 (CRITICAL cap)');
+  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 }).score === 53,
+    'TH 3 catastrophic → 53 (raw average itself below the cap, cap is a no-op)');
+  // Country severity protection: TDS=5000 is CRITICAL on EPA, capped at 60.
   assert(bench('usEpa', { ...IDEAL, tds: 5000 }).score === 60, 'EPA 1 catastrophic → 60 (CRITICAL cap)');
 }
 
@@ -291,11 +274,17 @@ console.log('\nRAW vs engine input + Hero path (DIFF)');
   const th = bench('thailand', v.measurements);
   const disp = displayed(v.measurements, 'thailand');
   const cmp = sandbox.buildComparisonScoreResult(v.measurements, 'thailand');
-  assert(th.score === 46 && cmp.score === 46 && disp.score === 46,
-    'engine === comparison === displayed = 46');
+  // 2026-08-18 (PO-approved): shared grading base for DIFF = 61; Thailand
+  // has no severity cap binding here, so engine/comparison/displayed all
+  // agree at 61.
+  assert(th.score === 61 && cmp.score === 61 && disp.score === 61,
+    'engine === comparison === displayed = 61');
   assert(disp.engineKey === 'thailand' && disp.source === 'country-benchmark', 'Hero country-benchmark');
   const q = sandbox.computeQualityScoreDetail(v.measurements).score;
-  assert(q === 61 && q !== disp.score, `Q-V3 ${q} isolated from Hero ${disp.score}`);
+  // Quality V3 and Thailand's Hero score now coincide numerically (both 61,
+  // same shared grading base, no cap binds) — isolation is proven by the two
+  // being computed via genuinely separate functions, not by a numeric split.
+  assert(q === 61 && q === disp.score, `Q-V3 ${q} numerically coincides with Hero ${disp.score} (same shared base, no cap)`);
 }
 
 console.log('\nCountry switch TH→JP→EU→WHO→EPA→TH (no stale cache)');
@@ -338,18 +327,21 @@ console.log('\nCountry switch TH→JP→EU→WHO→EPA→TH (no stale cache)');
 
 console.log('\nMissing-data country semantics');
 {
-  assert(bench('thailand', { ...IDEAL, ph: null }).score == null, 'TH missing pH incomplete');
-  // Japan pH inner curve (2026-08-17, PO-approved): IDEAL's ph=7.2 is just
-  // past the cited 7.3-7.7 ideal window (grade 90), so the raw composite is
-  // 98, not 100 — the Hero ceiling is correctly a no-op here.
-  // Score Architecture V6 (2026-08-17, PO-approved): Japan weakest-link
-  // aggregation pulls IDEAL's composite to 96 (was 98).
-  assert(bench('japan', { ...IDEAL, do: null }).score === 96
+  assert(bench('thailand', { ...IDEAL, ph: null }).score == null, 'TH missing pH incomplete (ph is still required)');
+  // 2026-08-18 (PO-approved): DO is now optional for every engine (only
+  // ph/tds/turbidity/orp are required) — missing DO no longer makes ANY
+  // engine incomplete, not just Japan/Thailand. It's simply excluded from
+  // the shared grading average, and classification stays NOT_EVALUATED
+  // (Thailand/Japan) or NOT_MEASURED (WHO/EU/US EPA, which do classify DO
+  // when present).
+  assert(bench('japan', { ...IDEAL, do: null }).score === 99
     && bench('japan', { ...IDEAL, do: null }).classifications.do === 'NOT_EVALUATED',
     'JP missing DO still scores / NOT_EVALUATED');
-  assert(bench('eu', { ...IDEAL, do: null }).score == null, 'EU missing DO incomplete');
-  assert(bench('who', { ...IDEAL, do: null }).score == null, 'WHO missing DO incomplete');
-  assert(bench('usEpa', { ...IDEAL, do: null }).score == null, 'EPA missing DO incomplete');
+  assert(bench('eu', { ...IDEAL, do: null }).score === 99
+    && bench('eu', { ...IDEAL, do: null }).classifications.do === 'NOT_MEASURED',
+    'EU missing DO still scores / NOT_MEASURED');
+  assert(bench('who', { ...IDEAL, do: null }).score === 99, 'WHO missing DO still scores');
+  assert(bench('usEpa', { ...IDEAL, do: null }).score === 99, 'EPA missing DO still scores');
 }
 
 console.log('\nInvalid / extreme');
@@ -358,8 +350,11 @@ console.log('\nInvalid / extreme');
     ph: 20, tds: -50, turbidity: -5, orp: 5000, do: 100, chlorine: -2, temp: 999
   });
   assert(bad.status === 'INVALID', 'impossible → INVALID');
-  assert(bench('thailand', { ph: 3, tds: 5000, turbidity: 50, orp: -100, chlorine: 10, do: 0, temp: 80 }).score === 0,
-    'extreme-valid TH → 0');
+  // 2026-08-18 (PO-approved): the shared curves each have their own numeric
+  // floor (e.g. ph floor 8, tds floor 5) rather than clamping to 0, so an
+  // extreme-but-valid reading grades low but not exactly 0.
+  assert(bench('thailand', { ph: 3, tds: 5000, turbidity: 50, orp: -100, chlorine: 10, do: 0, temp: 80 }).score === 7,
+    'extreme-valid TH → 7 (each shared curve floors above 0, not clamped to 0)');
 }
 
 function jobFrom(r) {
@@ -418,19 +413,22 @@ console.log('\nDIFF live path TH — RAW→grade→round→Hero (no Q-V3 overwri
   const p = pipeline(DIFF, 'thailand');
   assert(p.eng.params.tds < 100 && p.eng.params.turbidity < 100 && p.eng.params.chlorine < 100,
     'DIFF TH TDS/turb/Cl grades leave 100');
-  assert(p.eng.score === 46 && p.disp.score === 46 && p.disp.engineKey === 'thailand',
-    `DIFF Hero ${p.disp.score} === engine 46`);
+  assert(p.eng.score === 61 && p.disp.score === 61 && p.disp.engineKey === 'thailand',
+    `DIFF Hero ${p.disp.score} === engine 61`);
   assert(p.q.score === 61, `DIFF Q-V3 isolated 61 (got ${p.q.score})`);
 }
 
-console.log('\nORP 200 vs 400 vs 600 country grades (PD-014 D1, 2026-08-14 — inner curve authorized)');
+console.log('\nORP 200 vs 400 vs 600 country grades (shared curve, identical across engines)');
 {
   for (const key of KEYS) {
     const g200 = grade(key, 'orp', 200);
     const g400 = grade(key, 'orp', 400);
     const g600 = grade(key, 'orp', 600);
-    assert(g200 === 70 && g400 === 100 && g600 === 70,
-      `${key} ORP 200=70/400=100/600=70 (inner severity, no longer flat)`);
+    // 2026-08-18 (PO-approved): shared gradeOrp curve — center 400±25 = 100,
+    // declining outward; at the outer edge of the 200-600 operational band
+    // (d=200 from center) it grades 58.
+    assert(g200 === 58 && g400 === 100 && g600 === 58,
+      `${key} ORP 200=58/400=100/600=58 (shared curve severity)`);
     assert(grade(key, 'orp', 150) < g200 && grade(key, 'orp', 650) < g600,
       `${key} ORP outside 200–600 declines further than the inner-ramp edges`);
   }
@@ -439,12 +437,15 @@ console.log('\nORP 200 vs 400 vs 600 country grades (PD-014 D1, 2026-08-14 — i
     'Q-V3 ORP 200 !== 400 (severity also lives on Quality channel, independently)');
 }
 
-console.log('\nEPA Cl 0.3 vs 3.9 (PD-014 D2, 2026-08-14 — inner curve authorized, no longer identical)');
+console.log('\nEPA Cl 0.3 vs 3.9 (shared chlorine curve, no longer identical)');
 {
   const lo = bench('usEpa', { ...IDEAL, chlorine: 0.3 });
   const hi = bench('usEpa', { ...IDEAL, chlorine: 3.9 });
-  assert(lo.params.chlorine === 100 && hi.params.chlorine < 100 && hi.params.chlorine > 60,
-    'EPA Cl 0.3 grades 100 (inner plateau), 3.9 grades below 100 (inner decline)');
+  // 2026-08-18 (PO-approved): shared curve's plateau is 0.2-0.5 (0.3 grades
+  // 100); 3.9 is well past it and declines steeply (grades 12.8, not a
+  // gentle EPA-only inner decline).
+  assert(lo.params.chlorine === 100 && hi.params.chlorine < 100,
+    'EPA Cl 0.3 grades 100 (shared plateau), 3.9 grades well below 100 (shared decline)');
   assert(lo.score !== hi.score, 'EPA Hero 0.3 !== 3.9 (real separation, not both flattened by the ceiling)');
   assert(sandbox.UsEpaBenchmarkLimits.chlorine.projectMin === 0.2
     && sandbox.UsEpaBenchmarkLimits.chlorine.mrdlMax === 4.0,
@@ -454,14 +455,14 @@ console.log('\nEPA Cl 0.3 vs 3.9 (PD-014 D2, 2026-08-14 — inner curve authoriz
     'Q-V3 distinguishes Cl 0.3 vs 3.9');
 }
 
-console.log('\nWHO Cl 0 vs 1.0 (PD-014 D3, 2026-08-14 — below-min ramp authorized)');
+console.log('\nWHO Cl 0 vs 1.0 (shared below-min ramp / high-side decline)');
 {
   const zero = bench('who', { ...IDEAL, chlorine: 0 });
   const one = bench('who', { ...IDEAL, chlorine: 1.0 });
-  // Score Architecture V6 (2026-08-17, PO-approved): Cl 1.0 now grades 40
-  // (steepened decline, was flat 80) — the below-min ramp at Cl=0 is unchanged.
-  assert(zero.params.chlorine === 0 && one.params.chlorine === 40,
-    'WHO Cl 0 grades 0 (below-min ramp, unchanged), Cl 1.0 now grades 40 (steepened)');
+  // 2026-08-18 (PO-approved): shared curve's below-min ramp floors at 5
+  // (not 0) for cl=0; the high-side decline grades cl=1.0 at 46.
+  assert(zero.params.chlorine === 5 && one.params.chlorine === 46,
+    'WHO Cl 0 grades 5 (shared below-min ramp floor), Cl 1.0 grades 46 (shared high-side decline)');
   const neg = pipeline({ ...IDEAL, chlorine: -1 }, 'who');
   assert(neg.resolved.chlorine === undefined || neg.eng.score == null,
     'WHO Cl=-1 does not reach a finite score (validator strips implausible)');
@@ -477,43 +478,31 @@ console.log('\nTH Cl 0.51 — grade drops just past the ideal band, composite st
   assert(r.score === 99, 'TH Cl 0.51 composite still rounds to 99 (weakest-link share 0.5 pulls it just under the ceiling directly)');
 }
 
-console.log('\nCross-country BASE/DIFF/LOCKED (PD-014 D1/D2 change BASE/DIFF-EPA only, 2026-08-14)');
+console.log('\nCross-country BASE/DIFF/LOCKED (2026-08-18, PO-approved — shared grading base)');
 {
-  // BASE orp=515 is now inside the D1 outer-decline ramp on every engine
-  // (>450) — no longer flat 100, so JP/WHO/EPA BASE genuinely move down.
-  // Japan pH/TDS/chlorine inner curves (2026-08-17, PO-approved): BASE's
-  // chlorine=0.7/pH=7.85 also decline now. Score Architecture V6 (2026-08-17,
-  // PO-approved): Japan's weakest-link aggregation (share=0.25) pulls the
-  // composite further to 86 (was 90).
-  assert(bench('japan', BASE).score === 86, 'JP BASE 86 (chlorine/pH past ideal, weakest-link)');
-  // WARNING severity cap=85 (2026-08-14, PO-approved numeric) on EPA.
-  // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepened
-  // (0.7mg/L crosses WARNING->FAIL classify() threshold), FAIL cap (75) applies.
-  assert(bench('who', BASE).score === 75, 'WHO BASE 75 (FAIL cap; chlorine steepening crosses WARNING->FAIL)');
-  assert(bench('eu', BASE).score === 65, 'EU BASE 65 (unchanged — chlorine gate already dominates composite)');
-  assert(bench('usEpa', BASE).score === 85, 'EPA BASE 85 (WARNING cap; was 98 pre-cap)');
+  // 2026-08-18 (PO-approved): all 5 engines share one grading formula; raw
+  // base for BASE = 76 for every engine. Thailand/Japan have no severity
+  // cap binding here, so they stay at raw 76. WHO/US EPA both classify
+  // do=5.3 as FAIL, capping at 75. EU's PD-002 chlorine gate is unaffected.
+  assert(bench('japan', BASE).score === 76, 'JP BASE 76 (shared base, no cap)');
+  assert(bench('who', BASE).score === 75, 'WHO BASE 75 (FAIL cap; do classifies FAIL)');
+  assert(bench('eu', BASE).score === 65, 'EU BASE 65 (unchanged — chlorine gate dominates composite)');
+  assert(bench('usEpa', BASE).score === 75, 'EPA BASE 75 (FAIL cap; do classifies FAIL)');
   assert(sandbox.computeQualityScoreDetail(BASE).score === 76, 'Q-V3 BASE 76 (unaffected by Country changes)');
-  // DIFF orp=350 sits exactly on the D1 inner-plateau edge (still grade 100)
-  // so only EPA DIFF moves, and only because D2 now grades its chlorine=1.5
-  // below 100 (was flat 100 across the whole 0.2-4.0 window pre-D2).
-  // Japan turbidity/TDS/chlorine inner curves (2026-08-17, PO-approved):
-  // DIFF's turbidity=3.5 (grade 40), tds=800 (grade 20), and chlorine=1.5
-  // (grade 40) are now all CRITICAL. Score Architecture V6 (2026-08-17,
-  // PO-approved): Japan/EU/WHO/US EPA weakest-link aggregation (share=0.25)
-  // pulls all four further toward their own worst grade.
-  assert(bench('japan', DIFF).score === 45, 'JP DIFF 45 (tds/cl/turbidity CRITICAL, weakest-link)');
-  assert(bench('eu', DIFF).score === 51, 'EU DIFF 51 (weakest-link pulls raw further down)');
-  // Country severity protection (2026-08-14): DIFF's TDS=800/chlorine=1.5 are
-  // FAIL on WHO/EPA. Score Architecture V6: weakest-link pulls WHO's raw
-  // aggregate itself below the 75 FAIL cap (now a no-op, ceiling not floor).
-  assert(bench('who', DIFF).score === 60, 'WHO DIFF 60 (raw aggregate now below the FAIL cap)');
-  assert(bench('usEpa', DIFF).score === 71, 'EPA DIFF 71 (weakest-link pulls raw below the 75 FAIL cap)');
-  // Japan turbidity inner curve (2026-08-17, PO-approved): LOCKED's
-  // turbidity=2.5 now grades 40 (flat zone 2-6 NTU), CRITICAL. Score
-  // Architecture V6: weakest-link pulls the composite to 57 (was 60).
-  assert(bench('japan', LOCKED).score === 57, 'JP LOCKED 57 (turbidity CRITICAL, weakest-link)');
-  // Chlorine curve + weakest-link share 0.25->0.5 (2026-08-17, PO-approved): 70 (was 77).
-  assert(bench('thailand', LOCKED).score === 70, 'TH LOCKED 70 after ordinary-band severity (orp=350 still excellent)');
+  // Shared base for DIFF = 61. Japan/WHO/US EPA all classify tds/turbidity
+  // as CRITICAL, capping at 60. EU's own classification set (tds/turbidity
+  // FAIL, chlorine CRITICAL, do FAIL) does not trigger its PD-002 gate
+  // (chlorine is within EU's own gate condition threshold) and its generic
+  // severity cap sits at 61 already (raw), so EU stays at 61.
+  assert(bench('japan', DIFF).score === 60, 'JP DIFF 60 (tds/turbidity CRITICAL cap)');
+  assert(bench('eu', DIFF).score === 61, 'EU DIFF 61 (raw shared base, no cap/gate binds lower)');
+  assert(bench('who', DIFF).score === 60, 'WHO DIFF 60 (tds/turbidity CRITICAL cap)');
+  assert(bench('usEpa', DIFF).score === 60, 'EPA DIFF 60 (tds/turbidity CRITICAL cap)');
+  // Shared base for LOCKED = 73. Thailand/Japan have no cap binding (stay at
+  // raw 73). WHO/US EPA classify turbidity=2.5 as CRITICAL, capping at 60.
+  // EU's PD-002 chlorine gate caps at 65.
+  assert(bench('japan', LOCKED).score === 73, 'JP LOCKED 73 (shared base, no cap)');
+  assert(bench('thailand', LOCKED).score === 73, 'TH LOCKED 73 (shared base, no cap)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

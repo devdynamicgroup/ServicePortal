@@ -68,17 +68,17 @@ function validated(raw) {
   const epa = sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', readings);
 
   assert(quality < 100, 'Case 1328 Quality V3 score stays below 100 through the validated pipeline');
-  // Raw composite is 100 on every engine for this reading; Country Hero
-  // ceiling caps the displayed score at 99 (100 is reserved for Quality V3).
-  // Thailand weakest-link share 0.25->0.5 (2026-08-17, PO-approved) moves its
-  // raw composite for this reading to 98.35 (rounds to 98, below the ceiling,
-  // so the ceiling is a no-op there). Japan pH inner curve (2026-08-17,
-  // PO-approved): pH=7.79 is just past the 7.3-7.7 ideal window (grade 91).
-  // Score Architecture V6 (2026-08-17, PO-approved): Japan's weakest-link
-  // aggregation (share=0.25) pulls its composite further to 97.
-  assert(th.score === 98 && jp.score === 97 && who.score === 99 && eu.score === 99 && epa.score === 99,
-    'Case 1328 scores 98 (Thailand) / 97 (Japan) / 99 (Hero ceiling on WHO/EU/EPA), independent of Quality V3');
-  assert(quality !== th.score, 'Quality V3 numerically differs from the (selected) country benchmark score');
+  // 2026-08-18 (PO-approved): shared grading base for CASE_1328 = 92 for
+  // every engine; every param classifies PASS on every engine, so no
+  // severity cap or gate binds anywhere, and the raw composite (92, not
+  // 100) never reaches the Country Hero ceiling.
+  assert(th.score === 92 && jp.score === 92 && who.score === 92 && eu.score === 92 && epa.score === 92,
+    'Case 1328 scores 92 on every engine (shared grading base, all-PASS, no cap binds)');
+  // Quality V3 and the country benchmarks now numerically coincide here
+  // (both 92, same shared base, no cap) — independence is proven
+  // structurally below (selecting a different benchmark never changes the
+  // Quality number), not by a forced numeric split.
+  assert(quality === th.score, 'Quality V3 numerically coincides with the (selected) country benchmark score here (same shared base, no cap)');
 
   // Selecting a different benchmark must never change the Quality number.
   [th, jp, who, eu, epa].forEach((benchmarkResult, i) => {
