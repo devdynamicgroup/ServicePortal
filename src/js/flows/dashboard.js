@@ -129,38 +129,53 @@ function discardUnsavedManualCases() {
 
 // Ad-hoc case created by staff on-site. Durable Notion identity is required
 // before the Case is treated as created / opened.
+/**
+ * Re-entrancy guard + visible loading state (2026-08-18 fix): the awaited
+ * server create call could take a moment with no feedback, which read as
+ * "hangs, then suddenly jumps" and invited a double-tap that would create
+ * two Cases from one press. The FAB is disabled for the duration instead.
+ */
 async function createManualCase() {
-  discardUnsavedManualCases();
-  const now = new Date();
-  const iso = formatDate(now);
-  const fmtTime = d => {
-    const h = d.getHours() % 12 || 12;
-    return `${h}:${String(d.getMinutes()).padStart(2, '0')}${d.getHours() >= 12 ? 'PM' : 'AM'}`;
-  };
-  const end = new Date(now.getTime() + 60 * 60 * 1000);
-  if (typeof createDurablePortalCase !== 'function') {
-    showToast(S.lang === 'th' ? 'สร้างเคสไม่สำเร็จ' : 'Could not create case');
-    return;
+  if (S._creatingCase) return;
+  const fab = document.querySelector('.dash-fab');
+  S._creatingCase = true;
+  if (fab) fab.disabled = true;
+  try {
+    discardUnsavedManualCases();
+    const now = new Date();
+    const iso = formatDate(now);
+    const fmtTime = d => {
+      const h = d.getHours() % 12 || 12;
+      return `${h}:${String(d.getMinutes()).padStart(2, '0')}${d.getHours() >= 12 ? 'PM' : 'AM'}`;
+    };
+    const end = new Date(now.getTime() + 60 * 60 * 1000);
+    if (typeof createDurablePortalCase !== 'function') {
+      showToast(S.lang === 'th' ? 'สร้างเคสไม่สำเร็จ' : 'Could not create case');
+      return;
+    }
+    const result = await createDurablePortalCase({
+      name: 'New Client',
+      timeStart: fmtTime(now),
+      timeEnd: fmtTime(end),
+      day: (now.getDay() + 6) % 7,
+      date: iso,
+      status: 'in_progress',
+      startedAt: now.toISOString(),
+      meta: 'Manual case · started on-site'
+    });
+    if (!result?.ok || !result.case?.notionId) {
+      showToast(S.lang === 'th'
+        ? 'สร้างเคสไม่สำเร็จ — ยังไม่ได้บันทึกบนเซิร์ฟเวอร์'
+        : 'Case was not created — server persistence failed');
+      return;
+    }
+    weekBase = getMonday(now);
+    S.selDay = result.case.day;
+    openJob(result.case.id);
+  } finally {
+    S._creatingCase = false;
+    if (fab) fab.disabled = false;
   }
-  const result = await createDurablePortalCase({
-    name: 'New Client',
-    timeStart: fmtTime(now),
-    timeEnd: fmtTime(end),
-    day: (now.getDay() + 6) % 7,
-    date: iso,
-    status: 'in_progress',
-    startedAt: now.toISOString(),
-    meta: 'Manual case · started on-site'
-  });
-  if (!result?.ok || !result.case?.notionId) {
-    showToast(S.lang === 'th'
-      ? 'สร้างเคสไม่สำเร็จ — ยังไม่ได้บันทึกบนเซิร์ฟเวอร์'
-      : 'Case was not created — server persistence failed');
-    return;
-  }
-  weekBase = getMonday(now);
-  S.selDay = result.case.day;
-  openJob(result.case.id);
 }
 
 function commitManualCaseIfNeeded(job = S.activeJob) {

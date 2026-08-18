@@ -8,6 +8,25 @@ const JOB_FIELD_IDS = [
 
 const DEFAULT_TAPS = ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest'];
 
+/**
+ * Deep-clone tapData (which can carry several base64 photo blobs per tap)
+ * without JSON.stringify/parse's string-serialization overhead — this runs
+ * on every Save Draft and every case open, so it was a measurable source of
+ * UI jank on photo-heavy Cases (2026-08-18 fix). structuredClone is a plain
+ * value clone like JSON round-tripping, just implemented natively instead of
+ * via a string; falls back to the JSON approach on engines without it.
+ */
+function fastDeepClone(value) {
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(value);
+    } catch {
+      /* fall through to JSON clone below */
+    }
+  }
+  return JSON.parse(JSON.stringify(value));
+}
+
 /** Durable pointer to the Case the operator was working on (survives reload). */
 const ACTIVE_CASE_REF_KEY = 'wm-active-case-ref';
 
@@ -209,7 +228,7 @@ function saveActiveJobState() {
   draft.paymentSlipSource = S.paymentSlipSource;
   draft.taps = [...(S.taps || DEFAULT_TAPS)];
   draft.activeTap = S.activeTap || 0;
-  draft.tapData = JSON.parse(JSON.stringify(S.tapData || []));
+  draft.tapData = fastDeepClone(S.tapData || []);
 
   draft.fields = {};
   JOB_FIELD_IDS.forEach(id => {
@@ -436,7 +455,7 @@ function loadJobState(job) {
   S.taps = draft.taps?.length ? [...draft.taps] : [...DEFAULT_TAPS];
   S.activeTap = draft.activeTap || 0;
   S.tapData = draft.tapData?.length
-    ? JSON.parse(JSON.stringify(draft.tapData))
+    ? fastDeepClone(draft.tapData)
     : S.taps.map(() => ({ tasks: {}, photos: {} }));
 
   // Normalize abandoned in-flight uploads so previews + retry work after reload.

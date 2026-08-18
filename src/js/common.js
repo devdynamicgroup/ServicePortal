@@ -1,26 +1,43 @@
+/**
+ * Re-entrancy guard + visible "Saving…" state (2026-08-18 fix): the awaited
+ * Notion syncs below can take a moment, and with no feedback the button
+ * looked unresponsive — inviting a second tap that fired a fully separate
+ * concurrent save (duplicate Notion writes / a race between the two calls'
+ * writes to the same job). Navigation to the dashboard already only happens
+ * after both syncs resolve; this only makes that wait visible and single-flight.
+ */
 async function saveDraft() {
-  if (S.activeJob) {
-    if (typeof commitManualCaseIfNeeded === 'function') commitManualCaseIfNeeded();
-    saveActiveJobState();
-    persistJobs();
-    // Create Notion row on Save Draft if create-time sync had not succeeded yet.
-    if (typeof ensureCaseSyncedToNotion === 'function') {
-      const synced = await ensureCaseSyncedToNotion(S.activeJob);
-      if (!synced?.ok && S.activeJob?.manual && !S.activeJob?.notionId) {
-        showToast(S.lang === 'th' ? 'บันทึกร่างแล้ว แต่ยังซิงค์ Notion ไม่สำเร็จ' : 'Draft saved, but Notion sync failed');
+  if (S._savingDraft) return;
+  S._savingDraft = true;
+  const draftBtns = document.querySelectorAll('.btn-draft');
+  draftBtns.forEach(btn => { btn.disabled = true; });
+  try {
+    if (S.activeJob) {
+      if (typeof commitManualCaseIfNeeded === 'function') commitManualCaseIfNeeded();
+      saveActiveJobState();
+      persistJobs();
+      // Create Notion row on Save Draft if create-time sync had not succeeded yet.
+      if (typeof ensureCaseSyncedToNotion === 'function') {
+        const synced = await ensureCaseSyncedToNotion(S.activeJob);
+        if (!synced?.ok && S.activeJob?.manual && !S.activeJob?.notionId) {
+          showToast(S.lang === 'th' ? 'บันทึกร่างแล้ว แต่ยังซิงค์ Notion ไม่สำเร็จ' : 'Draft saved, but Notion sync failed');
+        }
       }
+      if (typeof syncJobAssessmentToNotion === 'function' && S.activeJob?.notionId) {
+        await syncJobAssessmentToNotion(S.activeJob);
+      }
+      if (typeof renderCalendar === 'function') renderCalendar();
+      else if (typeof renderJobs === 'function') renderJobs();
     }
-    if (typeof syncJobAssessmentToNotion === 'function' && S.activeJob?.notionId) {
-      await syncJobAssessmentToNotion(S.activeJob);
+    showToast('Draft saved');
+    const profileJob = S.activeJob;
+    goScreen('s-dash');
+    if (profileJob?.notionId && typeof syncJobProfileToNotion === 'function') {
+      syncJobProfileToNotion(profileJob).catch(() => {});
     }
-    if (typeof renderCalendar === 'function') renderCalendar();
-    else if (typeof renderJobs === 'function') renderJobs();
-  }
-  showToast('Draft saved');
-  const profileJob = S.activeJob;
-  goScreen('s-dash');
-  if (profileJob?.notionId && typeof syncJobProfileToNotion === 'function') {
-    syncJobProfileToNotion(profileJob).catch(() => {});
+  } finally {
+    S._savingDraft = false;
+    draftBtns.forEach(btn => { btn.disabled = false; });
   }
 }
 

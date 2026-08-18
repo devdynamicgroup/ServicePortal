@@ -231,11 +231,36 @@ function requiredAssessmentTaskKeys(pkg = S.pkg) {
  * Validate assessment completeness before Complete.
  * On failure: toast only — no redirect, no score publish, no close, no LINE.
  */
+/**
+ * True when a tap has any real engagement (a task marked done, or a photo
+ * captured) — as opposed to being an untouched default room tab the
+ * surveyor never opened. DEFAULT_TAPS pre-populates 5 room slots
+ * (Kitchen/Master bath/Shower/Laundry/Guest) on every job regardless of how
+ * many rooms are actually being assessed, so completeness must not demand
+ * tasks on rooms nobody ever started (2026-08-18 fix).
+ */
+function tapHasAnyEngagement(tap) {
+  if (!tap) return false;
+  if (Object.values(tap.tasks || {}).some(Boolean)) return true;
+  if (Object.values(tap.photos || {}).some(Boolean)) return true;
+  return false;
+}
+
 function validateAssessmentForComplete({ showErrors = true } = {}) {
   ensureTapData();
   const required = requiredAssessmentTaskKeys();
   const missingTasks = [];
-  (S.tapData || []).forEach((tap, index) => {
+  // Only require completed tasks on taps the surveyor actually engaged with —
+  // never on untouched default room placeholders (2026-08-18 fix; see
+  // tapHasAnyEngagement above). If nothing has been touched yet, fall back to
+  // checking every slot so a brand-new assessment still reports as incomplete.
+  const touchedTaps = (S.tapData || [])
+    .map((tap, index) => ({ tap, index }))
+    .filter(({ tap }) => tapHasAnyEngagement(tap));
+  const tapsToCheck = touchedTaps.length
+    ? touchedTaps
+    : (S.tapData || []).map((tap, index) => ({ tap, index }));
+  tapsToCheck.forEach(({ tap, index }) => {
     const name = (S.taps && S.taps[index]) || `Tap ${index + 1}`;
     required.forEach(key => {
       if (!tap?.tasks?.[key]) missingTasks.push(`${name} · ${key}`);
