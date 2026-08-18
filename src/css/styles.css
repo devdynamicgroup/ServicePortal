@@ -1141,12 +1141,13 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   background:transparent;
 }
 .score-metric-item{
-  border:1px solid var(--border);
+  border:1px solid transparent;
   border-radius:12px;
-  background:var(--surface);
+  background:#f2f0ec;
   overflow:hidden;
   transition:border-color .15s,box-shadow .15s;
 }
+.score-metric-item:nth-child(even){background:#ffffff}
 .score-metric-item.is-open{
   border-color:#d7d3cd;
   box-shadow:0 4px 14px rgba(28,25,23,.06);
