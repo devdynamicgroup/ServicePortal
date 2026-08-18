@@ -213,6 +213,16 @@ function saveActiveJobState() {
   if (!S.activeJob) return;
   const draft = getJobDraft(S.activeJob);
 
+  // 2026-08-18 (PO-approved): client-only "last locally edited" timestamp,
+  // stamped on every local save — distinct from assessmentUpdatedAt, which
+  // only advances once a Notion sync actually confirms (see scheduleAssessmentSync
+  // below / job-state.js:343). Closes a race where a just-typed-but-not-yet-synced
+  // edit and a reload landing in that window could both carry the SAME (stale,
+  // last-confirmed-sync) assessmentUpdatedAt, so AssessmentSnapshot.preferDraft()
+  // couldn't tell the fresher local edit apart from the older remote snapshot
+  // and could discard it. Never sent to the API — local-merge signal only.
+  draft.localEditedAt = new Date().toISOString();
+
   draft.pkg = S.pkg;
   draft.stepsDone = { ...S.stepsDone };
   draft.payMethod = S.payMethod;

@@ -383,6 +383,18 @@
     if (remoteHas && !localHas) return remoteDraft;
     if (!localHas && !remoteHas) return localDraft || remoteDraft || null;
 
+    // 2026-08-18 (PO-approved): localEditedAt (job-state.js saveActiveJobState)
+    // is stamped on every local edit immediately, unlike assessmentUpdatedAt
+    // which only advances once a Notion sync confirms. A just-typed edit whose
+    // sync hasn't landed yet still carries the OLD assessmentUpdatedAt (tied
+    // with remote's), so the timestamp comparison below alone could treat it
+    // as no newer than remote and discard it. Checking localEditedAt first
+    // closes that race — a local edit newer than remote's last confirmed sync
+    // wins regardless of what assessmentUpdatedAt says.
+    const localEditTs = Date.parse(localDraft?.localEditedAt || 0) || 0;
+    const remoteTsForEdit = Date.parse(remoteDraft?.assessmentUpdatedAt || 0) || 0;
+    if (localEditTs > remoteTsForEdit) return localDraft;
+
     const localTs = Date.parse(localDraft?.assessmentUpdatedAt || 0) || 0;
     const remoteTs = Date.parse(remoteDraft?.assessmentUpdatedAt || 0) || 0;
     if (remoteTs > localTs) return remoteDraft;
