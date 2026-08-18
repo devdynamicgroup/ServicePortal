@@ -3,11 +3,16 @@
  * do.min = 5 retained for provenance/compatibility only — not a scored national Ideal;
  * magnitude MUST NOT be replaced or treated as Compliance Index criterion. */
 window.JapanBenchmarkLimits = Object.freeze({
+  // 2026-08-18 (PO-approved): display now shows the government "comfortable
+  // water" target band actually enforced for PASS (ph/tds/turbidity — see
+  // citations below), not the wider legal-minimum band. Chlorine has no
+  // official target (see chlorine citation below) so it still shows the
+  // legal band.
   display: Object.freeze({
-    ph: '5.8 - 8.6',
-    tds: '<= 500 mg/L',
+    ph: '7.3 - 7.7',
+    tds: '<= 200 mg/L',
     chlorine: '<= 1 mg/L',
-    turbidity: '<= 2 NTU',
+    turbidity: '<= 1 NTU',
     orp: '200 - 600 mV',
     do: 'not evaluated (PD-012 B)',
     temp: '<= 30°C'

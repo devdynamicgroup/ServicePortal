@@ -80,10 +80,12 @@ console.log('\nCase 13.28 — Quality V2 + benchmarks');
   assert(quality < 96, `Quality V3 below prior V2 Case A band (got ${quality})`);
   assert(sandbox.QUALITY_SCORE_ENGINE_VERSION === 'quality-v3.0', 'engine version quality-v3.0');
   // 2026-08-18 (PO-approved): all 5 engines share one grading formula; raw
-  // base for CASE_1328 = 92 for every engine (all params classify PASS on
-  // every engine, so no severity cap or gate binds, and the Country Hero
-  // ceiling only applies when the raw composite is 100 — it isn't here).
-  const expected = { thailand: 92, who: 92, eu: 92, japan: 92, usEpa: 92 };
+  // base for CASE_1328 = 92 for every engine. Japan's PASS threshold now
+  // uses its own government-cited "comfortable water" target band (see
+  // japan/limits.js) instead of the wider legal band — CASE_1328's
+  // pH=7.79 misses Japan's tighter 7.3-7.7 target (still fine on every
+  // other engine's wider band), classifying WARNING and capping at 85.
+  const expected = { thailand: 92, who: 92, eu: 92, japan: 85, usEpa: 92 };
   for (const [key, score] of Object.entries(expected)) {
     const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, CASE_1328);
     assert(result.score === score, `${key} Case 13.28 = ${score}`);

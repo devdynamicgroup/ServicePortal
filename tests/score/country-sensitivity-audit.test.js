@@ -334,9 +334,12 @@ console.log('\nMissing-data country semantics');
   // the shared grading average, and classification stays NOT_EVALUATED
   // (Thailand/Japan) or NOT_MEASURED (WHO/EU/US EPA, which do classify DO
   // when present).
-  assert(bench('japan', { ...IDEAL, do: null }).score === 99
+  // Japan's own pH target (7.3-7.7) doesn't include IDEAL's pH=7.2, so it
+  // classifies WARNING (85 cap) regardless of DO — same reasoning as
+  // country-hero-ceiling.test.js's IDEAL fixture.
+  assert(bench('japan', { ...IDEAL, do: null }).score === 85
     && bench('japan', { ...IDEAL, do: null }).classifications.do === 'NOT_EVALUATED',
-    'JP missing DO still scores / NOT_EVALUATED');
+    'JP missing DO still scores (WARNING-capped at 85 by its own pH target) / NOT_EVALUATED');
   assert(bench('eu', { ...IDEAL, do: null }).score === 99
     && bench('eu', { ...IDEAL, do: null }).classifications.do === 'NOT_MEASURED',
     'EU missing DO still scores / NOT_MEASURED');

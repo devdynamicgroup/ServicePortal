@@ -68,9 +68,17 @@ console.log('\nCase A — country raw composite 100 -> Hero 99');
     const r = bench(key, IDEAL);
     // 2026-08-18 (PO-approved): all 5 engines share one grading formula;
     // IDEAL grades 100 on every param for every engine, so the raw
-    // composite is 100 everywhere and the Country Hero ceiling caps all
-    // five uniformly at 99.
-    assert(r.score === 99, `${key} raw-100 fixture (IDEAL) capped to 99 (got ${r.score})`);
+    // composite is 100 everywhere. Japan is the one exception: its own
+    // government-cited "comfortable water" pH target (7.3-7.7 — see
+    // japan/limits.js) doesn't include IDEAL's pH=7.2 (Quality V3's own
+    // project-defined ideal center, not itself Japan-sourced), so pH
+    // classifies WARNING on Japan alone and its 85 severity cap binds
+    // before the 99 Hero ceiling would ever apply.
+    if (key === 'japan') {
+      assert(r.score === 85, `japan raw-100 fixture (IDEAL) WARNING-capped at 85, not the 99 ceiling (got ${r.score})`);
+    } else {
+      assert(r.score === 99, `${key} raw-100 fixture (IDEAL) capped to 99 (got ${r.score})`);
+    }
   }
 }
 
@@ -142,12 +150,14 @@ console.log('\nCase F — existing near-ideal fixture: raw 92 (below ceiling), u
 {
   const CASE_1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06 };
   // 2026-08-18 (PO-approved): shared grading base for CASE_1328 = 92 for
-  // every engine; every param classifies PASS on every engine, so no
-  // severity cap or gate binds anywhere, and the raw composite (92, not
-  // 100) never reaches the ceiling.
+  // every engine. Japan is the exception: pH=7.79 misses its own tighter
+  // comfortable-water target (7.3-7.7 — see japan/limits.js), classifying
+  // WARNING and binding its 85 cap; every other engine's classifications
+  // stay PASS, so their raw composite (92, not 100) never reaches the ceiling.
   for (const key of KEYS) {
     const r = bench(key, CASE_1328);
-    assert(r.score === 92, `${key} Case 1328 (pre-existing near-ideal fixture) = 92 (got ${r.score})`);
+    const expected = key === 'japan' ? 85 : 92;
+    assert(r.score === expected, `${key} Case 1328 (pre-existing near-ideal fixture) = ${expected} (got ${r.score})`);
   }
 }
 

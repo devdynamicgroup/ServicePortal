@@ -88,6 +88,15 @@ console.log('\nA. Numeric protection — PASS unchanged, in-scope engines');
 {
   for (const c of IN_SCOPE) {
     const r = bench(c, IDEAL);
+    // 2026-08-18 (PO-approved): Japan's own government-cited pH target
+    // (7.3-7.7 — see japan/limits.js) doesn't include IDEAL's pH=7.2
+    // (Quality V3's project-defined ideal center, not Japan-sourced), so
+    // Japan alone classifies pH WARNING here and its 85 cap binds.
+    if (c === 'japan') {
+      assert(r.classifications.ph === 'WARNING', 'japan IDEAL reading: pH WARNING (misses Japan\'s own tighter target)');
+      assert(r.score === 85, `japan IDEAL score WARNING-capped at 85 (got ${r.score})`);
+      continue;
+    }
     assert(r.classifications && Object.values(r.classifications).every(v => v === 'PASS' || v === 'NOT_EVALUATED' || v === 'NOT_MEASURED'),
       `${c} IDEAL reading is all-PASS`);
     assert(r.score >= 96, `${c} IDEAL score unaffected by protection (got ${r.score})`);
@@ -220,8 +229,9 @@ console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-ap
   assert(bench('usEpa', newc810).score === 75, `New C 8/10 EPA capped 75 (do classifies FAIL) (got ${bench('usEpa', newc810).score})`);
   assert(bench('eu', newc810).score === 75, 'New C 8/10 EU capped 75 (DO FAIL, non-chlorine severity coverage)');
   // Shared base for c1328 = 92 for every engine; every param classifies PASS
-  // on every engine, so no cap or gate binds anywhere.
-  assert(bench('japan', c1328).score === 92, '13.28 JP 92 (shared base, all-PASS)');
+  // on every engine except Japan, whose own government-cited pH target
+  // (7.3-7.7) doesn't include c1328's pH=7.79 — WARNING, 85 cap binds.
+  assert(bench('japan', c1328).score === 85, '13.28 JP 85 (WARNING-capped, Japan\'s own tighter pH target)');
   assert(bench('who', c1328).score === 92, '13.28 WHO 92 (all-PASS, no cap)');
   assert(bench('usEpa', c1328).score === 92, '13.28 EPA 92 (all-PASS, no cap)');
   assert(bench('thailand', c1328).score === 92, '13.28 TH 92 (shared base, out of this file scope)');
@@ -361,9 +371,12 @@ console.log('\nH. Incomplete score — null must not become 60 or 75');
 console.log('\nI. NOT_EVALUATED / NOT_MEASURED must not trigger protection');
 {
   // Japan DO is always NOT_EVALUATED (PD-012 B) — must never trigger CRITICAL/FAIL cap on its own.
+  // (IDEAL's pH=7.2 misses Japan's own tighter target and binds WARNING(85)
+  // regardless — proven separately in section A above — so this checks DO
+  // doesn't ALSO drag it down to FAIL/CRITICAL, not that DO leaves it uncapped.)
   const r = bench('japan', IDEAL);
   assert(r.classifications.do === 'NOT_EVALUATED', 'Japan DO is NOT_EVALUATED');
-  assert(r.score >= 96, 'Japan DO=NOT_EVALUATED does not trigger severity protection');
+  assert(r.score >= 85, 'Japan DO=NOT_EVALUATED does not additionally drag the cap down to FAIL/CRITICAL');
   const rNoTemp = bench('who', IDEAL);
   assert(rNoTemp.classifications.temp === 'NOT_MEASURED' || rNoTemp.classifications.temp === 'PASS',
     'WHO temp absence does not read as a failure state');
@@ -423,13 +436,20 @@ console.log('\nJ. WARNING presentation (2026-08-14) — reuses existing withinLi
   const jp811Verdict = sandbox.comparisonPresentationVerdict(jp811.score, jp811.classifications, jp811.engineKey);
   assert(jp811Verdict.label === 'score.benchmark.verdict.withinLimits', `Japan PASS (worst=PASS) shows withinLimits at score 76 (got "${jp811Verdict.label}")`);
 
-  // Case 1328: all-PASS on JP/WHO/EPA, shared base 92 (>=80) — passBand.
-  for (const key of ['japan', 'who', 'usEpa']) {
+  // Case 1328: all-PASS on WHO/EPA, shared base 92 (>=80) — passBand. Japan
+  // is the exception: pH=7.79 misses its own tighter comfortable-water
+  // target (7.3-7.7), so worst=WARNING and it shows withinLimits at 85,
+  // same reasoning as jp811 above.
+  for (const key of ['who', 'usEpa']) {
     const r = switchAndRead(key, c1328);
     const v = sandbox.comparisonPresentationVerdict(r.score, r.classifications, r.engineKey);
     assert(v.label === 'score.benchmark.verdict.passBand', `Case 1328 ${key} still passBand (got "${v.label}")`);
     assert(r.score === 92, `Case 1328 ${key} score numerically 92 (got ${r.score})`);
   }
+  const jp1328 = switchAndRead('japan', c1328);
+  const jp1328Verdict = sandbox.comparisonPresentationVerdict(jp1328.score, jp1328.classifications, jp1328.engineKey);
+  assert(jp1328Verdict.label === 'score.benchmark.verdict.withinLimits', `Case 1328 japan withinLimits, not passBand (got "${jp1328Verdict.label}")`);
+  assert(jp1328.score === 85, `Case 1328 japan score numerically 85 (got ${jp1328.score})`);
 
   // FAIL/CRITICAL branches must retain their exact pre-existing behavior.
   const failWho = sandbox.comparisonPresentationVerdict(75, { ph: 'FAIL', tds: 'PASS', turbidity: 'PASS', orp: 'PASS', chlorine: 'PASS', do: 'PASS' }, 'who');

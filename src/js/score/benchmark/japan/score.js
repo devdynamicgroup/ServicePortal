@@ -31,10 +31,17 @@
     if (param === 'do') return 'pending';
     const n = Number(value);
     if (!Number.isFinite(n)) return 'pending';
-    if (param === 'ph') return n >= L.ph.min && n <= L.ph.max ? 'good' : 'attn';
-    if (param === 'tds') return n <= L.tds.displayMax ? 'good' : 'attn';
+    // 2026-08-18 (PO-approved, evidence: MHLW 水質管理目標設定項目/快適水質項目
+    // "comfortable water" targets — see limits.js citations): the visible
+    // Good/Attention status now follows the same tighter government target
+    // band used for classification below (idealMin/idealMax/excellentMax),
+    // not the wider legal-minimum band — so a value reading "Good" here
+    // genuinely means it meets Japan's own stricter target, not just the
+    // legal floor every engine's shared base already accounts for.
+    if (param === 'ph') return n >= L.ph.idealMin && n <= L.ph.idealMax ? 'good' : 'attn';
+    if (param === 'tds') return n <= L.tds.idealMax ? 'good' : 'attn';
     if (param === 'chlorine') return n >= L.chlorine.min && n <= L.chlorine.max ? 'good' : 'attn';
-    if (param === 'turbidity') return n <= L.turbidity.ideal ? 'good' : 'attn';
+    if (param === 'turbidity') return n <= L.turbidity.excellentMax ? 'good' : 'attn';
     if (param === 'orp') return n >= L.orp.min && n <= L.orp.max ? 'good' : 'attn';
     if (param === 'temp') return n <= L.temp.max ? 'good' : 'attn';
     return 'good';
@@ -69,11 +76,21 @@
     const params = base.params;
     const rawScore = base.score;
 
+    // 2026-08-18 (PO-approved): PASS now requires meeting Japan's own
+    // government-cited "comfortable water" target band (水質管理目標設定項目/
+    // 快適水質項目 — see limits.js citations: pH ~7.5 target from two
+    // independent municipal sources; TDS 30-200 mg/L same sources; turbidity
+    // ≤1 NTU = half the legal 2 NTU limit, MHLW), not just the wider legal
+    // minimum every engine's shared base already has to clear — so Japan
+    // now visibly differs from Thailand's own (looser) legal thresholds for
+    // water that would previously have passed both. No official target
+    // exists for chlorine (limits.js notes this explicitly), so chlorine
+    // stays on the legal band.
     const pass = {
-      ph: ph >= L.ph.min && ph <= L.ph.max,
-      tds: tds <= L.tds.displayMax,
+      ph: ph >= L.ph.idealMin && ph <= L.ph.idealMax,
+      tds: tds <= L.tds.idealMax,
       chlorine: cl >= L.chlorine.min && cl <= L.chlorine.max,
-      turbidity: turb <= L.turbidity.ideal,
+      turbidity: turb <= L.turbidity.excellentMax,
       orp: orp >= L.orp.min && orp <= L.orp.max
       // do excluded — never pass/fail Compliance Index via ≥5
     };
@@ -115,7 +132,7 @@
 
     const reasons = [];
     if (!pass.turbidity) {
-      reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds Japanese drinking-water recommendation (≤ 2 NTU).' });
+      reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds Japan’s comfortable-water target (≤ 1 NTU — half the 2 NTU legal limit; MHLW 快適水質項目).' });
     }
     if (!Number.isFinite(cl)) {
       reasons.push({ parameter: 'chlorine', severity: 'warning', message: 'Free chlorine has not been measured yet — this score is provisional and excludes chlorine until it is captured.' });
@@ -125,10 +142,10 @@
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below Japan residual recommendation (≥ 0.1 mg/L).' });
     }
     if (!pass.ph) {
-      reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside Japan national drinking-water range (5.8–8.6).' });
+      reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside Japan’s comfortable-water target (7.3–7.7, ~7.5 target — MHLW‑style municipal tables); still within the wider 5.8–8.6 legal range.' });
     }
     if (!pass.tds) {
-      reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds Japan comparison ceiling (≤ 500 mg/L).' });
+      reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds Japan’s comfortable-water target (≤ 200 mg/L; still within the wider 500 mg/L legal ceiling).' });
     }
 
     const verdict = verdictFrom(rawScore);
@@ -152,10 +169,10 @@
 
     const topPositiveFactors = [];
     const topNegativeFactors = [];
-    if (pass.ph) topPositiveFactors.push('pH is within Japan national range (5.8–8.6)');
-    if (pass.tds) topPositiveFactors.push('TDS is within Japan comparison ceiling (≤ 500 mg/L)');
+    if (pass.ph) topPositiveFactors.push('pH meets Japan’s comfortable-water target (7.3–7.7)');
+    if (pass.tds) topPositiveFactors.push('TDS meets Japan’s comfortable-water target (≤ 200 mg/L)');
     if (pass.chlorine) topPositiveFactors.push('Free chlorine residual meets Japan recommendation (0.1–1 mg/L)');
-    if (pass.turbidity) topPositiveFactors.push('Turbidity meets Japanese drinking-water recommendation (≤ 2 NTU)');
+    if (pass.turbidity) topPositiveFactors.push('Turbidity meets Japan’s comfortable-water target (≤ 1 NTU)');
     if (pass.orp) topPositiveFactors.push('ORP is inside the operational window used for Japan comparison');
     reasons.forEach(r => topNegativeFactors.push(r.message));
 

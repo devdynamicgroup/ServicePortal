@@ -148,11 +148,11 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
     const qA = sandbox.computeScoreFromReadings(CASE_A);
     console.log(`  Case A Quality=${qA} TH=${thA.score} JP=${jpA.score}`);
     // 2026-08-18 (PO-approved): one shared grading formula (computeSharedBenchmarkBase)
-    // replaced each engine's own curves — TH and JP now produce the identical
-    // raw base for the same readings, and (since neither's own thresholds cap
-    // it here) that base equals Quality V3 too. Divergence is now driven only
-    // by each country's own PASS/FAIL thresholds/caps, not by grading itself.
-    assert(thA.score === 92 && jpA.score === 92, 'Case A: TH=JP=92 (shared base, no cap binds)');
+    // replaced each engine's own curves — TH and Quality V3 coincide (no cap
+    // binds Thailand). Japan's own government-cited pH target (7.3-7.7)
+    // doesn't include CASE_A's pH=7.79, so it WARNING-caps at 85, genuinely
+    // diverging from Thailand — driven by Japan's own threshold, not grading.
+    assert(thA.score === 92 && jpA.score === 85, 'Case A: TH=92 JP=85 (Japan\'s own tighter pH target caps it)');
     assert(Number.isFinite(qA) && qA === thA.score, `Case A: Quality ${qA} === TH ${thA.score} (shared formula)`);
   }
   {
@@ -254,7 +254,7 @@ console.log('\nHero data source contract — live display is country engine; Qua
   assert(displayedTh.score === quality, `displayed TH ${displayedTh.score} === Quality ${quality} (shared formula, no cap binds)`);
   assert(th.standardKey === 'thailand' && jp.standardKey === 'japan', 'comparison carries country keys');
   assert(quality === 92, `Case A Quality locked evidence = 92 (got ${quality})`);
-  assert(th.score === 92 && jp.score === 92, 'TH=JP=92 (shared base, no cap binds) while Quality 92');
+  assert(th.score === 92 && jp.score === 85, 'TH=92 (uncapped) JP=85 (Japan\'s own tighter pH target caps it) while Quality 92');
 }
 
 console.log('\nCase persistence — benchmark switch must not wipe caseId / measurements');
@@ -318,11 +318,11 @@ console.log('\nFull matrix (execution evidence)');
     };
   }
   console.log('  MATRIX_JSON', JSON.stringify(matrix));
-  // 2026-08-18 (PO-approved): shared grading base — A and B coincide for
-  // TH/JP (neither country's own thresholds cap them); DIFF is where they
-  // genuinely diverge, via Japan's own stricter thresholds triggering its
-  // own severity cap on top of the same shared raw base Thailand also gets.
-  assert(matrix.A.thailand === 92 && matrix.A.japan === 92, 'matrix A TH=JP=92');
+  // 2026-08-18 (PO-approved): shared grading base — B coincides for TH/JP
+  // (neither country's own thresholds cap it). A and DIFF are where they
+  // genuinely diverge: A via Japan's own tighter pH target (7.3-7.7 misses
+  // pH=7.79), DIFF via Japan's own CRITICAL classification.
+  assert(matrix.A.thailand === 92 && matrix.A.japan === 85, 'matrix A TH=92 JP=85 (Japan pH target)');
   assert(matrix.B.thailand === 78 && matrix.B.japan === 78, 'matrix B TH=JP=78');
   assert(matrix.DIFF.thailand === 61 && matrix.DIFF.japan === 60, 'matrix DIFF TH=61 JP=60');
   assert(matrix.DIFF.thailand !== matrix.DIFF.japan, 'matrix DIFF TH!==JP');

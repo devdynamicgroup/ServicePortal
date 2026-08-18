@@ -92,13 +92,16 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   assert(a.compliance.status === 'PASS', 'Case A compliance PASS');
   assert(b.compliance.status !== 'PASS', 'Case B compliance not PASS');
   // 2026-08-18 (PO-approved): shared grading base; all params classify PASS
-  // on both TH/JP for both cases, so no severity cap binds and the raw
-  // composite (below 100 for both cases, so the Country Hero ceiling never
-  // applies) is 92 for Case A and 78 for Case B on both engines.
+  // on Thailand for both cases, so no cap binds and the raw composite
+  // (below 100, so the Country Hero ceiling never applies) is 92/78 on
+  // Thailand. Japan's own government-cited pH target (7.3-7.7) doesn't
+  // include either Case's pH (7.79 / 7.9): Case A's raw base (92) is above
+  // the 85 WARNING cap, so it binds; Case B's raw base (78) is already
+  // below 85, so the cap is a no-op there.
   assert(bench('thailand', CASE_A) === 92, 'TH Case A = 92');
-  assert(bench('japan', CASE_A) === 92, 'Japan Case A = 92');
+  assert(bench('japan', CASE_A) === 85, 'Japan Case A = 85 (WARNING-capped by its own tighter pH target)');
   assert(bench('thailand', CASE_B) === 78, 'TH Case B = 78');
-  assert(bench('japan', CASE_B) === 78, 'Japan Case B = 78 (DO excluded from JP classification, still shared grading)');
+  assert(bench('japan', CASE_B) === 78, 'Japan Case B = 78 (WARNING classifies but raw base already below the 85 cap)');
 }
 
 console.log('\nCountry differentiation on locked sample (standards differ)');
@@ -124,9 +127,11 @@ console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
   // 2026-08-18 (PO-approved): one shared grading formula means TH and JP now
   // produce the IDENTICAL raw base for the same readings — they only diverge
   // when one country's own classification/severity/gate actually caps it.
-  // Case A/B: neither engine's own thresholds bind here, so TH and JP coincide
+  // Case A: Japan's own pH target (7.3-7.7) doesn't include pH=7.79,
+  // genuinely diverging it (85) from Thailand's uncapped raw base (92).
+  // Case B: neither engine's own thresholds bind, so TH and JP coincide
   // (PD-005: coincidence is not evidence of a ranking either way).
-  assert(bench('thailand', CASE_A) === 92 && bench('japan', CASE_A) === 92, 'Case A TH=JP=92 (shared base, no cap binds)');
+  assert(bench('thailand', CASE_A) === 92 && bench('japan', CASE_A) === 85, 'Case A TH=92 JP=85 (Japan\'s own tighter pH target caps it)');
   assert(bench('thailand', CASE_B) === bench('japan', CASE_B), 'Case B TH===JP (shared base, no cap binds)');
   // Differentiation: outside JP's stricter TDS/turbidity/chlorine thresholds,
   // still inside TH's own — this is where the two are expected to genuinely diverge.

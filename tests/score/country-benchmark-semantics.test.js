@@ -148,16 +148,19 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
     'score flow does not introduce best/worst country ranking');
   // 2026-08-18 (PO-approved): grading is shared, so TH and JP now
   // genuinely CAN coincide when neither country's own classification/cap
-  // distinguishes them (as with this overlap fixture and BASELINE below) —
-  // PD-005 forbids reading that coincidence as a tie/ranking too. To also
-  // prove they CAN genuinely differ once a country-specific classification
-  // threshold binds, a separate reading is used where Japan's own CRITICAL
-  // classification (tds/turbidity/chlorine) caps it below Thailand's raw score.
+  // distinguishes them (as with BASELINE below) — PD-005 forbids reading
+  // that coincidence as a tie/ranking too. This overlap fixture instead now
+  // demonstrates the opposite: Japan's own government-cited "comfortable
+  // water" pH target (7.3-7.7 — see japan/limits.js) is tighter than every
+  // other engine's pH band, so pH=7.79 (still fine everywhere else) already
+  // classifies WARNING on Japan alone and caps it at 85 while Thailand stays
+  // at the shared raw base (92) — a second, independent way scores can
+  // genuinely differ, not a ranking signal either.
   const overlap = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06 };
   const thOverlap = bench('thailand', overlap).score;
   const jpOverlap = bench('japan', overlap).score;
-  assert(thOverlap === 92 && jpOverlap === 92 && thOverlap === jpOverlap,
-    'TH/JP scores coincide here (92 vs 92) — PD-005 forbids reading equality as a ranking outcome either');
+  assert(thOverlap === 92 && jpOverlap === 85 && thOverlap !== jpOverlap,
+    'TH 92 !== JP 85 — Japan\'s own tighter pH target caps it (not Thailand\'s)');
   const thBaseline = bench('thailand', BASELINE.readings);
   const jpBaseline = bench('japan', BASELINE.readings);
   assert(thBaseline.score === 76 && jpBaseline.score === 76,

@@ -69,11 +69,13 @@ function validated(raw) {
 
   assert(quality < 100, 'Case 1328 Quality V3 score stays below 100 through the validated pipeline');
   // 2026-08-18 (PO-approved): shared grading base for CASE_1328 = 92 for
-  // every engine; every param classifies PASS on every engine, so no
-  // severity cap or gate binds anywhere, and the raw composite (92, not
-  // 100) never reaches the Country Hero ceiling.
-  assert(th.score === 92 && jp.score === 92 && who.score === 92 && eu.score === 92 && epa.score === 92,
-    'Case 1328 scores 92 on every engine (shared grading base, all-PASS, no cap binds)');
+  // every engine; every param classifies PASS on every engine except Japan
+  // (its own government-cited pH target 7.3-7.7 doesn't include pH=7.79,
+  // classifying WARNING and binding an 85 cap) — no severity cap or gate
+  // binds anywhere else, and the raw composite (92, not 100) never reaches
+  // the Country Hero ceiling.
+  assert(th.score === 92 && jp.score === 85 && who.score === 92 && eu.score === 92 && epa.score === 92,
+    'Case 1328 scores 92 on every engine except Japan (85, WARNING-capped by its own tighter pH target)');
   // Quality V3 and the country benchmarks now numerically coincide here
   // (both 92, same shared base, no cap) — independence is proven
   // structurally below (selecting a different benchmark never changes the
