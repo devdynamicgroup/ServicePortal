@@ -160,11 +160,15 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
     const jpB = bench('japan', CASE_B);
     const qB = sandbox.computeScoreFromReadings(CASE_B);
     console.log(`  Case B Quality=${qB} TH=${thB.score} JP=${jpB.score}`);
-    // 2026-08-18 (PO-approved): shared grading base — TH and JP coincide again
-    // here (neither engine's own thresholds cap Case B), and both equal Quality V3.
-    assert(jpB.score === 78, `Case B: JP 78 (got ${jpB.score})`);
+    // 2026-08-18 (PO-approved): shared grading base — TH coincides with
+    // Quality V3 (no cap binds Thailand). Japan's own pH target (7.3-7.7)
+    // doesn't include Case B's pH=7.9 either, so it WARNING-classifies; raw
+    // base (78) is already below the 85 cap, but the guaranteed minimum
+    // deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) still comes off:
+    // 78 - 3 = 75, genuinely diverging Japan from Thailand here too.
+    assert(jpB.score === 75, `Case B: JP 75 (got ${jpB.score})`);
     assert(thB.score === 78, `Case B: TH 78 (got ${thB.score})`);
-    assert(thB.score === jpB.score, 'Case B: TH===JP (shared base, no cap binds)');
+    assert(thB.score !== jpB.score, 'Case B: TH!==JP (Japan\'s own pH WARNING + guaranteed deduction)');
     assert(Number.isFinite(qB) && qB === thB.score, `Case B: Quality ${qB} === TH ${thB.score} (shared formula)`);
   }
 }
@@ -318,13 +322,16 @@ console.log('\nFull matrix (execution evidence)');
     };
   }
   console.log('  MATRIX_JSON', JSON.stringify(matrix));
-  // 2026-08-18 (PO-approved): shared grading base — B coincides for TH/JP
-  // (neither country's own thresholds cap it). A and DIFF are where they
-  // genuinely diverge: A via Japan's own tighter pH target (7.3-7.7 misses
-  // pH=7.79), DIFF via Japan's own CRITICAL classification.
+  // 2026-08-18 (PO-approved): shared grading base — A, B, and DIFF all
+  // genuinely diverge TH from JP: A and B via Japan's own tighter pH target
+  // (7.3-7.7 misses both pH=7.79 and pH=7.9, WARNING classifies; B's raw
+  // base is already below the 85 cap, so the guaranteed minimum deduction
+  // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) is what moves it, 78 -> 75),
+  // DIFF via Japan's own CRITICAL classification (raw base already below
+  // the 60 cap too, guaranteed deduction CRITICAL=10 moves it, 61 -> 51).
   assert(matrix.A.thailand === 92 && matrix.A.japan === 85, 'matrix A TH=92 JP=85 (Japan pH target)');
-  assert(matrix.B.thailand === 78 && matrix.B.japan === 78, 'matrix B TH=JP=78');
-  assert(matrix.DIFF.thailand === 61 && matrix.DIFF.japan === 60, 'matrix DIFF TH=61 JP=60');
+  assert(matrix.B.thailand === 78 && matrix.B.japan === 75, 'matrix B TH=78 JP=75 (Japan pH WARNING + guaranteed deduction)');
+  assert(matrix.DIFF.thailand === 61 && matrix.DIFF.japan === 51, 'matrix DIFF TH=61 JP=51 (Japan CRITICAL + guaranteed deduction)');
   assert(matrix.DIFF.thailand !== matrix.DIFF.japan, 'matrix DIFF TH!==JP');
 }
 

@@ -141,10 +141,16 @@ console.log('\nE. Catastrophic sweep — cap composes correctly with the weakest
   // 2026-08-18 (PO-approved): shared formula, plain equal-weight mean (no
   // weakest-link blend) — the CRITICAL cap (60) is what actually holds these
   // down now, correctly still a ceiling (never raises a lower raw score).
+  // 2 and 3 catastrophic: raw average already below 60, so the ceiling
+  // itself is a no-op, but the guaranteed minimum deduction
+  // (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) still always comes off.
   assert(one.score <= 60 && one.score === 60, `1 catastrophic -> capped 60 (got ${one.score})`);
-  assert(two.score <= 60 && two.score === 60, `2 catastrophic -> capped 60 (got ${two.score})`);
-  assert(three.score <= 60 && three.score === 44, `3 catastrophic -> 44, below the cap, cap is a no-op (got ${three.score})`);
-  assert(all.score === 7, `all catastrophic -> 7, below the cap, cap is a no-op (got ${all.score})`);
+  assert(two.score <= 60 && two.score === 52, `2 catastrophic -> 52, cap no-op, guaranteed deduction (got ${two.score})`);
+  assert(three.score <= 60 && three.score === 34, `3 catastrophic -> 34, cap no-op, guaranteed deduction (got ${three.score})`);
+  // 2026-08-18 (PO-approved fix): raw average is below 10, so the
+  // unconditional guaranteed deduction (score - 10) would go negative —
+  // applyCountrySeverityProtection floors the final score at 0 instead.
+  assert(all.score === 0, `all catastrophic -> 0 (floored, not negative) (got ${all.score})`);
 }
 
 console.log('\nF. Cross-engine isolation — Japan/WHO/EU/US EPA scores byte-unchanged by this fix');
@@ -154,10 +160,13 @@ console.log('\nF. Cross-engine isolation — Japan/WHO/EU/US EPA scores byte-unc
   // — these assertions only prove this file's Thailand fixtures don't leak
   // mutation into the other engines' independently-current values, not that
   // the numbers themselves are Thailand-independent (they aren't anymore).
-  assert(bench('japan', r).score === 76, `Japan unaffected by the Thailand-only fixtures in this file (got ${bench('japan', r).score})`);
-  assert(bench('who', r).score === 75, `WHO unaffected (got ${bench('who', r).score})`);
+  // Japan's own pH band (7.3-7.7) classifies ph=7.85 WARNING (guaranteed
+  // deduction 76-3=73); WHO/US EPA classify chlorine/do FAIL (guaranteed
+  // deduction 76-6=70).
+  assert(bench('japan', r).score === 73, `Japan unaffected by the Thailand-only fixtures in this file (got ${bench('japan', r).score})`);
+  assert(bench('who', r).score === 70, `WHO unaffected (got ${bench('who', r).score})`);
   assert(bench('eu', r).score === 65, `EU unaffected (got ${bench('eu', r).score})`);
-  assert(bench('usEpa', r).score === 75, `US EPA unaffected (got ${bench('usEpa', r).score})`);
+  assert(bench('usEpa', r).score === 70, `US EPA unaffected (got ${bench('usEpa', r).score})`);
 }
 
 console.log('\nG. Severity ordering holds: PASS > FAIL-cap-bound > CRITICAL-cap-bound for Thailand too');

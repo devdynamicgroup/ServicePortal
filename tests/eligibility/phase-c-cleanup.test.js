@@ -175,11 +175,15 @@ console.log('\nZero drift: production + benchmark scores unchanged with Phase C 
   assert(Number.isFinite(sandbox.computeScoreFromReadings(FULL_READINGS)), 'Quality V2 computes finite score');
   // 2026-08-18 (PO-approved): all 5 engines now share one grading formula
   // (computeSharedBenchmarkBase); raw base for FULL_READINGS = 73 for every
-  // engine. Thailand/Japan have no severity cap binding here, so they stay
-  // at raw 73. WHO/US EPA both classify turbidity=2.5 as CRITICAL, capping
-  // at 60. EU's PD-002 chlorine gate (chlorine classifies CRITICAL) caps
-  // at 65, overriding the raw 73.
-  const expected = { thailand: 73, who: 60, eu: 65, japan: 73, usEpa: 60 };
+  // engine. Thailand has no severity cap binding here, so it stays at raw
+  // 73. WHO/US EPA both classify turbidity=2.5 as CRITICAL, capping at 60.
+  // EU's PD-002 chlorine gate (chlorine classifies CRITICAL) caps at 65,
+  // overriding the raw 73. Japan's own (tighter) thresholds classify
+  // tds/turbidity FAIL, and the guaranteed minimum deduction
+  // (COUNTRY_SEVERITY_MIN_DEDUCTION.FAIL=6) always comes off when FAIL is
+  // the worst classification, even though raw 73 is below the 75 FAIL
+  // ceiling: 73 - 6 = 67.
+  const expected = { thailand: 73, who: 60, eu: 65, japan: 67, usEpa: 60 };
   for (const key of Object.keys(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS).score === expected[key],
       `${key} score still locked at ${expected[key]}`);

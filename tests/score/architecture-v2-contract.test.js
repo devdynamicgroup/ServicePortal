@@ -120,11 +120,16 @@ console.log('\nD. Aggregation dilution matrix — one catastrophic parameter, fi
   // diluted away by five excellent ones. Thailand/Japan classify DO as
   // NOT_EVALUATED (never CRITICAL), so a catastrophic DO value never caps
   // their score — it only lowers the raw average.
+  // Two cells below also carry the 2026-08-18 guaranteed minimum deduction
+  // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3): japan's do=0 leaves ph
+  // WARNING (raw 84, no cap needed, but 84-3=81); eu's orp=-100 leaves orp
+  // itself WARNING (raw 85, gate does not apply since chlorine is fine, but
+  // 85-3=82).
   const expected = {
     thailand: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 84 },
-    japan: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 84 },
+    japan: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 81 },
     who: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 60 },
-    eu: { ph: 75, tds: 75, turbidity: 60, orp: 85, chlorine: 65, do: 75 },
+    eu: { ph: 75, tds: 75, turbidity: 60, orp: 82, chlorine: 65, do: 75 },
     usEpa: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 60 }
   };
   for (const key of KEYS) {

@@ -52,18 +52,23 @@ const scoreFlowSrc = fs.readFileSync(path.join(root, 'src/js/flows/score.js'), '
 
 // 2026-08-18 (PO-approved): all 5 engines now share one grading formula
 // (computeSharedBenchmarkBase); raw base for this reading = 76 for every
-// engine. Thailand/Japan have no severity cap binding here, so they stay at
-// raw 76 (coincidentally equal to Quality V3 and to each other — see PD-005
-// section below for why that's fine). WHO/US EPA both classify do=5.3 as
-// FAIL, capping at 75. EU's PD-002 chlorine gate is unaffected, still 65.
+// engine. Thailand has no severity cap binding here, so it stays at raw 76
+// (coincidentally equal to Quality V3 — see PD-005 section below for why
+// that's fine). Japan's own tighter pH band (7.3-7.7) classifies ph=7.85
+// WARNING, and the guaranteed minimum deduction
+// (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it to 73 even though the
+// 85 ceiling doesn't bind. WHO/US EPA both classify chlorine/do FAIL,
+// and the guaranteed minimum deduction (FAIL=6) takes raw 76 down to 70
+// even though the 75 ceiling doesn't bind either. EU's PD-002 chlorine gate
+// is unaffected, still 65.
 const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
   thailand: 76,
-  japan: 76,
-  who: 75,
+  japan: 73,
+  who: 70,
   eu: 65,
-  usEpa: 75
+  usEpa: 70
 });
 
 const KEYS = ['thailand', 'japan', 'who', 'eu', 'usEpa'];
@@ -148,7 +153,7 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
     'score flow does not introduce best/worst country ranking');
   // 2026-08-18 (PO-approved): grading is shared, so TH and JP now
   // genuinely CAN coincide when neither country's own classification/cap
-  // distinguishes them (as with BASELINE below) — PD-005 forbids reading
+  // distinguishes them (as with COINCIDE below) — PD-005 forbids reading
   // that coincidence as a tie/ranking too. This overlap fixture instead now
   // demonstrates the opposite: Japan's own government-cited "comfortable
   // water" pH target (7.3-7.7 — see japan/limits.js) is tighter than every
@@ -161,15 +166,27 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   const jpOverlap = bench('japan', overlap).score;
   assert(thOverlap === 92 && jpOverlap === 85 && thOverlap !== jpOverlap,
     'TH 92 !== JP 85 — Japan\'s own tighter pH target caps it (not Thailand\'s)');
+  // BASELINE itself (ph=7.85) is now OUTSIDE Japan's 7.3-7.7 comfortable
+  // band too, so it no longer coincides either: Japan classifies ph
+  // WARNING and the 2026-08-18 guaranteed minimum deduction
+  // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes 76 down to 73 even
+  // though the 85 WARNING ceiling never binds. COINCIDE below (ph=7.5,
+  // otherwise identical to BASELINE) keeps pH inside Japan's own band, so
+  // both engines see worst=PASS and share the same raw base.
   const thBaseline = bench('thailand', BASELINE.readings);
   const jpBaseline = bench('japan', BASELINE.readings);
-  assert(thBaseline.score === 76 && jpBaseline.score === 76,
-    'BASELINE TH 76 === JP 76 (shared grading, no country cap binds — not a ranking signal)');
+  assert(thBaseline.score === 76 && jpBaseline.score === 73 && thBaseline.score !== jpBaseline.score,
+    'BASELINE TH 76 !== JP 73 — Japan\'s own pH WARNING + guaranteed deduction, not Thailand\'s');
+  const coincide = { ...BASELINE.readings, ph: 7.5 };
+  const thCoincide = bench('thailand', coincide).score;
+  const jpCoincide = bench('japan', coincide).score;
+  assert(thCoincide === 77 && jpCoincide === 77 && thCoincide === jpCoincide,
+    'TH 77 === JP 77 (shared grading, ph inside Japan\'s own band too, no country cap binds — not a ranking signal)');
   const diverge = { ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28 };
   const thDiverge = bench('thailand', diverge).score;
   const jpDiverge = bench('japan', diverge).score;
-  assert(thDiverge === 61 && jpDiverge === 60 && thDiverge !== jpDiverge,
-    'TH/JP scores genuinely differ on a fixture where Japan\'s own CRITICAL classification caps it (61 vs 60)');
+  assert(thDiverge === 61 && jpDiverge === 51 && thDiverge !== jpDiverge,
+    'TH/JP scores genuinely differ on a fixture where Japan\'s own CRITICAL classification + guaranteed deduction caps it (61 vs 51)');
   assert(thBaseline.params.chlorine < 100, 'TH chlorine grade already below 100 pre-ceiling (in-band severity)');
   assert(jpBaseline.params.orp < 100, 'JP orp grade now below 100 for orp=515 (PD-014 D1 inner decline)');
   assert(!scoreFlowSrc.includes('strictest cleanliness expectations'),

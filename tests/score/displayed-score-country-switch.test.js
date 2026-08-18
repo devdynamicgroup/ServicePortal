@@ -212,15 +212,18 @@ console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
   });
   assert(q.score === 76, `Quality V3 baseline 76 (got ${q.score})`);
   // 2026-08-18 (PO-approved): shared grading base for BASELINE = 76 for
-  // every engine. Thailand/Japan have no severity cap binding here, so they
-  // stay at raw 76 (coincidentally equal to Quality V3 — see below). WHO/US
-  // EPA both classify do=5.3 as FAIL, capping at 75. EU's PD-002 chlorine
-  // gate is unaffected, still 65.
+  // every engine. Thailand has no severity cap binding here, so it stays at
+  // raw 76 (coincidentally equal to Quality V3 — see below). Japan's own
+  // tighter pH band (7.3-7.7) classifies ph=7.85 WARNING; the guaranteed
+  // minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it
+  // to 73. WHO/US EPA both classify chlorine/do FAIL; the guaranteed
+  // minimum deduction (FAIL=6) takes raw 76 down to 70. EU's PD-002
+  // chlorine gate is unaffected, still 65.
   assert(th.score === 76 && th.engineKey === 'thailand', 'baseline displayed TH=76 from thailand engine');
-  assert(jp.score === 76 && jp.engineKey === 'japan', 'baseline displayed JP=76 from japan engine');
-  assert(who.score === 75 && who.engineKey === 'who', 'baseline displayed WHO=75 from who engine');
+  assert(jp.score === 73 && jp.engineKey === 'japan', 'baseline displayed JP=73 from japan engine');
+  assert(who.score === 70 && who.engineKey === 'who', 'baseline displayed WHO=70 from who engine');
   assert(eu.score === 65 && eu.engineKey === 'eu', 'baseline displayed EU=65 from eu engine');
-  assert(epa.score === 75 && epa.engineKey === 'usEpa', 'baseline displayed EPA=75 from usEpa engine');
+  assert(epa.score === 70 && epa.engineKey === 'usEpa', 'baseline displayed EPA=70 from usEpa engine');
   // Thailand's Hero coincides numerically with Quality V3 here (both 76,
   // same shared base, no cap binds) — expected under the new architecture,
   // not a leak (independence is structural, proven elsewhere).
@@ -271,10 +274,12 @@ console.log('\n10. Quality V3 unchanged');
   switchCountry('japan');
   assert(sandbox.S.currentScoreResult.computedScore === 76, 'publish computedScore stays Quality 76 after JP switch');
   assert(sandbox.S.scoreVal === 76, 'S.scoreVal (publish) stays Quality 76');
-  // 2026-08-18 (PO-approved): shared base for BASELINE = 76 for Japan too —
-  // numerically coincides with Quality V3 here (no cap binds), which is
-  // expected; independence between the two is structural, not numeric.
-  assert(sandbox.S.displayedScore.score === 76, 'displayed Japan score is 76 (coincides with Quality 76, shared base)');
+  // 2026-08-18 (PO-approved): shared base for BASELINE = 76, but Japan's
+  // own tighter pH band (7.3-7.7) classifies ph=7.85 WARNING; the
+  // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3)
+  // takes it to 73 — diverging from Quality V3 here; independence between
+  // the two is structural, not numeric.
+  assert(sandbox.S.displayedScore.score === 73, 'displayed Japan score is 73 (Japan\'s own pH WARNING + guaranteed deduction)');
 }
 
 console.log('\nLive Hero must not fall back to Quality V3 when country score is incomplete');

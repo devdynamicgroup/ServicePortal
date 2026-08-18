@@ -250,14 +250,17 @@ console.log('\nAggregation dilution — documented limitation (no redesign)');
 {
   // 2026-08-18 (PO-approved): shared gradeTds floor is 5 (not 0) at extreme
   // values. Thailand's classification-based CRITICAL cap (60) is a ceiling,
-  // not a floor: it binds when the raw shared-base average is above it (1/2
-  // catastrophic params) but is a no-op once the raw average itself drops
-  // below 60 (3 catastrophic params — raw 53 stands uncapped).
+  // not a floor: it binds when the raw shared-base average is above it (1
+  // catastrophic param). For 2 and 3 catastrophic params the raw average is
+  // already below 60, so the cap itself is a no-op — but the guaranteed
+  // minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) still
+  // always comes off when CRITICAL is the worst classification: raw
+  // 68 -> 58 (2 params), raw 53 -> 43 (3 params).
   const one = bench('thailand', { ...IDEAL, tds: 5000 });
   assert(one.params.tds === 5 && one.score === 60, 'TH 1 catastrophic → 60 (CRITICAL cap)');
-  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 }).score === 60, 'TH 2 catastrophic → 60 (CRITICAL cap)');
-  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 }).score === 53,
-    'TH 3 catastrophic → 53 (raw average itself below the cap, cap is a no-op)');
+  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 }).score === 58, 'TH 2 catastrophic → 58 (raw 68, cap no-op, guaranteed deduction 68-10)');
+  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 }).score === 43,
+    'TH 3 catastrophic → 43 (raw 53, cap no-op, guaranteed deduction 53-10)');
   // Country severity protection: TDS=5000 is CRITICAL on EPA, capped at 60.
   assert(bench('usEpa', { ...IDEAL, tds: 5000 }).score === 60, 'EPA 1 catastrophic → 60 (CRITICAL cap)');
 }
@@ -353,11 +356,14 @@ console.log('\nInvalid / extreme');
     ph: 20, tds: -50, turbidity: -5, orp: 5000, do: 100, chlorine: -2, temp: 999
   });
   assert(bad.status === 'INVALID', 'impossible → INVALID');
-  // 2026-08-18 (PO-approved): the shared curves each have their own numeric
-  // floor (e.g. ph floor 8, tds floor 5) rather than clamping to 0, so an
-  // extreme-but-valid reading grades low but not exactly 0.
-  assert(bench('thailand', { ph: 3, tds: 5000, turbidity: 50, orp: -100, chlorine: 10, do: 0, temp: 80 }).score === 7,
-    'extreme-valid TH → 7 (each shared curve floors above 0, not clamped to 0)');
+  // 2026-08-18 (PO-approved): raw base still floors above 0 (each shared
+  // curve has its own numeric floor, e.g. ph floor 8, tds floor 5) — but this
+  // fixture's worst classification is CRITICAL, and the guaranteed minimum
+  // deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) is unconditional,
+  // so applyCountrySeverityProtection floors the final score at 0 rather
+  // than letting it go negative.
+  assert(bench('thailand', { ph: 3, tds: 5000, turbidity: 50, orp: -100, chlorine: 10, do: 0, temp: 80 }).score === 0,
+    'extreme-valid TH → 0 (CRITICAL guaranteed deduction floored at 0, not negative)');
 }
 
 function jobFrom(r) {
@@ -484,27 +490,36 @@ console.log('\nTH Cl 0.51 — grade drops just past the ideal band, composite st
 console.log('\nCross-country BASE/DIFF/LOCKED (2026-08-18, PO-approved — shared grading base)');
 {
   // 2026-08-18 (PO-approved): all 5 engines share one grading formula; raw
-  // base for BASE = 76 for every engine. Thailand/Japan have no severity
-  // cap binding here, so they stay at raw 76. WHO/US EPA both classify
-  // do=5.3 as FAIL, capping at 75. EU's PD-002 chlorine gate is unaffected.
-  assert(bench('japan', BASE).score === 76, 'JP BASE 76 (shared base, no cap)');
-  assert(bench('who', BASE).score === 75, 'WHO BASE 75 (FAIL cap; do classifies FAIL)');
+  // base for BASE = 76 for every engine. Thailand has no severity cap
+  // binding here, so it stays at raw 76. Japan's own tighter pH band
+  // (7.3-7.7) classifies ph=7.85 WARNING; the guaranteed minimum deduction
+  // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it to 73 even though
+  // the 85 ceiling doesn't bind. WHO/US EPA both classify chlorine/do FAIL;
+  // the guaranteed minimum deduction (FAIL=6) takes raw 76 down to 70 even
+  // though the 75 ceiling doesn't bind either. EU's PD-002 chlorine gate is
+  // unaffected.
+  assert(bench('japan', BASE).score === 73, 'JP BASE 73 (shared base, WARNING guaranteed deduction)');
+  assert(bench('who', BASE).score === 70, 'WHO BASE 70 (FAIL guaranteed deduction; do/chlorine classify FAIL)');
   assert(bench('eu', BASE).score === 65, 'EU BASE 65 (unchanged — chlorine gate dominates composite)');
-  assert(bench('usEpa', BASE).score === 75, 'EPA BASE 75 (FAIL cap; do classifies FAIL)');
+  assert(bench('usEpa', BASE).score === 70, 'EPA BASE 70 (FAIL guaranteed deduction; do classifies FAIL)');
   assert(sandbox.computeQualityScoreDetail(BASE).score === 76, 'Q-V3 BASE 76 (unaffected by Country changes)');
   // Shared base for DIFF = 61. Japan/WHO/US EPA all classify tds/turbidity
-  // as CRITICAL, capping at 60. EU's own classification set (tds/turbidity
-  // FAIL, chlorine CRITICAL, do FAIL) does not trigger its PD-002 gate
-  // (chlorine is within EU's own gate condition threshold) and its generic
-  // severity cap sits at 61 already (raw), so EU stays at 61.
-  assert(bench('japan', DIFF).score === 60, 'JP DIFF 60 (tds/turbidity CRITICAL cap)');
-  assert(bench('eu', DIFF).score === 61, 'EU DIFF 61 (raw shared base, no cap/gate binds lower)');
-  assert(bench('who', DIFF).score === 60, 'WHO DIFF 60 (tds/turbidity CRITICAL cap)');
-  assert(bench('usEpa', DIFF).score === 60, 'EPA DIFF 60 (tds/turbidity CRITICAL cap)');
-  // Shared base for LOCKED = 73. Thailand/Japan have no cap binding (stay at
-  // raw 73). WHO/US EPA classify turbidity=2.5 as CRITICAL, capping at 60.
-  // EU's PD-002 chlorine gate caps at 65.
-  assert(bench('japan', LOCKED).score === 73, 'JP LOCKED 73 (shared base, no cap)');
+  // as CRITICAL; raw 61 is already below the 60 CRITICAL ceiling, so the
+  // guaranteed minimum deduction (CRITICAL=10) is what actually moves it:
+  // 61 - 10 = 51. EU's own classification set (tds/turbidity FAIL, chlorine
+  // CRITICAL, do FAIL) does trigger its PD-002 gate (chlorine outside EU's
+  // own band, gate cap 65), but its generic (non-chlorine) severity worst
+  // is FAIL, and 61 - 6 = 55 is now lower than the 65 gate cap, so the
+  // generic guaranteed deduction — not the gate — ends up dominant: 55.
+  assert(bench('japan', DIFF).score === 51, 'JP DIFF 51 (tds/turbidity CRITICAL cap + guaranteed deduction)');
+  assert(bench('eu', DIFF).score === 55, 'EU DIFF 55 (non-chlorine FAIL guaranteed deduction now lower than the 65 chlorine gate)');
+  assert(bench('who', DIFF).score === 51, 'WHO DIFF 51 (tds/turbidity CRITICAL cap + guaranteed deduction)');
+  assert(bench('usEpa', DIFF).score === 51, 'EPA DIFF 51 (tds/turbidity CRITICAL cap + guaranteed deduction)');
+  // Shared base for LOCKED = 73. Thailand has no cap binding (stays at raw
+  // 73). Japan's own tighter thresholds classify tds/turbidity FAIL; raw 73
+  // is already below the 75 FAIL ceiling, so the guaranteed minimum
+  // deduction (FAIL=6) takes it to 67.
+  assert(bench('japan', LOCKED).score === 67, 'JP LOCKED 67 (shared base, FAIL guaranteed deduction)');
   assert(bench('thailand', LOCKED).score === 73, 'TH LOCKED 73 (shared base, no cap)');
 }
 

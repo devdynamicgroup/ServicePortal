@@ -227,14 +227,18 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
   assert(q === 76, `Quality V3 still 76 (got ${q})`);
   // 2026-08-18 (PO-approved): all 5 engines now share one grading formula
   // (computeSharedBenchmarkBase); raw base for BASE = 76 for every engine.
-  // Thailand/Japan have no severity cap binding here, so they stay at raw 76.
+  // Thailand has no severity cap binding here, so it stays at raw 76.
+  // Japan's own tighter pH band (7.3-7.7) classifies ph=7.85 WARNING; the
+  // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3)
+  // takes it to 73.
   assert(bench('thailand', BASE).score === 76, 'TH baseline 76 (shared base, no cap)');
-  assert(bench('japan', BASE).score === 76, 'JP baseline 76 (shared base, no cap)');
-  // WHO classifies do=5.3 as FAIL; FAIL cap (75) does not lower a raw 76 below itself,
-  // but WHO's own severity protection still binds at the FAIL cap value.
-  assert(bench('who', BASE).score === 75, 'WHO baseline 75 (FAIL cap)');
+  assert(bench('japan', BASE).score === 73, 'JP baseline 73 (shared base, WARNING guaranteed deduction)');
+  // WHO classifies do=5.3/chlorine=0.7 as FAIL; raw 76 is already below the
+  // 75 FAIL ceiling, so the guaranteed minimum deduction (FAIL=6) is what
+  // actually moves it: 76 - 6 = 70.
+  assert(bench('who', BASE).score === 70, 'WHO baseline 70 (FAIL guaranteed deduction)');
   assert(bench('eu', BASE).score === 65, 'EU baseline 65');
-  assert(bench('usEpa', BASE).score === 75, 'EPA baseline 75 (FAIL cap, do classifies FAIL)');
+  assert(bench('usEpa', BASE).score === 70, 'EPA baseline 70 (FAIL guaranteed deduction, do classifies FAIL)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

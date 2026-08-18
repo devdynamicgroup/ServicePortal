@@ -236,8 +236,12 @@ console.log('\nTest 7 — Benchmark scores locked (must not drift)');
   // here (worst classification stays within their own tolerance) so they
   // stay at raw 73. WHO/US EPA both classify turbidity=2.5 as CRITICAL,
   // capping at 60. EU's PD-002 chlorine gate (chlorine classifies CRITICAL)
-  // caps at 65, overriding the raw 73.
-  const expected = { thailand: 73, who: 60, eu: 65, japan: 73, usEpa: 60 };
+  // caps at 65, overriding the raw 73. Japan's own (tighter) thresholds
+  // classify tds/turbidity FAIL here, and the 2026-08-18 guaranteed minimum
+  // deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.FAIL=6) always comes off when
+  // FAIL is the worst classification, even though raw 73 is already below
+  // the 75 FAIL ceiling: 73 - 6 = 67.
+  const expected = { thailand: 73, who: 60, eu: 65, japan: 67, usEpa: 60 };
   for (const key of KEYS) {
     const score = reg.calculate(key, SAMPLE).score;
     assert(score === expected[key], `${key} score locked at ${expected[key]} (got ${score})`);

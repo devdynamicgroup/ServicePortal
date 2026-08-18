@@ -125,12 +125,16 @@ console.log('\nOther engines unchanged on baseline New C readings');
 {
   const r = NEW_C_811;
   // 2026-08-18 (PO-approved): shared grading base for r = 76 for every
-  // engine. Japan has no severity cap binding here, so it stays at raw 76.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 76, 'JP 76');
-  // WHO/EPA both classify do=5.3 as FAIL, FAIL cap (75) applies.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', r).score === 75, 'WHO 75 (FAIL cap)');
+  // engine. Japan's own tighter pH band (7.3-7.7) classifies ph=7.85
+  // WARNING; the guaranteed minimum deduction
+  // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it to 73.
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 73, 'JP 73 (WARNING guaranteed deduction)');
+  // WHO/EPA both classify chlorine/do as FAIL; raw 76 is already below the
+  // 75 FAIL ceiling, so the guaranteed minimum deduction (FAIL=6) is what
+  // actually moves it: 76 - 6 = 70.
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', r).score === 70, 'WHO 70 (FAIL guaranteed deduction)');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', r).score === 65, 'EU unchanged 65');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 75, 'EPA 75 (FAIL cap)');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 70, 'EPA 70 (FAIL guaranteed deduction)');
   assert(sandbox.computeQualityScoreDetail(r).score === 76, 'Q-V3 unchanged 76');
 }
 

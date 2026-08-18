@@ -48,6 +48,20 @@ function applyCountryBenchmarkHeroCeiling(score) {
  */
 const COUNTRY_SEVERITY_CAPS = Object.freeze({ FAIL: 75, CRITICAL: 60, WARNING: 85 });
 
+/**
+ * Guaranteed minimum deduction (2026-08-18, PO-approved product decision;
+ * numbers are not derived from any curve/citation, same status as the caps
+ * above). The ceiling above only ever fires when the raw composite exceeds
+ * it — if the raw composite is already below the cap, a failing
+ * classification previously moved nothing numerically, only the
+ * classification/status color, which read as confusing (a param visibly
+ * failing with no score change). This guarantees at least this many points
+ * come off whenever the given tier is the worst classification, applied
+ * alongside (never instead of) the ceiling — Math.min of the two, so it can
+ * only ever lower the score further, never raise it above the ceiling.
+ */
+const COUNTRY_SEVERITY_MIN_DEDUCTION = Object.freeze({ WARNING: 3, FAIL: 6, CRITICAL: 10 });
+
 function worstBenchmarkClassification(classifications) {
   const order = { CRITICAL: 3, FAIL: 2, WARNING: 1, PASS: 0 };
   let worst = 'PASS';
@@ -62,10 +76,14 @@ function worstBenchmarkClassification(classifications) {
 function applyCountrySeverityProtection(score, classifications) {
   if (!Number.isFinite(score)) return score;
   const worst = worstBenchmarkClassification(classifications);
-  if (worst === 'CRITICAL') return Math.min(score, COUNTRY_SEVERITY_CAPS.CRITICAL);
-  if (worst === 'FAIL') return Math.min(score, COUNTRY_SEVERITY_CAPS.FAIL);
-  if (worst === 'WARNING') return Math.min(score, COUNTRY_SEVERITY_CAPS.WARNING);
-  return score;
+  if (worst === 'PASS') return score;
+  const cap = COUNTRY_SEVERITY_CAPS[worst];
+  const deduction = COUNTRY_SEVERITY_MIN_DEDUCTION[worst];
+  // A water-quality score below 0 is meaningless — the guaranteed deduction
+  // is unconditional (applies regardless of how low the raw composite
+  // already is), so an already-catastrophic reading (raw near 0) must still
+  // floor at 0, not go negative.
+  return Math.max(0, Math.min(score, cap, score - deduction));
 }
 
 /**

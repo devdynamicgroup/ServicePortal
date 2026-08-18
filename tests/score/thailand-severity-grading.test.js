@@ -169,7 +169,11 @@ console.log('\nDIFF pipeline retrace (RAW === engine input)');
   assert(t.displayed === 61 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
     'DIFF Hero = Thailand 61');
   const jp = trace(DIFF, 'japan');
-  assert(jp.postRound === 60 && jp.displayed === 60, `DIFF JP 60 (got ${jp.postRound})`);
+  // Raw base for DIFF is 61, already below Japan's 60 CRITICAL ceiling, so
+  // the 2026-08-18 guaranteed minimum deduction
+  // (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) is what actually moves it:
+  // 61 - 10 = 51.
+  assert(jp.postRound === 51 && jp.displayed === 51, `DIFF JP 51 (got ${jp.postRound})`);
   const q = sandbox.computeQualityScoreDetail(DIFF).score;
   assert(q === 61, 'DIFF Q-V3 unchanged 61');
 }
@@ -194,10 +198,16 @@ console.log('\nCross-engine isolation');
   assert(sandbox.EuBenchmarkLimits.gateCapOnChlorineFail === 65, 'EU gate 65');
   assert(sandbox.UsEpaBenchmarkLimits.chlorine.max === 4.0, 'EPA Cl max 4.0');
   const jp = sandbox.WaterScoreBenchmarkRegistry.calculate('japan', BASE);
-  assert(jp.score === 76 && jp.classifications.do === 'NOT_EVALUATED', `JP BASE 76 / DO NE (got ${jp.score})`);
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', BASE).score === 75, 'WHO 75 (FAIL cap)');
+  // Japan's own tighter pH band (7.3-7.7) classifies ph=7.85 WARNING; the
+  // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3)
+  // takes raw 76 to 73.
+  assert(jp.score === 73 && jp.classifications.do === 'NOT_EVALUATED', `JP BASE 73 / DO NE (got ${jp.score})`);
+  // WHO/EPA classify chlorine/do FAIL; raw 76 is already below the 75 FAIL
+  // ceiling, so the guaranteed minimum deduction (FAIL=6) is what actually
+  // moves it: 76 - 6 = 70.
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', BASE).score === 70, 'WHO 70 (FAIL guaranteed deduction)');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', BASE).score === 65, 'EU 65');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', BASE).score === 75, 'EPA 75 (FAIL cap — DO=5.3 below EPA\'s own floor)');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', BASE).score === 70, 'EPA 70 (FAIL guaranteed deduction — DO=5.3 below EPA\'s own floor)');
 }
 
 console.log('\nCatastrophic dilution (aggregation now a plain equal-weight mean — severity caps do the heavy lifting)');
@@ -207,9 +217,17 @@ console.log('\nCatastrophic dilution (aggregation now a plain equal-weight mean 
   const three = th({ ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 });
   const all = th({ ph: 3, tds: 5000, turbidity: 50, orp: -100, chlorine: 10, do: 0, temp: 80 });
   assert(one.score === 60, `1 catastrophic → 60 (CRITICAL cap) (got ${one.score})`);
-  assert(two.score === 60, `2 catastrophic → 60 (CRITICAL cap) (got ${two.score})`);
-  assert(three.score === 53, `3 catastrophic → 53 (got ${three.score})`);
-  assert(all.score === 7, `all catastrophic → 7 (got ${all.score})`);
+  // 2 and 3 catastrophic: raw average already below 60, so the ceiling
+  // itself is a no-op, but the 2026-08-18 guaranteed minimum deduction
+  // (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) still always comes off:
+  // raw 68 -> 58 (2 params), raw 53 -> 43 (3 params).
+  assert(two.score === 58, `2 catastrophic → 58 (raw 68, cap no-op, guaranteed deduction) (got ${two.score})`);
+  assert(three.score === 43, `3 catastrophic → 43 (raw 53, cap no-op, guaranteed deduction) (got ${three.score})`);
+  // 2026-08-18 (PO-approved fix): raw average is 7, and the unconditional
+  // guaranteed minimum deduction (score - 10) would go negative — a water
+  // quality score below 0 is meaningless, so applyCountrySeverityProtection
+  // floors the final score at 0.
+  assert(all.score === 0, `all catastrophic → 0 (raw 7, CRITICAL deduction floored at 0, not negative) (got ${all.score})`);
 }
 
 console.log('\nCross-country matrix (recomputed against the shared-formula rebuild)');
@@ -222,14 +240,20 @@ console.log('\nCross-country matrix (recomputed against the shared-formula rebui
     // shared-formula number; divergence between th/jp/eu/who/epa below comes
     // only from each country's own classification/severity-cap/gate acting
     // on that shared number. Every value recomputed directly, not estimated.
-    ['BASE', BASE, { th: 76, jp: 76, eu: 65, who: 75, epa: 75, q: 76 }],
-    ['DIFF', DIFF, { th: 61, jp: 60, eu: 61, who: 60, epa: 60, q: 61 }],
-    ['LOCKED', LOCKED, { th: 73, jp: 73, eu: 65, who: 60, epa: 60, q: 73 }],
+    // 2026-08-18 (PO-approved, guaranteed minimum deduction added same day):
+    // several jp/eu/who/epa cells below now also carry
+    // COUNTRY_SEVERITY_MIN_DEDUCTION (WARNING=3 / FAIL=6 / CRITICAL=10),
+    // which always comes off when that tier is the worst classification —
+    // even when the raw shared-base number is already below the tier's
+    // ceiling. Every value recomputed directly, not estimated.
+    ['BASE', BASE, { th: 76, jp: 73, eu: 65, who: 70, epa: 70, q: 76 }],
+    ['DIFF', DIFF, { th: 61, jp: 51, eu: 55, who: 51, epa: 51, q: 61 }],
+    ['LOCKED', LOCKED, { th: 73, jp: 67, eu: 65, who: 60, epa: 60, q: 73 }],
     ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 90, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
     ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 90, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
     ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 90, jp: 60, eu: 65, who: 60, epa: 90, q: 90 }],
-    ['twoBad', twoBad, { th: 80, jp: 60, eu: 75, who: 60, epa: 60, q: 80 }],
-    ['threeBad', threeBad, { th: 69, jp: 60, eu: 65, who: 60, epa: 60, q: 69 }]
+    ['twoBad', twoBad, { th: 80, jp: 60, eu: 74, who: 60, epa: 60, q: 80 }],
+    ['threeBad', threeBad, { th: 69, jp: 59, eu: 63, who: 59, epa: 59, q: 69 }]
   ];
   for (const [label, readings, exp] of rows) {
     const got = {
@@ -253,7 +277,9 @@ console.log('\nPhysical / impossible');
   });
   assert(v.status === 'INVALID', 'impossible → INVALID');
   const extreme = th({ ph: 3, tds: 5000, turbidity: 50, orp: -100, do: 0, chlorine: 10, temp: 80 });
-  assert(extreme.score === 7, `extreme-valid TH 7 (got ${extreme.score})`);
+  // 2026-08-18 (PO-approved): CRITICAL's guaranteed deduction floors at 0
+  // rather than going negative (raw 7 - 10 would be -3).
+  assert(extreme.score === 0, `extreme-valid TH 0 (floored, not negative) (got ${extreme.score})`);
   const notPerfect = th({ ph: 0.1, tds: 0, turbidity: 0, orp: -1999, chlorine: 0, do: 0, temp: 0 });
   assert(notPerfect.score < 100, `extreme-but-valid cannot be perfect (got ${notPerfect.score})`);
 }

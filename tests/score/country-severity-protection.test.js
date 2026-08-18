@@ -217,14 +217,20 @@ console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-ap
   const newc810 = { ph: 7.81, tds: 14.672, turbidity: 0.46, orp: 499.3, do: 5.31, chlorine: 0.37 };
   const c1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3 };
   // 2026-08-18 (PO-approved): shared grading base for newc811 = 76 for every
-  // engine. Japan has no severity cap binding, so it stays at raw 76.
-  assert(bench('japan', newc811).score === 76, 'New C 8/11 JP 76 (shared base, no cap)');
-  // WHO classifies chlorine=0.7 as FAIL (shared curve), do=5.3 as FAIL — FAIL cap (75) applies.
-  assert(bench('who', newc811).score === 75, `New C 8/11 WHO capped 75 (got ${bench('who', newc811).score})`);
-  assert(bench('usEpa', newc811).score === 75, `New C 8/11 EPA capped 75 (do classifies FAIL) (got ${bench('usEpa', newc811).score})`);
+  // engine. Japan's own tighter pH band (7.3-7.7) classifies ph=7.85
+  // WARNING; the guaranteed minimum deduction
+  // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it to 73 even though
+  // the 85 ceiling doesn't bind.
+  assert(bench('japan', newc811).score === 73, 'New C 8/11 JP 73 (shared base, WARNING guaranteed deduction)');
+  // WHO classifies chlorine=0.7 as FAIL (shared curve), do=5.3 as FAIL —
+  // raw 76 is already below the 75 FAIL ceiling, so the guaranteed minimum
+  // deduction (FAIL=6) is what actually moves it: 76 - 6 = 70.
+  assert(bench('who', newc811).score === 70, `New C 8/11 WHO FAIL guaranteed deduction (got ${bench('who', newc811).score})`);
+  assert(bench('usEpa', newc811).score === 70, `New C 8/11 EPA FAIL guaranteed deduction (do classifies FAIL) (got ${bench('usEpa', newc811).score})`);
   assert(bench('eu', newc811).score === 65, 'New C 8/11 EU 65 (chlorine CRITICAL triggers PD-002 gate)');
-  // Shared base for newc810 = 82 for every engine.
-  assert(bench('japan', newc810).score === 82, 'New C 8/10 JP 82 (shared base, no cap)');
+  // Shared base for newc810 = 82 for every engine. Japan's own tighter pH
+  // band still classifies ph=7.81 WARNING; guaranteed deduction: 82 - 3 = 79.
+  assert(bench('japan', newc810).score === 79, 'New C 8/10 JP 79 (shared base, WARNING guaranteed deduction)');
   assert(bench('who', newc810).score === 75, `New C 8/10 WHO capped 75 (do classifies FAIL) (got ${bench('who', newc810).score})`);
   assert(bench('usEpa', newc810).score === 75, `New C 8/10 EPA capped 75 (do classifies FAIL) (got ${bench('usEpa', newc810).score})`);
   assert(bench('eu', newc810).score === 75, 'New C 8/10 EU capped 75 (DO FAIL, non-chlorine severity coverage)');
@@ -286,11 +292,15 @@ console.log('\nK. EU non-chlorine severity-protection coverage (2026-08-14, PO-a
   assert(euCombinedHigh.score === 65, `E1: PD-002 gate (65) binds over the generic FAIL cap (75) (got ${euCombinedHigh.score})`);
 
   // E2. Adding a CRITICAL turbidity (generic cap 60) alongside chlorine
-  // CRITICAL (gate 65): the lower of the two — 60 — must win (Math.min
-  // semantics, ceiling not floor).
+  // CRITICAL (gate 65): the lower of the two must win (Math.min semantics,
+  // ceiling not floor). Raw (non-chlorine) base is 63 here, above the 60
+  // ceiling, so the guaranteed minimum deduction
+  // (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) is what actually decides
+  // it: 63 - 10 = 53, lower than both the 60 generic ceiling and the 65
+  // chlorine gate.
   const euCombinedLow = bench('eu', { ...IDEAL, chlorine: 0, do: 4.5, turbidity: 6 });
   assert(euCombinedLow.classifications.chlorine === 'CRITICAL' && euCombinedLow.classifications.turbidity === 'CRITICAL', 'E2: chlorine CRITICAL + turbidity CRITICAL + DO FAIL');
-  assert(euCombinedLow.score === 60, `E2: the lower generic CRITICAL cap (60) wins over the chlorine gate (65) (got ${euCombinedLow.score})`);
+  assert(euCombinedLow.score === 53, `E2: the lower generic CRITICAL cap + guaranteed deduction (53) wins over the chlorine gate (65) (got ${euCombinedLow.score})`);
 
   // F. Clean case — all PASS unaffected, 99 ceiling unaffected.
   const euClean = bench('eu', IDEAL);
@@ -399,10 +409,13 @@ console.log('\nJ. WARNING presentation (2026-08-14) — reuses existing withinLi
   // Score Architecture V6 (2026-08-17, PO-approved): WHO chlorine steepening
   // crosses newc811's chlorine=0.7 from WARNING into FAIL classification, so
   // this fixture no longer demonstrates the WARNING presentation branch on
-  // WHO -- it now correctly takes the FAIL path instead.
+  // WHO -- it now correctly takes the FAIL path instead. Raw base (76) is
+  // already below the 75 FAIL ceiling, so the 2026-08-18 guaranteed minimum
+  // deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.FAIL=6) is what actually moves
+  // it: 76 - 6 = 70.
   const who811 = switchAndRead('who', newc811);
-  assert(who811.score === 75 && who811.classifications && sandbox.worstBenchmarkClassification(who811.classifications) === 'FAIL',
-    'New C 8/11 WHO is score=75, worst=FAIL (chlorine steepening crosses WARNING->FAIL)');
+  assert(who811.score === 70 && who811.classifications && sandbox.worstBenchmarkClassification(who811.classifications) === 'FAIL',
+    'New C 8/11 WHO is score=70, worst=FAIL (chlorine steepening crosses WARNING->FAIL, guaranteed deduction)');
   const who811Verdict = sandbox.comparisonPresentationVerdict(who811.score, who811.classifications, who811.engineKey);
   assert(who811Verdict.label === 'score.verdict.complianceWarning',
     `WHO FAIL label is complianceWarning (got "${who811Verdict.label}")`);

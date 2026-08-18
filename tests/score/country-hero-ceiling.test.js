@@ -85,14 +85,18 @@ console.log('\nCase A — country raw composite 100 -> Hero 99');
 console.log('\nCase B — country raw composite below ceiling stays unaffected BY THE CEILING');
 {
   // 2026-08-18 (PO-approved): grading is shared, but each engine's own
-  // classification/gate still applies. WHO classifies BASE's do as FAIL,
-  // binding the FAIL cap. EU's PD-002 chlorine gate binds regardless.
-  // What this case still proves is that values already below 99 pass
-  // through the (unrelated, unmodified) ceiling untouched.
-  assert(bench('who', BASE).score === 75, 'WHO BASE 75 (FAIL cap; still < 99, ceiling no-op)');
+  // classification/gate still applies. WHO classifies BASE's chlorine/do
+  // as FAIL; raw base (76) is already below the 75 FAIL ceiling, so the
+  // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.FAIL=6)
+  // is what actually moves it: 76 - 6 = 70. EU's PD-002 chlorine gate binds
+  // regardless. What this case still proves is that values already below
+  // 99 pass through the (unrelated, unmodified) ceiling untouched.
+  assert(bench('who', BASE).score === 70, 'WHO BASE 70 (FAIL cap + guaranteed deduction; still < 99, ceiling no-op)');
   assert(bench('eu', BASE).score === 65, 'EU BASE 65 unaffected (chlorine gate dominates; ceiling no-op)');
-  // DIFF's tds/turbidity classify CRITICAL on US EPA, binding the CRITICAL cap (60).
-  assert(bench('usEpa', DIFF).score === 60, 'EPA DIFF 60 (CRITICAL cap; still < 99, ceiling no-op)');
+  // DIFF's tds/turbidity classify CRITICAL on US EPA; raw base (61) is
+  // already below the 60 CRITICAL ceiling, so the guaranteed minimum
+  // deduction (CRITICAL=10) is what actually moves it: 61 - 10 = 51.
+  assert(bench('usEpa', DIFF).score === 51, 'EPA DIFF 51 (CRITICAL cap + guaranteed deduction; still < 99, ceiling no-op)');
 }
 
 console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / published Q-V3');
@@ -100,14 +104,24 @@ console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / 
   const quality = sandbox.computeQualityScoreDetail(BASE).score;
   assert(quality === 76, `Q-V3 BASE stays 76, unrounded by Country ceiling (got ${quality})`);
   const jp = bench('japan', BASE).score;
-  // 2026-08-18 (PO-approved): grading is now shared, so when no severity cap
-  // or gate binds, a country's score CAN numerically coincide with Quality V3
-  // (both 76 here) — that's expected, not a leak. Independence is proven by
-  // showing the two are computed by genuinely separate code paths (grep
-  // check below) AND by a fixture where a country-specific cap makes them
-  // diverge: DIFF's tds/turbidity classify CRITICAL on Japan (cap 60),
-  // while Quality V3 has no such cap and stays at its own raw value.
-  assert(jp === quality, 'Country Hero (76) coincides with Q-V3 (76) here — same shared grading formula, no cap binds');
+  // 2026-08-18 (PO-approved): BASE's pH (7.85) is outside Japan's own
+  // tighter comfortable-water band (7.3-7.7 — see japan/limits.js), so
+  // Japan itself already diverges from Q-V3 here (guaranteed WARNING
+  // deduction, 76 -> 73) — that alone is one proof of independence.
+  // COINCIDE (ph=7.5, otherwise identical to BASE) keeps pH inside Japan's
+  // band, so when no severity cap or gate binds, a country's score CAN
+  // still numerically coincide with Quality V3 — that's expected, not a
+  // leak. Independence is proven by showing the two are computed by
+  // genuinely separate code paths (grep check below) AND by a fixture
+  // where a country-specific cap makes them diverge: DIFF's tds/turbidity
+  // classify CRITICAL on Japan (cap 60, guaranteed deduction lowers it
+  // further to 51), while Quality V3 has no such cap and stays at its own
+  // raw value.
+  assert(jp === 73 && jp !== quality, `Country Hero (${jp}) already diverges from Q-V3 (${quality}) — Japan's own pH band + guaranteed deduction`);
+  const coincide = { ...BASE, ph: 7.5 };
+  const jpCoincide = bench('japan', coincide).score;
+  const qualityCoincide = sandbox.computeQualityScoreDetail(coincide).score;
+  assert(jpCoincide === qualityCoincide, `Country Hero (${jpCoincide}) coincides with Q-V3 (${qualityCoincide}) when ph is inside Japan's own band too, no cap binds`);
   const jpDiff = bench('japan', DIFF).score;
   const qualityDiff = sandbox.computeQualityScoreDetail(DIFF).score;
   assert(jpDiff !== qualityDiff, `Country Hero (${jpDiff}) diverges from Q-V3 (${qualityDiff}) once Japan's own severity cap binds — proves independence`);

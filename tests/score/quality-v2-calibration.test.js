@@ -97,11 +97,13 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   // Thailand. Japan's own government-cited pH target (7.3-7.7) doesn't
   // include either Case's pH (7.79 / 7.9): Case A's raw base (92) is above
   // the 85 WARNING cap, so it binds; Case B's raw base (78) is already
-  // below 85, so the cap is a no-op there.
+  // below 85, so the cap itself is a no-op, but the 2026-08-18 guaranteed
+  // minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) still
+  // always comes off whenever WARNING is the worst classification: 78 - 3 = 75.
   assert(bench('thailand', CASE_A) === 92, 'TH Case A = 92');
   assert(bench('japan', CASE_A) === 85, 'Japan Case A = 85 (WARNING-capped by its own tighter pH target)');
   assert(bench('thailand', CASE_B) === 78, 'TH Case B = 78');
-  assert(bench('japan', CASE_B) === 78, 'Japan Case B = 78 (WARNING classifies but raw base already below the 85 cap)');
+  assert(bench('japan', CASE_B) === 75, 'Japan Case B = 75 (WARNING classifies, raw base 78 minus guaranteed deduction 3)');
 }
 
 console.log('\nCountry differentiation on locked sample (standards differ)');
@@ -129,10 +131,13 @@ console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
   // when one country's own classification/severity/gate actually caps it.
   // Case A: Japan's own pH target (7.3-7.7) doesn't include pH=7.79,
   // genuinely diverging it (85) from Thailand's uncapped raw base (92).
-  // Case B: neither engine's own thresholds bind, so TH and JP coincide
-  // (PD-005: coincidence is not evidence of a ranking either way).
+  // Case B: pH=7.9 is also outside Japan's own band (WARNING classifies),
+  // and the guaranteed minimum deduction (WARNING=3) diverges it (75) from
+  // Thailand's uncapped raw base (78) too — TH and JP genuinely differ here
+  // as well (PD-005: neither coincidence nor divergence is a ranking signal).
   assert(bench('thailand', CASE_A) === 92 && bench('japan', CASE_A) === 85, 'Case A TH=92 JP=85 (Japan\'s own tighter pH target caps it)');
-  assert(bench('thailand', CASE_B) === bench('japan', CASE_B), 'Case B TH===JP (shared base, no cap binds)');
+  assert(bench('thailand', CASE_B) === 78 && bench('japan', CASE_B) === 75 && bench('thailand', CASE_B) !== bench('japan', CASE_B),
+    'Case B TH=78 JP=75 (Japan\'s own pH WARNING + guaranteed deduction diverges it too)');
   // Differentiation: outside JP's stricter TDS/turbidity/chlorine thresholds,
   // still inside TH's own — this is where the two are expected to genuinely diverge.
   const DIFF = { ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28 };
