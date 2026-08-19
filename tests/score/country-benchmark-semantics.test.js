@@ -182,11 +182,16 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   const jpCoincide = bench('japan', coincide).score;
   assert(thCoincide === 77 && jpCoincide === 77 && thCoincide === jpCoincide,
     'TH 77 === JP 77 (shared grading, ph inside Japan\'s own band too, no country cap binds — not a ranking signal)');
-  const diverge = { ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28 };
+  // 2026-08-19 (PO-approved, evidence-based): Thailand's own TDS/turbidity
+  // passMax were corrected to real cited Thai standards (DOH 2020 ≤500 /
+  // MWA spec ≤1.0) — this fixture is re-picked so it still clears
+  // Thailand's now-tighter bounds while still failing Japan's own stricter
+  // comfort-target thresholds (pH ideal 7.3-7.7 / TDS ideal ≤200).
+  const diverge = { ph: 8.0, tds: 350, turbidity: 0.5, orp: 400, do: 6, chlorine: 0.5, temp: 26 };
   const thDiverge = bench('thailand', diverge).score;
   const jpDiverge = bench('japan', diverge).score;
-  assert(thDiverge === 61 && jpDiverge === 51 && thDiverge !== jpDiverge,
-    'TH/JP scores genuinely differ on a fixture where Japan\'s own CRITICAL classification + guaranteed deduction caps it (61 vs 51)');
+  assert(thDiverge === 81 && jpDiverge === 75 && thDiverge !== jpDiverge,
+    'TH/JP scores genuinely differ on a fixture where Japan\'s own FAIL classification + severity cap caps it (81 vs 75)');
   assert(thBaseline.params.chlorine < 100, 'TH chlorine grade already below 100 pre-ceiling (in-band severity)');
   assert(jpBaseline.params.orp < 100, 'JP orp grade now below 100 for orp=515 (PD-014 D1 inner decline)');
   assert(!scoreFlowSrc.includes('strictest cleanliness expectations'),

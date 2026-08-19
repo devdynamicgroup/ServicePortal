@@ -13,6 +13,11 @@
  * - Case A/B: TH score === JP score === Quality V3 (no cap binds either engine).
  * - DIFF fixture: TH score !== JP score — Japan's own stricter thresholds
  *   trigger its own severity cap on top of the same shared raw base.
+ * - 2026-08-19 (PO-approved, evidence-based): Thailand's own TDS/turbidity
+ *   PASS ceilings corrected to real cited Thai standards (DOH 2020 TDS
+ *   ≤500; MWA operating spec turbidity ≤1.0) — DIFF's readings were
+ *   re-chosen so they still clear Thailand's now-tighter bounds while still
+ *   failing Japan's own stricter comfort-target thresholds.
  */
 const fs = require('fs');
 const path = require('path');
@@ -88,12 +93,13 @@ const CASE_B = {
   ph: 7.9, tds: 155, turbidity: 0.6, orp: 507, do: 5.2, chlorine: 0.5, temp: 31.0
 };
 /**
- * Intentional differentiation fixture — inside Thailand compliance ceilings
- * (TDS≤1000 / turb≤5 / Cl 0.2–2.0) but outside Japan stricter limits,
- * and outside Thailand inner 100-plateaus (TDS 300 / turb 1 / Cl 0.2–0.5).
+ * Intentional differentiation fixture — inside Thailand's (2026-08-19,
+ * evidence-based) compliance ceilings (TDS≤500 DOH 2020 / turb≤1.0 MWA spec
+ * / Cl 0.2–2.0) but outside Japan's own stricter comfort-target thresholds
+ * (pH 7.3–7.7 ideal / TDS≤200 ideal). Recomputed directly, not estimated.
  */
 const DIFF = {
-  ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28
+  ph: 8.0, tds: 350, turbidity: 0.5, orp: 400, do: 6, chlorine: 0.5, temp: 26
 };
 
 const KEYS = ['thailand', 'japan', 'who', 'eu', 'usEpa'];
@@ -179,20 +185,20 @@ console.log('\nDifferentiation fixture — standards diverge → TH !== JP');
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH', th.score, th.params);
   console.log('  DIFF JP', jp.score, jp.params);
-  // 2026-08-18 (PO-approved): shared grading base gives TH/JP the same raw
-  // number here (61), but Japan's own stricter chlorine/turbidity thresholds
-  // classify this reading worse than Thailand's do, so Japan's own severity
-  // cap pulls it down to 60 — genuine divergence from each country's own
-  // standard, not from grading.
-  assert(th.score === 61, `DIFF Thailand = 61 (got ${th.score})`);
+  // 2026-08-19 (PO-approved, evidence-based): shared grading base gives TH/JP
+  // the same raw number here (81), but Japan's own stricter pH/TDS comfort
+  // targets (7.3-7.7 / ≤200) classify this reading WARNING+FAIL, so Japan's
+  // own severity cap (75) pulls it down — genuine divergence from each
+  // country's own standard, not from grading. Thailand's own (now corrected)
+  // thresholds still all PASS this reading (pH 6.5-8.5, TDS≤500, turb≤1.0).
+  assert(th.score === 81, `DIFF Thailand = 81 (got ${th.score})`);
   assert(jp.score !== th.score, `DIFF Japan ${jp.score} !== Thailand ${th.score}`);
-  assert(jp.params.tds < 100, 'DIFF JP TDS below 100 (TDS 800 > JP 500)');
-  assert(jp.params.turbidity < 100, 'DIFF JP turbidity below 100 (3.5 > JP 2)');
-  assert(jp.params.chlorine < 100, 'DIFF JP chlorine below 100 (1.5 > JP 1)');
-  assert(th.params.tds < 100 && th.params.turbidity < 100 && th.params.chlorine < 100,
-    'DIFF TH TDS/turb/Cl leave the inner 100-plateau while remaining inside passMax');
+  assert(jp.classifications.ph === 'WARNING', 'DIFF JP pH WARNING (8.0 outside 7.3-7.7 ideal)');
+  assert(jp.classifications.tds === 'FAIL', 'DIFF JP TDS FAIL (350 > JP ideal 200)');
+  assert(th.classifications.ph === 'PASS' && th.classifications.tds === 'PASS' && th.classifications.turbidity === 'PASS',
+    'DIFF TH still fully compliance-pass under the corrected thresholds');
   assert(th.statuses.tds === 'good' && th.statuses.turbidity === 'good' && th.statuses.chlorine === 'good',
-    'DIFF TH still compliance-pass (passMax / Cl band unchanged)');
+    'DIFF TH still compliance-pass (corrected passMax / Cl band)');
 }
 
 console.log('\nQuality isolation — benchmark runs do not mutate Quality / each other');
@@ -327,11 +333,12 @@ console.log('\nFull matrix (execution evidence)');
   // (7.3-7.7 misses both pH=7.79 and pH=7.9, WARNING classifies; B's raw
   // base is already below the 85 cap, so the guaranteed minimum deduction
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) is what moves it, 78 -> 75),
-  // DIFF via Japan's own CRITICAL classification (raw base already below
-  // the 60 cap too, guaranteed deduction CRITICAL=10 moves it, 61 -> 51).
+  // DIFF (2026-08-19, evidence-based re-pick): Thailand's own corrected
+  // thresholds fully PASS this reading (81, uncapped); Japan's own stricter
+  // pH/TDS comfort targets classify it WARNING+FAIL, capping it to 75.
   assert(matrix.A.thailand === 92 && matrix.A.japan === 85, 'matrix A TH=92 JP=85 (Japan pH target)');
   assert(matrix.B.thailand === 78 && matrix.B.japan === 75, 'matrix B TH=78 JP=75 (Japan pH WARNING + guaranteed deduction)');
-  assert(matrix.DIFF.thailand === 61 && matrix.DIFF.japan === 51, 'matrix DIFF TH=61 JP=51 (Japan CRITICAL + guaranteed deduction)');
+  assert(matrix.DIFF.thailand === 81 && matrix.DIFF.japan === 75, 'matrix DIFF TH=81 JP=75 (Japan pH/TDS FAIL cap)');
   assert(matrix.DIFF.thailand !== matrix.DIFF.japan, 'matrix DIFF TH!==JP');
 }
 

@@ -61,7 +61,9 @@ console.log('\nPD-015 limits locked');
   assert(L.tds.gradeExcellentMax === 80, 'TDS excellentMax 80');
   assert(L.tds.goodMax === 150 && L.tds.ordinaryMax === 300, 'TDS good/ordinary breakpoints');
   assert(L.tds.passEdgeGrade === 40, 'TDS passEdge 40');
-  assert(L.tds.passMax === 1000, 'TDS passMax unchanged');
+  // 2026-08-19 (PO-approved, evidence-based): TDS passMax corrected 1000→500
+  // to match the real DOH 2020 legal limit (was looser than the actual law).
+  assert(L.tds.passMax === 500, 'TDS passMax corrected to DOH 2020 (500)');
   assert(L.turbidity.gradeExcellentMax === 0.3, 'turb excellentMax 0.3');
   assert(L.turbidity.ordinaryMax === 1 && L.turbidity.ordinaryGrade === 70, 'turb ordinary 1 NTU → 70');
   assert(L.ph.preferredMin === 6.8 && L.ph.preferredMax === 7.8, 'pH preferred 6.8–7.8');

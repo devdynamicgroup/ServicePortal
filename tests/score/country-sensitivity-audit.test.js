@@ -155,14 +155,18 @@ console.log('\nFIXED — Thailand TDS / turbidity / chlorine in-band severity (P
   assert(grade('thailand', 'chlorine', 0.3) === 100, 'TH Cl 0.3 = 100');
   assert(grade('thailand', 'chlorine', 1.5) < 100 && grade('thailand', 'chlorine', 1.5) > grade('thailand', 'chlorine', 2.0),
     'TH Cl 1.5 severity inside 0.2–2.0');
-  assert(sandbox.ThailandBenchmarkLimits.tds.passMax === 1000, 'TH TDS passMax ceiling unchanged');
-  assert(sandbox.ThailandBenchmarkLimits.turbidity.passMax === 5, 'TH turb passMax ceiling unchanged');
+  // 2026-08-19 (PO-approved, evidence-based): passMax corrected to real
+  // cited Thai standards — TDS 1000→500 (DOH 2020), turbidity 5→1.0 (MWA spec).
+  assert(sandbox.ThailandBenchmarkLimits.tds.passMax === 500, 'TH TDS passMax corrected to DOH 2020 (500)');
+  assert(sandbox.ThailandBenchmarkLimits.turbidity.passMax === 1.0, 'TH turb passMax corrected to MWA spec (1.0)');
   assert(sandbox.ThailandBenchmarkLimits.chlorine.min === 0.2
     && sandbox.ThailandBenchmarkLimits.chlorine.max === 2.0,
     'TH Cl compliance band ceiling unchanged');
-  // 2026-08-18 (PO-approved): shared grading base for DIFF = 61; Thailand's
-  // own classifications all stay within PASS here, so no severity cap binds.
-  assert(bench('thailand', DIFF).score === 61, `DIFF TH 61 (shared base, no cap) (got ${bench('thailand', DIFF).score})`);
+  // 2026-08-19 (PO-approved, evidence-based): DIFF's TDS=800/turbidity=3.5
+  // now exceed Thailand's own corrected bounds too (FAIL/CRITICAL), so its
+  // own severity cap now binds here as well: raw 61 - CRITICAL guaranteed
+  // deduction (10) = 51.
+  assert(bench('thailand', DIFF).score === 51, `DIFF TH 51 (CRITICAL cap + guaranteed deduction) (got ${bench('thailand', DIFF).score})`);
 }
 
 console.log('\n2026-08-18: per-country pH curves (TH edge=70, JP cited-target, WHO 8.0 ceiling, flat-compliance EU/EPA) were replaced by one shared formula (computeSharedBenchmarkBase) — this section now asserts the new invariant: identical pH grading across all 5 engines, plus the still-true generic decline-outside-preferred-band behavior.');
@@ -277,17 +281,18 @@ console.log('\nRAW vs engine input + Hero path (DIFF)');
   const th = bench('thailand', v.measurements);
   const disp = displayed(v.measurements, 'thailand');
   const cmp = sandbox.buildComparisonScoreResult(v.measurements, 'thailand');
-  // 2026-08-18 (PO-approved): shared grading base for DIFF = 61; Thailand
-  // has no severity cap binding here, so engine/comparison/displayed all
-  // agree at 61.
-  assert(th.score === 61 && cmp.score === 61 && disp.score === 61,
-    'engine === comparison === displayed = 61');
+  // 2026-08-19 (PO-approved, evidence-based): DIFF's TDS=800/turbidity=3.5
+  // now exceed Thailand's own corrected bounds (DOH 2020 TDS≤500 / MWA
+  // turbidity≤1.0) too — CRITICAL classification + guaranteed deduction
+  // takes shared raw base 61 down to 51 for Thailand's own Hero path.
+  assert(th.score === 51 && cmp.score === 51 && disp.score === 51,
+    'engine === comparison === displayed = 51');
   assert(disp.engineKey === 'thailand' && disp.source === 'country-benchmark', 'Hero country-benchmark');
   const q = sandbox.computeQualityScoreDetail(v.measurements).score;
-  // Quality V3 and Thailand's Hero score now coincide numerically (both 61,
-  // same shared grading base, no cap binds) — isolation is proven by the two
-  // being computed via genuinely separate functions, not by a numeric split.
-  assert(q === 61 && q === disp.score, `Q-V3 ${q} numerically coincides with Hero ${disp.score} (same shared base, no cap)`);
+  // Quality V3 (61) now diverges from Thailand's Hero score (51) — Quality
+  // V3 has no country-specific severity cap, so this is a clean isolation
+  // proof: the two are computed via genuinely separate functions/paths.
+  assert(q === 61 && q !== disp.score, `Q-V3 ${q} diverges from Hero ${disp.score} (Thailand's own severity cap now binds)`);
 }
 
 console.log('\nCountry switch TH→JP→EU→WHO→EPA→TH (no stale cache)');
@@ -422,8 +427,10 @@ console.log('\nDIFF live path TH — RAW→grade→round→Hero (no Q-V3 overwri
   const p = pipeline(DIFF, 'thailand');
   assert(p.eng.params.tds < 100 && p.eng.params.turbidity < 100 && p.eng.params.chlorine < 100,
     'DIFF TH TDS/turb/Cl grades leave 100');
-  assert(p.eng.score === 61 && p.disp.score === 61 && p.disp.engineKey === 'thailand',
-    `DIFF Hero ${p.disp.score} === engine 61`);
+  // 2026-08-19 (PO-approved, evidence-based): Thailand's own CRITICAL cap
+  // now binds DIFF too (raw 61 - guaranteed deduction 10 = 51).
+  assert(p.eng.score === 51 && p.disp.score === 51 && p.disp.engineKey === 'thailand',
+    `DIFF Hero ${p.disp.score} === engine 51`);
   assert(p.q.score === 61, `DIFF Q-V3 isolated 61 (got ${p.q.score})`);
 }
 
@@ -515,12 +522,14 @@ console.log('\nCross-country BASE/DIFF/LOCKED (2026-08-18, PO-approved — share
   assert(bench('eu', DIFF).score === 55, 'EU DIFF 55 (non-chlorine FAIL guaranteed deduction now lower than the 65 chlorine gate)');
   assert(bench('who', DIFF).score === 51, 'WHO DIFF 51 (tds/turbidity CRITICAL cap + guaranteed deduction)');
   assert(bench('usEpa', DIFF).score === 51, 'EPA DIFF 51 (tds/turbidity CRITICAL cap + guaranteed deduction)');
-  // Shared base for LOCKED = 73. Thailand has no cap binding (stays at raw
-  // 73). Japan's own tighter thresholds classify tds/turbidity FAIL; raw 73
-  // is already below the 75 FAIL ceiling, so the guaranteed minimum
-  // deduction (FAIL=6) takes it to 67.
+  // Shared base for LOCKED = 73. Japan's own tighter thresholds classify
+  // tds/turbidity FAIL; raw 73 is already below the 75 FAIL ceiling, so the
+  // guaranteed minimum deduction (FAIL=6) takes it to 67.
   assert(bench('japan', LOCKED).score === 67, 'JP LOCKED 67 (shared base, FAIL guaranteed deduction)');
-  assert(bench('thailand', LOCKED).score === 73, 'TH LOCKED 73 (shared base, no cap)');
+  // 2026-08-19 (PO-approved, evidence-based): Thailand's own turbidity
+  // passMax corrected 5→1.0 (MWA spec) — LOCKED's turbidity=2.5 now also
+  // classifies FAIL for Thailand, same guaranteed deduction: 73 - 6 = 67.
+  assert(bench('thailand', LOCKED).score === 67, 'TH LOCKED 67 (turbidity FAIL cap + guaranteed deduction)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

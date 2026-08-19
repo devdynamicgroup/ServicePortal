@@ -128,10 +128,10 @@
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below the Thailand project compliance band (≥ 0.2 mg/L) — disinfection residual may be insufficient.' });
     }
     if (!pass.turbidity) {
-      reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds Thailand local acceptability limit (≤ 5 NTU).' });
+      reasons.push({ parameter: 'turbidity', severity: classifications.turbidity.toLowerCase(), message: 'Turbidity exceeds Thailand local acceptability limit (≤ 1.0 NTU — MWA operating specification).' });
     }
     if (!pass.tds) {
-      reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds Thailand reference ceiling (≤ 1000 mg/L).' });
+      reasons.push({ parameter: 'tds', severity: classifications.tds.toLowerCase(), message: 'TDS exceeds Thailand reference ceiling (≤ 500 mg/L — DOH 2020).' });
     }
     if (!pass.ph) {
       reasons.push({ parameter: 'ph', severity: classifications.ph.toLowerCase(), message: 'pH is outside Thailand recommended band (6.5–8.5).' });
@@ -166,9 +166,9 @@
     const topPositiveFactors = [];
     const topNegativeFactors = [];
     if (pass.ph) topPositiveFactors.push('pH is within Thailand recommended range (6.5–8.5)');
-    if (pass.tds) topPositiveFactors.push('TDS is within Thailand local acceptability (≤ 1000 mg/L)');
+    if (pass.tds) topPositiveFactors.push('TDS is within Thailand local acceptability (≤ 500 mg/L)');
     if (pass.chlorine) topPositiveFactors.push('Free chlorine residual is within the Thailand project compliance band (0.2–2.0 mg/L)');
-    if (pass.turbidity) topPositiveFactors.push('Turbidity meets Thailand local limit (≤ 5 NTU)');
+    if (pass.turbidity) topPositiveFactors.push('Turbidity meets Thailand local limit (≤ 1.0 NTU)');
     if (pass.orp) topPositiveFactors.push('ORP is inside the operational window used for Thailand comparison');
     topPositiveFactors.push('Dissolved oxygen is not scored under Thailand local comparison');
     reasons.forEach(r => topNegativeFactors.push(r.message));

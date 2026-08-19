@@ -101,6 +101,17 @@ const BASELINE = Object.freeze({
 const DIFF = Object.freeze({
   ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28
 });
+/**
+ * 2026-08-19 (PO-approved, evidence-based): Thailand's own TDS/turbidity
+ * passMax were corrected to real cited Thai standards (DOH 2020 ≤500 / MWA
+ * spec ≤1.0), so plain DIFF above now also fails Thailand and no longer
+ * differentiates it from Japan. This fixture clears Thailand's corrected
+ * bounds while still failing Japan's own stricter comfort-target thresholds
+ * (pH ideal 7.3-7.7 / TDS ideal ≤200).
+ */
+const DIFF_TH_SAFE = Object.freeze({
+  ph: 8.0, tds: 350, turbidity: 0.5, orp: 400, do: 6, chlorine: 0.5, temp: 26
+});
 
 const ENGINE_KEYS = ['thailand', 'japan', 'eu', 'usEpa', 'who'];
 
@@ -145,33 +156,35 @@ console.log('\n1–5. Same Case + each country → displayed Score uses that eng
     assert(viaHelper.showScore === true, `${key}: showScore true`);
   }
   const quality = sandbox.computeQualityScoreDetail(DIFF).score;
-  // 2026-08-18 (PO-approved): grading is now shared, so Thailand's displayed
-  // score CAN numerically coincide with Quality V3 when no severity cap
-  // binds (both compute the same shared base for DIFF) — that's expected,
-  // not a leak. Independence is proven structurally: they're computed via
-  // genuinely separate functions (resolveDisplayedScore/registry.calculate
-  // vs computeQualityScoreDetail), verified in country-hero-ceiling.test.js.
-  assert(displayed(DIFF, 'thailand').score === quality,
-    `displayed TH ${displayed(DIFF, 'thailand').score} coincides with Quality V3 ${quality} (same shared base, no cap)`);
+  // 2026-08-19 (PO-approved, evidence-based): Thailand's own TDS/turbidity
+  // passMax were corrected to real cited Thai standards (DOH 2020 ≤500 /
+  // MWA spec ≤1.0) — DIFF's TDS=800/turbidity=3.5 now exceed Thailand's own
+  // bounds too, so its own severity cap now binds and Thailand's displayed
+  // score (51) diverges from Quality V3 (61, no country cap). Independence
+  // is proven structurally: they're computed via genuinely separate
+  // functions (resolveDisplayedScore/registry.calculate vs
+  // computeQualityScoreDetail), verified in country-hero-ceiling.test.js.
+  assert(displayed(DIFF, 'thailand').score !== quality,
+    `displayed TH ${displayed(DIFF, 'thailand').score} diverges from Quality V3 ${quality} (Thailand's own severity cap now binds)`);
 }
 
 console.log('\n6–7. Thailand → Japan → Thailand via setScoreReferenceStandard');
 {
   sandbox.S.publicScoreView = false;
-  sandbox.S.activeJob = jobFromReadings(DIFF);
+  sandbox.S.activeJob = jobFromReadings(DIFF_TH_SAFE);
   sandbox.S.scoreStandardKey = 'thailand';
 
   const th = switchCountry('thailand');
-  const thEngine = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', DIFF);
+  const thEngine = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', DIFF_TH_SAFE);
   assert(th.engineKey === 'thailand', 'TH switch engineKey=thailand');
   assert(th.score === thEngine.score, `TH displayed ${th.score} === Thailand engine`);
   assert(sandbox.S.currentScoreResult.standardKey === 'quality-v3', 'publish channel remains quality-v3 after TH');
 
   const jp = switchCountry('japan');
-  const jpEngine = sandbox.WaterScoreBenchmarkRegistry.calculate('japan', DIFF);
+  const jpEngine = sandbox.WaterScoreBenchmarkRegistry.calculate('japan', DIFF_TH_SAFE);
   assert(jp.engineKey === 'japan', 'JP switch engineKey=japan');
   assert(jp.score === jpEngine.score, `JP displayed ${jp.score} === Japan engine`);
-  assert(jp.score !== th.score, `DIFF: displayed JP ${jp.score} !== displayed TH ${th.score}`);
+  assert(jp.score !== th.score, `DIFF_TH_SAFE: displayed JP ${jp.score} !== displayed TH ${th.score}`);
   assert(sandbox.S.comparisonScoreResult.engineKey === 'japan', 'comparisonScoreResult follows Japan');
   assert(sandbox.S.currentScoreResult.standardKey === 'quality-v3', 'Quality publish tag unchanged after JP');
 
@@ -183,10 +196,10 @@ console.log('\n6–7. Thailand → Japan → Thailand via setScoreReferenceStand
   const hero = [];
   for (const key of sequence) {
     const out = switchCountry(key);
-    const engine = sandbox.WaterScoreBenchmarkRegistry.calculate(key, DIFF);
+    const engine = sandbox.WaterScoreBenchmarkRegistry.calculate(key, DIFF_TH_SAFE);
     assert(out.engineKey === key, `sequence ${key}: engineKey=${out.engineKey}`);
     assert(out.score === engine.score, `sequence ${key}: Hero ${out.score} === engine ${engine.score}`);
-    assert(sandbox.S.scoreVal === sandbox.computeQualityScoreDetail(DIFF).score,
+    assert(sandbox.S.scoreVal === sandbox.computeQualityScoreDetail(DIFF_TH_SAFE).score,
       `sequence ${key}: S.scoreVal stays Quality V3`);
     hero.push({ key, score: out.score, engineKey: out.engineKey });
   }

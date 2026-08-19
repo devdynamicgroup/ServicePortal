@@ -60,6 +60,14 @@ function bench(key, readings) {
 const IDEAL = Object.freeze({ ph: 7.2, tds: 80, turbidity: 0.1, orp: 400, do: 8, chlorine: 0.3, temp: 25 });
 const BASE = Object.freeze({ ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 });
 const DIFF = Object.freeze({ ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28 });
+// 2026-08-19 (PO-approved, evidence-based): Thailand's own TDS/turbidity
+// passMax were corrected to real cited Thai standards (DOH 2020 ≤500 / MWA
+// spec ≤1.0), so plain DIFF above now also fails Thailand (no longer
+// suitable for cases that need Thailand to stay uncapped while Japan caps).
+// This fixture clears Thailand's corrected bounds while still failing
+// Japan's own stricter comfort-target thresholds (pH 7.3-7.7 ideal / TDS
+// ideal ≤200) — used by Cases D and E below.
+const DIFF_TH_SAFE = Object.freeze({ ph: 8.0, tds: 350, turbidity: 0.5, orp: 400, do: 6, chlorine: 0.5, temp: 26 });
 const KEYS = ['thailand', 'japan', 'who', 'eu', 'usEpa'];
 
 console.log('\nCase A — country raw composite 100 -> Hero 99');
@@ -144,20 +152,21 @@ console.log('\nCase D — country switching routes to the selected engine, never
   // Registry.calculate() is what buildComparisonScoreResult()/resolveDisplayedScore()
   // delegate to in src/js/flows/score.js (see displayed-score-country-switch.test.js
   // for the full UI-routing path with S state) — routing itself is proven here directly.
-  const th = bench('thailand', DIFF);
-  const jp = bench('japan', DIFF);
+  const th = bench('thailand', DIFF_TH_SAFE);
+  const jp = bench('japan', DIFF_TH_SAFE);
   assert(th.engineKey === 'thailand' && jp.engineKey === 'japan' && th.score !== jp.score,
     'switching engines returns genuinely different, correctly-routed results');
 }
 
-console.log('\nCase E — TH severity preservation: DIFF stays well below the ceiling, not further reduced by it');
+console.log('\nCase E — TH severity preservation: DIFF_TH_SAFE stays well below the ceiling, not further reduced by it');
 {
-  const th = bench('thailand', DIFF);
-  // 2026-08-18 (PO-approved): shared grading base for DIFF = 61; Thailand
-  // has no severity cap binding here (all its own classifications stay
-  // within PASS), so the raw 61 passes through both severity protection
-  // and the ceiling (well below 99) unchanged.
-  assert(th.score === 61, `TH DIFF raw composite already below ceiling, unchanged at 61 (got ${th.score})`);
+  const th = bench('thailand', DIFF_TH_SAFE);
+  // 2026-08-19 (PO-approved, evidence-based): shared grading base for
+  // DIFF_TH_SAFE = 81; Thailand has no severity cap binding here (all its
+  // own — now corrected — classifications stay within PASS), so the raw 81
+  // passes through both severity protection and the ceiling (well below 99)
+  // unchanged.
+  assert(th.score === 81, `TH DIFF_TH_SAFE raw composite already below ceiling, unchanged at 81 (got ${th.score})`);
 }
 
 console.log('\nCase F — existing near-ideal fixture: raw 92 (below ceiling), unchanged across engines');

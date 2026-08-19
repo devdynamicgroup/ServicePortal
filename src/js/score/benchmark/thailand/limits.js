@@ -3,13 +3,22 @@
  * PD-015: excellent inners (pH 6.8–7.8, TDS ≤80, turb ≤0.3) kept.
  * 2026-08-14 ordinary-band severity: piecewise in-pass curves + weakest-link
  * share so ordinary water is not averaged into 90–99. Outer pass ceilings
- * unchanged. */
+ * unchanged.
+ * 2026-08-19 (PO-approved, evidence-based only): PASS ceilings corrected to
+ * match real published Thai standards — TDS ≤1000 was looser than the actual
+ * legal limit. Cited sources:
+ * - DOH 2020 (ประกาศกรมอนามัย เรื่อง เกณฑ์คุณภาพน้ำประปาดื่มได้ พ.ศ. 2563): TDS ≤500 mg/L.
+ * - MWA Consumer Confidence Report 2025 (การประปานครหลวง, MWA's own published
+ *   operating specification, stricter than DOH's ≤5 NTU legal minimum):
+ *   turbidity ≤1.0 NTU.
+ * pH, chlorine, and ORP are left unchanged — no stricter Thai citation was
+ * found for those parameters (MWA's own pH spec matches DOH's 6.5–8.5). */
 window.ThailandBenchmarkLimits = Object.freeze({
   display: Object.freeze({
     ph: '6.5 - 8.5',
-    tds: '<= 1000 mg/L',
+    tds: '<= 500 mg/L',
     chlorine: '0.2 - 2.0 mg/L (project band)',
-    turbidity: '<= 5 NTU',
+    turbidity: '<= 1.0 NTU',
     orp: '200 - 600 mV',
     do: 'Not specified',
     temp: 'Not specified'
@@ -23,9 +32,9 @@ window.ThailandBenchmarkLimits = Object.freeze({
     edgeGrade: 70
   }),
   tds: Object.freeze({
-    passMax: 1000,
-    softStart: 1000,
-    softEnd: 1500,
+    passMax: 500,
+    softStart: 500,
+    softEnd: 1000,
     gradeExcellentMax: 80,
     goodMax: 150,
     ordinaryMax: 300,
@@ -55,8 +64,8 @@ window.ThailandBenchmarkLimits = Object.freeze({
     passEdgeGrade: 10
   }),
   turbidity: Object.freeze({
-    passMax: 5,
-    softEnd: 12,
+    passMax: 1.0,
+    softEnd: 5,
     gradeExcellentMax: 0.3,
     ordinaryMax: 1,
     ordinaryGrade: 70,

@@ -117,11 +117,14 @@ console.log('\nCountry differentiation on locked sample (standards differ)');
   assert(th !== eu, 'Thailand ≠ EU on locked sample');
   assert(jp !== eu, 'Japan ≠ EU on locked sample');
   // 2026-08-18 (PO-approved): one shared grading formula (computeSharedBenchmarkBase)
-  // replaced each engine's own per-parameter curves — TH and JP now share the
-  // same raw base (73) since neither's own classification caps it here; WHO's
-  // own chlorine threshold still classifies this reading FAIL, so WHO's severity
-  // cap (75) applies below its shared raw base — still genuinely different from EU.
-  assert(th === 73 && who === 60, 'TH/WHO differentiation preserved (TH 73, WHO 60 CRITICAL cap)');
+  // replaced each engine's own per-parameter curves — TH and JP share the same
+  // raw base (73); WHO's own chlorine threshold still classifies this reading
+  // FAIL, so WHO's severity cap (75, no-op here) plus guaranteed deduction
+  // still leaves it genuinely different from EU.
+  // 2026-08-19 (PO-approved, evidence-based): Thailand's own turbidity
+  // passMax corrected 5→1.0 (MWA spec) — turbidity=2.5 now also classifies
+  // FAIL for Thailand, applying the same guaranteed deduction: 73-6=67.
+  assert(th === 67 && who === 60, 'TH/WHO differentiation preserved (TH 67, WHO 60 CRITICAL cap)');
 }
 
 console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
@@ -138,13 +141,15 @@ console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
   assert(bench('thailand', CASE_A) === 92 && bench('japan', CASE_A) === 85, 'Case A TH=92 JP=85 (Japan\'s own tighter pH target caps it)');
   assert(bench('thailand', CASE_B) === 78 && bench('japan', CASE_B) === 75 && bench('thailand', CASE_B) !== bench('japan', CASE_B),
     'Case B TH=78 JP=75 (Japan\'s own pH WARNING + guaranteed deduction diverges it too)');
-  // Differentiation: outside JP's stricter TDS/turbidity/chlorine thresholds,
-  // still inside TH's own — this is where the two are expected to genuinely diverge.
-  const DIFF = { ph: 7.2, tds: 800, turbidity: 3.5, orp: 350, do: 5.5, chlorine: 1.5, temp: 28 };
+  // Differentiation: outside JP's stricter pH/TDS comfort-target thresholds,
+  // still inside TH's own (2026-08-19, evidence-based) corrected bounds
+  // (DOH 2020 TDS≤500 / MWA turbidity≤1.0) — this is where the two are
+  // expected to genuinely diverge.
+  const DIFF = { ph: 8.0, tds: 350, turbidity: 0.5, orp: 400, do: 6, chlorine: 0.5, temp: 26 };
   const th = bench('thailand', DIFF);
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH/JP', th, jp);
-  assert(th === 61, `DIFF Thailand = 61 (shared base, TH's own thresholds don't cap it) (got ${th})`);
+  assert(th === 81, `DIFF Thailand = 81 (shared base, TH's own thresholds don't cap it) (got ${th})`);
   assert(jp !== th, `DIFF Japan ${jp} !== Thailand ${th}`);
 }
 

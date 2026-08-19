@@ -232,16 +232,16 @@ console.log('\nTest 7 — Benchmark scores locked (must not drift)');
   // 2026-08-18 (PO-approved): all 5 engines now share one grading formula
   // (computeSharedBenchmarkBase); raw base for SAMPLE = 73 for every engine.
   // Each country then applies only its own classification/severity-cap/gate
-  // on top of that shared 73: Thailand/Japan have no severity cap binding
-  // here (worst classification stays within their own tolerance) so they
-  // stay at raw 73. WHO/US EPA both classify turbidity=2.5 as CRITICAL,
-  // capping at 60. EU's PD-002 chlorine gate (chlorine classifies CRITICAL)
-  // caps at 65, overriding the raw 73. Japan's own (tighter) thresholds
-  // classify tds/turbidity FAIL here, and the 2026-08-18 guaranteed minimum
+  // on top of that shared 73. WHO/US EPA both classify turbidity=2.5 as
+  // CRITICAL, capping at 60. EU's PD-002 chlorine gate (chlorine classifies
+  // CRITICAL) caps at 65, overriding the raw 73. Japan's own (tighter)
+  // thresholds classify tds/turbidity FAIL here, and the guaranteed minimum
   // deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.FAIL=6) always comes off when
   // FAIL is the worst classification, even though raw 73 is already below
-  // the 75 FAIL ceiling: 73 - 6 = 67.
-  const expected = { thailand: 73, who: 60, eu: 65, japan: 67, usEpa: 60 };
+  // the 75 FAIL ceiling: 73 - 6 = 67. 2026-08-19 (PO-approved, evidence-
+  // based): Thailand's own turbidity passMax corrected 5→1.0 (MWA spec) —
+  // turbidity=2.5 now also classifies FAIL for Thailand, same deduction: 67.
+  const expected = { thailand: 67, who: 60, eu: 65, japan: 67, usEpa: 60 };
   for (const key of KEYS) {
     const score = reg.calculate(key, SAMPLE).score;
     assert(score === expected[key], `${key} score locked at ${expected[key]} (got ${score})`);

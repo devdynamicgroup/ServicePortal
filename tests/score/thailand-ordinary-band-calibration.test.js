@@ -63,7 +63,9 @@ console.log('\nWeakest-link + piecewise constants');
   // 2026-08-17, PO-approved: raised from 0.25 to 0.5.
   assert(L.weakestLinkShare === 0.5, 'weakestLinkShare 0.5');
   assert(L.ph.preferredMin === 6.8 && L.ph.preferredMax === 7.8, 'pH preferred kept');
-  assert(L.tds.gradeExcellentMax === 80 && L.tds.passMax === 1000, 'TDS excellent/passMax kept');
+  // 2026-08-19 (PO-approved, evidence-based): passMax corrected 1000→500
+  // to match the real DOH 2020 legal limit.
+  assert(L.tds.gradeExcellentMax === 80 && L.tds.passMax === 500, 'TDS excellent kept / passMax corrected to DOH 2020 (500)');
   assert(L.orp.excellentMin === 350 && L.orp.excellentMax === 450, 'ORP inner kept');
   assert(L.chlorine.min === 0.2 && L.chlorine.max === 2.0, 'Cl compliance kept');
 }

@@ -116,11 +116,14 @@ function trace(raw, country) {
   };
 }
 
-console.log('\nCompliance ceilings unchanged (PD-008 / TH-TDS / TH-TURB) — limits.js untouched by the shared-formula rebuild');
+console.log('\nCompliance ceilings (PD-008 unchanged; TDS/turbidity corrected 2026-08-19, evidence-based)');
 {
   const L = sandbox.ThailandBenchmarkLimits;
-  assert(L.tds.passMax === 1000, 'TDS passMax still 1000');
-  assert(L.turbidity.passMax === 5, 'turbidity passMax still 5');
+  // 2026-08-19 (PO-approved): TDS passMax corrected 1000→500 (DOH 2020 legal
+  // limit) and turbidity passMax corrected 5→1.0 (MWA's own published
+  // operating specification, stricter than DOH's 5 NTU legal minimum).
+  assert(L.tds.passMax === 500, 'TDS passMax corrected to DOH 2020 (500)');
+  assert(L.turbidity.passMax === 1.0, 'turbidity passMax corrected to MWA spec (1.0)');
   assert(L.chlorine.min === 0.2 && L.chlorine.max === 2.0, 'Cl compliance band still 0.2–2.0');
   assert(L.ph.min === 6.5 && L.ph.max === 8.5, 'pH compliance band unchanged');
   assert(L.orp.min === 200 && L.orp.max === 600, 'ORP shared band unchanged');
@@ -165,9 +168,14 @@ console.log('\nDIFF pipeline retrace (RAW === engine input)');
   assert(t.grades.tds < 100 && t.grades.turbidity < 100 && t.grades.chlorine < 100,
     'DIFF TH TDS/turb/Cl grades leave 100');
   assert(t.grades.ph === 100, 'DIFF TH pH still 100 (shared curve, unaffected by DIFF\'s pH=7.2)');
-  assert(t.postRound === 61, `DIFF TH score 61 (got ${t.postRound})`);
-  assert(t.displayed === 61 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
-    'DIFF Hero = Thailand 61');
+  // 2026-08-19 (PO-approved, evidence-based): TDS 800 (>500 DOH 2020) now
+  // classifies FAIL and turbidity 3.5 (>1.0 MWA spec) now classifies
+  // CRITICAL under Thailand's own corrected PASS thresholds — worst
+  // classification CRITICAL applies its cap (60, no-op here since raw 61 is
+  // already below it) and its guaranteed minimum deduction (10): 61-10=51.
+  assert(t.postRound === 51, `DIFF TH score 51 (got ${t.postRound})`);
+  assert(t.displayed === 51 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
+    'DIFF Hero = Thailand 51');
   const jp = trace(DIFF, 'japan');
   // Raw base for DIFF is 61, already below Japan's 60 CRITICAL ceiling, so
   // the 2026-08-18 guaranteed minimum deduction
@@ -187,8 +195,14 @@ console.log('\nBASE / one-bad pipeline');
   const tds = trace({ ...IDEAL, tds: 800 }, 'thailand');
   const turb = trace({ ...IDEAL, turbidity: 3.5 }, 'thailand');
   const cl = trace({ ...IDEAL, chlorine: 1.5 }, 'thailand');
-  assert(tds.postRound === 90 && tds.grades.tds < 100, `oneBad TDS TH 90 (got ${tds.postRound})`);
-  assert(turb.postRound === 90 && turb.grades.turbidity < 100, `oneBad turb TH 90 (got ${turb.postRound})`);
+  // 2026-08-19 (PO-approved, evidence-based): TDS 800 now exceeds the
+  // corrected DOH 2020 passMax (500) → FAIL classification → severity cap
+  // 75 applies to the raw 90. Turbidity 3.5 now exceeds the corrected MWA
+  // spec passMax (1.0) with a grade low enough to classify CRITICAL →
+  // severity cap 60 applies. Chlorine's compliance band is unchanged, so it
+  // still stays PASS and uncapped.
+  assert(tds.postRound === 75 && tds.grades.tds < 100, `oneBad TDS TH 75 (FAIL cap) (got ${tds.postRound})`);
+  assert(turb.postRound === 60 && turb.grades.turbidity < 100, `oneBad turb TH 60 (CRITICAL cap) (got ${turb.postRound})`);
   assert(cl.postRound === 90 && cl.grades.chlorine < 100, `oneBad Cl TH 90 (got ${cl.postRound})`);
 }
 
@@ -246,14 +260,20 @@ console.log('\nCross-country matrix (recomputed against the shared-formula rebui
     // which always comes off when that tier is the worst classification —
     // even when the raw shared-base number is already below the tier's
     // ceiling. Every value recomputed directly, not estimated.
+    // 2026-08-19 (PO-approved, evidence-based): Thailand's own TDS/turbidity
+    // passMax were corrected (500 / 1.0 — DOH 2020 + MWA spec). Every `th`
+    // cell below where the fixture's TDS>500 or turbidity>1.0 now reflects
+    // Thailand's own severity cap kicking in where it previously didn't;
+    // other countries' columns are unaffected (each uses its own limits.js).
+    // Every value recomputed directly, not estimated.
     ['BASE', BASE, { th: 76, jp: 73, eu: 65, who: 70, epa: 70, q: 76 }],
-    ['DIFF', DIFF, { th: 61, jp: 51, eu: 55, who: 51, epa: 51, q: 61 }],
-    ['LOCKED', LOCKED, { th: 73, jp: 67, eu: 65, who: 60, epa: 60, q: 73 }],
-    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 90, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
-    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 90, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
+    ['DIFF', DIFF, { th: 51, jp: 51, eu: 55, who: 51, epa: 51, q: 61 }],
+    ['LOCKED', LOCKED, { th: 67, jp: 67, eu: 65, who: 60, epa: 60, q: 73 }],
+    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 75, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
+    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 60, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
     ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 90, jp: 60, eu: 65, who: 60, epa: 90, q: 90 }],
-    ['twoBad', twoBad, { th: 80, jp: 60, eu: 74, who: 60, epa: 60, q: 80 }],
-    ['threeBad', threeBad, { th: 69, jp: 59, eu: 63, who: 59, epa: 59, q: 69 }]
+    ['twoBad', twoBad, { th: 60, jp: 60, eu: 74, who: 60, epa: 60, q: 80 }],
+    ['threeBad', threeBad, { th: 59, jp: 59, eu: 63, who: 59, epa: 59, q: 69 }]
   ];
   for (const [label, readings, exp] of rows) {
     const got = {
