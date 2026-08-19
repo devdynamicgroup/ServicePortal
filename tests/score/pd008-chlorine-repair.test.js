@@ -197,8 +197,10 @@ console.log('\n2026-08-18 (PO-approved) — missing chlorine computes a capped s
 console.log('\nPD-008 / PD-012 — JP DO excluded from Compliance Index (PD-012 B)');
 {
   const W = sandbox.JapanBenchmarkWeights;
+  // 2026-08-19 (bug fix): do key removed entirely (was 0.12) — DO now
+  // genuinely contributes 0 to Japan's composite (see japan/weights.js).
   assert(W.turbidity === 0.22 && W.chlorine === 0.22 && W.ph === 0.16 && W.tds === 0.16
-    && W.do === 0.12 && W.orp === 0.12, 'JP-WEIGHTS magnitudes unchanged (PD-013 A)');
+    && W.do === undefined && W.orp === 0.12, 'JP-WEIGHTS scored-param magnitudes unchanged, do key removed (2026-08-19 bug fix)');
   assert(sandbox.JapanBenchmarkLimits.do.min === 5, 'JP do.min remains 5 (provenance only; not scored)');
 
   const at = bench('japan', { ...BASE, do: 5.0 });
@@ -232,7 +234,8 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
   // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3)
   // takes it to 73.
   assert(bench('thailand', BASE).score === 79, 'TH baseline 79 (shared base, no cap)');
-  assert(bench('japan', BASE).score === 74, 'JP baseline 74 (shared base, WARNING guaranteed deduction)');
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 74 -> 76.
+  assert(bench('japan', BASE).score === 76, 'JP baseline 76 (shared base, WARNING guaranteed deduction)');
   // WHO classifies do=5.3/chlorine=0.7 as FAIL; raw 76 is already below the
   // 75 FAIL ceiling, so the guaranteed minimum deduction (FAIL=6) is what
   // actually moves it: 76 - 6 = 70.

@@ -233,7 +233,8 @@ console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
   // minimum deduction (FAIL=6) takes raw 76 down to 70. EU's PD-002
   // chlorine gate is unaffected, still 65.
   assert(th.score === 79 && th.engineKey === 'thailand', 'baseline displayed TH=79 from thailand engine');
-  assert(jp.score === 74 && jp.engineKey === 'japan', 'baseline displayed JP=74 from japan engine');
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 74 -> 76.
+  assert(jp.score === 76 && jp.engineKey === 'japan', 'baseline displayed JP=76 from japan engine');
   assert(who.score === 70 && who.engineKey === 'who', 'baseline displayed WHO=70 from who engine');
   assert(eu.score === 65 && eu.engineKey === 'eu', 'baseline displayed EU=65 from eu engine');
   assert(epa.score === 71 && epa.engineKey === 'usEpa', 'baseline displayed EPA=71 from usEpa engine');
@@ -266,7 +267,10 @@ console.log('\n8. Japan DO 5.3 / 0 / null / 20 — DO numerically graded when pr
       assert(hasDoParam, `DO=${doVal}: do present in graded params (shared base grades it when present)`);
     }
   }
-  assert(new Set(scores).size === scores.length, `Japan DO variants produce genuinely different displayed scores ${scores.join(',')} (DO enters the shared grading average)`);
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights — DO no
+  // longer enters Japan's composite at all, so every DO variant now produces
+  // the identical displayed score.
+  assert(new Set(scores).size === 1, `Japan DO variants all produce the identical displayed score ${scores.join(',')} (DO excluded from Japan's composite)`);
 }
 
 console.log('\n9. Missing Japan required parameter (pH) → displayed incomplete/null');
@@ -292,7 +296,7 @@ console.log('\n10. Quality V3 unchanged');
   // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3)
   // takes it to 73 — diverging from Quality V3 here; independence between
   // the two is structural, not numeric.
-  assert(sandbox.S.displayedScore.score === 74, 'displayed Japan score is 74 (Japan\'s own pH WARNING + guaranteed deduction)');
+  assert(sandbox.S.displayedScore.score === 76, 'displayed Japan score is 76 (Japan\'s own pH WARNING + guaranteed deduction)');
 }
 
 console.log('\nLive Hero must not fall back to Quality V3 when country score is incomplete');

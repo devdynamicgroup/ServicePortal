@@ -226,7 +226,8 @@ console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-ap
   // WARNING; the guaranteed minimum deduction
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it to 73 even though
   // the 85 ceiling doesn't bind.
-  assert(bench('japan', newc811).score === 74, 'New C 8/11 JP 74 (shared base, WARNING guaranteed deduction)');
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 74 -> 76.
+  assert(bench('japan', newc811).score === 76, 'New C 8/11 JP 76 (shared base, WARNING guaranteed deduction)');
   // WHO classifies chlorine=0.7 as FAIL (shared curve), do=5.3 as FAIL —
   // raw 76 is already below the 75 FAIL ceiling, so the guaranteed minimum
   // deduction (FAIL=6) is what actually moves it: 76 - 6 = 70.
@@ -235,7 +236,8 @@ console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-ap
   assert(bench('eu', newc811).score === 65, 'New C 8/11 EU 65 (chlorine CRITICAL triggers PD-002 gate)');
   // Shared base for newc810 = 82 for every engine. Japan's own tighter pH
   // band still classifies ph=7.81 WARNING; guaranteed deduction: 82 - 3 = 79.
-  assert(bench('japan', newc810).score === 81, 'New C 8/10 JP 81 (weighted profile, WARNING guaranteed deduction)');
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising newc810's raw base — now clears the 85 ceiling untouched.
+  assert(bench('japan', newc810).score === 85, 'New C 8/10 JP 85 (shared base, no cap binds)');
   assert(bench('who', newc810).score === 75, `New C 8/10 WHO capped 75 (do classifies FAIL) (got ${bench('who', newc810).score})`);
   assert(bench('usEpa', newc810).score === 75, `New C 8/10 EPA capped 75 (do classifies FAIL) (got ${bench('usEpa', newc810).score})`);
   assert(bench('eu', newc810).score === 75, 'New C 8/10 EU capped 75 (DO FAIL, non-chlorine severity coverage)');

@@ -208,14 +208,16 @@ console.log('\nBASE / one-bad pipeline');
 
 console.log('\nCross-engine isolation');
 {
-  assert(sandbox.JapanBenchmarkWeights.do === 0.12, 'JP do weight 0.12');
+  // 2026-08-19 (bug fix): do key removed entirely from JapanBenchmarkWeights.
+  assert(sandbox.JapanBenchmarkWeights.do === undefined, 'JP do weight key removed (2026-08-19 bug fix)');
   assert(sandbox.EuBenchmarkLimits.gateCapOnChlorineFail === 65, 'EU gate 65');
   assert(sandbox.UsEpaBenchmarkLimits.chlorine.max === 4.0, 'EPA Cl max 4.0');
   const jp = sandbox.WaterScoreBenchmarkRegistry.calculate('japan', BASE);
   // Japan's own tighter pH band (7.3-7.7) classifies ph=7.85 WARNING; the
   // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3)
   // takes raw 76 to 73.
-  assert(jp.score === 74 && jp.classifications.do === 'NOT_EVALUATED', `JP BASE 74 / DO NE (got ${jp.score})`);
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 74 -> 76.
+  assert(jp.score === 76 && jp.classifications.do === 'NOT_EVALUATED', `JP BASE 76 / DO NE (got ${jp.score})`);
   // WHO/EPA classify chlorine/do FAIL; raw 76 is already below the 75 FAIL
   // ceiling, so the guaranteed minimum deduction (FAIL=6) is what actually
   // moves it: 76 - 6 = 70.
@@ -266,14 +268,17 @@ console.log('\nCross-country matrix (recomputed against the shared-formula rebui
     // Thailand's own severity cap kicking in where it previously didn't;
     // other countries' columns are unaffected (each uses its own limits.js).
     // Every value recomputed directly, not estimated.
-    ['BASE', BASE, { th: 79, jp: 74, eu: 65, who: 70, epa: 71, q: 76 }],
+    // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights — jp
+    // cells shift wherever the fixture's do differed from what Japan's own
+    // weighted composite now (correctly) ignores. Recomputed directly.
+    ['BASE', BASE, { th: 79, jp: 76, eu: 65, who: 70, epa: 71, q: 76 }],
     ['DIFF', DIFF, { th: 51, jp: 47, eu: 49, who: 51, epa: 45, q: 61 }],
-    ['LOCKED', LOCKED, { th: 66, jp: 64, eu: 63, who: 60, epa: 57, q: 73 }],
+    ['LOCKED', LOCKED, { th: 66, jp: 63, eu: 63, who: 60, epa: 57, q: 73 }],
     ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 75, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
     ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 60, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
     ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 87, jp: 60, eu: 65, who: 60, epa: 91, q: 90 }],
     ['twoBad', twoBad, { th: 60, jp: 60, eu: 69, who: 60, epa: 59, q: 80 }],
-    ['threeBad', threeBad, { th: 53, jp: 53, eu: 54, who: 59, epa: 50, q: 69 }]
+    ['threeBad', threeBad, { th: 53, jp: 48, eu: 54, who: 59, epa: 50, q: 69 }]
   ];
   for (const [label, readings, exp] of rows) {
     const got = {

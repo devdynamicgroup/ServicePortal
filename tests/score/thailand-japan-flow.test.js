@@ -172,7 +172,8 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
     // base (78) is already below the 85 cap, but the guaranteed minimum
     // deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) still comes off:
     // 78 - 3 = 75, genuinely diverging Japan from Thailand here too.
-    assert(jpB.score === 77, `Case B: JP 75 (got ${jpB.score})`);
+    // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 77 -> 81.
+    assert(jpB.score === 81, `Case B: JP 81 (got ${jpB.score})`);
     assert(thB.score === 83, `Case B: TH 78 (got ${thB.score})`);
     assert(thB.score !== jpB.score, 'Case B: TH!==JP (Japan\'s own pH WARNING + guaranteed deduction)');
     assert(Number.isFinite(qB) && qB !== thB.score, `Case B: Quality ${qB} !== TH ${thB.score} (weighted profile)`);
@@ -337,7 +338,7 @@ console.log('\nFull matrix (execution evidence)');
   // thresholds fully PASS this reading (81, uncapped); Japan's own stricter
   // pH/TDS comfort targets classify it WARNING+FAIL, capping it to 75.
   assert(matrix.A.thailand === 95 && matrix.A.japan === 85, 'matrix A TH=92 JP=85 (Japan pH target)');
-  assert(matrix.B.thailand === 83 && matrix.B.japan === 77, 'matrix B TH=78 JP=75 (Japan pH WARNING + guaranteed deduction)');
+  assert(matrix.B.thailand === 83 && matrix.B.japan === 81, 'matrix B TH=83 JP=81 (Japan pH WARNING + guaranteed deduction)');
   assert(matrix.DIFF.thailand === 83 && matrix.DIFF.japan === 75, 'matrix DIFF TH=81 JP=75 (Japan pH/TDS FAIL cap)');
   assert(matrix.DIFF.thailand !== matrix.DIFF.japan, 'matrix DIFF TH!==JP');
 }

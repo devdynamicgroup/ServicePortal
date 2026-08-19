@@ -120,7 +120,8 @@ console.log('\nOther engines + Q-V3 unchanged on New C 8/11');
   // Quality V3's (76), but Japan's own tighter pH band (7.3-7.7) classifies
   // ph=7.85 WARNING; the guaranteed minimum deduction
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it to 73.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 74, 'JP 74 (shared base, WARNING guaranteed deduction)');
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 74 -> 76.
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 76, 'JP 76 (shared base, WARNING guaranteed deduction)');
   // WHO classifies chlorine/do FAIL; raw 76 is already below the 75 FAIL
   // ceiling, so the guaranteed minimum deduction (FAIL=6) is what actually
   // moves it: 76 - 6 = 70.

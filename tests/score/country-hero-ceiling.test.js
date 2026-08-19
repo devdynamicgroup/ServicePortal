@@ -112,24 +112,22 @@ console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / 
   const quality = sandbox.computeQualityScoreDetail(BASE).score;
   assert(quality === 76, `Q-V3 BASE stays 76, unrounded by Country ceiling (got ${quality})`);
   const jp = bench('japan', BASE).score;
-  // 2026-08-18 (PO-approved): BASE's pH (7.85) is outside Japan's own
-  // tighter comfortable-water band (7.3-7.7 — see japan/limits.js), so
-  // Japan itself already diverges from Q-V3 here (guaranteed WARNING
-  // deduction, 76 -> 73) — that alone is one proof of independence.
+  // 2026-08-19 (bug fix): japan/weights.js no longer carries a `do` key —
+  // BASE's raw base rose from 74 to 76 and now numerically coincides with
+  // Q-V3's own flat-mean 76. That's expected, not a leak: same-score is an
+  // explicitly acceptable outcome for this architecture; independence is
+  // structural (grep check below), and the COINCIDE fixture right after
+  // this one gives the actual numeric divergence proof instead.
+  assert(jp === 76 && jp === quality, `Country Hero (${jp}) coincides with Q-V3 (${quality}) here — not a leak, structural proof below`);
   // COINCIDE (ph=7.5, otherwise identical to BASE) keeps pH inside Japan's
-  // band, so when no severity cap or gate binds, a country's score CAN
-  // still numerically coincide with Quality V3 — that's expected, not a
-  // leak. Independence is proven by showing the two are computed by
-  // genuinely separate code paths (grep check below) AND by a fixture
-  // where a country-specific cap makes them diverge: DIFF's tds/turbidity
-  // classify CRITICAL on Japan (cap 60, guaranteed deduction lowers it
-  // further to 51), while Quality V3 has no such cap and stays at its own
-  // raw value.
-  assert(jp === 74 && jp !== quality, `Country Hero (${jp}) already diverges from Q-V3 (${quality}) — Japan's own pH band + guaranteed deduction`);
+  // own band (no severity cap binds), yet Japan's own weighted profile
+  // (turbidity/chlorine emphasized) still genuinely diverges from Q-V3's
+  // flat mean purely from weighting — this is the real independence proof.
   const coincide = { ...BASE, ph: 7.5 };
   const jpCoincide = bench('japan', coincide).score;
   const qualityCoincide = sandbox.computeQualityScoreDetail(coincide).score;
-  assert(jpCoincide !== qualityCoincide, `Country Hero (${jpCoincide}) differs from Q-V3 (${qualityCoincide}) — weighted JP profile vs flat Q-V3 mean`);
+  assert(jpCoincide === 81 && qualityCoincide === 77 && jpCoincide !== qualityCoincide,
+    `Country Hero (${jpCoincide}) differs from Q-V3 (${qualityCoincide}) — weighted JP profile vs flat Q-V3 mean`);
   const jpDiff = bench('japan', DIFF).score;
   const qualityDiff = sandbox.computeQualityScoreDetail(DIFF).score;
   assert(jpDiff !== qualityDiff, `Country Hero (${jpDiff}) diverges from Q-V3 (${qualityDiff}) once Japan's own severity cap binds — proves independence`);

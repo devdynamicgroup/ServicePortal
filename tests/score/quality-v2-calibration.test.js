@@ -103,7 +103,8 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   assert(bench('thailand', CASE_A) === 95, 'TH Case A = 95 (weighted, DO excluded)');
   assert(bench('japan', CASE_A) === 85, 'Japan Case A = 85 (WARNING-capped by its own tighter pH target)');
   assert(bench('thailand', CASE_B) === 83, 'TH Case B = 83');
-  assert(bench('japan', CASE_B) === 77, 'Japan Case B = 77 (WARNING classifies, raw base 78 minus guaranteed deduction 3)');
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 77 -> 81.
+  assert(bench('japan', CASE_B) === 81, 'Japan Case B = 81 (WARNING classifies, guaranteed deduction)');
 }
 
 console.log('\nCountry differentiation on locked sample (standards differ)');
@@ -115,7 +116,14 @@ console.log('\nCountry differentiation on locked sample (standards differ)');
   const eu = bench('eu', LOCKED);
   console.log('  locked TH/JP/WHO/EU', th, jp, who, eu);
   assert(th !== eu, 'Thailand ≠ EU on locked sample');
-  assert(jp !== eu, 'Japan ≠ EU on locked sample');
+  // 2026-08-19 (bug fix): japan/weights.js no longer carries a `do` key, so
+  // Japan's raw base rose (LOCKED's do=6.5 no longer weighted in) and now
+  // numerically coincides with EU's independently-computed 63 (Japan via its
+  // own FAIL guaranteed deduction, EU via its own chlorine gate — two
+  // genuinely different mechanisms landing on the same number). Per this
+  // project's own stated principle, a coincidental same score across
+  // countries is an acceptable outcome, not something to force apart.
+  assert(jp === 63 && eu === 63, 'Japan and EU coincide at 63 on locked sample (different mechanisms, same number)');
   // 2026-08-18 (PO-approved): one shared grading formula (computeSharedBenchmarkBase)
   // replaced each engine's own per-parameter curves — TH and JP share the same
   // raw base (73); WHO's own chlorine threshold still classifies this reading
@@ -139,8 +147,9 @@ console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
   // Thailand's uncapped raw base (78) too — TH and JP genuinely differ here
   // as well (PD-005: neither coincidence nor divergence is a ranking signal).
   assert(bench('thailand', CASE_A) === 95 && bench('japan', CASE_A) === 85, 'Case A TH=95 JP=85 (Japan\'s own tighter pH target caps it)');
-  assert(bench('thailand', CASE_B) === 83 && bench('japan', CASE_B) === 77 && bench('thailand', CASE_B) !== bench('japan', CASE_B),
-    'Case B TH=83 JP=77 (Japan\'s own pH WARNING + guaranteed deduction diverges it too)');
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising Japan Case B 77 -> 81.
+  assert(bench('thailand', CASE_B) === 83 && bench('japan', CASE_B) === 81 && bench('thailand', CASE_B) !== bench('japan', CASE_B),
+    'Case B TH=83 JP=81 (Japan\'s own pH WARNING + guaranteed deduction diverges it too)');
   // Differentiation: outside JP's stricter pH/TDS comfort-target thresholds,
   // still inside TH's own (2026-08-19, evidence-based) corrected bounds
   // (DOH 2020 TDS≤500 / MWA turbidity≤1.0) — this is where the two are

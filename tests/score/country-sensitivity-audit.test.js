@@ -133,7 +133,9 @@ console.log('\nMatrix — which params are classified (all 5 now grade DO numeri
   assert(Number.isFinite(eu.params.do) && Number.isFinite(bench('who', IDEAL).params.do)
     && Number.isFinite(bench('usEpa', IDEAL).params.do),
     'EU/WHO/EPA DO are scored and classified');
-  assert(sandbox.JapanBenchmarkWeights.do === 0.12, 'JP do weight metadata 0.12 retained (vestigial — no longer drives scoring)');
+  // 2026-08-19 (bug fix): do key removed entirely from JapanBenchmarkWeights
+  // — DO now genuinely contributes 0 to Japan's composite (see japan/weights.js).
+  assert(sandbox.JapanBenchmarkWeights.do === undefined, 'JP do weight key removed (2026-08-19 bug fix) — genuinely excluded now');
   const W = sandbox.JapanBenchmarkWeights;
   const den = W.ph + W.tds + W.chlorine + W.turbidity + W.orp;
   assert(Math.abs(den - 0.88) < 1e-9, `JP scored den 0.88 (got ${den})`);
@@ -505,7 +507,9 @@ console.log('\nCross-country BASE/DIFF/LOCKED (2026-08-18, PO-approved — share
   // the guaranteed minimum deduction (FAIL=6) takes raw 76 down to 70 even
   // though the 75 ceiling doesn't bind either. EU's PD-002 chlorine gate is
   // unaffected.
-  assert(bench('japan', BASE).score === 74, 'JP BASE 74 (shared base, WARNING guaranteed deduction)');
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising
+  // the raw base (74 -> 76) since BASE's below-ideal do=5.3 no longer drags it down.
+  assert(bench('japan', BASE).score === 76, 'JP BASE 76 (shared base, WARNING guaranteed deduction)');
   assert(bench('who', BASE).score === 70, 'WHO BASE 70 (FAIL guaranteed deduction; do/chlorine classify FAIL)');
   assert(bench('eu', BASE).score === 65, 'EU BASE 65 (unchanged — chlorine gate dominates composite)');
   assert(bench('usEpa', BASE).score === 71, 'EPA BASE 71 (FAIL guaranteed deduction; do classifies FAIL)');
@@ -525,7 +529,8 @@ console.log('\nCross-country BASE/DIFF/LOCKED (2026-08-18, PO-approved — share
   // Shared base for LOCKED = 73. Japan's own tighter thresholds classify
   // tds/turbidity FAIL; raw 73 is already below the 75 FAIL ceiling, so the
   // guaranteed minimum deduction (FAIL=6) takes it to 67.
-  assert(bench('japan', LOCKED).score === 64, 'JP LOCKED 64 (shared base, FAIL guaranteed deduction)');
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights (LOCKED's do=6.5 no longer weighted in).
+  assert(bench('japan', LOCKED).score === 63, 'JP LOCKED 63 (shared base, FAIL guaranteed deduction)');
   // 2026-08-19 (PO-approved, evidence-based): Thailand's own turbidity
   // passMax corrected 5→1.0 (MWA spec) — LOCKED's turbidity=2.5 now also
   // classifies FAIL for Thailand, same guaranteed deduction: 73 - 6 = 67.

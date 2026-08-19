@@ -61,11 +61,13 @@ const scoreFlowSrc = fs.readFileSync(path.join(root, 'src/js/flows/score.js'), '
 // and the guaranteed minimum deduction (FAIL=6) takes raw 76 down to 70
 // even though the 75 ceiling doesn't bind either. EU's PD-002 chlorine gate
 // is unaffected, still 65.
+// 2026-08-19 (bug fix): japan no longer includes DO in its weighted
+// composite (do key removed from japan/weights.js) — raises 74 -> 76.
 const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
   thailand: 79,
-  japan: 74,
+  japan: 76,
   who: 70,
   eu: 65,
   usEpa: 71
@@ -173,15 +175,19 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   // though the 85 WARNING ceiling never binds. COINCIDE below (ph=7.5,
   // otherwise identical to BASELINE) keeps pH inside Japan's own band, so
   // both engines see worst=PASS and share the same raw base.
+  // 2026-08-19 (bug fix): japan/weights.js no longer carries a `do` key —
+  // BASELINE's do=5.3 was previously being pulled into Japan's composite
+  // despite Japan classifying DO NOT_EVALUATED; excluding it raises Japan's
+  // raw base (74 -> 76).
   const thBaseline = bench('thailand', BASELINE.readings);
   const jpBaseline = bench('japan', BASELINE.readings);
-  assert(thBaseline.score === 79 && jpBaseline.score === 74 && thBaseline.score !== jpBaseline.score,
-    'BASELINE TH 79 !== JP 74 — Japan\'s own pH WARNING + guaranteed deduction, not Thailand\'s');
+  assert(thBaseline.score === 79 && jpBaseline.score === 76 && thBaseline.score !== jpBaseline.score,
+    'BASELINE TH 79 !== JP 76 — Japan\'s own pH WARNING + guaranteed deduction, not Thailand\'s');
   const coincide = { ...BASELINE.readings, ph: 7.5 };
   const thCoincide = bench('thailand', coincide).score;
   const jpCoincide = bench('japan', coincide).score;
-  assert(thCoincide === 82 && jpCoincide === 78 && thCoincide !== jpCoincide,
-    'TH 82 !== JP 78 (weighted profiles diverge even when ph inside Japan\'s own band — not a ranking signal)');
+  assert(thCoincide === 82 && jpCoincide === 81 && thCoincide !== jpCoincide,
+    'TH 82 !== JP 81 (weighted profiles diverge even when ph inside Japan\'s own band — not a ranking signal)');
   // 2026-08-19 (PO-approved, evidence-based): Thailand's own TDS/turbidity
   // passMax were corrected to real cited Thai standards (DOH 2020 ≤500 /
   // MWA spec ≤1.0) — this fixture is re-picked so it still clears
@@ -297,7 +303,13 @@ console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, neve
 console.log('\nPD-012 B — Japan DO excluded from Compliance Index classification, not from shared grading');
 {
   const W = sandbox.JapanBenchmarkWeights;
-  assert(W.do === 0.12 && W.ph === 0.16 && W.orp === 0.12, 'JP-WEIGHTS do:0.12 retained (PD-013 A) — vestigial, no longer drives scoring');
+  // 2026-08-19 (bug fix): `do` was removed from JapanBenchmarkWeights
+  // entirely (was 0.12) — DO now genuinely contributes 0 to Japan's
+  // composite, matching its NOT_EVALUATED classification. Before this fix
+  // the key was present but the intent was "keep for display, skip in
+  // num/den" — a carve-out the new shared weighted-aggregation formula had
+  // no way to honor, so it was silently included. See japan/weights.js.
+  assert(W.do === undefined && W.ph === 0.16 && W.orp === 0.12, 'JP-WEIGHTS do key removed (2026-08-19 bug fix) — genuinely excluded now');
   const expectedDen = W.ph + W.tds + W.chlorine + W.turbidity + W.orp;
   assert(Math.abs(expectedDen - 0.88) < 1e-9, `expected scored den = 0.88 (got ${expectedDen})`);
 
@@ -305,14 +317,14 @@ console.log('\nPD-012 B — Japan DO excluded from Compliance Index classificati
   const high = bench('japan', { ...BASELINE.readings, do: 9.0 });
   const miss = bench('japan', { ...BASELINE.readings, do: null });
   assert(Number.isFinite(low.score) && Number.isFinite(high.score) && Number.isFinite(miss.score), 'JP scores finite with low/high/missing DO');
-  // 2026-08-18 (PO-approved): per-country weighted-composite aggregation
-  // (including the do:0.12 weight and any weakest-link blend) was replaced
-  // by the one shared plain-average grading formula. DO is now graded and
-  // included in that average whenever present — its magnitude DOES now
-  // change the numeric score. Only Japan's own PASS/FAIL classification of
-  // DO stays opinion-free (NOT_EVALUATED, asserted below).
-  assert(low.score !== high.score, `JP score differs for low vs high DO (${low.score} vs ${high.score}) — DO now enters the shared grading average`);
-  assert(low.score !== miss.score, `JP score differs for low vs missing DO (${low.score} vs ${miss.score}) — DO drops out of the average entirely when absent`);
+  // 2026-08-19 (bug fix): japan/weights.js no longer carries a `do` key, so
+  // DO's grade (however good or bad) now contributes exactly 0 weight to
+  // Japan's composite — low/high/missing DO all produce the identical
+  // score, restoring Japan's own documented PD-012 B intent ("DO excluded
+  // from Compliance Index") that the 2026-08-18 shared weighted-aggregation
+  // formula had silently broken by including DO whenever present.
+  assert(low.score === high.score, `JP score identical for low vs high DO (${low.score} vs ${high.score}) — DO no longer enters the composite at all`);
+  assert(low.score === miss.score, `JP score identical for low vs missing DO (${low.score} vs ${miss.score}) — DO was never counted either way`);
   assert(low.classifications.do === 'NOT_EVALUATED' && high.classifications.do === 'NOT_EVALUATED' && miss.classifications.do === 'NOT_EVALUATED', 'JP DO always NOT_EVALUATED (classification unaffected)');
   assert(typeof low.params.do === 'number', 'JP graded params now include a numeric do grade when present (shared base)');
   assert(!Object.prototype.hasOwnProperty.call(miss.params, 'do'), 'JP graded params omit do only when do is actually absent');

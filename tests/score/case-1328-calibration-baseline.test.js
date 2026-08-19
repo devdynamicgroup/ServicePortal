@@ -71,7 +71,12 @@ console.log('\nLocked sample (legacy DWQI freeze)');
   // passMax corrected 5→1.0 (MWA operating spec) — turbidity=2.5 now also
   // classifies FAIL for Thailand, and the same guaranteed minimum deduction
   // (FAIL=6) comes off here too: 73 - 6 = 67.
-  const expected = { thailand: 66, who: 60, eu: 63, japan: 64, usEpa: 57 };
+  // 2026-08-19 (bug fix): japan/weights.js no longer carries a `do` key —
+  // DO was silently pulling LOCKED's do=6.5 grade into Japan's composite
+  // despite Japan classifying DO as NOT_EVALUATED (PD-012 B). Excluding it
+  // raises Japan's raw base, shifting its FAIL-guaranteed-deduction result
+  // from 64 to 63.
+  const expected = { thailand: 66, who: 60, eu: 63, japan: 63, usEpa: 57 };
   for (const [key, score] of Object.entries(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, LOCKED).score === score,
       `${key} locked = ${score}`);

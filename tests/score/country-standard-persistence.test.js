@@ -204,7 +204,8 @@ console.log('\nE. Second, independent real Case proves Japan persists through Sc
   sb.setScoreReferenceStandard('japan');
   // 2026-08-18 (PO-approved): shared grading base for newc810 = 82; Japan
   // has no severity cap binding here.
-  assert(sb.S.displayedScore.engineKey === 'japan' && sb.S.displayedScore.score === 81, 'Case 2 selects Japan, Hero=81');
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising newc810's raw base to clear the 85 ceiling untouched.
+  assert(sb.S.displayedScore.engineKey === 'japan' && sb.S.displayedScore.score === 85, 'Case 2 selects Japan, Hero=85');
   sb.saveActiveJobState();
 
   sb = makeSandbox();
@@ -213,7 +214,7 @@ console.log('\nE. Second, independent real Case proves Japan persists through Sc
   assert(sb.S.scoreStandardKey === 'japan', 'Case 2 Japan selection restored after reload — proves generality, not a New-C-8/11-specific fix');
   sb.goScreen('s-score');
   assert(sb.S.scoreStandardKey === 'japan', 'Score navigation does not overwrite restored Japan');
-  assert(sb.S.displayedScore.engineKey === 'japan' && sb.S.displayedScore.score === 81, 'Japan Hero remains selected after Score navigation');
+  assert(sb.S.displayedScore.engineKey === 'japan' && sb.S.displayedScore.score === 85, 'Japan Hero remains selected after Score navigation (85)');
 }
 
 console.log('\nF. Case A/B selection remains isolated through Score navigation');

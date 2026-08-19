@@ -183,7 +183,8 @@ console.log('\nZero drift: production + benchmark scores unchanged with Phase C 
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.FAIL=6) always comes off when FAIL is
   // the worst classification, even though raw 73 is below the 75 FAIL
   // ceiling: 73 - 6 = 67.
-  const expected = { thailand: 66, who: 60, eu: 63, japan: 64, usEpa: 57 };
+  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights — LOCKED's do=6.5 grade was actually helping Japan's composite (better than its other weak params), so excluding it lowers 64 -> 63.
+  const expected = { thailand: 66, who: 60, eu: 63, japan: 63, usEpa: 57 };
   for (const key of Object.keys(expected)) {
     assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS).score === expected[key],
       `${key} score still locked at ${expected[key]}`);
