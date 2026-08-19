@@ -163,10 +163,10 @@ console.log('\nF. Cross-engine isolation — Japan/WHO/EU/US EPA scores byte-unc
   // Japan's own pH band (7.3-7.7) classifies ph=7.85 WARNING (guaranteed
   // deduction 76-3=73); WHO/US EPA classify chlorine/do FAIL (guaranteed
   // deduction 76-6=70).
-  assert(bench('japan', r).score === 73, `Japan unaffected by the Thailand-only fixtures in this file (got ${bench('japan', r).score})`);
+  assert(bench('japan', r).score === 74, `Japan unaffected by the Thailand-only fixtures in this file (got ${bench('japan', r).score})`);
   assert(bench('who', r).score === 70, `WHO unaffected (got ${bench('who', r).score})`);
   assert(bench('eu', r).score === 65, `EU unaffected (got ${bench('eu', r).score})`);
-  assert(bench('usEpa', r).score === 70, `US EPA unaffected (got ${bench('usEpa', r).score})`);
+  assert(bench('usEpa', r).score === 71, `US EPA unaffected (got ${bench('usEpa', r).score})`);
 }
 
 console.log('\nG. Severity ordering holds: PASS > FAIL-cap-bound > CRITICAL-cap-bound for Thailand too');

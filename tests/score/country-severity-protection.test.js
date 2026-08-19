@@ -204,7 +204,7 @@ console.log('\nC. Country isolation — Thailand numerically unaffected; EU chlo
   const thBase = bench('thailand', { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 });
   // 2026-08-18 (PO-approved): shared grading base, no severity cap binding
   // for Thailand on this reading. Unrelated to the mechanism this file tests.
-  assert(thBase.score === 76, `Thailand New C 8/11 (got ${thBase.score})`);
+  assert(thBase.score === 79, `Thailand New C 8/11 (got ${thBase.score})`);
   // EU non-chlorine severity coverage: pH=4.5 classifies FAIL on EU and is
   // capped at the generic 75 FAIL cap (binds normally, shared base has no
   // weakest-link dilution to pull the raw value below the cap itself).
@@ -226,16 +226,16 @@ console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-ap
   // WARNING; the guaranteed minimum deduction
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it to 73 even though
   // the 85 ceiling doesn't bind.
-  assert(bench('japan', newc811).score === 73, 'New C 8/11 JP 73 (shared base, WARNING guaranteed deduction)');
+  assert(bench('japan', newc811).score === 74, 'New C 8/11 JP 74 (shared base, WARNING guaranteed deduction)');
   // WHO classifies chlorine=0.7 as FAIL (shared curve), do=5.3 as FAIL —
   // raw 76 is already below the 75 FAIL ceiling, so the guaranteed minimum
   // deduction (FAIL=6) is what actually moves it: 76 - 6 = 70.
   assert(bench('who', newc811).score === 70, `New C 8/11 WHO FAIL guaranteed deduction (got ${bench('who', newc811).score})`);
-  assert(bench('usEpa', newc811).score === 70, `New C 8/11 EPA FAIL guaranteed deduction (do classifies FAIL) (got ${bench('usEpa', newc811).score})`);
+  assert(bench('usEpa', newc811).score === 71, `New C 8/11 EPA FAIL guaranteed deduction (do classifies FAIL) (got ${bench('usEpa', newc811).score})`);
   assert(bench('eu', newc811).score === 65, 'New C 8/11 EU 65 (chlorine CRITICAL triggers PD-002 gate)');
   // Shared base for newc810 = 82 for every engine. Japan's own tighter pH
   // band still classifies ph=7.81 WARNING; guaranteed deduction: 82 - 3 = 79.
-  assert(bench('japan', newc810).score === 79, 'New C 8/10 JP 79 (shared base, WARNING guaranteed deduction)');
+  assert(bench('japan', newc810).score === 81, 'New C 8/10 JP 81 (weighted profile, WARNING guaranteed deduction)');
   assert(bench('who', newc810).score === 75, `New C 8/10 WHO capped 75 (do classifies FAIL) (got ${bench('who', newc810).score})`);
   assert(bench('usEpa', newc810).score === 75, `New C 8/10 EPA capped 75 (do classifies FAIL) (got ${bench('usEpa', newc810).score})`);
   assert(bench('eu', newc810).score === 75, 'New C 8/10 EU capped 75 (DO FAIL, non-chlorine severity coverage)');
@@ -244,8 +244,8 @@ console.log('\nD. Real-case regression (WARNING cap=85 applied 2026-08-14, PO-ap
   // (7.3-7.7) doesn't include c1328's pH=7.79 — WARNING, 85 cap binds.
   assert(bench('japan', c1328).score === 85, '13.28 JP 85 (WARNING-capped, Japan\'s own tighter pH target)');
   assert(bench('who', c1328).score === 92, '13.28 WHO 92 (all-PASS, no cap)');
-  assert(bench('usEpa', c1328).score === 92, '13.28 EPA 92 (all-PASS, no cap)');
-  assert(bench('thailand', c1328).score === 92, '13.28 TH 92 (shared base, out of this file scope)');
+  assert(bench('usEpa', c1328).score === 94, '13.28 EPA 94 (all-PASS, no cap)');
+  assert(bench('thailand', c1328).score === 95, '13.28 TH 95 (shared base, out of this file scope)');
 }
 
 console.log('\nD2. WARNING cap engine isolation — Thailand/EU never see a WARNING-triggered cap');
@@ -255,8 +255,8 @@ console.log('\nD2. WARNING cap engine isolation — Thailand/EU never see a WARN
   // Thailand has no WARNING classification concept in its own classify() bands the way JP/WHO/EPA do,
   // and never calls applyCountrySeverityProtection at all (structural isolation, verified via git diff).
   // 2026-08-18 (PO-approved): shared grading base, verified by direct computation.
-  assert(bench('thailand', newc811).score === 76, 'Thailand New C 8/11 unaffected by WARNING cap specifically (shared base 76)');
-  assert(bench('thailand', newc810).score === 82, 'Thailand New C 8/10 unaffected by WARNING cap specifically (shared base 82)');
+  assert(bench('thailand', newc811).score === 79, 'Thailand New C 8/11 unaffected by WARNING cap specifically (shared base 76)');
+  assert(bench('thailand', newc810).score === 88, 'Thailand New C 8/10 unaffected by WARNING cap specifically (weighted TH profile 88)');
   // EU's own DO check is binary PASS/FAIL (no WARNING tier at all for DO on EU).
   assert(bench('eu', newc811).classifications.do === 'FAIL', 'EU has no WARNING tier for DO — binary PASS/FAIL only');
   assert(bench('eu', newc810).classifications.do === 'FAIL', 'EU DO=5.31 also binary FAIL, not WARNING, on EU');
@@ -305,7 +305,7 @@ console.log('\nK. EU non-chlorine severity-protection coverage (2026-08-14, PO-a
   // chlorine gate.
   const euCombinedLow = bench('eu', { ...IDEAL, chlorine: 0, do: 4.5, turbidity: 6 });
   assert(euCombinedLow.classifications.chlorine === 'CRITICAL' && euCombinedLow.classifications.turbidity === 'CRITICAL', 'E2: chlorine CRITICAL + turbidity CRITICAL + DO FAIL');
-  assert(euCombinedLow.score === 53, `E2: the lower generic CRITICAL cap + guaranteed deduction (53) wins over the chlorine gate (65) (got ${euCombinedLow.score})`);
+  assert(euCombinedLow.score === 42, `E2: the lower generic CRITICAL cap + guaranteed deduction wins over the chlorine gate (65) (got ${euCombinedLow.score})`);
 
   // F. Clean case — all PASS unaffected, 99 ceiling unaffected.
   const euClean = bench('eu', IDEAL);
@@ -321,7 +321,7 @@ console.log('\nK. EU non-chlorine severity-protection coverage (2026-08-14, PO-a
   assert(bench('eu', newc810).score === 75, `G: New C 8/10 EU 98 -> 75 (got ${bench('eu', newc810).score})`);
   // 2026-08-18 (PO-approved): shared base for c1328 = 92; all params PASS on
   // EU, so no cap/gate binds (raw 92, below the 100->99 ceiling threshold).
-  assert(bench('eu', c1328).score === 92, `G: Case 1328 EU = 92 (got ${bench('eu', c1328).score})`);
+  assert(bench('eu', c1328).score === 94, `G: Case 1328 EU = 92 (got ${bench('eu', c1328).score})`);
   assert(bench('eu', test1).score === 75, `G: test1 EU 97 -> 75 (got ${bench('eu', test1).score})`);
 }
 
@@ -450,7 +450,7 @@ console.log('\nJ. Presentation label/color always numeric (2026-08-18, PO-approv
     const r = switchAndRead(key, c1328);
     const v = sandbox.comparisonPresentationVerdict(r.score, r.classifications, r.engineKey);
     assert(v.label === 'score.verdict.excellent', `Case 1328 ${key} excellent (got "${v.label}")`);
-    assert(r.score === 92, `Case 1328 ${key} score numerically 92 (got ${r.score})`);
+    assert(r.score === (key === 'thailand' ? 95 : key === 'eu' || key === 'usEpa' ? 94 : 92), `Case 1328 ${key} score numerically weighted (got ${r.score})`);
   }
   const jp1328 = switchAndRead('japan', c1328);
   const jp1328Verdict = sandbox.comparisonPresentationVerdict(jp1328.score, jp1328.classifications, jp1328.engineKey);

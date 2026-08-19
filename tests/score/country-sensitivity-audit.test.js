@@ -262,9 +262,9 @@ console.log('\nAggregation dilution — documented limitation (no redesign)');
   // 68 -> 58 (2 params), raw 53 -> 43 (3 params).
   const one = bench('thailand', { ...IDEAL, tds: 5000 });
   assert(one.params.tds === 5 && one.score === 60, 'TH 1 catastrophic → 60 (CRITICAL cap)');
-  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 }).score === 58, 'TH 2 catastrophic → 58 (raw 68, cap no-op, guaranteed deduction 68-10)');
-  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 }).score === 43,
-    'TH 3 catastrophic → 43 (raw 53, cap no-op, guaranteed deduction 53-10)');
+  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 }).score === 52, 'TH 2 catastrophic → 52 (weighted TH profile)');
+  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 }).score === 34,
+    'TH 3 catastrophic → 34 (weighted TH profile)');
   // Country severity protection: TDS=5000 is CRITICAL on EPA, capped at 60.
   assert(bench('usEpa', { ...IDEAL, tds: 5000 }).score === 60, 'EPA 1 catastrophic → 60 (CRITICAL cap)');
 }
@@ -505,10 +505,10 @@ console.log('\nCross-country BASE/DIFF/LOCKED (2026-08-18, PO-approved — share
   // the guaranteed minimum deduction (FAIL=6) takes raw 76 down to 70 even
   // though the 75 ceiling doesn't bind either. EU's PD-002 chlorine gate is
   // unaffected.
-  assert(bench('japan', BASE).score === 73, 'JP BASE 73 (shared base, WARNING guaranteed deduction)');
+  assert(bench('japan', BASE).score === 74, 'JP BASE 74 (shared base, WARNING guaranteed deduction)');
   assert(bench('who', BASE).score === 70, 'WHO BASE 70 (FAIL guaranteed deduction; do/chlorine classify FAIL)');
   assert(bench('eu', BASE).score === 65, 'EU BASE 65 (unchanged — chlorine gate dominates composite)');
-  assert(bench('usEpa', BASE).score === 70, 'EPA BASE 70 (FAIL guaranteed deduction; do classifies FAIL)');
+  assert(bench('usEpa', BASE).score === 71, 'EPA BASE 71 (FAIL guaranteed deduction; do classifies FAIL)');
   assert(sandbox.computeQualityScoreDetail(BASE).score === 76, 'Q-V3 BASE 76 (unaffected by Country changes)');
   // Shared base for DIFF = 61. Japan/WHO/US EPA all classify tds/turbidity
   // as CRITICAL; raw 61 is already below the 60 CRITICAL ceiling, so the
@@ -518,18 +518,18 @@ console.log('\nCross-country BASE/DIFF/LOCKED (2026-08-18, PO-approved — share
   // own band, gate cap 65), but its generic (non-chlorine) severity worst
   // is FAIL, and 61 - 6 = 55 is now lower than the 65 gate cap, so the
   // generic guaranteed deduction — not the gate — ends up dominant: 55.
-  assert(bench('japan', DIFF).score === 51, 'JP DIFF 51 (tds/turbidity CRITICAL cap + guaranteed deduction)');
-  assert(bench('eu', DIFF).score === 55, 'EU DIFF 55 (non-chlorine FAIL guaranteed deduction now lower than the 65 chlorine gate)');
+  assert(bench('japan', DIFF).score === 47, 'JP DIFF 47 (tds/turbidity CRITICAL cap + guaranteed deduction)');
+  assert(bench('eu', DIFF).score === 49, 'EU DIFF 49 (non-chlorine FAIL guaranteed deduction now lower than the 65 chlorine gate)');
   assert(bench('who', DIFF).score === 51, 'WHO DIFF 51 (tds/turbidity CRITICAL cap + guaranteed deduction)');
-  assert(bench('usEpa', DIFF).score === 51, 'EPA DIFF 51 (tds/turbidity CRITICAL cap + guaranteed deduction)');
+  assert(bench('usEpa', DIFF).score === 45, 'EPA DIFF 45 (tds/turbidity CRITICAL cap + guaranteed deduction)');
   // Shared base for LOCKED = 73. Japan's own tighter thresholds classify
   // tds/turbidity FAIL; raw 73 is already below the 75 FAIL ceiling, so the
   // guaranteed minimum deduction (FAIL=6) takes it to 67.
-  assert(bench('japan', LOCKED).score === 67, 'JP LOCKED 67 (shared base, FAIL guaranteed deduction)');
+  assert(bench('japan', LOCKED).score === 64, 'JP LOCKED 64 (shared base, FAIL guaranteed deduction)');
   // 2026-08-19 (PO-approved, evidence-based): Thailand's own turbidity
   // passMax corrected 5→1.0 (MWA spec) — LOCKED's turbidity=2.5 now also
   // classifies FAIL for Thailand, same guaranteed deduction: 73 - 6 = 67.
-  assert(bench('thailand', LOCKED).score === 67, 'TH LOCKED 67 (turbidity FAIL cap + guaranteed deduction)');
+  assert(bench('thailand', LOCKED).score === 66, 'TH LOCKED 66 (turbidity FAIL cap + guaranteed deduction)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

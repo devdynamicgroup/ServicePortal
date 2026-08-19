@@ -181,7 +181,7 @@ console.log('\nDIFF pipeline retrace (RAW === engine input)');
   // the 2026-08-18 guaranteed minimum deduction
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) is what actually moves it:
   // 61 - 10 = 51.
-  assert(jp.postRound === 51 && jp.displayed === 51, `DIFF JP 51 (got ${jp.postRound})`);
+  assert(jp.postRound === 47 && jp.displayed === 47, `DIFF JP 47 (got ${jp.postRound})`);
   const q = sandbox.computeQualityScoreDetail(DIFF).score;
   assert(q === 61, 'DIFF Q-V3 unchanged 61');
 }
@@ -190,7 +190,7 @@ console.log('\nBASE / one-bad pipeline');
 {
   const base = trace(BASE, 'thailand');
   assert(base.after.tds === 175 && Number.isFinite(base.grades.chlorine), `BASE Cl grade is finite (${base.grades.chlorine})`);
-  assert(base.postRound === 76 && base.displayed === 76, `BASE TH 76 (got ${base.postRound})`);
+  assert(base.postRound === 79 && base.displayed === 79, `BASE TH 79 (got ${base.postRound})`);
   assert(sandbox.computeQualityScoreDetail(BASE).score === 76, 'BASE Q-V3 76');
   const tds = trace({ ...IDEAL, tds: 800 }, 'thailand');
   const turb = trace({ ...IDEAL, turbidity: 3.5 }, 'thailand');
@@ -203,7 +203,7 @@ console.log('\nBASE / one-bad pipeline');
   // still stays PASS and uncapped.
   assert(tds.postRound === 75 && tds.grades.tds < 100, `oneBad TDS TH 75 (FAIL cap) (got ${tds.postRound})`);
   assert(turb.postRound === 60 && turb.grades.turbidity < 100, `oneBad turb TH 60 (CRITICAL cap) (got ${turb.postRound})`);
-  assert(cl.postRound === 90 && cl.grades.chlorine < 100, `oneBad Cl TH 90 (got ${cl.postRound})`);
+  assert(cl.postRound === 87 && cl.grades.chlorine < 100, `oneBad Cl TH 87 (got ${cl.postRound})`);
 }
 
 console.log('\nCross-engine isolation');
@@ -215,13 +215,13 @@ console.log('\nCross-engine isolation');
   // Japan's own tighter pH band (7.3-7.7) classifies ph=7.85 WARNING; the
   // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3)
   // takes raw 76 to 73.
-  assert(jp.score === 73 && jp.classifications.do === 'NOT_EVALUATED', `JP BASE 73 / DO NE (got ${jp.score})`);
+  assert(jp.score === 74 && jp.classifications.do === 'NOT_EVALUATED', `JP BASE 74 / DO NE (got ${jp.score})`);
   // WHO/EPA classify chlorine/do FAIL; raw 76 is already below the 75 FAIL
   // ceiling, so the guaranteed minimum deduction (FAIL=6) is what actually
   // moves it: 76 - 6 = 70.
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', BASE).score === 70, 'WHO 70 (FAIL guaranteed deduction)');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', BASE).score === 65, 'EU 65');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', BASE).score === 70, 'EPA 70 (FAIL guaranteed deduction — DO=5.3 below EPA\'s own floor)');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', BASE).score === 71, 'EPA 71 (FAIL guaranteed deduction — DO=5.3 below EPA\'s own floor)');
 }
 
 console.log('\nCatastrophic dilution (aggregation now a plain equal-weight mean — severity caps do the heavy lifting)');
@@ -235,8 +235,8 @@ console.log('\nCatastrophic dilution (aggregation now a plain equal-weight mean 
   // itself is a no-op, but the 2026-08-18 guaranteed minimum deduction
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) still always comes off:
   // raw 68 -> 58 (2 params), raw 53 -> 43 (3 params).
-  assert(two.score === 58, `2 catastrophic → 58 (raw 68, cap no-op, guaranteed deduction) (got ${two.score})`);
-  assert(three.score === 43, `3 catastrophic → 43 (raw 53, cap no-op, guaranteed deduction) (got ${three.score})`);
+  assert(two.score === 52, `2 catastrophic → 52 (weighted TH profile, cap no-op, guaranteed deduction) (got ${two.score})`);
+  assert(three.score === 34, `3 catastrophic → 34 (weighted TH profile, cap no-op, guaranteed deduction) (got ${three.score})`);
   // 2026-08-18 (PO-approved fix): raw average is 7, and the unconditional
   // guaranteed minimum deduction (score - 10) would go negative — a water
   // quality score below 0 is meaningless, so applyCountrySeverityProtection
@@ -266,14 +266,14 @@ console.log('\nCross-country matrix (recomputed against the shared-formula rebui
     // Thailand's own severity cap kicking in where it previously didn't;
     // other countries' columns are unaffected (each uses its own limits.js).
     // Every value recomputed directly, not estimated.
-    ['BASE', BASE, { th: 76, jp: 73, eu: 65, who: 70, epa: 70, q: 76 }],
-    ['DIFF', DIFF, { th: 51, jp: 51, eu: 55, who: 51, epa: 51, q: 61 }],
-    ['LOCKED', LOCKED, { th: 67, jp: 67, eu: 65, who: 60, epa: 60, q: 73 }],
+    ['BASE', BASE, { th: 79, jp: 74, eu: 65, who: 70, epa: 71, q: 76 }],
+    ['DIFF', DIFF, { th: 51, jp: 47, eu: 49, who: 51, epa: 45, q: 61 }],
+    ['LOCKED', LOCKED, { th: 66, jp: 64, eu: 63, who: 60, epa: 57, q: 73 }],
     ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 75, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
     ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 60, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
-    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 90, jp: 60, eu: 65, who: 60, epa: 90, q: 90 }],
-    ['twoBad', twoBad, { th: 60, jp: 60, eu: 74, who: 60, epa: 60, q: 80 }],
-    ['threeBad', threeBad, { th: 59, jp: 59, eu: 63, who: 59, epa: 59, q: 69 }]
+    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 87, jp: 60, eu: 65, who: 60, epa: 91, q: 90 }],
+    ['twoBad', twoBad, { th: 60, jp: 60, eu: 69, who: 60, epa: 59, q: 80 }],
+    ['threeBad', threeBad, { th: 53, jp: 53, eu: 54, who: 59, epa: 50, q: 69 }]
   ];
   for (const [label, readings, exp] of rows) {
     const got = {

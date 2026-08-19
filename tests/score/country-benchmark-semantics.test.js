@@ -64,11 +64,11 @@ const scoreFlowSrc = fs.readFileSync(path.join(root, 'src/js/flows/score.js'), '
 const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
-  thailand: 76,
-  japan: 73,
+  thailand: 79,
+  japan: 74,
   who: 70,
   eu: 65,
-  usEpa: 70
+  usEpa: 71
 });
 
 const KEYS = ['thailand', 'japan', 'who', 'eu', 'usEpa'];
@@ -164,8 +164,8 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   const overlap = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06 };
   const thOverlap = bench('thailand', overlap).score;
   const jpOverlap = bench('japan', overlap).score;
-  assert(thOverlap === 92 && jpOverlap === 85 && thOverlap !== jpOverlap,
-    'TH 92 !== JP 85 — Japan\'s own tighter pH target caps it (not Thailand\'s)');
+  assert(thOverlap === 95 && jpOverlap === 85 && thOverlap !== jpOverlap,
+    'TH 95 !== JP 85 — Japan\'s own tighter pH target caps it (not Thailand\'s)');
   // BASELINE itself (ph=7.85) is now OUTSIDE Japan's 7.3-7.7 comfortable
   // band too, so it no longer coincides either: Japan classifies ph
   // WARNING and the 2026-08-18 guaranteed minimum deduction
@@ -175,13 +175,13 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   // both engines see worst=PASS and share the same raw base.
   const thBaseline = bench('thailand', BASELINE.readings);
   const jpBaseline = bench('japan', BASELINE.readings);
-  assert(thBaseline.score === 76 && jpBaseline.score === 73 && thBaseline.score !== jpBaseline.score,
-    'BASELINE TH 76 !== JP 73 — Japan\'s own pH WARNING + guaranteed deduction, not Thailand\'s');
+  assert(thBaseline.score === 79 && jpBaseline.score === 74 && thBaseline.score !== jpBaseline.score,
+    'BASELINE TH 79 !== JP 74 — Japan\'s own pH WARNING + guaranteed deduction, not Thailand\'s');
   const coincide = { ...BASELINE.readings, ph: 7.5 };
   const thCoincide = bench('thailand', coincide).score;
   const jpCoincide = bench('japan', coincide).score;
-  assert(thCoincide === 77 && jpCoincide === 77 && thCoincide === jpCoincide,
-    'TH 77 === JP 77 (shared grading, ph inside Japan\'s own band too, no country cap binds — not a ranking signal)');
+  assert(thCoincide === 82 && jpCoincide === 78 && thCoincide !== jpCoincide,
+    'TH 82 !== JP 78 (weighted profiles diverge even when ph inside Japan\'s own band — not a ranking signal)');
   // 2026-08-19 (PO-approved, evidence-based): Thailand's own TDS/turbidity
   // passMax were corrected to real cited Thai standards (DOH 2020 ≤500 /
   // MWA spec ≤1.0) — this fixture is re-picked so it still clears
@@ -190,7 +190,7 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   const diverge = { ph: 8.0, tds: 350, turbidity: 0.5, orp: 400, do: 6, chlorine: 0.5, temp: 26 };
   const thDiverge = bench('thailand', diverge).score;
   const jpDiverge = bench('japan', diverge).score;
-  assert(thDiverge === 81 && jpDiverge === 75 && thDiverge !== jpDiverge,
+  assert(thDiverge === 83 && jpDiverge === 75 && thDiverge !== jpDiverge,
     'TH/JP scores genuinely differ on a fixture where Japan\'s own FAIL classification + severity cap caps it (81 vs 75)');
   assert(thBaseline.params.chlorine < 100, 'TH chlorine grade already below 100 pre-ceiling (in-band severity)');
   assert(jpBaseline.params.orp < 100, 'JP orp grade now below 100 for orp=515 (PD-014 D1 inner decline)');
@@ -247,7 +247,7 @@ console.log('\nPD-001 (superseded 2026-08-18, commit f586d40a) — comparison pr
 
 
   const compare = sandbox.buildComparisonScoreResult(BASELINE.readings, 'thailand');
-  assert(compare.score === 76, 'comparison numeric score matches Thailand engine (76, shared grading base)');
+  assert(compare.score === 79, 'comparison numeric score matches Thailand engine (79, weighted TH profile)');
   // 2026-08-18 (post dbd161d2, external commit f586d40a): comparisonPresentationVerdict
   // now delegates to customerVerdict — 76 falls in the 51-80 "good" tier.
   assert(compare.verdict === 'score.verdict.good', `comparison result.verdict is good (got ${compare.verdict})`);
@@ -277,7 +277,7 @@ console.log('\nModel integrity — engines untouched numerically');
 console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, never PASS');
 {
   const th = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', BASELINE.readings);
-  assert(th.score === 76, 'TH baseline 76 (shared grading base; DO classification still excluded)');
+  assert(th.score === 79, 'TH baseline 79 (shared grading base; DO classification still excluded)');
   assert(th.classifications.do === 'NOT_EVALUATED', `TH measured DO → NOT_EVALUATED (got ${th.classifications.do})`);
   assert(th.classifications.temp === 'NOT_EVALUATED', `TH measured temp → NOT_EVALUATED (got ${th.classifications.temp})`);
   assert(th.statuses.do !== 'good', 'TH DO status is not good');
@@ -289,7 +289,7 @@ console.log('\nPD-003 — Thailand DO/Temp classification is NOT_EVALUATED, neve
   // present, so removing it changes the numeric average (76 -> 79 here,
   // since the below-ideal do=5.3 grade is dropped from the average) — only
   // the classification stays NOT_EVALUATED (unchanged, asserted below).
-  assert(thNullDo.score === 79, 'TH score DOES shift with null DO (do drops out of the shared grading average)');
+  assert(thNullDo.score === 79, 'TH score unchanged with null DO (DO excluded from Thailand weights)');
   assert(thNullDo.classifications.do === 'NOT_EVALUATED', 'TH null DO → NOT_EVALUATED (not PASS via Number(null)===0)');
   assert(thNullDo.classifications.temp === 'NOT_EVALUATED', 'TH null temp → NOT_EVALUATED');
 }

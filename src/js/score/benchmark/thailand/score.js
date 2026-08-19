@@ -70,7 +70,7 @@
     // Thailand differs from the other engines only in the PASS/FAIL
     // thresholds and severity handling below — never in how a value is
     // graded. See computeSharedBenchmarkBase in computeQualityScoreV2.js.
-    const base = computeSharedBenchmarkBase(readings);
+    const base = computeSharedBenchmarkBase(readings, W);
     const params = base.params;
     const rawScore = base.score;
 

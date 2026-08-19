@@ -113,13 +113,33 @@
   }
 
   /**
-   * Shared benchmark base (2026-08-18, PO-approved): a single grading
-   * formula — this module's existing curves — computed once and reused as
-   * the base score for every country engine (Thailand/Japan/WHO/EU/US EPA),
-   * replacing each engine's own separate per-parameter grade curves. Countries
-   * keep differing ONLY in their own PASS/WARNING/FAIL/CRITICAL thresholds,
-   * severity caps, and gates (e.g. EU's PD-002 chlorine gate) — applied by
-   * each engine on top of this shared number, never in the grading itself.
+   * Shared benchmark base (2026-08-18, PO-approved; weighting restored
+   * 2026-08-19 after forensic audit — see below): a single grading formula —
+   * this module's existing curves — computed once and reused as the base
+   * score for every country engine (Thailand/Japan/WHO/EU/US EPA), replacing
+   * each engine's own separate per-parameter grade curves. Countries differ
+   * in their own PASS/WARNING/FAIL/CRITICAL thresholds, severity caps, and
+   * gates (e.g. EU's PD-002 chlorine gate) — applied by each engine on top of
+   * this shared number — AND, as of 2026-08-19, in how much each already-
+   * graded parameter counts toward the composite, via each engine's own
+   * `*BenchmarkWeights` (Japan/EU/EPA/WHO/Thailand — unchanged files, already
+   * documented with country-specific rationale). The underlying curve shape
+   * (what a given raw pH/TDS/turbidity/etc. value grades to) stays 100%
+   * identical across every country — only the aggregation weighting differs.
+   *
+   * 2026-08-19 forensic finding: between 2026-08-18 and 2026-08-19 this
+   * function accepted only `readings`, always producing a flat unweighted
+   * mean — every `*BenchmarkWeights` file was destructured into a local `W`
+   * in each engine's score.js but never read, making 4 of 5 countries'
+   * weight profiles (Thailand/WHO/EU/US EPA — Japan differentiates via its
+   * own narrow PASS band regardless) dead configuration. That silent gap is
+   * why Thailand/WHO/EU/US EPA converged to identical numbers whenever all
+   * four happened to classify PASS on every parameter: the raw composite
+   * literally could not know which country asked for it. This restores the
+   * weighting; no new numbers were introduced, no per-Case logic, no country
+   * name checks — `weights` is an optional 2nd argument so any caller that
+   * omits it (computeQualityScoreDetail below is a wholly separate function
+   * and is not affected either way) keeps today's flat-average behavior.
    *
    * Deliberately more tolerant than computeQualityScoreDetail (the Quality V3
    * publish/share score) above: ph/tds/turbidity/orp are required, but
@@ -129,7 +149,7 @@
    * This does not change computeQualityScoreDetail's own (stricter, all-6)
    * requirement — that publish-path score is untouched.
    */
-  function computeSharedBenchmarkBase(readings) {
+  function computeSharedBenchmarkBase(readings, weights) {
     const toFin = typeof toFiniteReading === 'function' ? toFiniteReading : (v) => { if (v === null || v === undefined || v === '' || v === false) return NaN; const n = Number(v); return Number.isFinite(n) ? n : NaN; };
     const ph = toFin(readings.ph);
     const tds = toFin(readings.tds);
@@ -152,7 +172,26 @@
     if (Number.isFinite(do_)) params.do = gradeDo(do_);
 
     const grades = Object.values(params);
-    const score = Math.round(grades.reduce((sum, g) => sum + g, 0) / grades.length);
+    let score;
+    if (weights && typeof weights === 'object') {
+      // Weighted mean over whichever params are present. A param key absent
+      // from the given weights object (e.g. Thailand's do/temp omission,
+      // documented in thailand/weights.js) contributes zero — same effect
+      // as "not scored", not "scored at equal weight".
+      let weightedSum = 0;
+      let weightTotal = 0;
+      Object.keys(params).forEach((key) => {
+        const w = Number(weights[key]);
+        if (!Number.isFinite(w) || w <= 0) return;
+        weightedSum += params[key] * w;
+        weightTotal += w;
+      });
+      score = weightTotal > 0
+        ? Math.round(weightedSum / weightTotal)
+        : Math.round(grades.reduce((sum, g) => sum + g, 0) / grades.length);
+    } else {
+      score = Math.round(grades.reduce((sum, g) => sum + g, 0) / grades.length);
+    }
 
     return { score, params, complete: true };
   }

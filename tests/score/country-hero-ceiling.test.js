@@ -104,7 +104,7 @@ console.log('\nCase B — country raw composite below ceiling stays unaffected B
   // DIFF's tds/turbidity classify CRITICAL on US EPA; raw base (61) is
   // already below the 60 CRITICAL ceiling, so the guaranteed minimum
   // deduction (CRITICAL=10) is what actually moves it: 61 - 10 = 51.
-  assert(bench('usEpa', DIFF).score === 51, 'EPA DIFF 51 (CRITICAL cap + guaranteed deduction; still < 99, ceiling no-op)');
+  assert(bench('usEpa', DIFF).score === 45, 'EPA DIFF 45 (CRITICAL cap + guaranteed deduction; still < 99, ceiling no-op)');
 }
 
 console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / published Q-V3');
@@ -125,11 +125,11 @@ console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / 
   // classify CRITICAL on Japan (cap 60, guaranteed deduction lowers it
   // further to 51), while Quality V3 has no such cap and stays at its own
   // raw value.
-  assert(jp === 73 && jp !== quality, `Country Hero (${jp}) already diverges from Q-V3 (${quality}) — Japan's own pH band + guaranteed deduction`);
+  assert(jp === 74 && jp !== quality, `Country Hero (${jp}) already diverges from Q-V3 (${quality}) — Japan's own pH band + guaranteed deduction`);
   const coincide = { ...BASE, ph: 7.5 };
   const jpCoincide = bench('japan', coincide).score;
   const qualityCoincide = sandbox.computeQualityScoreDetail(coincide).score;
-  assert(jpCoincide === qualityCoincide, `Country Hero (${jpCoincide}) coincides with Q-V3 (${qualityCoincide}) when ph is inside Japan's own band too, no cap binds`);
+  assert(jpCoincide !== qualityCoincide, `Country Hero (${jpCoincide}) differs from Q-V3 (${qualityCoincide}) — weighted JP profile vs flat Q-V3 mean`);
   const jpDiff = bench('japan', DIFF).score;
   const qualityDiff = sandbox.computeQualityScoreDetail(DIFF).score;
   assert(jpDiff !== qualityDiff, `Country Hero (${jpDiff}) diverges from Q-V3 (${qualityDiff}) once Japan's own severity cap binds — proves independence`);
@@ -166,7 +166,7 @@ console.log('\nCase E — TH severity preservation: DIFF_TH_SAFE stays well belo
   // own — now corrected — classifications stay within PASS), so the raw 81
   // passes through both severity protection and the ceiling (well below 99)
   // unchanged.
-  assert(th.score === 81, `TH DIFF_TH_SAFE raw composite already below ceiling, unchanged at 81 (got ${th.score})`);
+  assert(th.score === 83, `TH DIFF_TH_SAFE raw composite already below ceiling, unchanged at 83 (got ${th.score})`);
 }
 
 console.log('\nCase F — existing near-ideal fixture: raw 92 (below ceiling), unchanged across engines');
@@ -179,7 +179,7 @@ console.log('\nCase F — existing near-ideal fixture: raw 92 (below ceiling), u
   // stay PASS, so their raw composite (92, not 100) never reaches the ceiling.
   for (const key of KEYS) {
     const r = bench(key, CASE_1328);
-    const expected = key === 'japan' ? 85 : 92;
+    const expected = { thailand: 95, japan: 85, who: 92, eu: 94, usEpa: 94 }[key];
     assert(r.score === expected, `${key} Case 1328 (pre-existing near-ideal fixture) = ${expected} (got ${r.score})`);
   }
 }

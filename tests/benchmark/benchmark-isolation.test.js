@@ -241,7 +241,7 @@ console.log('\nTest 7 — Benchmark scores locked (must not drift)');
   // the 75 FAIL ceiling: 73 - 6 = 67. 2026-08-19 (PO-approved, evidence-
   // based): Thailand's own turbidity passMax corrected 5→1.0 (MWA spec) —
   // turbidity=2.5 now also classifies FAIL for Thailand, same deduction: 67.
-  const expected = { thailand: 67, who: 60, eu: 65, japan: 67, usEpa: 60 };
+  const expected = { thailand: 66, who: 60, eu: 63, japan: 64, usEpa: 57 };
   for (const key of KEYS) {
     const score = reg.calculate(key, SAMPLE).score;
     assert(score === expected[key], `${key} score locked at ${expected[key]} (got ${score})`);

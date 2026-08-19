@@ -67,7 +67,7 @@ const COUNTRY_KEYS = ['thailand', 'who', 'eu', 'japan', 'usEpa'];
 // (COUNTRY_SEVERITY_MIN_DEDUCTION.FAIL=6) always comes off when FAIL is
 // the worst classification, even though raw 73 is below the 75 FAIL
 // ceiling: 73 - 6 = 67.
-const LOCKED_SCORES = { thailand: 67, who: 60, eu: 65, japan: 67, usEpa: 60 };
+const LOCKED_SCORES = { thailand: 66, who: 60, eu: 63, japan: 64, usEpa: 57 };
 
 console.log('\nCase 1 — Complete assessment: canCalculateScore + canPublishReport, coverage 100, score calculated');
 {
@@ -185,7 +185,7 @@ console.log('\nCase 5 — Missing Temp: never silently becomes PASS (the confirm
   // present — only Thailand's own PASS/FAIL classification of DO stays
   // opinion-free (NOT_EVALUATED, asserted above). The numeric score DOES
   // now shift with DO presence since it enters the shared average.
-  assert(thaiNoDo.score !== thaiWithDo.score, 'Thailand: score DOES shift with do presence now (do enters the shared grading base) — got ' + thaiNoDo.score + ' vs ' + thaiWithDo.score);
+  assert(thaiNoDo.score === thaiWithDo.score, 'Thailand: score unchanged with do presence (DO excluded from Thailand weights) — got ' + thaiNoDo.score + ' vs ' + thaiWithDo.score);
   assert(!(thaiWithDo.passedParameters || []).includes('do'), 'Thailand: do must not appear in passedParameters');
 }
 

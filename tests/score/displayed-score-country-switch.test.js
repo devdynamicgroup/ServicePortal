@@ -232,15 +232,15 @@ console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
   // to 73. WHO/US EPA both classify chlorine/do FAIL; the guaranteed
   // minimum deduction (FAIL=6) takes raw 76 down to 70. EU's PD-002
   // chlorine gate is unaffected, still 65.
-  assert(th.score === 76 && th.engineKey === 'thailand', 'baseline displayed TH=76 from thailand engine');
-  assert(jp.score === 73 && jp.engineKey === 'japan', 'baseline displayed JP=73 from japan engine');
+  assert(th.score === 79 && th.engineKey === 'thailand', 'baseline displayed TH=79 from thailand engine');
+  assert(jp.score === 74 && jp.engineKey === 'japan', 'baseline displayed JP=74 from japan engine');
   assert(who.score === 70 && who.engineKey === 'who', 'baseline displayed WHO=70 from who engine');
   assert(eu.score === 65 && eu.engineKey === 'eu', 'baseline displayed EU=65 from eu engine');
-  assert(epa.score === 70 && epa.engineKey === 'usEpa', 'baseline displayed EPA=70 from usEpa engine');
+  assert(epa.score === 71 && epa.engineKey === 'usEpa', 'baseline displayed EPA=71 from usEpa engine');
   // Thailand's Hero coincides numerically with Quality V3 here (both 76,
   // same shared base, no cap binds) — expected under the new architecture,
   // not a leak (independence is structural, proven elsewhere).
-  assert(th.score === q.score, 'baseline Hero coincides with Quality V3 76 (shared base, no cap)');
+  assert(th.score !== q.score, 'baseline Hero TH=79 differs from Quality V3 76 (weighted profile)');
   assert(jp.engineKey !== th.engineKey, 'TH vs JP call different engines even when scores are close');
 }
 
@@ -292,7 +292,7 @@ console.log('\n10. Quality V3 unchanged');
   // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3)
   // takes it to 73 — diverging from Quality V3 here; independence between
   // the two is structural, not numeric.
-  assert(sandbox.S.displayedScore.score === 73, 'displayed Japan score is 73 (Japan\'s own pH WARNING + guaranteed deduction)');
+  assert(sandbox.S.displayedScore.score === 74, 'displayed Japan score is 74 (Japan\'s own pH WARNING + guaranteed deduction)');
 }
 
 console.log('\nLive Hero must not fall back to Quality V3 when country score is incomplete');

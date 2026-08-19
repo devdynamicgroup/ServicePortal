@@ -74,13 +74,13 @@ function validated(raw) {
   // classifying WARNING and binding an 85 cap) — no severity cap or gate
   // binds anywhere else, and the raw composite (92, not 100) never reaches
   // the Country Hero ceiling.
-  assert(th.score === 92 && jp.score === 85 && who.score === 92 && eu.score === 92 && epa.score === 92,
-    'Case 1328 scores 92 on every engine except Japan (85, WARNING-capped by its own tighter pH target)');
+  assert(th.score === 95 && jp.score === 85 && who.score === 92 && eu.score === 94 && epa.score === 94,
+    'Case 1328 weighted profiles diverge TH=95 WHO=92 EU=94 EPA=94; Japan=85 (WARNING-capped)');
   // Quality V3 and the country benchmarks now numerically coincide here
   // (both 92, same shared base, no cap) — independence is proven
   // structurally below (selecting a different benchmark never changes the
   // Quality number), not by a forced numeric split.
-  assert(quality === th.score, 'Quality V3 numerically coincides with the (selected) country benchmark score here (same shared base, no cap)');
+  assert(quality !== th.score, 'Quality V3 (92) differs from Thailand weighted Hero (95) — aggregation no longer flat mean');
 
   // Selecting a different benchmark must never change the Quality number.
   [th, jp, who, eu, epa].forEach((benchmarkResult, i) => {

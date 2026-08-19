@@ -81,7 +81,7 @@ console.log('\nReal-case ordering');
   console.log(`  test1=${t1} 811=${a} 810=${b} 13.28=${c} faucet=${f} sink=${s}`);
   // 2026-08-18 (PO-approved): shared grading base (computeSharedBenchmarkBase)
   // replaced Thailand's own curves — 92, below the ceiling.
-  assert(c === 92, 'near-ideal now 92 (shared base)');
+  assert(c === 95, 'near-ideal TH weighted 95 (shared base)');
   assert(f < 70 && s < 70, 'degraded Cl=0 materially low');
   assert(f < a && a <= b && b < c, 'faucet < 8/11 ≤ 8/10 < 13.28');
   assert(t1 < 90, 'test1 ordinary not trapped in 90+');
@@ -120,7 +120,7 @@ console.log('\nOther engines + Q-V3 unchanged on New C 8/11');
   // Quality V3's (76), but Japan's own tighter pH band (7.3-7.7) classifies
   // ph=7.85 WARNING; the guaranteed minimum deduction
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it to 73.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 73, 'JP 73 (shared base, WARNING guaranteed deduction)');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 74, 'JP 74 (shared base, WARNING guaranteed deduction)');
   // WHO classifies chlorine/do FAIL; raw 76 is already below the 75 FAIL
   // ceiling, so the guaranteed minimum deduction (FAIL=6) is what actually
   // moves it: 76 - 6 = 70.
@@ -130,7 +130,7 @@ console.log('\nOther engines + Q-V3 unchanged on New C 8/11');
   // EPA (unlike Thailand/Japan) does classify — FAIL. Raw 76 is already
   // below the 75 FAIL ceiling, so the guaranteed minimum deduction (FAIL=6)
   // is what actually moves it: 76 - 6 = 70.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 70, 'EPA 70 (FAIL guaranteed deduction)');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 71, 'EPA 71 (FAIL guaranteed deduction)');
   assert(sandbox.computeQualityScoreDetail(r).score === 76, 'Q-V3 76');
 }
 
@@ -139,7 +139,7 @@ console.log('\nHero ceiling');
   assert(sandbox.applyCountryBenchmarkHeroCeiling(100) === 99, 'ceiling 100→99');
   // 2026-08-18 (PO-approved): shared grading base — 92, well below the
   // ceiling, so the ceiling is a no-op for this fixture.
-  assert(th(C_1328).score === 92, '13.28 no longer needs the ceiling (92 < 99)');
+  assert(th(C_1328).score === 95, '13.28 no longer needs the ceiling (95 < 99)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

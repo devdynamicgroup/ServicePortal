@@ -178,7 +178,7 @@ console.log('\nCase 6 — benchmark outputs byte-identical when eligible (locked
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.FAIL=6) always comes off when FAIL is
   // the worst classification, even though raw 73 is below the 75 FAIL
   // ceiling: 73 - 6 = 67.
-  const expected = { thailand: 67, who: 60, eu: 65, japan: 67, usEpa: 60 };
+  const expected = { thailand: 66, who: 60, eu: 63, japan: 64, usEpa: 57 };
   for (const key of Object.keys(expected)) {
     const score = sandbox.WaterScoreBenchmarkRegistry.calculate(key, FULL_READINGS).score;
     assert(score === expected[key], `${key} score still locked at ${expected[key]} (got ${score}) after Phase B wiring`);

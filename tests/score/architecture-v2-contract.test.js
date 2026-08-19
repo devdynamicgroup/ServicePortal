@@ -125,11 +125,14 @@ console.log('\nD. Aggregation dilution matrix — one catastrophic parameter, fi
   // WARNING (raw 84, no cap needed, but 84-3=81); eu's orp=-100 leaves orp
   // itself WARNING (raw 85, gate does not apply since chlorine is fine, but
   // 85-3=82).
+  // 2026-08-19: weighted profiles restored — Thailand excludes DO from
+  // aggregation (do=0 no longer drags TH composite); Japan/EU use their
+  // own weight profiles + severity. Every value recomputed directly.
   const expected = {
-    thailand: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 84 },
-    japan: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 81 },
+    thailand: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 99 },
+    japan: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 85 },
     who: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 60 },
-    eu: { ph: 75, tds: 75, turbidity: 60, orp: 82, chlorine: 65, do: 75 },
+    eu: { ph: 75, tds: 75, turbidity: 60, orp: 85, chlorine: 65, do: 75 },
     usEpa: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 60 }
   };
   for (const key of KEYS) {

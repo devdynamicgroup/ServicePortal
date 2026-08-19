@@ -84,9 +84,9 @@ console.log('\nExisting Cases — natural ordering + no 97–99 ordinary cluster
   const s = th(SINK).score;
   console.log(`  scores faucet=${f} sink=${s} NewC811=${a} NewC810=${b} 13.28=${c}`);
   // 2026-08-18 (PO-approved): shared grading base. Recomputed directly, not estimated.
-  assert(a === 76, `New C 8/11 TH=76 (got ${a})`);
-  assert(b === 81, `New C 8/10 TH=81 (got ${b})`);
-  assert(c === 92, `13.28 TH=92 (got ${c})`);
+  assert(a === 79, `New C 8/11 TH=79 (got ${a})`);
+  assert(b === 85, `New C 8/10 TH=85 (got ${b})`);
+  assert(c === 95, `13.28 TH=95 (got ${c})`);
   assert(f === 60, `faucet TH=60 (CRITICAL cap, chlorine=0) (got ${f})`);
   assert(f < a && a < b && b < c, 'ordering faucet < 8/11 < 8/10 < 13.28');
   assert(!(a >= 97 && b >= 97 && c >= 97 && a <= 99 && b <= 99 && c <= 99 && a === 97 && b === 98),
@@ -130,13 +130,13 @@ console.log('\nOther engines unchanged on baseline New C readings');
   // engine. Japan's own tighter pH band (7.3-7.7) classifies ph=7.85
   // WARNING; the guaranteed minimum deduction
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it to 73.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 73, 'JP 73 (WARNING guaranteed deduction)');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 74, 'JP 74 (WARNING guaranteed deduction)');
   // WHO/EPA both classify chlorine/do as FAIL; raw 76 is already below the
   // 75 FAIL ceiling, so the guaranteed minimum deduction (FAIL=6) is what
   // actually moves it: 76 - 6 = 70.
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', r).score === 70, 'WHO 70 (FAIL guaranteed deduction)');
   assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', r).score === 65, 'EU unchanged 65');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 70, 'EPA 70 (FAIL guaranteed deduction)');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 71, 'EPA 71 (FAIL guaranteed deduction)');
   assert(sandbox.computeQualityScoreDetail(r).score === 76, 'Q-V3 unchanged 76');
 }
 

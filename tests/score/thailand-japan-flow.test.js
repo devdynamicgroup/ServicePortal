@@ -158,8 +158,8 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
     // binds Thailand). Japan's own government-cited pH target (7.3-7.7)
     // doesn't include CASE_A's pH=7.79, so it WARNING-caps at 85, genuinely
     // diverging from Thailand — driven by Japan's own threshold, not grading.
-    assert(thA.score === 92 && jpA.score === 85, 'Case A: TH=92 JP=85 (Japan\'s own tighter pH target caps it)');
-    assert(Number.isFinite(qA) && qA === thA.score, `Case A: Quality ${qA} === TH ${thA.score} (shared formula)`);
+    assert(thA.score === 95 && jpA.score === 85, 'Case A: TH=95 JP=85 (Japan\'s own tighter pH target caps it)');
+    assert(qA !== thA.score, `Quality ${qA} !== TH benchmark ${thA.score} (weighted TH profile excludes DO)`);
   }
   {
     const thB = bench('thailand', CASE_B);
@@ -172,10 +172,10 @@ console.log('\nSame-result case — Case A/B both within TH and JP plateaus (EXP
     // base (78) is already below the 85 cap, but the guaranteed minimum
     // deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) still comes off:
     // 78 - 3 = 75, genuinely diverging Japan from Thailand here too.
-    assert(jpB.score === 75, `Case B: JP 75 (got ${jpB.score})`);
-    assert(thB.score === 78, `Case B: TH 78 (got ${thB.score})`);
+    assert(jpB.score === 77, `Case B: JP 75 (got ${jpB.score})`);
+    assert(thB.score === 83, `Case B: TH 78 (got ${thB.score})`);
     assert(thB.score !== jpB.score, 'Case B: TH!==JP (Japan\'s own pH WARNING + guaranteed deduction)');
-    assert(Number.isFinite(qB) && qB === thB.score, `Case B: Quality ${qB} === TH ${thB.score} (shared formula)`);
+    assert(Number.isFinite(qB) && qB !== thB.score, `Case B: Quality ${qB} !== TH ${thB.score} (weighted profile)`);
   }
 }
 
@@ -191,7 +191,7 @@ console.log('\nDifferentiation fixture — standards diverge → TH !== JP');
   // own severity cap (75) pulls it down — genuine divergence from each
   // country's own standard, not from grading. Thailand's own (now corrected)
   // thresholds still all PASS this reading (pH 6.5-8.5, TDS≤500, turb≤1.0).
-  assert(th.score === 81, `DIFF Thailand = 81 (got ${th.score})`);
+  assert(th.score === 83, `DIFF Thailand = 81 (got ${th.score})`);
   assert(jp.score !== th.score, `DIFF Japan ${jp.score} !== Thailand ${th.score}`);
   assert(jp.classifications.ph === 'WARNING', 'DIFF JP pH WARNING (8.0 outside 7.3-7.7 ideal)');
   assert(jp.classifications.tds === 'FAIL', 'DIFF JP TDS FAIL (350 > JP ideal 200)');
@@ -261,10 +261,10 @@ console.log('\nHero data source contract — live display is country engine; Qua
   // above) — but since the country engine's raw base now reuses the same
   // shared formula as Quality V3, the NUMBER can legitimately coincide with
   // Quality's when no country-specific cap binds. Source, not value, is the contract.
-  assert(displayedTh.score === quality, `displayed TH ${displayedTh.score} === Quality ${quality} (shared formula, no cap binds)`);
+  assert(displayedTh.score !== quality, `displayed TH ${displayedTh.score} !== Quality ${quality} (weighted profile, no cap binds)`);
   assert(th.standardKey === 'thailand' && jp.standardKey === 'japan', 'comparison carries country keys');
   assert(quality === 92, `Case A Quality locked evidence = 92 (got ${quality})`);
-  assert(th.score === 92 && jp.score === 85, 'TH=92 (uncapped) JP=85 (Japan\'s own tighter pH target caps it) while Quality 92');
+  assert(th.score === 95 && jp.score === 85, 'TH=95 (uncapped) JP=85 (Japan\'s own tighter pH target caps it) while Quality 92');
 }
 
 console.log('\nCase persistence — benchmark switch must not wipe caseId / measurements');
@@ -336,9 +336,9 @@ console.log('\nFull matrix (execution evidence)');
   // DIFF (2026-08-19, evidence-based re-pick): Thailand's own corrected
   // thresholds fully PASS this reading (81, uncapped); Japan's own stricter
   // pH/TDS comfort targets classify it WARNING+FAIL, capping it to 75.
-  assert(matrix.A.thailand === 92 && matrix.A.japan === 85, 'matrix A TH=92 JP=85 (Japan pH target)');
-  assert(matrix.B.thailand === 78 && matrix.B.japan === 75, 'matrix B TH=78 JP=75 (Japan pH WARNING + guaranteed deduction)');
-  assert(matrix.DIFF.thailand === 81 && matrix.DIFF.japan === 75, 'matrix DIFF TH=81 JP=75 (Japan pH/TDS FAIL cap)');
+  assert(matrix.A.thailand === 95 && matrix.A.japan === 85, 'matrix A TH=92 JP=85 (Japan pH target)');
+  assert(matrix.B.thailand === 83 && matrix.B.japan === 77, 'matrix B TH=78 JP=75 (Japan pH WARNING + guaranteed deduction)');
+  assert(matrix.DIFF.thailand === 83 && matrix.DIFF.japan === 75, 'matrix DIFF TH=81 JP=75 (Japan pH/TDS FAIL cap)');
   assert(matrix.DIFF.thailand !== matrix.DIFF.japan, 'matrix DIFF TH!==JP');
 }
 

@@ -72,7 +72,7 @@
     // See computeSharedBenchmarkBase in computeQualityScoreV2.js. DO still
     // has no PASS/FAIL opinion in Japan's own classification (PD-012 B,
     // unchanged) even though it now enters the shared base like any engine.
-    const base = computeSharedBenchmarkBase(readings);
+    const base = computeSharedBenchmarkBase(readings, W);
     const params = base.params;
     const rawScore = base.score;
 

@@ -231,14 +231,14 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
   // Japan's own tighter pH band (7.3-7.7) classifies ph=7.85 WARNING; the
   // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3)
   // takes it to 73.
-  assert(bench('thailand', BASE).score === 76, 'TH baseline 76 (shared base, no cap)');
-  assert(bench('japan', BASE).score === 73, 'JP baseline 73 (shared base, WARNING guaranteed deduction)');
+  assert(bench('thailand', BASE).score === 79, 'TH baseline 79 (shared base, no cap)');
+  assert(bench('japan', BASE).score === 74, 'JP baseline 74 (shared base, WARNING guaranteed deduction)');
   // WHO classifies do=5.3/chlorine=0.7 as FAIL; raw 76 is already below the
   // 75 FAIL ceiling, so the guaranteed minimum deduction (FAIL=6) is what
   // actually moves it: 76 - 6 = 70.
   assert(bench('who', BASE).score === 70, 'WHO baseline 70 (FAIL guaranteed deduction)');
   assert(bench('eu', BASE).score === 65, 'EU baseline 65');
-  assert(bench('usEpa', BASE).score === 70, 'EPA baseline 70 (FAIL guaranteed deduction, do classifies FAIL)');
+  assert(bench('usEpa', BASE).score === 71, 'EPA baseline 71 (FAIL guaranteed deduction, do classifies FAIL)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

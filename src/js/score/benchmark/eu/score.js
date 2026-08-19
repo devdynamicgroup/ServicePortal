@@ -61,7 +61,7 @@
     // severity handling, and its own PD-002 chlorine gate below — never in
     // how a value is graded. See computeSharedBenchmarkBase in
     // computeQualityScoreV2.js.
-    const base = computeSharedBenchmarkBase(readings);
+    const base = computeSharedBenchmarkBase(readings, W);
     const params = base.params;
     const rawScore = base.score;
     const chlorineFail = cl < L.chlorine.min || cl > L.chlorine.max;

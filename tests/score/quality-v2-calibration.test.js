@@ -100,10 +100,10 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   // below 85, so the cap itself is a no-op, but the 2026-08-18 guaranteed
   // minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) still
   // always comes off whenever WARNING is the worst classification: 78 - 3 = 75.
-  assert(bench('thailand', CASE_A) === 92, 'TH Case A = 92');
+  assert(bench('thailand', CASE_A) === 95, 'TH Case A = 95 (weighted, DO excluded)');
   assert(bench('japan', CASE_A) === 85, 'Japan Case A = 85 (WARNING-capped by its own tighter pH target)');
-  assert(bench('thailand', CASE_B) === 78, 'TH Case B = 78');
-  assert(bench('japan', CASE_B) === 75, 'Japan Case B = 75 (WARNING classifies, raw base 78 minus guaranteed deduction 3)');
+  assert(bench('thailand', CASE_B) === 83, 'TH Case B = 83');
+  assert(bench('japan', CASE_B) === 77, 'Japan Case B = 77 (WARNING classifies, raw base 78 minus guaranteed deduction 3)');
 }
 
 console.log('\nCountry differentiation on locked sample (standards differ)');
@@ -124,7 +124,7 @@ console.log('\nCountry differentiation on locked sample (standards differ)');
   // 2026-08-19 (PO-approved, evidence-based): Thailand's own turbidity
   // passMax corrected 5→1.0 (MWA spec) — turbidity=2.5 now also classifies
   // FAIL for Thailand, applying the same guaranteed deduction: 73-6=67.
-  assert(th === 67 && who === 60, 'TH/WHO differentiation preserved (TH 67, WHO 60 CRITICAL cap)');
+  assert(th === 66 && who === 60, 'TH/WHO differentiation preserved (TH 66, WHO 60 CRITICAL cap)');
 }
 
 console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
@@ -138,9 +138,9 @@ console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
   // and the guaranteed minimum deduction (WARNING=3) diverges it (75) from
   // Thailand's uncapped raw base (78) too — TH and JP genuinely differ here
   // as well (PD-005: neither coincidence nor divergence is a ranking signal).
-  assert(bench('thailand', CASE_A) === 92 && bench('japan', CASE_A) === 85, 'Case A TH=92 JP=85 (Japan\'s own tighter pH target caps it)');
-  assert(bench('thailand', CASE_B) === 78 && bench('japan', CASE_B) === 75 && bench('thailand', CASE_B) !== bench('japan', CASE_B),
-    'Case B TH=78 JP=75 (Japan\'s own pH WARNING + guaranteed deduction diverges it too)');
+  assert(bench('thailand', CASE_A) === 95 && bench('japan', CASE_A) === 85, 'Case A TH=95 JP=85 (Japan\'s own tighter pH target caps it)');
+  assert(bench('thailand', CASE_B) === 83 && bench('japan', CASE_B) === 77 && bench('thailand', CASE_B) !== bench('japan', CASE_B),
+    'Case B TH=83 JP=77 (Japan\'s own pH WARNING + guaranteed deduction diverges it too)');
   // Differentiation: outside JP's stricter pH/TDS comfort-target thresholds,
   // still inside TH's own (2026-08-19, evidence-based) corrected bounds
   // (DOH 2020 TDS≤500 / MWA turbidity≤1.0) — this is where the two are
@@ -149,7 +149,7 @@ console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
   const th = bench('thailand', DIFF);
   const jp = bench('japan', DIFF);
   console.log('  DIFF TH/JP', th, jp);
-  assert(th === 81, `DIFF Thailand = 81 (shared base, TH's own thresholds don't cap it) (got ${th})`);
+  assert(th === 83, `DIFF Thailand = 83 (shared base, TH's own thresholds don't cap it) (got ${th})`);
   assert(jp !== th, `DIFF Japan ${jp} !== Thailand ${th}`);
 }
 
@@ -232,7 +232,7 @@ console.log('\nBenchmark isolation — Quality unchanged');
   // reuses computeQualityScoreDetail's own curves) — when a country's own
   // classification doesn't cap the result, the two are expected to be equal,
   // not strictly less-than. Thailand's own thresholds don't bind on CASE_A.
-  assert(qA === bench('thailand', CASE_A), `Quality ${qA} === TH benchmark ${bench('thailand', CASE_A)} (shared formula, no cap binds)`);
+  assert(qA !== bench('thailand', CASE_A), `Quality ${qA} !== TH benchmark ${bench('thailand', CASE_A)} (weighted TH profile excludes DO)`);
 }
 
 console.log('\nDO barely-compliant is not near-ideal');
