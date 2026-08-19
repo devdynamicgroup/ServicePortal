@@ -465,9 +465,15 @@ console.log('\nJ. Presentation label/color always numeric (2026-08-18, PO-approv
   const critWho = sandbox.comparisonPresentationVerdict(60, { ph: 'CRITICAL', tds: 'PASS', turbidity: 'PASS', orp: 'PASS', chlorine: 'PASS', do: 'PASS' }, 'who');
   assert(critWho.label === 'score.verdict.good', `CRITICAL classification no longer overrides the label (got "${critWho.label}")`);
 
-  // Thailand/EU were already numeric-only for both label and color — unaffected.
+  // Thailand/EU were already numeric-only for both label and color — unaffected
+  // by classifications. 2026-08-19 (PO-approved product policy): Thailand's
+  // own Excellent threshold is raised to 90 (stricter than the shared 81),
+  // so 86 now lands in "good", not "excellent" — still purely numeric, no
+  // classification override.
   const thVerdict = sandbox.comparisonPresentationVerdict(86, { ph: 'WARNING' }, 'thailand');
-  assert(thVerdict.label === 'score.verdict.excellent', 'Thailand ignores classifications entirely, pure numeric excellent at 86');
+  assert(thVerdict.label === 'score.verdict.good', 'Thailand ignores classifications entirely, pure numeric good at 86 (below its own 90 excellent bar)');
+  const thVerdictHigh = sandbox.comparisonPresentationVerdict(90, { ph: 'WARNING' }, 'thailand');
+  assert(thVerdictHigh.label === 'score.verdict.excellent', 'Thailand pure numeric excellent at 90 (its own raised bar)');
   const euVerdict = sandbox.comparisonPresentationVerdict(86, { ph: 'WARNING' }, 'eu');
   assert(euVerdict.label === 'score.verdict.excellent', 'EU ignores classifications entirely, pure numeric excellent at 86');
 }

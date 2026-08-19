@@ -29,6 +29,26 @@ function customerVerdict(wq) {
   return { label: t('score.verdict.attention'), color: SCORE_BAR_COLORS.low, tier: 'low' };
 }
 
+// 2026-08-19 (PO-approved product policy — not tied to any official Thai
+// standard): Thailand's own legal compliance bands are wide enough that
+// ordinary, merely-safe water reads as numerically near-ideal under the
+// shared grading curve, so the shared 81+ Excellent threshold read as too
+// easy to reach for Thailand specifically. Thailand's own bar for
+// "Excellent" is raised to 90+; Good (51+) and Needs attention stay
+// unchanged. Every other country/engine keeps the shared 81/51 bands.
+const THAILAND_EXCELLENT_MIN = 90;
+
+function customerVerdictForEngine(wq, engineKey) {
+  const n = Number(wq);
+  if (!Number.isFinite(n)) return customerVerdict(n);
+  if (engineKey === 'thailand') {
+    if (n >= THAILAND_EXCELLENT_MIN) return { label: t('score.verdict.excellent'), color: SCORE_BAR_COLORS.high, tier: 'high' };
+    if (n >= 51) return { label: t('score.verdict.good'), color: SCORE_BAR_COLORS.mid, tier: 'mid' };
+    return { label: t('score.verdict.attention'), color: SCORE_BAR_COLORS.low, tier: 'low' };
+  }
+  return customerVerdict(n);
+}
+
 /**
  * PD-007 D + PD-009 B — Quality / publish presentation hybrid.
  * Numeric Quality score (mean/6) is unchanged. Compliance math unchanged.
@@ -70,7 +90,7 @@ function qualityPublishPresentation(wq, complianceStatus) {
 function comparisonPresentationVerdict(wq, classifications, engineKey) {
   const n = Number(wq);
   if (!Number.isFinite(n)) return { label: '—', color: SCORE_BAR_COLORS.high, tier: 'pending' };
-  return customerVerdict(n);
+  return customerVerdictForEngine(n, engineKey);
 }
 
 /** True when the hero/summary number is the selected Country Benchmark comparison score. */
