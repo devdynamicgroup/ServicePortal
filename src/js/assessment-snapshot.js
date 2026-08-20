@@ -39,11 +39,13 @@
     return typeof value === 'string' && /^data:/i.test(value);
   }
 
-  /** Finite number only — never coerce '', null, or garbage into 0. */
+  /** Finite number only — never coerce '', ' ', null, or garbage into 0. */
   function asMeasurementNumber(value) {
-    if (value === undefined || value === null || value === '') return undefined;
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    const n = Number(value);
+    if (value === undefined || value === null) return undefined;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+    const trimmed = String(value).trim();
+    if (trimmed === '') return undefined;
+    const n = Number(trimmed);
     return Number.isFinite(n) ? n : undefined;
   }
 
@@ -123,9 +125,13 @@
   }
 
   function buildTapSnapshot(tap, index, name) {
-    const meterReadings = compactReadings(tap?.meterReadings, METER_KEYS);
-    const chlorineReadings = compactReadings(tap?.chlorineReadings, CHLORINE_KEYS);
-    const standardMeasurement = compactReadings(tap?.standardMeasurement, STANDARD_KEYS);
+    // keepNull: an explicit clear on the draft (see mergeReadingMaps contract
+    // above) must survive into the outgoing snapshot as `null`, not be
+    // dropped — otherwise the server-side merge sees the key as merely
+    // "not supplied" and keeps its old stored value instead of deleting it.
+    const meterReadings = compactReadings(tap?.meterReadings, METER_KEYS, { keepNull: true });
+    const chlorineReadings = compactReadings(tap?.chlorineReadings, CHLORINE_KEYS, { keepNull: true });
+    const standardMeasurement = compactReadings(tap?.standardMeasurement, STANDARD_KEYS, { keepNull: true });
     // Prefer freeChlorine when standardMeasurement.chlorine is absent.
     if (
       standardMeasurement.chlorine === undefined

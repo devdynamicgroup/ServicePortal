@@ -36,7 +36,7 @@ function rowFromResult(label, result) {
   return {
     case: label,
     benchmark: result.benchmarkKey,
-    completeness: result.computability,
+    completeness: result.computability.complete ? 'COMPUTABLE' : result.status,
     parameterQualities: qualities,
     compliance: result.complianceStatus?.status,
     risk: result.riskSeverity?.value || result.riskSeverity?.status,

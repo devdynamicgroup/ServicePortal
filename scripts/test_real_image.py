@@ -18,6 +18,14 @@ import time
 import uuid
 from pathlib import Path
 
+# Real meter OCR text can contain non-ASCII glyphs (µ, °, subscripts like
+# "Cl₂"). The default Windows console codepage (e.g. cp874 on a Thai
+# locale) can't encode those and would crash this validation script mid-run
+# on otherwise-successful OCR output.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OCR_SERVICE_ROOT = REPO_ROOT / "ocr-service"
 
@@ -36,7 +44,7 @@ def main() -> int:
     parser.add_argument(
         "--meter-type",
         default="tds",
-        choices=("tds", "ph", "ec", "orp", "do"),
+        choices=("tds", "ph", "ec", "orp", "do", "chlorine"),
         help="Meter type (default: tds)",
     )
     parser.add_argument(
@@ -66,7 +74,12 @@ def main() -> int:
     )
     pipeline = OcrPipeline(engine, settings=settings, image_validator=image_validator)
 
-    if not engine.is_available():
+    # is_available() is a cached, non-blocking read (see paddle_engine.py) — it is
+    # always False on a freshly constructed engine because nothing has called
+    # ensure_ready() yet. pipeline.run() does that internally, but we need a real
+    # readiness check *before* run() to fail fast with a clear message instead of
+    # a buried exception, so call ensure_ready() here ourselves.
+    if not engine.ensure_ready(timeout=settings.engine_wait_timeout_seconds):
         print(f"ERROR: engine '{engine.name}' is not available", file=sys.stderr)
         return 2
 

@@ -1,0 +1,1821 @@
+{
+  "generatedAt": "2026-08-20T02:36:00+07:00",
+  "head": "c0eac4e896d840a358c26193ced84a00420ede1e",
+  "originMain": "c0eac4e896d840a358c26193ced84a00420ede1e",
+  "productionVersion": "c0eac4e896d840a358c26193ced84a00420ede1e",
+  "total": 258,
+  "summary": {
+    "PASS": 113,
+    "FAIL": 0,
+    "BLOCKED": 134,
+    "NOT RUN": 11
+  },
+  "rows": [
+    {
+      "id": "WEB-001",
+      "status": "PASS",
+      "actual": "HTTP 200; title Water Motion — Whole-Home Water Testing & Solutions Bangkok",
+      "evidence": "browser + curl GET https://www.water-motion.co/",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-002",
+      "status": "PASS",
+      "actual": "CTA Book Free Water Check visible on desktop hero; rating text present in DOM",
+      "evidence": "browser snapshot + screenshot desktop",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-003",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — CDP mobile emulation (390px) broke Framer layout; contrast not re-verified this run",
+      "evidence": "BLOCKED — CDP mobile emulation (390px) broke Framer layout; contrast not re-verified this run",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-004",
+      "status": "PASS",
+      "actual": "Nav CTA href=./#cta; other CTAs https://cal.com/watermotion/60min; no POST /api/cases",
+      "evidence": "Runtime.evaluate hrefs; unauth POST /api/cases → 401",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-005",
+      "status": "PASS",
+      "actual": "Banner \"89 spots left\"; API remaining=89 totalSlots=100 used=11",
+      "evidence": "browser innerText after load; GET /api/public/water-check-offer",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-006",
+      "status": "PASS",
+      "actual": "200 + ACAO=https://www.water-motion.co; body ok/totalSlots/used/remaining",
+      "evidence": "curl Origin water-motion.co",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-007",
+      "status": "PASS",
+      "actual": "200; Access-Control-Allow-Origin absent for https://example.com",
+      "evidence": "curl Origin example.com",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-008",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — must not take production Notion down",
+      "evidence": "BLOCKED — must not take production Notion down",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-009",
+      "status": "PASS",
+      "actual": "HTTP 200 HTML from app.cal.com/watermotion/60min",
+      "evidence": "curl GET cal embed",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-010",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-011",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-012",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-013",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — NEED REQUIREMENT / no Framer source",
+      "evidence": "BLOCKED — NEED REQUIREMENT / no Framer source",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-014",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — NEED REQUIREMENT / no Framer source",
+      "evidence": "BLOCKED — NEED REQUIREMENT / no Framer source",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-015",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WEB-016",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-001",
+      "status": "PASS",
+      "actual": "200 createsCases:true createsCasesFor:[BOOKING_CREATED] hasWebhookSecret:true",
+      "evidence": "GET https://serviceportal.onrender.com/api/cal/webhook/status",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-002",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-003",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-004",
+      "status": "NOT RUN",
+      "actual": "No execution this session",
+      "evidence": "Local probe not started (no local server / dedicated helper test)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-005",
+      "status": "NOT RUN",
+      "actual": "No execution this session",
+      "evidence": "Local probe not started (no local server / dedicated helper test)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-006",
+      "status": "NOT RUN",
+      "actual": "No execution this session",
+      "evidence": "Local probe not started (no local server / dedicated helper test)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-007",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-008",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-009",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-010",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-011",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-012",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-013",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-014",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-016",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-017",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CAL-015",
+      "status": "NOT RUN",
+      "actual": "No execution this session",
+      "evidence": "Local probe not started (no local server / dedicated helper test)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-001",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-002",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-003",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-004",
+      "status": "PASS",
+      "actual": "401 UNAUTHENTICATED",
+      "evidence": "POST /api/cases no cookie",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-005",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-006",
+      "status": "NOT RUN",
+      "actual": "No execution this session",
+      "evidence": "Local probe not started (no local server / dedicated helper test)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-007",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-008",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-009",
+      "status": "PASS",
+      "actual": "401 UNAUTHENTICATED",
+      "evidence": "GET /api/clients no cookie",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-010",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-011",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-012",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-013",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-014",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-015",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-016",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-017",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-018",
+      "status": "PASS",
+      "actual": "404 Not found",
+      "evidence": "POST /api/test/create-case production",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-019",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — no existing published token used (avoid hunting customer PII)",
+      "evidence": "BLOCKED — no existing published token used (avoid hunting customer PII)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-020",
+      "status": "PASS",
+      "actual": "404 {\"ok\":false,\"error\":\"Report not found\"}",
+      "evidence": "GET /api/report/rpt-zzzz",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-021",
+      "status": "PASS",
+      "actual": "404 HTML title Report not found",
+      "evidence": "GET /r/fake",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-022",
+      "status": "PASS",
+      "actual": "404 {\"ok\":false,\"error\":\"Feedback not found\"}",
+      "evidence": "GET /api/feedback/fake",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-023",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-024",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-025",
+      "status": "NOT RUN",
+      "actual": "No execution this session",
+      "evidence": "Local probe not started (no local server / dedicated helper test)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-026",
+      "status": "NOT RUN",
+      "actual": "No execution this session",
+      "evidence": "Local probe not started (no local server / dedicated helper test)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-027",
+      "status": "NOT RUN",
+      "actual": "No execution this session",
+      "evidence": "Local probe not started (no local server / dedicated helper test)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-028",
+      "status": "PASS",
+      "actual": "200 health ok; version=c0eac4e8…; no secrets in payload",
+      "evidence": "GET /api/ops/health",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-029",
+      "status": "PASS",
+      "actual": "200 status=ready; notion/lineSend/lineWebhook/publicHttps ready",
+      "evidence": "GET /api/ops/readiness",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-030",
+      "status": "PASS",
+      "actual": "GET returns 200 HTML SPA; not a webhook processor",
+      "evidence": "GET /api/line/webhook",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-031",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-032",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-033",
+      "status": "NOT RUN",
+      "actual": "No execution this session",
+      "evidence": "Local probe not started (no local server / dedicated helper test)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-034",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-035",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-036",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "API-037",
+      "status": "NOT RUN",
+      "actual": "No execution this session",
+      "evidence": "Local probe not started (no local server / dedicated helper test)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-001",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-002",
+      "status": "PASS",
+      "actual": "wm-active-case-ref stores notionId+id+date for TARGET fixture",
+      "evidence": "tests/case-persistence-rehydration.test.js 34 passed",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-003",
+      "status": "PASS",
+      "actual": "restore same notionId/id/measurements after S reset",
+      "evidence": "same test; note: OperatorNotificationObserver ReferenceError swallowed during loadJobsFromApi, assertions still passed",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-004",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-005",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-006",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-007",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-008",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-009",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-010",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-011",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-012",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-013",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-014",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CASE-015",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "NOTION-001",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "NOTION-002",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "NOTION-003",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "NOTION-004",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "NOTION-005",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "NOTION-006",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "NOTION-007",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "NOTION-008",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "NOTION-009",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "NOTION-010",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "OCR-001",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "OCR-002",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "OCR-003",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "OCR-004",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-001",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-002",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-003",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-004",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-005",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-006",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-007",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-008",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-009",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-010",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-011",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — NEED REQUIREMENT (duplicate OCR merge undocumented)",
+      "evidence": "BLOCKED — NEED REQUIREMENT (duplicate OCR merge undocumented)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-012",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "MEAS-013",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-001",
+      "status": "PASS",
+      "actual": "IDEAL Hero TH/WHO/EU/EPA 99; JP 85",
+      "evidence": "country-hero-ceiling.test.js 36 passed",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-002",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-003",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-004",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-005",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-006",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-007",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-008",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-009",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-010",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-011",
+      "status": "PASS",
+      "actual": "BASE displayed TH79 JP76 WHO70 EU65 EPA71; Q-V3 76",
+      "evidence": "displayed-score-country-switch.test.js 91 passed",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-012",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-013",
+      "status": "PASS",
+      "actual": "LOCKED TH66 WHO60 EU63 JP63 EPA57; legacy 93",
+      "evidence": "case-1328-calibration-baseline.test.js 24 passed",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-014",
+      "status": "PASS",
+      "actual": "CASE_1328 TH95 WHO92 EU94 JP85 EPA94 Q-V3 92; canCalculate true canPublish false",
+      "evidence": "case-1328 + thailand-japan-flow + eligibility",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-015",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-016",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-017",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "SCORE-018",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-001",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-002",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-003",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-004",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-005",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-006",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-007",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-008",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-009",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-010",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-011",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — NEED REQUIREMENT (session vs Case persist)",
+      "evidence": "BLOCKED — NEED REQUIREMENT (session vs Case persist)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "TH-012",
+      "status": "PASS",
+      "actual": "DIFF_TH_SAFE TH 83 JP 75",
+      "evidence": "country-benchmark-semantics L199; displayed-score switch",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "JP-001",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "JP-002",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "JP-003",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "JP-004",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "JP-005",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "JP-006",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "JP-007",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "JP-008",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WHO-001",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "WHO-002",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "EU-001",
+      "status": "PASS",
+      "actual": "BASE EU 65 PD-002 gate; Cl 0.7 gate 65",
+      "evidence": "semantics + architecture-v2-contract",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "EU-002",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "EPA-001",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "EPA-002",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "QV3-001",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "QV3-002",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "QV3-003",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "QV3-004",
+      "status": "PASS",
+      "actual": "NEAR_IDEAL Quality 100",
+      "evidence": "quality-v2-calibration.test.js 54 passed",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-001",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-002",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-003",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-004",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-005",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-006",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-007",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-008",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-009",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-010",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-011",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "INV-012",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PUB-001",
+      "status": "PASS",
+      "actual": "retry same publicationId; score 91 reused; one ledger row",
+      "evidence": "publication-idempotency.test.js 7 passed",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PUB-002",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PUB-003",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PUB-004",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PUB-005",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PUB-006",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PUB-007",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PUB-008",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PUB-009",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PUB-010",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — DO NOT RUN IN PRODUCTION (policy)",
+      "evidence": "BLOCKED — DO NOT RUN IN PRODUCTION (policy)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "REPORT-001",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "REPORT-002",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "REPORT-003",
+      "status": "PASS",
+      "actual": "404 Report not found",
+      "evidence": "GET /api/report/rpt-zzzz",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "REPORT-004",
+      "status": "PASS",
+      "actual": "404 HTML Report not found",
+      "evidence": "GET /r/fake",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "REPORT-005",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — NEED REQUIREMENT (token TTL)",
+      "evidence": "BLOCKED — NEED REQUIREMENT (token TTL)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "REPORT-006",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "REPORT-007",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "REPORT-008",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "REPORT-009",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "REPORT-010",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-001",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-002",
+      "status": "PASS",
+      "actual": "404 Report not found",
+      "evidence": "GET /api/public/score-card/rpt-zzzz",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-003",
+      "status": "PASS",
+      "actual": "route requires Number.isFinite(waterScore); fake token 404 before PNG",
+      "evidence": "public-routes 404 on unknown token (null-score path not live-published this run)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-004",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-005",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-006",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-007",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-008",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-009",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-010",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-011",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "CARD-012",
+      "status": "NOT RUN",
+      "actual": "No execution this session",
+      "evidence": "Local probe not started (no local server / dedicated helper test)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "LINE-001",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "LINE-002",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "LINE-003",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "LINE-004",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "LINE-005",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "LINE-006",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "LINE-007",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "LINE-008",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "LINE-009",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — NEED REQUIREMENT (send-before-publish)",
+      "evidence": "BLOCKED — NEED REQUIREMENT (send-before-publish)",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "LINE-010",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "LINE-011",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "DASH-001",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "DASH-002",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "DASH-003",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "DASH-004",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "DASH-005",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "DASH-006",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "DASH-007",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "DASH-008",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "DASH-009",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "DASH-010",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "DASH-011",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "FB-001",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "FB-002",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "FB-003",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "FB-004",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "FB-005",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "FB-006",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "FB-007",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "FB-008",
+      "status": "PASS",
+      "actual": "404 on unknown feedback HTML/API",
+      "evidence": "GET /api/feedback/fake 404; GET /f/fake 404",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "FB-009",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "FB-010",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-001",
+      "status": "PASS",
+      "actual": "200 ok; no tokens/secrets in JSON",
+      "evidence": "GET /api/ops/health",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-002",
+      "status": "PASS",
+      "actual": "200 ready",
+      "evidence": "GET /api/ops/readiness",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-003",
+      "status": "PASS",
+      "actual": "health.version === HEAD === origin/main === c0eac4e896d840a358c26193ced84a00420ede1e",
+      "evidence": "health.version vs git rev-parse",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-004",
+      "status": "PASS",
+      "actual": "{\"ok\":true,\"totalSlots\":100,\"used\":11,\"remaining\":89}",
+      "evidence": "GET /api/public/water-check-offer",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-005",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — no existing public /r/token used this run",
+      "evidence": "BLOCKED — no existing public /r/token used this run",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-006",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — no existing published score-card token used this run",
+      "evidence": "BLOCKED — no existing published score-card token used this run",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-007",
+      "status": "PASS",
+      "actual": "createsCases true; BOOKING_CREATED only; hasWebhookSecret true",
+      "evidence": "GET /api/cal/webhook/status",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-008",
+      "status": "PASS",
+      "actual": "404 Not found",
+      "evidence": "POST /api/test/create-case",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-009",
+      "status": "PASS",
+      "actual": "401 UNAUTHENTICATED",
+      "evidence": "POST /api/cases",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-010",
+      "status": "PASS",
+      "actual": "Deployed SHA matches git HEAD/origin/main (score engines of that commit)",
+      "evidence": "health.version lock; no extra JS dump this run",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-011",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — no existing /r/token for console check",
+      "evidence": "BLOCKED — no existing /r/token for console check",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "PROD-012",
+      "status": "PASS",
+      "actual": "customerDomain.enabled=false; careLifecycle.enabled=false",
+      "evidence": "health payload",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "E2E-001",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "E2E-002",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "E2E-003",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "E2E-004",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "E2E-005",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "E2E-006",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "E2E-007",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "E2E-008",
+      "status": "BLOCKED",
+      "actual": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "evidence": "BLOCKED — staging write / staff session / LINE send / existing customer token not available; production writes forbidden",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "E2E-009",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    },
+    {
+      "id": "E2E-010",
+      "status": "PASS",
+      "actual": "matched locked test assertions (0 failed)",
+      "evidence": "unit locks 2026-08-20: case-1328, country-hero-ceiling, displayed-score-country-switch, thailand-japan-flow, quality-v2-calibration, measurement-validation, architecture-v2, country-benchmark-semantics, thailand-severity-protection, case-readings-isolation, eligibility, publication-*",
+      "timestamp": "2026-08-20T02:36:00+07:00"
+    }
+  ]
+}

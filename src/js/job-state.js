@@ -101,6 +101,15 @@ function restoreActiveCaseFromPersistence() {
   const job = findJobByCaseRef(ref, JOBS);
   if (!job) return null;
   S.activeJob = job;
+  // Hydrate session taps from the Case draft immediately so initTaps /
+  // incidental saveActiveJobState cannot clobber measurements with empty
+  // DEFAULT_TAPS (UJ-06 cold-reload wipe).
+  if (job.draft?.taps?.length) {
+    S.taps = [...job.draft.taps];
+    S.activeTap = job.draft.activeTap || 0;
+    S.tapData = fastDeepClone(job.draft.tapData || S.taps.map(() => ({ tasks: {}, photos: {} })));
+    S.pkg = job.draft.pkg || job.pkg || S.pkg;
+  }
   // Only pull the calendar off today for a Case the operator is genuinely
   // mid-assessment on. Otherwise a stale ref (e.g. a Case merely opened once,
   // days ago) would silently strand a fresh page load on an old date instead
@@ -236,9 +245,24 @@ function saveActiveJobState() {
   draft.scoreBaseReadings = S.scoreBaseReadings ? { ...S.scoreBaseReadings } : null;
   draft.paymentSlipPhoto = S.paymentSlipPhoto;
   draft.paymentSlipSource = S.paymentSlipSource;
-  draft.taps = [...(S.taps || DEFAULT_TAPS)];
-  draft.activeTap = S.activeTap || 0;
-  draft.tapData = fastDeepClone(S.tapData || []);
+
+  // UJ-06: After cold reload, restoreActiveCaseFromPersistence sets S.activeJob
+  // but initTaps may install empty DEFAULT tapData before loadJobState runs.
+  // Never overwrite a draft that already has measurements with an empty session.
+  const liveTapData = Array.isArray(S.tapData) ? S.tapData : [];
+  const liveHasMeasurements = liveTapData.some(tap => Boolean(
+    Object.keys(tap?.meterReadings || {}).length
+    || Object.keys(tap?.chlorineReadings || {}).length
+    || Object.keys(tap?.standardMeasurement || {}).length
+  ));
+  const draftHasMeasurements = (typeof AssessmentSnapshot !== 'undefined' && AssessmentSnapshot.draftHasMeasurements)
+    ? AssessmentSnapshot.draftHasMeasurements(draft)
+    : false;
+  if (liveHasMeasurements || !draftHasMeasurements) {
+    draft.taps = [...(S.taps || DEFAULT_TAPS)];
+    draft.activeTap = S.activeTap || 0;
+    draft.tapData = fastDeepClone(liveTapData);
+  }
 
   draft.fields = {};
   JOB_FIELD_IDS.forEach(id => {
@@ -686,6 +710,14 @@ function nextPortalCaseLocalId() {
  * Local state is updated only after Notion returns a durable identity.
  * Failed persistence must not leave a "successfully created" Case in JOBS.
  */
+function todayIsoLocal() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 async function createDurablePortalCase(seed = {}) {
   const now = new Date();
   const localId = seed.id != null ? seed.id : nextPortalCaseLocalId();
@@ -696,7 +728,8 @@ async function createDurablePortalCase(seed = {}) {
     timeStart: seed.timeStart || '',
     timeEnd: seed.timeEnd || '',
     day: seed.day != null ? seed.day : ((now.getDay() + 6) % 7),
-    date: seed.date || '',
+    // Durable Cases must be calendar-addressable (UJ-01/03/11).
+    date: seed.date || todayIsoLocal(),
     pkg: seed.pkg || 'essential',
     status: seed.status || 'new',
     startedAt: seed.startedAt || null,
@@ -860,6 +893,30 @@ function mapCsvFilter(value) {
   return 'None';
 }
 
+/** YYYY-MM-DD for offline CSV seed so jobsOnDate can place the Case. */
+function csvSeedDateIso(index, record = {}) {
+  const raw = String(
+    record['Created 1']
+    || record['Next Follow-up']
+    || record['Appointment Date']
+    || record.Created
+    || ''
+  ).trim();
+  const matched = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (matched) return `${matched[1]}-${matched[2]}-${matched[3]}`;
+  // No appointment column — pin to the current local week by weekday index
+  // so offline demo Cases remain visible on the calendar (never silent).
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  monday.setDate(monday.getDate() + (index % 7));
+  const y = monday.getFullYear();
+  const m = String(monday.getMonth() + 1).padStart(2, '0');
+  const d = String(monday.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function jobFromClientRecord(record, index) {
   const { fname, lname } = splitClientName(record['Full Name']);
   const pkg = mapCsvPackage(record['Package History']);
@@ -873,6 +930,7 @@ function jobFromClientRecord(record, index) {
   const propertyAge = mapCsvPropertyAge(record['Property Age (yr)']);
   const source = record.Source || '';
   const concern = record['Water Concerns'] || '';
+  const date = csvSeedDateIso(index, record);
 
   const job = {
     id,
@@ -881,6 +939,7 @@ function jobFromClientRecord(record, index) {
     timeStart: `${String(hour).padStart(2, '0')}:00`,
     timeEnd: `${String(Math.min(18, hour + 1)).padStart(2, '0')}:00`,
     day,
+    date,
     pkg,
     status,
     meta: [propertyType, propertyAge, record.Stage || 'CSV lead'].filter(Boolean).join(' - '),
@@ -978,6 +1037,9 @@ function collectLocalOnlyUnsyncedJobs() {
       if (!job || isJobCancelled(job)) return;
       if (job.notionId || job.notionSource) return;
       if (job.manualPending) return;
+      // CSV mock seed is not a durable Case. Rehydrating it into a Notion
+      // session pollutes Search/Calendar with dateless duplicates (UJ-01/02/11).
+      if (job.csvSource) return;
       out.push(job);
     });
   } catch {
@@ -1129,6 +1191,8 @@ async function loadJobsFromApi() {
     });
     JOBS.splice(0, JOBS.length, ...normalizedJobs);
     preservedManualJobs.forEach(job => {
+      // Notion is authoritative when API load succeeds — never re-merge CSV seed.
+      if (job.csvSource) return;
       const already = JOBS.some(existing =>
         String(existing.id) === String(job.id)
         || (job.notionId && String(existing.notionId || existing.id) === String(job.notionId))

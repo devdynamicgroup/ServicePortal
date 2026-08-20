@@ -1,8 +1,8 @@
 # Constant / Clause Evidence Registry
 
-**Status:** Red-flag clause hunt complete (2026-08-11)  
-**Authority:** Baseline for Product Decision — **not** a license to change numeric model  
-**Model freeze:** No threshold / weight / curve / gate changes authorized from this registry alone
+**Status:** Red-flag clause hunt complete (2026-08-11) · **SoT locked 2026-08-13**  
+**Authority:** **Source of truth** for constant evidence_class / action / citation_status / lock_state  
+**Model freeze:** No threshold / weight / curve / gate changes without a DECIDED PD that cites constant `id`s (`MODEL_GOVERNANCE.md`)
 
 This directory is the **constant & clause** evidence registry for Country Benchmark + Quality V3.
 
@@ -12,8 +12,9 @@ It is **separate** from [`../evidence-registry.json`](../evidence-registry.json)
 
 | File | Role |
 |------|------|
-| [`constants.json`](constants.json) | Machine-readable red-flag + related constant rows |
+| [`constants.json`](constants.json) | Machine-readable SoT rows (+ governance locks) |
 | This README | Schema, freeze rules, action rollup |
+| [`../MODEL_GOVERNANCE.md`](../MODEL_GOVERNANCE.md) | Evidence → Decision → Repair process |
 
 **Nothing here is imported by scoring engines.** Documentation / governance only.
 
@@ -73,12 +74,25 @@ If no matching authoritative clause was found after hunt:
 ## Freeze / process
 
 ```text
-SOURCE VALIDITY     ✅ red-flag hunt complete — this registry is the baseline
+SOURCE VALIDITY     ✅ red-flag hunt complete — this registry is SoT
+GOVERNANCE LOCKS    ✅ lock_state on every row (2026-08-13)
+PRODUCT SEMANTICS   ✅ PD-006/007 DECIDED · PD-008 partial · PD-009 B · PD-010 B
+SCORE MEANING       ✅ PD-009 B presentation · PD-010 B research tickets (values frozen)
 NUMERIC MODEL       🔒 frozen
-PRODUCT SEMANTICS   ⏸️ wait for Product Decision using this registry
-MODEL-REPAIR COMMIT 🔴 prohibited until Product Decision authorizes specific rows
 CASE FLOW           🔒 untouched
 ```
+
+### Lock states → “แก้ได้ / ห้ามแก้”
+
+| lock_state | Count (after PD-011 A) | Without PD |
+| --- | ---: | --- |
+| `LOCKED_KEEP` | 4 | docs/tests only |
+| `LOCKED_LABEL` | 17 | label/copy only |
+| `MODEL_REPAIR_GATED` | 1 | **ห้าม** numeric (JP-DO-MIN) |
+| `RESEARCH_BLOCKED` | 4 | **ห้าม** numeric |
+| `PD_REQUIRED` | 5 | **ห้าม** numeric |
+
+Every row also has `model_change_authorized: false` and `editable_without_pd: false`.
 
 ## Four numeric redesign candidates (frozen until PD)
 

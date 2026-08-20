@@ -1,9 +1,15 @@
 let weekBase = getMonday(new Date());
+// The Case a notification navigated to, if any — rendered with a highlight
+// and scrolled into view the next time the appointment list renders. Cleared
+// by any manual date change so it never lingers past its purpose.
+let highlightJobId = null;
+function setHighlightedCase(jobId) { highlightJobId = jobId || null; }
+function clearHighlightedCase() { highlightJobId = null; }
 function getMonday(d) {
   const day = d.getDay(), diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const m = new Date(d); m.setDate(diff); m.setHours(0,0,0,0); return m;
 }
-function shiftWeek(dir) { weekBase.setDate(weekBase.getDate() + dir*7); renderCalendar(); }
+function shiftWeek(dir) { clearHighlightedCase(); weekBase.setDate(weekBase.getDate() + dir*7); renderCalendar(); }
 
 /* ── Date helpers (job.date is the source of truth) ───────────── */
 // Local calendar date -> 'YYYY-MM-DD' (no timezone shift).
@@ -43,6 +49,32 @@ function jobMatchesDate(job, iso) {
 }
 function jobsOnDate(iso) {
   return JOBS.filter(j => j.status !== 'cancelled' && !j.manualPending && jobMatchesDate(j, iso));
+}
+
+// Move the calendar's selected week/day to an arbitrary ISO date without
+// touching screen state. Parses y/m/d components directly (no `new Date(iso)`)
+// so a UTC-midnight parse can't shift the date in negative-UTC-offset zones.
+function goToCalendarDate(iso) {
+  const parsed = isoDateOnly(iso);
+  if (!parsed) return false;
+  const [y, m, day] = parsed.split('-').map(Number);
+  const picked = new Date(y, m - 1, day);
+  if (Number.isNaN(picked.getTime())) return false;
+  weekBase = getMonday(picked);
+  S.selDay = (picked.getDay() + 6) % 7;
+  return true;
+}
+
+// Navigation-layer entry point: notifications (and anything else) resolve to
+// a target date (and optionally the specific Case's job.id), then call this
+// to land on the Calendar/dashboard screen focused there. Never opens a
+// Case — the user picks from jobsOnDate(); the target Case is only
+// highlighted and scrolled into view (see renderJobs()).
+function navigateToCalendarDate(iso, jobId) {
+  goToCalendarDate(iso);
+  setHighlightedCase(jobId);
+  if (typeof goScreen === 'function') goScreen('s-dash');
+  else renderCalendar();
 }
 
 function escapeHtml(value) {
@@ -242,7 +274,7 @@ function renderCalendar() {
     if (i === S.selDay) cls += ' sel';
     chip.className = cls;
     chip.innerHTML = `<span class="dc-dow">${DOW[i]}</span><span class="dc-d">${d.getDate()}</span><span class="dc-dot"></span>`;
-    chip.onclick = () => { S.selDay = i; renderCalendar(); };
+    chip.onclick = () => { clearHighlightedCase(); S.selDay = i; renderCalendar(); };
     strip.appendChild(chip);
   }
   const d = new Date(weekBase); d.setDate(weekBase.getDate() + S.selDay);
@@ -270,10 +302,15 @@ function buildApptCard(job) {
     ? '<br>' + t('dash.contact') + ': ' + job.contact
     : '';
   const stripeClass = pkgFull ? ' stripe-full' : '';
+  const highlightClass = highlightJobId != null && (
+    String(job.id) === String(highlightJobId)
+    || (job.notionId && String(job.notionId) === String(highlightJobId))
+    || (job.notionId && String(job.notionId).replace(/-/g, '') === String(highlightJobId).replace(/-/g, ''))
+  ) ? ' is-notif-target' : '';
   const jobId = escapeHtml(job.id);
 
   return (
-    '<div class="appt-card' + stripeClass + '" data-job-id="' + jobId + '">' +
+    '<div class="appt-card' + stripeClass + highlightClass + '" data-job-id="' + jobId + '">' +
       '<div class="ac-top">' +
         '<div class="ac-left">' +
           '<div class="ac-tags">' +
@@ -329,6 +366,20 @@ function renderJobs(filter) {
   }
 
   list.innerHTML = visibleJobs.map(buildApptCard).join('');
+
+  // Bring the notification's target Case into view — top, middle, or bottom
+  // of the list all resolved the same way — without opening it.
+  if (highlightJobId != null) {
+    const idx = visibleJobs.findIndex(j =>
+      String(j.id) === String(highlightJobId)
+      || (j.notionId && String(j.notionId) === String(highlightJobId))
+      || (j.notionId && String(j.notionId).replace(/-/g, '') === String(highlightJobId).replace(/-/g, ''))
+    );
+    const cardEl = idx >= 0 ? list.children?.[idx] : null;
+    if (cardEl && typeof cardEl.scrollIntoView === 'function') {
+      cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
 }
 
 function showApptMenu(id) {
@@ -397,22 +448,60 @@ async function cancelCase(id = S.activeJob?.id) {
   showToast(S.lang === 'th' ? 'ยกเลิกนัดแล้ว' : 'Case cancelled');
 }
 function openSearchModal(){ document.getElementById('search-overlay').classList.remove('hidden'); document.getElementById('search-input').value=S.searchQuery; document.getElementById('search-input').focus(); filterAppointments(S.searchQuery); }
-function closeSearchModal(){ document.getElementById('search-overlay').classList.add('hidden'); }
+function closeSearchModal(){
+  document.getElementById('search-overlay')?.classList.add('hidden');
+  // Closing search must leave the dashboard in appointment mode — not a
+  // stale "Results (0)" heading from an uncleared S.searchQuery (UJ-10).
+  S.searchQuery = '';
+  const input = document.getElementById('search-input');
+  if (input) input.value = '';
+  const results = document.getElementById('search-results');
+  if (results) results.innerHTML = '';
+  renderJobs('');
+}
+function caseIdentityLabel(job) {
+  if (job?.notionId) {
+    const compact = String(job.notionId).replace(/-/g, '');
+    return compact.length > 8 ? compact.slice(0, 8) : compact;
+  }
+  if (job?.id != null) return String(job.id);
+  return '—';
+}
 function filterAppointments(q){
   S.searchQuery = q;
   renderJobs(q);
-  const needle = q.toLowerCase();
+  const needle = String(q || '').toLowerCase().trim();
   const visibleJobs = JOBS
     .filter(j => j.status !== 'cancelled' && !j.manualPending)
-    .filter(j =>
-      String(j.name || '').toLowerCase().includes(needle) ||
-      String(j.addr || '').toLowerCase().includes(needle)
-    );
+    .filter(j => {
+      if (!needle) return true;
+      const hay = [
+        j.name,
+        j.addr,
+        j.id,
+        j.notionId,
+        j.date,
+        j.meta,
+        j.draft?.fields?.['ci-phone'],
+        j.phone
+      ].map(v => String(v || '').toLowerCase());
+      return hay.some(part => part.includes(needle));
+    });
   document.getElementById('search-results').innerHTML = visibleJobs.map(j => {
+    const identity = caseIdentityLabel(j);
+    const dateLabel = j.date || '—';
+    const statusLabel = j.status || 'new';
+    const timeLabel = j.timeStart ? String(j.timeStart) : '';
     return (
-      '<div class="appt-card" style="margin-top:8px" data-job-id="' + escapeHtml(j.id) + '">' +
+      '<div class="appt-card" style="margin-top:8px" data-job-id="' + escapeHtml(j.id) + '"' +
+        (j.notionId ? ' data-notion-id="' + escapeHtml(j.notionId) + '"' : '') + '>' +
         '<div class="ac-name">' + escapeHtml(j.name) + '</div>' +
         '<div class="ac-addr" style="font-size:12px;color:var(--muted)">' + escapeHtml(j.addr) + '</div>' +
+        '<div class="ac-meta" style="font-size:11px;color:var(--muted);margin-top:4px">' +
+          escapeHtml(dateLabel) + (timeLabel ? ' · ' + escapeHtml(timeLabel) : '') +
+          ' · ' + escapeHtml(statusLabel) +
+          ' · #' + escapeHtml(identity) +
+        '</div>' +
       '</div>'
     );
   }).join('') || '<p style="color:var(--muted);font-size:14px">No matches</p>';
@@ -455,6 +544,7 @@ function renderMonthGrid(){
   document.getElementById('month-grid').innerHTML=html.join('');
 }
 function pickMonthDay(y,m,day){
+  clearHighlightedCase();
   const picked=new Date(y,m,day); weekBase=getMonday(picked); S.selDay=(picked.getDay()+6)%7;
   closeMonthPicker(); renderCalendar();
 }

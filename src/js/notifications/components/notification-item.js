@@ -23,7 +23,7 @@
   function actionLabel(action) {
     const th = global.S?.lang === 'th';
     switch (action) {
-      case Types().NOTIFICATION_ACTION.OPEN_CASE: return th ? 'เปิดเคส' : 'Open case';
+      case Types().NOTIFICATION_ACTION.OPEN_CASE: return th ? 'ดูในปฏิทิน' : 'View on calendar';
       case Types().NOTIFICATION_ACTION.OPEN_CASE_LIST: return th ? 'ดูทั้งหมด' : 'View all';
       case Types().NOTIFICATION_ACTION.RETRY_LINE: return th ? 'ลองส่งใหม่' : 'Retry';
       case Types().NOTIFICATION_ACTION.VIEW_SCHEDULE: return th ? 'ดูตาราง' : 'View schedule';

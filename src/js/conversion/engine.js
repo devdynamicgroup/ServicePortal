@@ -38,7 +38,9 @@
   });
 
   function isPresent(value) {
-    return value !== undefined && value !== null && value !== '';
+    if (value === undefined || value === null) return false;
+    if (typeof value === 'string') return value.trim() !== '';
+    return true;
   }
 
   function toFiniteNumber(value) {

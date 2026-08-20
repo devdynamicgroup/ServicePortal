@@ -111,11 +111,14 @@ function scoreSummaryNote(wq, findings) {
   return t('score.msg.low');
 }
 
+let _scoreAnimToken = 0;
 function animateScoreNumber(el, target) {
   if (!el) return;
+  const token = ++_scoreAnimToken;
   const dur = 1100;
   const t0 = performance.now();
   function step(t) {
+    if (token !== _scoreAnimToken) return; // superseded by a newer render
     const p = Math.min((t - t0) / dur, 1);
     const ease = 1 - Math.pow(1 - p, 3);
     el.textContent = Math.round(target * ease);
@@ -433,7 +436,12 @@ function setScoreHeroLoading(loading, incomplete = false) {
   if (loadingEl) loadingEl.hidden = !loading;
   if (numEl) numEl.hidden = loading;
   if (denEl) denEl.hidden = loading;
-  if (loading && numEl) numEl.textContent = '—';
+  if (loading && numEl) {
+    // Cancel in-flight animateScoreNumber so a prior eligible score cannot
+    // overwrite the incomplete placeholder (UJ-04 gauge stale).
+    _scoreAnimToken += 1;
+    numEl.textContent = '—';
+  }
 }
 
 function activeComparisonResult() {
@@ -511,6 +519,12 @@ function renderScoreDisplay() {
     standard: displayed.standardKey,
     readings: result.readings,
     readiness,
+    showScore
+  });
+  // UJ-04: Share visibility must derive from eligibility/publish state — not CSS-only.
+  updateShareScoreAvailability({
+    eligibility,
+    alreadyPublished: Number.isFinite(Number(S.activeJob?.result?.waterScore)),
     showScore
   });
   const findings = result.findings || [];
@@ -621,6 +635,12 @@ function renderScoreDisplay() {
   }
   if (showScore) {
     animateScoreNumber(document.getElementById('gauge-val'), wq);
+  } else {
+    const gaugeEl = document.getElementById('gauge-val');
+    if (gaugeEl && !gaugeEl.hidden) {
+      _scoreAnimToken += 1;
+      gaugeEl.textContent = '—';
+    }
   }
   renderStandardSelect(context);
   renderLocationSelect(context);
@@ -714,6 +734,9 @@ function readingsFromDomFields() {
  * Prefer Layer 2 standardMeasurement stored on tapData; fall back to legacy
  * meterReadings/chlorineReadings per-key when standardMeasurement is absent.
  * Maps freeChlorine → chlorine for the scorer (legacy path only).
+ *
+ * Explicit clears (`null`) on meter/chlorine/standard are treated as missing
+ * for that tap and must not resurrect via sibling layers (UJ-05).
  */
 function readingsFromTapData(tapData) {
   const taps = Array.isArray(tapData) ? tapData : [];
@@ -725,12 +748,32 @@ function readingsFromTapData(tapData) {
   if (!standardRows.length && !meterRows.length && !chlorineRows.length) return {};
 
   const avgKey = (rows, key) => {
-    const vals = rows.map(row => numOrUndefined(row[key])).filter(v => v !== undefined);
+    const vals = rows.map(row => {
+      if (!row || !Object.prototype.hasOwnProperty.call(row, key)) return undefined;
+      if (row[key] === null) return undefined;
+      return numOrUndefined(row[key]);
+    }).filter(v => v !== undefined);
     if (!vals.length) return undefined;
     return vals.reduce((sum, n) => sum + n, 0) / vals.length;
   };
 
-  return {
+  /** Keys explicitly cleared on every tap that had that key — block field fallback. */
+  const explicitClears = new Set();
+  const trackClears = (rows, key, alias) => {
+    const target = alias || key;
+    const owned = rows.filter(row => row && Object.prototype.hasOwnProperty.call(row, key));
+    if (!owned.length) return;
+    if (owned.every(row => row[key] === null)) explicitClears.add(target);
+  };
+  ['ph', 'tds', 'turbidity', 'orp', 'do', 'temp'].forEach(key => {
+    trackClears(meterRows, key);
+    trackClears(standardRows, key);
+  });
+  trackClears(chlorineRows, 'freeChlorine', 'chlorine');
+  trackClears(chlorineRows, 'chlorine', 'chlorine');
+  trackClears(standardRows, 'chlorine', 'chlorine');
+
+  const resolved = {
     ph: avgKey(standardRows, 'ph') ?? avgKey(meterRows, 'ph'),
     tds: avgKey(standardRows, 'tds') ?? avgKey(meterRows, 'tds'),
     turbidity: avgKey(standardRows, 'turbidity') ?? avgKey(meterRows, 'turbidity'),
@@ -739,12 +782,21 @@ function readingsFromTapData(tapData) {
     temp: avgKey(standardRows, 'temp') ?? avgKey(meterRows, 'temp'),
     chlorine: avgKey(standardRows, 'chlorine') ?? avgKey(chlorineRows, 'freeChlorine') ?? avgKey(chlorineRows, 'chlorine')
   };
+  resolved.__explicitClears = explicitClears;
+  return resolved;
 }
 
 function mergeReadingLayers(...layers) {
   const keys = ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp'];
   const out = {};
+  const blocked = new Set();
+  layers.forEach(layer => {
+    if (layer?.__explicitClears instanceof Set) {
+      layer.__explicitClears.forEach(key => blocked.add(key));
+    }
+  });
   keys.forEach(key => {
+    if (blocked.has(key)) return;
     for (const layer of layers) {
       if (layer && layer[key] !== undefined && layer[key] !== null && layer[key] !== '') {
         const n = numOrUndefined(layer[key]);
@@ -1034,18 +1086,46 @@ function readingsFromSingleTap(tap, fallback = {}) {
     : null;
   const meter = tap?.meterReadings || {};
   const chlorine = tap?.chlorineReadings || {};
-  const mapped = {
-    ph: numOrUndefined(standard?.ph ?? meter.ph),
-    tds: numOrUndefined(standard?.tds ?? meter.tds),
-    turbidity: numOrUndefined(standard?.turbidity ?? meter.turbidity),
-    orp: numOrUndefined(standard?.orp ?? meter.orp),
-    do: numOrUndefined(standard?.do ?? meter.do),
-    temp: numOrUndefined(standard?.temp ?? meter.temp),
-    chlorine: numOrUndefined(standard?.chlorine ?? (chlorine.freeChlorine ?? chlorine.chlorine))
+  const pick = (stdVal, meterVal) => {
+    // Explicit clear on either layer → missing (do not fall back).
+    if (stdVal === null || meterVal === null) return undefined;
+    return numOrUndefined(stdVal ?? meterVal);
   };
-  // Only fill gaps from other real measurements — never demo placeholders.
+  const mapped = {
+    ph: pick(standard?.ph, meter.ph),
+    tds: pick(standard?.tds, meter.tds),
+    turbidity: pick(standard?.turbidity, meter.turbidity),
+    orp: pick(standard?.orp, meter.orp),
+    do: pick(standard?.do, meter.do),
+    temp: pick(standard?.temp, meter.temp),
+    chlorine: (() => {
+      if (standard && Object.prototype.hasOwnProperty.call(standard, 'chlorine') && standard.chlorine === null) {
+        return undefined;
+      }
+      if (Object.prototype.hasOwnProperty.call(chlorine, 'freeChlorine') && chlorine.freeChlorine === null) {
+        return undefined;
+      }
+      if (Object.prototype.hasOwnProperty.call(chlorine, 'chlorine') && chlorine.chlorine === null) {
+        return undefined;
+      }
+      return numOrUndefined(standard?.chlorine ?? (chlorine.freeChlorine ?? chlorine.chlorine));
+    })()
+  };
+  // Keys the operator explicitly cleared must not be refilled from Hero/base.
+  const cleared = new Set();
+  const markClear = (key, ...vals) => {
+    if (vals.some(v => v === null)) cleared.add(key);
+  };
+  markClear('ph', standard?.ph, meter.ph);
+  markClear('tds', standard?.tds, meter.tds);
+  markClear('turbidity', standard?.turbidity, meter.turbidity);
+  markClear('orp', standard?.orp, meter.orp);
+  markClear('do', standard?.do, meter.do);
+  markClear('temp', standard?.temp, meter.temp);
+  markClear('chlorine', standard?.chlorine, chlorine.freeChlorine, chlorine.chlorine);
   const realFallback = Object.fromEntries(
-    Object.entries(fallback || {}).filter(([, v]) => Number.isFinite(Number(v)))
+    Object.entries(fallback || {})
+      .filter(([key, v]) => !cleared.has(key) && Number.isFinite(Number(v)))
   );
   return { ...realFallback, ...Object.fromEntries(Object.entries(mapped).filter(([, v]) => v !== undefined)) };
 }
@@ -1053,7 +1133,7 @@ function readingsFromSingleTap(tap, fallback = {}) {
 /** True when a tap has any Standard (Layer 2) or legacy reading with a real number. */
 function hasTapReadingSource(tap) {
   const hasFinite = (row) => row && typeof row === 'object'
-    && Object.values(row).some(v => Number.isFinite(typeof v === 'number' ? v : parseFloat(v)));
+    && Object.values(row).some(v => v !== null && Number.isFinite(typeof v === 'number' ? v : parseFloat(v)));
   return Boolean(
     hasFinite(tap?.standardMeasurement)
     || hasFinite(tap?.meterReadings)
@@ -1068,15 +1148,15 @@ function getRoomReadings(tapKey, context = getScoreEvalContext()) {
     : (S.scoreBaseReadings || {});
   const taps = S.taps?.length ? S.taps : ['Tap 1'];
   const tapData = resolveJobTapDataForScore(S.activeJob) || [];
-  const baseReady = SCORE_READY_KEYS.every(key => Number.isFinite(Number(base?.[key])));
 
   if (tapKey === 'all') {
+    // Average only taps with real measurements — never synthesize offsets for
+    // empty rooms (UJ-07: All Locations must not invent values Hero never saw).
     const rows = taps.map((_, i) => {
       const tap = tapData[i];
-      if (hasTapReadingSource(tap)) return readingsFromSingleTap(tap, base);
-      // Without a tap snapshot, only synthesize offsets when base is fully measured.
-      return baseReady ? readingsFromBase(base, i, taps.length) : { ...base };
-    }).filter(row => SCORE_READY_KEYS.some(key => Number.isFinite(Number(row?.[key]))));
+      if (!hasTapReadingSource(tap)) return null;
+      return readingsFromSingleTap(tap, {});
+    }).filter(row => row && SCORE_READY_KEYS.some(key => Number.isFinite(Number(row?.[key]))));
     const keys = ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp'];
     const avg = {};
     keys.forEach(key => {
@@ -1090,9 +1170,11 @@ function getRoomReadings(tapKey, context = getScoreEvalContext()) {
   const safeIndex = index >= 0 ? index : 0;
   const tap = tapData[safeIndex];
   if (hasTapReadingSource(tap)) {
-    return readingsFromSingleTap(tap, base);
+    return readingsFromSingleTap(tap, {});
   }
-  return baseReady ? readingsFromBase(base, safeIndex, taps.length) : { ...base };
+  // Single room with no snapshot: show the case-resolved readings (Hero input),
+  // never synthetic per-room deltas.
+  return { ...base };
 }
 
 /** Build metric rows for one room using selectedStandard limits — never shared across rooms. */
@@ -1446,11 +1528,34 @@ function setShareButtonLoading(loading) {
     btn.disabled = true;
     btn.textContent = 'Preparing Share Card...';
   } else {
-    btn.disabled = false;
+    btn.disabled = btn.dataset.shareBlocked === '1';
     if (btn.dataset.shareLabel !== undefined) {
       btn.textContent = btn.dataset.shareLabel;
       delete btn.dataset.shareLabel;
     }
+  }
+}
+
+/**
+ * NOT_ELIGIBLE ⇒ cannot share / publish a score card (UJ-04).
+ * Already-published reports remain shareable so clients can re-open the link.
+ */
+function updateShareScoreAvailability({ eligibility, alreadyPublished, showScore } = {}) {
+  const btn = document.querySelector('#s-score .hdr-action');
+  if (!btn) return;
+  const canShare = Boolean(alreadyPublished)
+    || (
+      Boolean(showScore)
+      && (!eligibility || eligibility.canCalculateScore !== false)
+    );
+  btn.dataset.shareBlocked = canShare ? '0' : '1';
+  btn.hidden = !canShare;
+  btn.disabled = !canShare;
+  btn.setAttribute('aria-disabled', canShare ? 'false' : 'true');
+  if (!canShare) {
+    btn.title = eligibility?.reason || (typeof t === 'function' ? t('score.readiness.waitingBadge') : 'Not eligible to share');
+  } else {
+    btn.removeAttribute('title');
   }
 }
 

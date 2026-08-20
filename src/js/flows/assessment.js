@@ -443,24 +443,23 @@ function syncMeterThumbFromSession(tap) {
   }
 }
 
+/**
+ * Merge form/OCR-detected readings onto the existing tap.meterReadings.
+ * Absent key (undefined) = not supplied, keep existing. Empty string/null =
+ * the field was explicitly cleared (manual entry always supplies every key,
+ * so '' here means the user emptied the input) — store `null` rather than
+ * silently keeping the stale value, so downstream persistence/merge can tell
+ * "not supplied" apart from "cleared".
+ */
 function mergeMeterReadings(existing = {}, detected = {}) {
-  // TEMP TRACE (stage 3) — remove after temp-field investigation
-  console.warn('[TEMP TRACE] stage3 mergeMeterReadings input', {
-    existingKeys: Object.keys(existing || {}),
-    detectedKeys: Object.keys(detected || {}),
-    existingTemp: existing?.temp,
-    detectedTemp: detected?.temp,
-    detectedTemperatureAlias: detected?.temperature
-  });
   const out = { ...(existing || {}) };
   Object.entries(detected || {}).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') return;
+    if (value === undefined) return;
+    if (value === null || (typeof value === 'string' && value.trim() === '')) {
+      out[key] = null;
+      return;
+    }
     out[key] = value;
-  });
-  // TEMP TRACE (stage 4) — remove after temp-field investigation
-  console.warn('[TEMP TRACE] stage4 mergeMeterReadings output', {
-    outKeys: Object.keys(out),
-    outTemp: out.temp
   });
   return out;
 }
@@ -1430,15 +1429,42 @@ function bindTouchedRequiredValidation(ids = []) {
   });
 }
 
+/**
+ * Manual edits invalidate any Layer 2 standardMeasurement value previously
+ * derived from OCR for the same keys — otherwise the stale derived value
+ * keeps outranking the user's correction (standardMeasurement is preferred
+ * over meterReadings/chlorineReadings in the scoring/display precedence).
+ */
+function invalidateStaleStandardMeasurement(tap, before = {}, after = {}, keyMap) {
+  if (!tap?.standardMeasurement) return;
+  // tap.standardMeasurement is Object.freeze()'d by storeRawAndStandardMeasurements
+  // (PR2 Raw/Standard contract) — `delete` on it silently no-ops, so build a
+  // fresh plain object instead of mutating in place.
+  let next = null;
+  Object.keys(after || {}).forEach(key => {
+    if (after[key] === before[key]) return;
+    const standardKey = keyMap ? keyMap[key] : key;
+    if (!standardKey) return;
+    if (Object.prototype.hasOwnProperty.call(tap.standardMeasurement, standardKey)) {
+      if (!next) next = { ...tap.standardMeasurement };
+      delete next[standardKey];
+    }
+  });
+  if (next) tap.standardMeasurement = next;
+}
+
 function persistChlorineReadings() {
   const tap = getActiveTapRecord();
-  const next = { ...(tap.chlorineReadings || {}) };
+  const before = { ...(tap.chlorineReadings || {}) };
+  const next = { ...before };
   Object.entries(CHLORINE_READING_FIELDS).forEach(([key, id]) => {
     const el = document.getElementById(id);
     if (!el) return;
-    next[key] = el.value || '';
+    const raw = el.value;
+    next[key] = raw === '' || raw == null ? null : raw;
   });
   tap.chlorineReadings = next;
+  invalidateStaleStandardMeasurement(tap, before, next, { freeChlorine: 'chlorine' });
   saveActiveJobState?.();
 }
 
@@ -1477,7 +1503,21 @@ function writeMeterReadingFields(readings = {}) {
 
 function persistMeterReadings() {
   const tap = getActiveTapRecord();
+  const before = { ...(tap.meterReadings || {}) };
   tap.meterReadings = mergeMeterReadings(tap.meterReadings, readMeterReadingFields());
+  invalidateStaleStandardMeasurement(tap, before, tap.meterReadings);
+  // Keep Case-level draft.fields in sync with clears so resolveScoreReadings
+  // cannot resurrect a value from fields after meterReadings was nulled (UJ-05).
+  if (S.activeJob?.draft?.fields) {
+    Object.entries(METER_READING_FIELDS).forEach(([key, id]) => {
+      if (tap.meterReadings[key] === null) S.activeJob.draft.fields[id] = '';
+    });
+  }
+  if (S.scoreBaseReadings && typeof S.scoreBaseReadings === 'object') {
+    Object.keys(METER_READING_FIELDS).forEach(key => {
+      if (tap.meterReadings[key] === null) delete S.scoreBaseReadings[key];
+    });
+  }
   saveActiveJobState?.();
 }
 

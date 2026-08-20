@@ -1,6 +1,6 @@
 # Benchmark Isolation Test Report
 
-Date: 2026-08-10T08:29:26.911Z
+Date: 2026-08-19T07:25:27.320Z
 Sample: {"ph":7.2,"tds":450,"chlorine":0.8,"turbidity":2.5,"orp":350,"do":6.5,"temp":28}
 Production score: 93
 
@@ -34,11 +34,11 @@ Production score: 93
 - PASS  Test6: eu unchanged after dummy register
 - PASS  Test6: japan unchanged after dummy register
 - PASS  Test6: usEpa unchanged after dummy register
-- PASS  thailand score locked at 100 (got 100)
-- PASS  who score locked at 93 (got 93)
-- PASS  eu score locked at 65 (got 65)
-- PASS  japan score locked at 96 (got 96)
-- PASS  usEpa score locked at 91 (got 91)
+- PASS  thailand score locked at 66 (got 66)
+- PASS  who score locked at 60 (got 60)
+- PASS  eu score locked at 63 (got 63)
+- PASS  japan score locked at 63 (got 63)
+- PASS  usEpa score locked at 57 (got 57)
 - PASS  Legacy DWQI locked at 93
 - PASS  Quality V2 computes finite score
 - PASS  thailand has engine name

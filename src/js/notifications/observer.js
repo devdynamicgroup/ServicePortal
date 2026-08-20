@@ -25,6 +25,7 @@
 
     (jobs || []).forEach(job => {
       if (isCancelled(job) || job.manualPending) return;
+      if (job.csvSource) return;
       const id = caseKey(job);
       if (!id) return;
       currentIds.push(id);

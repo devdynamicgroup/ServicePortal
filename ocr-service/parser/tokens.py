@@ -91,6 +91,71 @@ def _classify_ignore(text: str) -> tuple[bool, bool]:
     return False, False
 
 
+# A single OCR detection sometimes fuses a decimal value and its uppercase
+# unit/label together with no usable gap ("7.29 PH", "-15.0MVPH") instead of
+# the two ending up as separate detections ("7.29" / "PH"). make_token()'s
+# whole-string _is_numeric() check then classifies the entire fused string as
+# a non-numeric label, so the value is silently dropped by the row grouper
+# (no numeric token left in that row to pair with anything) — proven against
+# a real Paddle run on ocr/test_images/test-images.jpg, where "orp"/"do_percent"
+# (delivered as separate detections) bound correctly but "ph"/"mv" (fused)
+# did not, despite the raw OCR text being correct.
+#
+# Deliberately narrow to the proven pattern only:
+#   - decimal number required (matches the two proven cases; excludes bare
+#     integers like "2" so keypad-button OCR like "2 abc" is never touched)
+#   - label must be uppercase-only (+ %, °, µ, /, .) — real meter unit labels
+#     ("PH", "MVPH", "MVORP", "%00") are never lowercase; excludes prose like
+#     keypad "abc" or "Cert No.: ..." by construction, not by a blocklist
+#   - number must come first (the only order actually observed)
+_FUSED_VALUE_LABEL_RE = re.compile(r"^([+-]?\d+\.\d+)\s*([A-Z%°µ/.]{1,10})$")
+
+
+def _split_fused_value_label(raw: str) -> tuple[str, str] | None:
+    match = _FUSED_VALUE_LABEL_RE.match(raw.strip())
+    if not match:
+        return None
+    return match.group(1), match.group(2)
+
+
+def _split_box(box: Sequence[float] | None, frac: float) -> tuple[Any, Any]:
+    parsed = _as_box(box)
+    if parsed is None:
+        return box, box
+    x1, y1, x2, y2 = parsed
+    split_x = x1 + (x2 - x1) * frac
+    return (x1, y1, split_x, y2), (split_x, y1, x2, y2)
+
+
+def make_tokens(
+    text: str,
+    *,
+    score: float = 1.0,
+    box: Sequence[float] | None = None,
+) -> list[OcrToken]:
+    """Like make_token(), but may return two tokens when a single OCR
+    detection fused a decimal value with its unit/label (see
+    _split_fused_value_label). Callers that ingest raw detections
+    (tokens_from_detections / tokens_from_parallel_lists) should use this;
+    make_token() itself stays a strict one-token function — its contract is
+    covered by tests that assume exactly that.
+    """
+    raw = str(text or "").strip()
+    plain = make_token(raw, score=score, box=box)
+    if plain.is_numeric or plain.ignored or plain.debug_only:
+        return [plain]
+
+    split = _split_fused_value_label(raw)
+    if split is None:
+        return [plain]
+    number_text, label_text = split
+    number_box, label_box = _split_box(box, len(number_text) / len(raw))
+    return [
+        make_token(number_text, score=score, box=number_box),
+        make_token(label_text, score=score, box=label_box),
+    ]
+
+
 def make_token(
     text: str,
     *,
@@ -156,7 +221,7 @@ def tokens_from_parallel_lists(
         box = None
         if boxes is not None and i < len(boxes):
             box = boxes[i]
-        out.append(make_token(text, score=score, box=box))
+        out.extend(make_tokens(text, score=score, box=box))
     return out
 
 
@@ -173,7 +238,7 @@ def tokens_from_detections(detections: Iterable[dict[str, Any]]) -> list[OcrToke
             score = float(det.get("score", 1.0))
         except (TypeError, ValueError):
             score = 1.0
-        out.append(make_token(text, score=score, box=det.get("box")))
+        out.extend(make_tokens(text, score=score, box=det.get("box")))
     return out
 
 

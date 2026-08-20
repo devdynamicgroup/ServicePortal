@@ -119,6 +119,8 @@ function aggregateQuality() {
     status: NOT_CALIBRATED,
     qualityScore: NOT_CALIBRATED,
     family: HYBRID_FAMILY,
+    qMean: null,
+    qMin: null,
     alpha: 'TBD',
     exactF: 'TBD',
     reason: 'CALIBRATION_GATE'
@@ -147,9 +149,15 @@ function simulateCanonicalScore(readings, benchmarkProfile) {
 
   if (completeness.status === NOT_COMPUTABLE) {
     return {
+      status: NOT_COMPUTABLE,
       modelVersion: MODEL_VERSION,
       benchmarkKey: profile.benchmarkKey,
       benchmarkVersion: profile.benchmarkVersion,
+      benchmarkProfile: {
+        key: profile.benchmarkKey,
+        modelVersion: MODEL_VERSION,
+        benchmarkVersion: profile.benchmarkVersion
+      },
       completeness,
       parameterQuality,
       complianceStatus,
@@ -158,16 +166,25 @@ function simulateCanonicalScore(readings, benchmarkProfile) {
       qualityScore: NOT_COMPUTABLE,
       finalScore: NOT_COMPUTABLE,
       calibrationStatus: NOT_CALIBRATED,
-      computability: NOT_COMPUTABLE
+      computability: {
+        complete: false,
+        missing: completeness.missing
+      }
     };
   }
 
   const qualityScore = aggregation.qualityScore;
   const finalScore = toFinalScore(qualityScore, riskSeverity.value);
   return {
+    status: NOT_CALIBRATED,
     modelVersion: MODEL_VERSION,
     benchmarkKey: profile.benchmarkKey,
     benchmarkVersion: profile.benchmarkVersion,
+    benchmarkProfile: {
+      key: profile.benchmarkKey,
+      modelVersion: MODEL_VERSION,
+      benchmarkVersion: profile.benchmarkVersion
+    },
     completeness,
     parameterQuality,
     complianceStatus,
@@ -176,7 +193,10 @@ function simulateCanonicalScore(readings, benchmarkProfile) {
     qualityScore,
     finalScore,
     calibrationStatus: NOT_CALIBRATED,
-    computability: completeness.status
+    computability: {
+      complete: true,
+      missing: []
+    }
   };
 }
 

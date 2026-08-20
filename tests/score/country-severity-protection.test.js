@@ -51,6 +51,7 @@ function stubEl() {
     style: { setProperty() {}, width: '', background: '', color: '', left: '' },
     classList: { toggle() {}, add() {}, remove() {} },
     setAttribute() {},
+    removeAttribute() {},
     querySelector: () => stubEl(),
     textContent: '',
     innerHTML: '',

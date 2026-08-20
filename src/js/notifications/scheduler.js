@@ -82,8 +82,13 @@
     const { parseJobStartMs, caseKey, relativeHoursOverdue } = Utils();
     const now = Date.now();
     const results = [];
+    // Operator-facing overdue is for the working window, not multi-month
+    // archive Cases (UJ-08: 4460h). Older appointments stay on the calendar
+    // but must not flood the bell.
+    const MAX_OVERDUE_HOURS = 72;
 
     for (const job of activeJobs(jobs)) {
+      if (job.csvSource) continue;
       const status = String(job.status || '').toLowerCase();
       const workflow = String(job.workflow?.status || '').toLowerCase();
       // Overdue = appointment time passed AND work not started.
@@ -93,9 +98,11 @@
       const startMs = parseJobStartMs(job);
       if (!Number.isFinite(startMs) || startMs >= now) continue;
 
+      const hours = relativeHoursOverdue(startMs, now);
+      if (!Number.isFinite(hours) || hours > MAX_OVERDUE_HOURS) continue;
+
       const id = caseKey(job);
       if (!id) continue;
-      const hours = relativeHoursOverdue(startMs, now);
       const day = Utils().isoDateOnly(job.date) || 'unknown';
 
       results.push(await global.OperatorNotificationDispatcher.emit(Events().OVERDUE, {
@@ -103,7 +110,7 @@
         customerName: job.name || '',
         hoursOverdue: hours,
         dedupeKey: `overdue:${id}:${day}`,
-        payload: { hours }
+        payload: { hours, date: day }
       }));
     }
     return results;

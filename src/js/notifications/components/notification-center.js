@@ -73,16 +73,41 @@
     ) || null;
   }
 
+  // Case's own appointment date (source of truth is job.date; see dashboard.js).
+  // Reused as a fallback only when the notification itself doesn't already
+  // carry a date — never a new date source.
+  function isoDateOnly(value) {
+    const m = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+  }
+
+  // General navigation-target resolver: a notification never says "open this
+  // Case", it says "here is the date to land the Calendar on, and which Case
+  // card to bring into view there". Future notification types can return
+  // other target shapes here without any caller needing a type-by-type branch.
+  function resolveNavigationTarget(item) {
+    const job = findJobByCaseId(item?.caseId);
+    const fromPayload = isoDateOnly(item?.payload?.date);
+    const fromCase = isoDateOnly(job?.date);
+    return {
+      type: 'calendar',
+      date: fromPayload || fromCase,
+      caseId: item?.caseId || null,
+      jobId: job?.id || null
+    };
+  }
+
   async function handleNotificationAction(item, action) {
     const Actions = global.OperatorNotificationTypes.NOTIFICATION_ACTION;
     await global.OperatorNotificationService?.markRead?.(item.id);
 
     if (action === Actions.OPEN_CASE && item.caseId) {
-      const job = findJobByCaseId(item.caseId);
+      const target = resolveNavigationTarget(item);
       closeNotifModal();
-      if (job && typeof global.openJob === 'function') global.openJob(job.id);
-      else if (typeof global.showToast === 'function') {
-        global.showToast(th() ? 'ไม่พบเคสในรายการ' : 'Case not found in list');
+      if (typeof global.navigateToCalendarDate === 'function') {
+        global.navigateToCalendarDate(target.date, target.jobId);
+      } else if (typeof global.goScreen === 'function') {
+        global.goScreen('s-dash');
       }
       await refreshNotificationUi();
       return;
@@ -167,4 +192,6 @@
   global.renderNotificationCenter = renderNotificationCenter;
   global.refreshNotificationUi = refreshNotificationUi;
   global.initOperatorNotificationCenter = initOperatorNotificationCenter;
+  global.resolveNavigationTarget = resolveNavigationTarget;
+  global.handleNotificationAction = handleNotificationAction;
 })(typeof globalThis !== 'undefined' ? globalThis : window);
