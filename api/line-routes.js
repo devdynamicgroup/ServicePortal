@@ -707,4 +707,11 @@ async function handleLineRoute(req, res, urlPath) {
   return false;
 }
 
-module.exports = { handleLineRoute };
+module.exports = {
+  handleLineRoute,
+  // Test-only export: claimEvent's real behavior (in-process Map + TTL dedup)
+  // was previously unverified by any executable test. Exporting it changes
+  // nothing about handleLineRoute's runtime behavior — it is the same
+  // function object, called the same way, from the same module-level Map.
+  claimEvent
+};

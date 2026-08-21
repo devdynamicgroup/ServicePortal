@@ -27,6 +27,22 @@ const { withCaseLock } = require('./workflow-service');
 const { resolveCampaignAttribution } = require('./cal-offer-mapping');
 const { logEvent } = require('./observability');
 
+// Test-only DI seam (mirrors score-publication-service.js's
+// setPublicationCaseAdapter/resetPublicationDependencies pattern). Defaults to
+// the real implementations above — production call sites never override
+// these, so runtime behavior is unchanged. Exists solely so the durable
+// dedupe (findClientByCalBookingId before createCase) can be proven with an
+// in-memory adapter instead of real Notion/production data.
+let deps = { createCase, findClientByCalBookingId, withCaseLock };
+
+function setCalBookingAdapterDependencies(overrides = {}) {
+  deps = { ...deps, ...overrides };
+}
+
+function resetCalBookingAdapterDependencies() {
+  deps = { createCase, findClientByCalBookingId, withCaseLock };
+}
+
 function rejectPayload(message) {
   const error = new Error(message);
   error.statusCode = 400;
@@ -119,8 +135,8 @@ async function processBookingCreated(rawPayload, correlationId) {
   if (!fields.fullName) throw rejectPayload('Missing attendee name');
   if (!fields.startTime || !fields.endTime) throw rejectPayload('Missing appointment start/end time');
 
-  return withCaseLock(`cal-booking:${fields.calBookingId}`, async () => {
-    const existing = await findClientByCalBookingId(fields.calBookingId);
+  return deps.withCaseLock(`cal-booking:${fields.calBookingId}`, async () => {
+    const existing = await deps.findClientByCalBookingId(fields.calBookingId);
     if (existing) {
       logEvent('info', 'cal_adapter_duplicate', {
         correlationId,
@@ -131,7 +147,7 @@ async function processBookingCreated(rawPayload, correlationId) {
     }
 
     const { customerPayload, options } = buildCreateCaseInput(fields, correlationId);
-    const result = await createCase(customerPayload, options);
+    const result = await deps.createCase(customerPayload, options);
 
     logEvent('info', 'cal_adapter_case_created', {
       correlationId,
@@ -148,5 +164,7 @@ module.exports = {
   extractBookingCreatedFields,
   buildCreateCaseInput,
   toLocalDateTimeParts,
-  processBookingCreated
+  processBookingCreated,
+  setCalBookingAdapterDependencies,
+  resetCalBookingAdapterDependencies
 };
