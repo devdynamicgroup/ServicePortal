@@ -3,6 +3,7 @@ const TASK_KEYS = {
   'visual-check': 'visual',
   'meter-check': 'meter',
   'chlorine-check': 'chlorine',
+  'turbidity-check': 'turbidity',
   'pressure-check': 'pressure',
   'infra-check': 'infra'
 };
@@ -10,7 +11,8 @@ const TASK_PHOTO_IDS = {
   tapphoto: 'tap-photo-preview',
   visual: 'vis-photo-preview',
   meter: 'meter-photo-preview',
-  chlorine: 'cl-photo-preview'
+  chlorine: 'cl-photo-preview',
+  turbidity: 'turb-photo-preview'
 };
 const PHOTO_ID_TASKS = Object.fromEntries(Object.entries(TASK_PHOTO_IDS).map(([key, id]) => [id, key]));
 const CHECK_SVG = '<svg viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>';
@@ -70,7 +72,8 @@ function restoreCurrentPhotoScreen(screenId) {
     's-photo': 'tap-photo-preview',
     's-visual': 'vis-photo-preview',
     's-meter': 'meter-photo-preview',
-    's-chlorine': 'cl-photo-preview'
+    's-chlorine': 'cl-photo-preview',
+    's-turbidity': 'turb-photo-preview'
   };
   if (map[screenId]) restoreTaskPhoto(map[screenId]);
 }
@@ -150,7 +153,7 @@ function renderAssessList() {
     el.innerHTML = done ? CHECK_SVG : '';
   });
 
-  ['tapphoto', 'meter', 'chlorine'].forEach(key => {
+  ['tapphoto', 'meter', 'chlorine', 'turbidity'].forEach(key => {
     const thumbEl = document.getElementById(`thumb-${key}`);
     if (!thumbEl) return;
     let photo = data.photos[key];
@@ -513,6 +516,22 @@ function mapOcrDataToMeterReadings(data = {}) {
     }
     out[key] = String(value);
   });
+  // The HANNA HI98194 multiparam device (the only meter this OCR path reads
+  // TDS from today) never displays a literal TDS/ppm reading — only EC. A
+  // literal TDS reading, if a device ever displays one, always wins
+  // (checked first). Only when there is no direct TDS do we derive one from
+  // EC — the SAME formula/factor (ConversionEngine.convertEcToTds,
+  // ecToTdsFactor=0.5) already used to populate tap.standardMeasurement.tds
+  // for scoring, so this doesn't invent a new value — it makes the already-
+  // trusted derived value visible in the meter-reading form too, instead of
+  // silently only reaching the score while the TDS field stays blank.
+  if (out.tds === undefined && out.ec !== undefined
+    && typeof ConversionEngine !== 'undefined' && ConversionEngine?.convertEcToTds) {
+    const derived = ConversionEngine.convertEcToTds(out.ec);
+    if (derived && derived.value !== null && Number.isFinite(derived.value)) {
+      out.tds = String(derived.value);
+    }
+  }
   // TEMP TRACE — temp mapping debug (remove after investigation)
   console.warn('[TEMP TRACE] mapOcr output', {
     mappedKeys: Object.keys(out),
@@ -839,6 +858,82 @@ async function detectChlorineFromImage(photoSrc) {
       throw offline;
     }
     console.warn('Chlorine OCR request failed', error);
+    return { readings: {}, metadata: buildMeasurementMetadata({}, { source: 'ocr' }) };
+  }
+}
+
+/**
+ * Read a turbidity (NTU) value from a HACH 2100Q photo via OCR.
+ * Mirrors detectChlorineFromImage's shape/error-handling exactly — a
+ * dedicated capture call with its own meter_type, not folded into the
+ * general multiparam ('ph') capture, since the HACH 2100Q is a physically
+ * separate device from the HANNA multiparam meter that call reads.
+ * Maps into `meterReadings.turbidity` via the same key
+ * mapOcrDataToMeterReadings()/METER_READING_FIELDS already use, so it
+ * flows through the existing merge/score lineage unchanged.
+ */
+async function detectTurbidityFromImage(photoSrc) {
+  const imageUrl = typeof photoSrc === 'string'
+    ? photoSrc
+    : resolveCaptureDataUrl(photoSrc);
+  if (!imageUrl) {
+    console.warn('[OCR FLOW] missing imageSrc — aborting detectTurbidityFromImage', {
+      photoSrcType: typeof photoSrc
+    });
+    return { readings: {}, metadata: buildMeasurementMetadata({}, { source: 'ocr' }) };
+  }
+
+  try {
+    console.warn('[OCR] request started', {
+      endpoint: '/api/ocr/read-meter',
+      meter_type: 'turbidity',
+      imageUrlLen: imageUrl.length
+    });
+    const response = await fetch('/api/ocr/read-meter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      credentials: 'same-origin',
+      cache: 'no-store',
+      body: JSON.stringify({
+        image_url: imageUrl,
+        meter_type: 'turbidity'
+      })
+    });
+    const body = await response.json().catch(() => ({}));
+    console.warn('[OCR] response received', {
+      httpStatus: response.status,
+      success: body?.success,
+      error: body?.error || null,
+      dataKeys: body?.data && typeof body.data === 'object' ? Object.keys(body.data) : []
+    });
+    if (body && body.success === false && OCR_USER_ERROR_CODES.has(body.error)) {
+      const err = new Error(body.message || 'OCR is not available');
+      err.code = body.error;
+      throw err;
+    }
+    if (!body || body.success === false || !body.data || typeof body.data !== 'object') {
+      return { readings: {}, metadata: buildMeasurementMetadata(body || {}, { source: 'ocr' }) };
+    }
+    const turbidityValue = body.data.turbidity;
+    const readings = {};
+    if (turbidityValue !== undefined && turbidityValue !== null && turbidityValue !== '') {
+      readings.turbidity = String(turbidityValue);
+    }
+    const metadata = buildMeasurementMetadata(body, { source: 'ocr' });
+    console.warn('[OCR] mapped turbidity readings:', readings);
+    return { readings, metadata };
+  } catch (error) {
+    if (OCR_USER_ERROR_CODES.has(error?.code)) throw error;
+    const message = String(error?.message || '');
+    if (error?.name === 'TypeError' || /failed to fetch|networkerror|load failed/i.test(message)) {
+      const offline = new Error('OCR service is not available');
+      offline.code = 'OCR_OFFLINE';
+      throw offline;
+    }
+    console.warn('Turbidity OCR request failed', error);
     return { readings: {}, metadata: buildMeasurementMetadata({}, { source: 'ocr' }) };
   }
 }
@@ -1342,7 +1437,9 @@ async function processAssessmentPhoto(previewId, photoSrc) {
     return appendMeterSessionPhoto(photoSrc);
   }
 
-  if (previewId !== 'cl-photo-preview' || !photoSrc || processAssessmentPhoto._busy) return;
+  const isChlorine = previewId === 'cl-photo-preview';
+  const isTurbidity = previewId === 'turb-photo-preview';
+  if ((!isChlorine && !isTurbidity) || !photoSrc || processAssessmentPhoto._busy) return;
   processAssessmentPhoto._busy = true;
 
   try {
@@ -1351,29 +1448,44 @@ async function processAssessmentPhoto(previewId, photoSrc) {
     let detected = {};
     let ocrUnavailable = false;
     try {
-      const ocrResult = await detectChlorineFromImage(photoSrc);
+      const ocrResult = isChlorine
+        ? await detectChlorineFromImage(photoSrc)
+        : await detectTurbidityFromImage(photoSrc);
       detected = ocrResult?.readings && typeof ocrResult.readings === 'object' ? ocrResult.readings : {};
     } catch (error) {
       if (OCR_USER_ERROR_CODES.has(error?.code)) {
         ocrUnavailable = true;
-        console.warn('[OCR FLOW] chlorine detection unavailable', { code: error.code, message: error.message });
+        console.warn('[OCR FLOW] detection unavailable', { isChlorine, isTurbidity, code: error.code, message: error.message });
       } else {
         throw error;
       }
     }
 
     const tap = getActiveTapRecord();
-    // Merge onto existing readings — OCR only ever fills freeChlorine (the
-    // device never labels Free vs Total), so a manually-entered
-    // totalChlorine must survive instead of being wiped by this merge.
-    const readings = { ...(tap.chlorineReadings || {}) };
-    Object.entries(detected).forEach(([key, value]) => {
-      if (value === undefined || value === null || value === '') return;
-      readings[key] = value;
-    });
-    writeReadingFields(CHLORINE_READING_FIELDS, readings);
-    tap.chlorineReadings = readings;
-    if (Object.keys(detected).length) tap.chlorineSource = 'ocr';
+    if (isChlorine) {
+      // Merge onto existing readings — OCR only ever fills freeChlorine (the
+      // device never labels Free vs Total), so a manually-entered
+      // totalChlorine must survive instead of being wiped by this merge.
+      const readings = { ...(tap.chlorineReadings || {}) };
+      Object.entries(detected).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') return;
+        readings[key] = value;
+      });
+      writeReadingFields(CHLORINE_READING_FIELDS, readings);
+      tap.chlorineReadings = readings;
+      if (Object.keys(detected).length) tap.chlorineSource = 'ocr';
+    } else {
+      // Turbidity has no dedicated readings sub-object — it lands in the
+      // SAME tap.meterReadings.turbidity key mapOcrDataToMeterReadings()/
+      // METER_READING_FIELDS already use, via the same merge (explicit
+      // clear semantics, OCR-vs-manual precedence) as every other meter
+      // reading. Never a separate storage path.
+      const before = { ...(tap.meterReadings || {}) };
+      tap.meterReadings = mergeMeterReadings(tap.meterReadings, detected);
+      invalidateStaleStandardMeasurement(tap, before, tap.meterReadings);
+      writeMeterReadingFields(tap.meterReadings);
+      if (Object.keys(detected).length) tap.meterSource = 'ocr';
+    }
 
     S.scoreBaseReadings = null;
     S.scoreVal = null;
@@ -2419,10 +2531,10 @@ function setPhotoPreview(previewId, src, options = {}) {
     );
   }
 
-  if (!options.silent && previewId === 'cl-photo-preview') {
+  if (!options.silent && (previewId === 'cl-photo-preview' || previewId === 'turb-photo-preview')) {
     const ocrSource = dataUrl || (typeof src === 'string' ? src : '');
     if (ocrSource) {
-      processAssessmentPhoto('cl-photo-preview', ocrSource).catch(error => {
+      processAssessmentPhoto(previewId, ocrSource).catch(error => {
         console.error(error);
         showToast(typeof t === 'function' ? t('meter.toastError') : 'Could not read image');
       });

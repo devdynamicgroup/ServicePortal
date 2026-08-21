@@ -1,0 +1,25 @@
+<div id="s-turbidity" class="screen">
+  <div class="hdr">
+    <button class="hdr-back" type="button" onclick="goBack('s-assess')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <span class="hdr-title">Turbidity Test</span>
+  </div>
+  <div class="content gap12">
+    <p class="photo-hint">Photograph the HACH 2100Q display. The reading also appears under Meter Readings.</p>
+    <div>
+      <div style="font-size:13px;font-weight:500;margin-bottom:8px;color:#374151">Turbidimeter Photo</div>
+      <div class="photo-capture">
+        <div class="photo-box" onclick="openCameraCapture('turb-photo-input','turb-photo-preview')">
+          <img id="turb-photo-preview" src="" style="display:none" alt="">
+          <span class="pb-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78716c" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+          <span class="pb-label">No turbidimeter photo attached</span>
+          <span class="photo-status hidden">Photo added</span>
+          <input type="file" id="turb-photo-input" accept="image/*" onchange="previewPhoto(this,'turb-photo-preview')">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <button class="btn btn-ghost" onclick="goBack('s-assess')">Cancel</button>
+    <button class="btn btn-primary" onclick="completeSub('turbidity-check','s-assess')">Complete</button>
+  </div>
+</div>

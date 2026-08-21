@@ -12,9 +12,65 @@ from statistics import median
 from typing import Sequence
 
 from core.logger import get_logger
-from parser.tokens import OcrToken
+from parser.tokens import OcrToken, make_token
 
 logger = get_logger("parser.row_grouper")
+
+# A detector sometimes splits one LCD decimal reading into two adjacent boxes
+# right at the decimal point ("0." + "1" instead of one "0.1" box) instead of
+# the fused-token problem tokens.py already repairs (one box containing too
+# much, e.g. "7.29 PH"). Proven against a real PaddleOCR run — HACH DR300
+# chlorine LCD, ocr/test_images/line_oa_chat_260720_084725_original.jpg:
+# both fragments are independently recognized correctly ("0." score 0.956,
+# "1" score 0.937), but the strict ^\d+(\.\d+)?$ numeric grammar rejects the
+# pre-decimal fragment on its own, and the post-decimal fragment alone would
+# silently bind as a wrong whole-number value (1, not 0.1) if left unmerged.
+# Reassembles only what the detector geometrically already placed adjacent
+# in the same row — never invents a digit that wasn't itself recognized, and
+# never touches two genuinely separate numbers (neither ends in a bare ".").
+_TRAILING_DOT_RE = re.compile(r"^([+-]?\d+)\.$")
+_BARE_DIGITS_RE = re.compile(r"^\d+$")
+_SPLIT_DECIMAL_MAX_GAP_RATIO = 0.6
+
+
+def _merge_split_decimal_tokens(cluster: Sequence[OcrToken]) -> list[OcrToken]:
+    ordered = sorted(cluster, key=lambda t: t.cx)
+    merged: list[OcrToken] = []
+    i = 0
+    while i < len(ordered):
+        cur = ordered[i]
+        if i + 1 < len(ordered):
+            nxt = ordered[i + 1]
+            dot_match = _TRAILING_DOT_RE.match(cur.text.strip())
+            digits_match = _BARE_DIGITS_RE.match(nxt.text.strip())
+            if dot_match and digits_match:
+                gap = nxt.box[0] - cur.box[2]
+                cur_width = cur.box[2] - cur.box[0]
+                nxt_width = nxt.box[2] - nxt.box[0]
+                min_width = min(cur_width, nxt_width) or 1.0
+                # Small positive gap (adjacent digits) or slight overlap —
+                # never a gap wide enough to be a different, unrelated token.
+                if -min_width < gap <= _SPLIT_DECIMAL_MAX_GAP_RATIO * min_width:
+                    merged_text = f"{dot_match.group(1)}.{nxt.text.strip()}"
+                    merged_box = (
+                        cur.box[0],
+                        min(cur.box[1], nxt.box[1]),
+                        nxt.box[2],
+                        max(cur.box[3], nxt.box[3]),
+                    )
+                    # Never invent confidence — the merged value is only as
+                    # sure as its less-confident half.
+                    merged_score = min(cur.score, nxt.score)
+                    logger.debug(
+                        "merged split-decimal tokens: %r + %r -> %r (gap=%.1f)",
+                        cur.text, nxt.text, merged_text, gap,
+                    )
+                    merged.append(make_token(merged_text, score=merged_score, box=merged_box))
+                    i += 2
+                    continue
+        merged.append(cur)
+        i += 1
+    return merged
 
 
 @dataclass
@@ -166,6 +222,7 @@ def group_rows(
     rows: list[MeasurementRow] = []
     row_index = 0
     for cluster in clusters:
+        cluster = _merge_split_decimal_tokens(cluster)
         # Skip clusters with no numeric token (brand/title lines without values).
         if not any(t.is_numeric for t in cluster):
             continue

@@ -69,10 +69,18 @@ async function sendLinePush(userId, messages, logContext = {}) {
   }
 
   if (!isLineConfigured()) {
-    if (process.env.LINE_MOCK_SEND === 'false') {
-      return { ok: false, status: 'not_configured', messageId: '' };
+    // Fail closed by default: mock success must be an explicit opt-in
+    // (LINE_MOCK_SEND=true, for local dev), never the default when a token
+    // is simply missing. Proven runtime defect — the previous opt-out
+    // default (`!== 'false'`) meant an unconfigured token in ANY
+    // environment silently returned ok:true, and workflow-service.js
+    // persists notificationStatus:'sent' to Notion on `Boolean(line.ok)`
+    // alone — recording a customer as notified when no LINE API call ever
+    // happened.
+    if (process.env.LINE_MOCK_SEND === 'true') {
+      return { ok: true, status: 'mock_sent', messageId: `mock-line-${Date.now()}` };
     }
-    return { ok: true, status: 'mock_sent', messageId: `mock-line-${Date.now()}` };
+    return { ok: false, status: 'not_configured', messageId: '' };
   }
 
   const payloadSummary = (messages || []).map(message => ({

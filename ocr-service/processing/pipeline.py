@@ -39,9 +39,33 @@ class OcrPipeline:
         image_validator: ImageValidator | None = None,
         result_validator: ResultValidator | None = None,
         confidence_service: ConfidenceService | None = None,
+        second_pass_engine: BaseOcrEngine | None = None,
     ) -> None:
         self.engine = engine
         self.settings = settings or default_settings
+        # Second-pass engine: a larger/more sensitive detection+recognition
+        # model pair, used only as a bounded, rare fallback (see Settings for
+        # why — preprocessing alone does not recover the failure mode this
+        # targets). Constructing it is cheap; it stays INITIALIZING (no model
+        # load, no memory cost) until a request actually triggers a retry.
+        # Only wired up for the Paddle engine — other backends (mock, easyocr)
+        # have no equivalent model-swap lever, so second pass is a no-op there.
+        if second_pass_engine is not None:
+            self.second_pass_engine = second_pass_engine
+        elif self.settings.ocr_second_pass_enabled and type(engine).__name__ == "PaddleEngine":
+            from engines.paddle_engine import PaddleEngine
+
+            self.second_pass_engine = PaddleEngine(
+                det_model=self.settings.ocr_second_pass_det_model,
+                rec_model=self.settings.ocr_second_pass_rec_model,
+            )
+        else:
+            self.second_pass_engine = None
+        self._second_pass_executor = (
+            concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="ocr-engine-2")
+            if self.second_pass_engine is not None
+            else None
+        )
         self.image_validator = image_validator or ImageValidator(
             min_width=self.settings.image_min_width,
             min_height=self.settings.image_min_height,
@@ -172,6 +196,16 @@ class OcrPipeline:
             except (TypeError, ValueError):
                 pass
 
+        # 4b) Second pass — bounded, generic retry when pass 1 confidently
+        # recognized the device but its one key reading is still missing.
+        if self._should_attempt_second_pass(ctx, reader_result):
+            t0 = time.perf_counter()
+            second_reader_result = self._run_second_pass(ctx)
+            ctx.timings["second_pass_ms"] = _ms_since(t0)
+            if second_reader_result is not None:
+                reader_result = self._merge_second_pass(reader_result, second_reader_result)
+                ctx.reader_result = reader_result
+
         # 5) Parser (merge reader fields + contract fallbacks)
         t0 = time.perf_counter()
         corrections = list(reader_result.get("corrections") or [])
@@ -220,6 +254,103 @@ class OcrPipeline:
         ctx.timings["confidence_ms"] = _ms_since(t0)
 
         return ctx
+
+    def _should_attempt_second_pass(self, ctx: PipelineContext, reader_result: dict[str, Any]) -> bool:
+        """Generic trigger, not tied to any specific meter_type: retry only
+        when pass 1 confidently matched a real device profile (not a
+        generic/last-resort guess) and detected other content on it, but the
+        profile's one designated key field is still absent."""
+        if self.second_pass_engine is None:
+            return False
+        spatial = reader_result.get("spatial") or {}
+        profile_id = spatial.get("profile")
+        primary_field = spatial.get("primary_field")
+        if not profile_id or not primary_field:
+            return False
+        if profile_id == "empty" or str(profile_id).startswith("generic_"):
+            # Low-confidence device match already — don't compound
+            # uncertainty by guessing further with a different model.
+            return False
+        data = reader_result.get("data") or {}
+        if primary_field in data:
+            return False
+        return bool(ctx.texts)
+
+    def _run_second_pass(self, ctx: PipelineContext) -> dict[str, Any] | None:
+        """Re-run detection+recognition with the second-pass model pair.
+        Any failure here (timeout, engine unavailable, exception) falls back
+        to the pass-1-only result — a second pass must never break a request
+        that pass 1 already partially or fully answered."""
+        if self.second_pass_engine is None or self._second_pass_executor is None:
+            return None
+        try:
+            if not self.second_pass_engine.ensure_ready(timeout=self.settings.engine_wait_timeout_seconds):
+                logger.warning(
+                    "request_id=%s second-pass engine not ready — skipping, keeping pass-1 result",
+                    ctx.request_id,
+                )
+                return None
+            future = self._second_pass_executor.submit(
+                self.second_pass_engine.extract_text, ctx.active_image_path, meter_type=ctx.meter_type
+            )
+            extraction = future.result(timeout=self.settings.request_timeout_seconds)
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "request_id=%s second-pass OCR failed — keeping pass-1 result only",
+                ctx.request_id,
+                exc_info=True,
+            )
+            return None
+
+        texts = list((extraction or {}).get("texts") or [])
+        reader_result_2 = read_measurements(ctx.meter_type, texts, extraction=dict(extraction or {}))
+        ctx.meta["second_pass"] = {
+            "attempted": True,
+            "det_model": self.settings.ocr_second_pass_det_model,
+            "rec_model": self.settings.ocr_second_pass_rec_model,
+            "texts": texts,
+        }
+        return reader_result_2
+
+    @staticmethod
+    def _merge_second_pass(reader_result: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
+        """Pass 1 always wins for any field it already has. Pass 2 may only
+        fill fields pass 1 was missing — and every field it fills is marked
+        second_pass=True with auto_fill forced False, so a lower-confidence
+        recovered reading is never silently treated the same as a normal
+        read (caller/UI must ask the user to confirm it, not fill it in)."""
+        merged = dict(reader_result)
+        data = dict(reader_result.get("data") or {})
+        spatial = dict(reader_result.get("spatial") or {})
+        fields = dict(spatial.get("fields") or {})
+        auto_fill = dict(spatial.get("auto_fill") or {})
+        issues = list(spatial.get("issues") or [])
+
+        data2 = second.get("data") or {}
+        spatial2 = second.get("spatial") or {}
+        fields2 = spatial2.get("fields") or {}
+
+        recovered: list[str] = []
+        for key, value in data2.items():
+            if key in data:
+                continue
+            data[key] = value
+            field_entry = dict(fields2.get(key) or {})
+            field_entry["second_pass"] = True
+            fields[key] = field_entry
+            auto_fill[key] = False
+            issues = [i for i in issues if i != f"missing:{key}"]
+            recovered.append(key)
+
+        spatial["fields"] = fields
+        spatial["auto_fill"] = auto_fill
+        spatial["issues"] = issues
+        spatial["ok"] = bool(data) and not any(i.startswith("missing:") for i in issues)
+        merged["data"] = data
+        merged["spatial"] = spatial
+        merged["spatial_ok"] = spatial["ok"]
+        merged["second_pass_recovered"] = recovered
+        return merged
 
     def to_api_result(self, ctx: PipelineContext) -> dict[str, Any]:
         """Stable public payload shape (API contract)."""

@@ -8,6 +8,7 @@ const PAGE_PARTIALS = [
   'src/pages/visual-check.html',
   'src/pages/meter-readings.html',
   'src/pages/chlorine-test.html',
+  'src/pages/turbidity-test.html',
   'src/pages/pressure-flow.html',
   'src/pages/infrastructure.html',
   'src/pages/score.html',

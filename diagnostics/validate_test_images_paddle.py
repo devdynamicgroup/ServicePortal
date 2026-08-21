@@ -24,6 +24,51 @@ IMAGES_DIR = ROOT / "ocr" / "test_images"
 EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
 OUT = ROOT / "diagnostics" / "test_images_paddle_report.json"
 
+# Ground-truth device per base test photo — the pipeline branches its profile
+# selection partly on the caller-declared meter_type (see
+# parser/profile_loader.py get_profile: match_hints from OCR text are tried
+# first, but the meter_type default is still the fallback and also picks the
+# reader used when spatial parsing is unavailable). A single hardcoded
+# meter_type for every image here silently forced every non-pH device photo
+# through the wrong profile/reader. Keyed by base filename (before any
+# augmentation suffix — _90/_180/_270/_flip_h/_flip_v/_rot_-30../_resized/
+# _original) so rotated/flipped variants inherit the same ground truth as
+# their source photo.
+IMAGE_METER_TYPES: dict[str, str] = {
+    "line_oa_chat_260720_084708": "ph",         # HANNA HI98194 multiparameter (DO reading)
+    "line_oa_chat_260720_084716": "ph",         # HANNA HI98194 multiparameter (pH/ORP reading)
+    "line_oa_chat_260720_084720": "ph",         # HANNA HI98194 multiparameter (pH/ORP reading)
+    "line_oa_chat_260720_084725": "chlorine",   # HACH DR300 (the "0.1" forensic case)
+    "line_oa_chat_260720_084730": "chlorine",   # HACH DR300 ("0.0")
+    "line_oa_chat_260720_084735": "turbidity",  # HACH 2100Q — no dedicated profile exists yet;
+    "line_oa_chat_260720_144255": "ph",         # kept "turbidity" so this stays visibly unmapped
+    "line_oa_chat_260720_144259": "ph",         # rather than silently mis-profiled as pH.
+    "line_oa_chat_260720_144304": "ph",
+    "line_oa_chat_260720_144307": "ph",
+    "line_oa_chat_260720_144311": "ph",
+    "line_oa_chat_260720_144315": "ph",
+    "line_oa_chat_260720_144319": "ph",
+    "line_oa_chat_260720_144322": "ph",
+    "line_oa_chat_260720_144328": "ph",
+    "test-images": "ph",
+}
+_AUG_SUFFIXES = (
+    "_90", "_180", "_270", "_flip_h", "_flip_v", "_resized", "_original",
+)
+
+
+def meter_type_for(filename: str) -> str:
+    """Ground-truth meter_type for a test image, stripping augmentation suffixes."""
+    stem = Path(filename).stem
+    for suffix in _AUG_SUFFIXES:
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+            break
+    else:
+        if "_rot_" in stem:
+            stem = stem.split("_rot_")[0]
+    return IMAGE_METER_TYPES.get(stem, "ph")
+
 
 def main() -> int:
     settings = load_settings()
@@ -68,9 +113,11 @@ def main() -> int:
                 continue
             row["image_loaded"] = True
 
+            meter_type = meter_type_for(img.name)
+            row["meter_type"] = meter_type
             ctx = pipeline.run(
                 request_id=uuid.uuid4().hex,
-                meter_type="ph",
+                meter_type=meter_type,
                 image_path=str(img),
             )
             row["timings_ms"] = dict(ctx.timings)
@@ -86,7 +133,7 @@ def main() -> int:
             row["bounding_boxes"] = [d.get("box") for d in detections if isinstance(d, dict)]
 
             if has_spatial_detections(extraction):
-                payload = spatial.parse_detections(detections, meter_type="ph")
+                payload = spatial.parse_detections(detections, meter_type=meter_type)
                 row["spatial"] = {
                     "ok": payload.ok,
                     "profile": payload.profile,

@@ -148,15 +148,19 @@ def _average_confidence_from_detections(detections: list[dict[str, Any]]) -> flo
 
 
 class PaddleEngine(BaseOcrEngine):
-    def __init__(self) -> None:
+    def __init__(self, *, det_model: str | None = None, rec_model: str | None = None) -> None:
         self._lock = threading.Lock()
         self._ocr: Any = None
         self._state = EngineState.INITIALIZING
         self._init_error: str | None = None
         self._init_error_trace: str | None = None
-        # Prefer small models on constrained hosts (override via env).
-        self._det_model = _env_str("OCR_PADDLE_DET_MODEL", "PP-OCRv6_small_det")
-        self._rec_model = _env_str("OCR_PADDLE_REC_MODEL", "PP-OCRv6_small_rec")
+        # Prefer small models on constrained hosts (override via env). An
+        # explicit det_model/rec_model constructor arg (used for a dedicated
+        # second-pass engine instance) always wins over env — lets one
+        # process hold both a small primary engine and a larger fallback
+        # engine side by side without an env var forcing them to match.
+        self._det_model = det_model or _env_str("OCR_PADDLE_DET_MODEL", "PP-OCRv6_small_det")
+        self._rec_model = rec_model or _env_str("OCR_PADDLE_REC_MODEL", "PP-OCRv6_small_rec")
         self._det_limit_type = _env_str("OCR_PADDLE_DET_LIMIT_TYPE", "max")
         self._det_limit_side_len = _env_int("OCR_PADDLE_DET_LIMIT_SIDE_LEN", 960)
         # Memory, not CPU, is the binding constraint on Render free tier

@@ -125,6 +125,21 @@ class Settings:
     preprocess_denoise: bool = False
     preprocess_normalize: bool = False
 
+    # Second-pass detection. Preprocessing (contrast/threshold/crop/upscale)
+    # was tested against a real failing capture (HACH DR300 chlorine LCD,
+    # 7-segment digits) and recovered nothing — PaddleOCR's small detection
+    # model produces zero candidate boxes for that glyph shape regardless of
+    # image quality. A larger detection/recognition model pair DID find the
+    # box the small model missed. Generic trigger (any meter_type): profile
+    # matched confidently on pass 1, but its primary_field is still absent
+    # from the parsed data — retry once with the second-pass model pair.
+    # Never runs on the primary/default path — only as a bounded, rare
+    # fallback, so the larger model's extra memory/latency cost is paid only
+    # when pass 1 genuinely missed something.
+    ocr_second_pass_enabled: bool = True
+    ocr_second_pass_det_model: str = "PP-OCRv6_medium_det"
+    ocr_second_pass_rec_model: str = "PP-OCRv6_medium_rec"
+
 
 def load_settings() -> Settings:
     # Local overrides (gitignored). Existing process env wins (tests set OCR_ENGINE=mock).
@@ -162,6 +177,9 @@ def load_settings() -> Settings:
         preprocess_threshold=_env_bool("OCR_PREPROCESS_THRESHOLD", False),
         preprocess_denoise=_env_bool("OCR_PREPROCESS_DENOISE", False),
         preprocess_normalize=_env_bool("OCR_PREPROCESS_NORMALIZE", False),
+        ocr_second_pass_enabled=_env_bool("OCR_SECOND_PASS_ENABLED", True),
+        ocr_second_pass_det_model=_env("OCR_SECOND_PASS_DET_MODEL", "PP-OCRv6_medium_det"),
+        ocr_second_pass_rec_model=_env("OCR_SECOND_PASS_REC_MODEL", "PP-OCRv6_medium_rec"),
     )
 
 

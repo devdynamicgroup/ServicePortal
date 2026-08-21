@@ -1,0 +1,17 @@
+{
+  "id": "hach_2100q",
+  "name": "HACH 2100Q Turbidimeter",
+  "match_hints": {
+    "text_any": ["2100Q", "Turbidity", "NTU"]
+  },
+  "ignore_tokens": ["OK", "MENU", "ESC", "OPTIONS", "READ", "VERIFY CAL"],
+  "fields": {
+    "turbidity": {
+      "aliases": ["turbidity", "ntu"],
+      "range": [0, 4000],
+      "row_hint": 0,
+      "required": false
+    }
+  },
+  "primary_field": "turbidity"
+}

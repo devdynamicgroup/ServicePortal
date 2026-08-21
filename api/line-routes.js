@@ -660,8 +660,14 @@ async function handleLineRoute(req, res, urlPath) {
     const sigDebug = lineSignatureDebug(rawBody, signature);
     console.log('[line_sig_debug]', sigDebug);
 
-    if (isLineWebhookConfigured() && !verifyLineSignature(rawBody, signature)) {
-      console.warn('[line_sig_debug] signature mismatch', sigDebug);
+    // Fail closed: a webhook that cannot be verified (secret missing) must
+    // never be treated as trusted. Proven runtime defect — with no
+    // LINE_CHANNEL_SECRET configured, the previous `configured && !valid`
+    // check let ANY unsigned POST through as a genuine LINE event, from
+    // which handleLineEvent() can write to Notion (linkLineUser,
+    // sendCaseResult) based on attacker-controlled source.userId/text.
+    if (!isLineWebhookConfigured() || !verifyLineSignature(rawBody, signature)) {
+      console.warn('[line_sig_debug] signature mismatch or webhook not configured', sigDebug);
       sendJson(res, 401, { ok: false, error: 'Invalid LINE signature', debug: sigDebug });
       return true;
     }

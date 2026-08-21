@@ -226,7 +226,14 @@ class TestFieldBinder(unittest.TestCase):
         sticker text (Cert No./S/N/dates) has no purely-numeric token so it
         never forms a measurement row; only "0.0" does. profile_id=None to
         prove match_hints auto-detection (DR300/HACH/Chlorine) picks
-        hach_dr300 over the default hanna_hi98194 fallback."""
+        hach_dr300. meter_type='chlorine' matches the real client call
+        (src/js/flows/assessment.js detectChlorineFromImage always sends
+        meter_type:'chlorine') — updated from 'ph' after the profile-routing
+        compatibility fix (profile_loader.py get_profile): a generic "HACH"
+        text hint alone no longer overrides an incompatible meter_type (see
+        test_tds_forensic_regression / turbidity P0 cross-contamination
+        fix), so this test now exercises the actual call shape production
+        uses rather than one that happened to also match by accident."""
         from parser.spatial_parser import SpatialMeasurementParser
 
         detections = [
@@ -240,13 +247,14 @@ class TestFieldBinder(unittest.TestCase):
             {"text": "0.0", "score": 0.99, "box": [512, 816, 698, 962]},
         ]
         payload = SpatialMeasurementParser().parse_detections(
-            detections, meter_type="ph", profile_id=None
+            detections, meter_type="chlorine", profile_id=None
         )
         self.assertEqual(payload.data.get("chlorine"), 0.0)
 
     def test_hach_dr300_calibration_screen_never_invents_chlorine(self) -> None:
         """Calibration-cert-only screen (no reading yet) must return no data,
-        never a fabricated chlorine value."""
+        never a fabricated chlorine value. meter_type='chlorine' matches the
+        real client call (see comment on the test above)."""
         from parser.spatial_parser import SpatialMeasurementParser
 
         detections = [
@@ -259,7 +267,7 @@ class TestFieldBinder(unittest.TestCase):
             {"text": "HR", "score": 0.99, "box": [638, 684, 680, 711]},
         ]
         payload = SpatialMeasurementParser().parse_detections(
-            detections, meter_type="ph", profile_id=None
+            detections, meter_type="chlorine", profile_id=None
         )
         self.assertNotIn("chlorine", payload.data)
 

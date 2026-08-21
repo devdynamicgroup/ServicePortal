@@ -23,6 +23,7 @@ METER_TYPE_DEFAULTS: dict[str, str] = {
     "do": "generic_do",
     "multiparam": "hanna_hi98194",
     "chlorine": "hach_dr300",
+    "turbidity": "hach_2100q",
 }
 
 
@@ -115,7 +116,8 @@ def get_profile(
     """
     Resolve profile:
       1. explicit profile_id
-      2. match_hints against OCR texts
+      2. match_hints against OCR texts, restricted to profiles compatible
+         with the requested meter_type when that's known (see below)
       3. meter_type default mapping
       4. generic_ph fallback
     """
@@ -124,15 +126,29 @@ def get_profile(
     if profile_id and profile_id in profiles:
         return profiles[profile_id]
 
-    # Auto-detect from OCR text hints
+    kind = (meter_type or "").lower()
+
+    # Auto-detect from OCR text hints — restricted to profiles compatible
+    # with the requested meter_type (i.e. profiles that declare a field with
+    # that exact key) whenever we have compatibility information for it.
+    # Proven necessary by a real cross-contamination bug: a HACH 2100Q
+    # turbidity photo's "HACH" text was matching hach_dr300 (a chlorine
+    # profile) purely because both are HACH-brand devices, silently
+    # mis-binding turbidity=0.41 as chlorine=0.41 even under meter_type='ph'.
+    # Only restricts when `kind` is a field key declared by at least one
+    # profile — an unrecognized/empty meter_type falls back to the original
+    # unrestricted matching so this never narrows behavior we have no
+    # compatibility information for.
     joined = " ".join(texts or []).lower()
     if joined:
+        known_kind = bool(kind) and any(kind in profile.field_map() for profile in profiles.values())
         for profile in profiles.values():
+            if known_kind and kind not in profile.field_map():
+                continue
             for hint in profile.match_hints:
                 if hint.lower() in joined:
                     return profile
 
-    kind = (meter_type or "").lower()
     default_id = METER_TYPE_DEFAULTS.get(kind)
     if default_id and default_id in profiles:
         return profiles[default_id]

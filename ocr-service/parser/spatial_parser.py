@@ -37,6 +37,10 @@ class MeasurementPayload:
     corrections: list[dict[str, Any]] = field(default_factory=list)
     rows: list[dict[str, Any]] = field(default_factory=list)
     texts: list[str] = field(default_factory=list)
+    # Profile's designated key field (e.g. "chlorine" for hach_dr300). Exposed
+    # so callers can generically detect "device recognized, but its one key
+    # reading is still absent" without hardcoding per-meter-type keys.
+    primary_field: str | None = None
     # Reader-compatible envelope
     reader_data: dict[str, Any] = field(default_factory=dict)
 
@@ -49,6 +53,7 @@ class MeasurementPayload:
             "spatial": {
                 "ok": self.ok,
                 "profile": self.profile,
+                "primary_field": self.primary_field,
                 "confidence": self.confidence,
                 "auto_fill": dict(self.auto_fill),
                 "fields": dict(self.fields),
@@ -136,6 +141,7 @@ class SpatialMeasurementParser:
             corrections=corrections,
             rows=[_row_dict(r) for r in rows],
             texts=texts,
+            primary_field=profile.primary_field,
         )
 
     def parse_detections(
