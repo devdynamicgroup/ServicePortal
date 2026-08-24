@@ -234,6 +234,11 @@ class OcrPipeline:
 
         # 7) Confidence
         t0 = time.perf_counter()
+        # Static meter_type -> primary-field map for the single-device request
+        # types. "multi" (and any other request type this map doesn't cover)
+        # falls back to the primary_field the resolved profile itself
+        # declares (already surfaced on reader_result.spatial by the spatial
+        # parser) -- reusing information already computed, not guessing.
         primary_key = {
             "tds": "tds",
             "ph": "ph",
@@ -241,7 +246,7 @@ class OcrPipeline:
             "orp": "orp",
             "do": "do_percent",
             "chlorine": "chlorine",
-        }.get(ctx.meter_type)
+        }.get(ctx.meter_type) or (ctx.reader_result.get("spatial") or {}).get("primary_field")
         conf_out = self.confidence_service.calculate(
             ocr_confidence=ctx.ocr_confidence,
             corrections=ctx.corrections,

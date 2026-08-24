@@ -7,36 +7,40 @@ multiparam device, EC/DO mode) — 23 detections captured live, embedded
 below verbatim.
 
 Product contract findings (see the forensic report this suite backs):
-  - Across every real fixture under ocr/test_images/, no photo shows a
-    literal "TDS"/"ppm" reading. The HANNA HI98194 device (the only
-    multiparam meter this product's OCR path reads) displays EC, not TDS.
-  - TDS on this device is therefore a derived value (EC x 0.5, the same
-    factor ConversionEngine.convertEcToTds already used for
-    tap.standardMeasurement.tds) — not a direct OCR read. This is
-    PRODUCT CONTRACT: Possibility B, not a guess — it is the only
-    possibility with any real-photo evidence behind it.
-  - That derivation is implemented client-side only
-    (src/js/flows/assessment.js mapOcrDataToMeterReadings) — the
-    OCR-service side (this package) has no EC->TDS conversion and is not
-    where the fix belongs, since the client already has one, tested,
-    trusted formula and duplicating it server-side would be a parallel
-    implementation of the same thing.
+  - REAL_084708_DETECTIONS below (the HANNA HI98194's EC/DO display mode)
+    shows no literal "TDS"/"ppm" reading — confirmed again by
+    test_real_hanna_photo_has_no_literal_tds_reading below.
+  - UPDATE (multi-device OCR routing fix, see test_multi_device_routing.py):
+    a later forensic pass, given real photos the reporter captured of a
+    DIFFERENT HANNA HI98194 screen mode (TDS/salinity/temperature), proved
+    this device DOES show a literal "ppmTds" reading on that other screen —
+    the "no literal TDS on this device" claim above held only for the
+    EC/DO screen this fixture happens to capture, not for the device as a
+    whole. hanna_hi98194.json now declares a "tds" field (label-only, no
+    row_hint) so that screen's literal reading can bind. For THIS fixture
+    specifically (which genuinely has no TDS text), that field simply has
+    nothing to bind to — ec/do results are unchanged (see below).
+  - EC-derived TDS (EC x 0.5, ConversionEngine.convertEcToTds, client-side
+    only) remains the correct fallback specifically for photos of the
+    EC/DO screen where no literal TDS is shown — unchanged by the above.
 
 TDS-001 UPDATE (fixed as a side effect of the Turbidity forensic pass —
-see test_profile_routing_forensic.py): get_profile() previously checked
-match_hints (OCR text) before the meter_type default, so an explicit
-meter_type='tds' was silently overridden by whatever device the text hints
-matched. The routing fix required for Turbidity (a P0 cross-contamination
-bug — a HACH 2100Q turbidity photo's "HACH" text was mis-binding as
-chlorine) restricts match_hints to profiles compatible with the requested
-meter_type. Since hanna_hi98194.json has no 'tds' field, it's no longer a
-compatible match for meter_type='tds' — generic_tds.json is now reachable
-via that explicit meter_type (proven below). This does NOT change real
-production behavior today: the client still always sends meter_type='ph'
-for the actual EC-reading photo (never 'tds'), so this fix only takes
-effect if a future change makes the client call with meter_type='tds'
-explicitly — reported precisely rather than overclaiming full TDS-001
-closure in practice.
+see test_profile_routing_forensic.py, further updated by the multi-device
+routing fix above): get_profile() previously checked match_hints (OCR
+text) before the meter_type default, so an explicit meter_type='tds' was
+silently overridden by whatever device the text hints matched. The
+routing fix required for Turbidity (a P0 cross-contamination bug — a HACH
+2100Q turbidity photo's "HACH" text was mis-binding as chlorine)
+restricts match_hints to profiles compatible with the requested
+meter_type. hanna_hi98194.json now declares a 'tds' field (added by the
+multi-device routing fix), so for THIS real photo, meter_type='tds' now
+correctly identifies it as the specific real device (hanna_hi98194) it
+actually is, rather than falling through to the generic_tds.json
+fallback that was reachable only because hanna_hi98194 used to have no
+'tds' field to be compatible with. Proven below — profile identity
+changed, but the photo still yields no tds value (still no TDS text on
+this specific screen), so test_generic_tds_profile_reachable_... (which
+forces profile_id='generic_tds' explicitly) is unaffected.
 """
 
 from __future__ import annotations
@@ -79,17 +83,19 @@ class TestTdsRealEvidence(unittest.TestCase):
         self.assertEqual(payload.data.get("ec"), 319.0)
         self.assertNotIn("tds", payload.data)
 
-    def test_tds_001_explicit_meter_type_now_reaches_generic_tds(self) -> None:
-        """TDS-001, fixed as a side effect of the Turbidity routing-safety
-        fix (see module docstring): explicit meter_type='tds' now correctly
-        reaches generic_tds.json for this device's real detections, since
-        hanna_hi98194 (no 'tds' field) is no longer an eligible match_hints
-        candidate for that meter_type. Does not change real production
-        behavior today — the client never sends meter_type='tds' — but
-        closes the routing half of the gap if it ever does."""
+    def test_tds_001_explicit_meter_type_now_reaches_the_real_device_profile(self) -> None:
+        """TDS-001, updated by the multi-device routing fix (see module
+        docstring): hanna_hi98194.json now declares a 'tds' field (that
+        device does show literal TDS -- just not on this particular
+        EC/DO-mode screen), so it is once again an eligible match_hints
+        candidate for meter_type='tds', and correctly wins over the
+        generic fallback for this real HANNA photo -- identifying the
+        actual device instead of falling through to a generic profile.
+        The photo itself still yields no tds value (no TDS text on this
+        screen) -- see test_real_hanna_photo_has_no_literal_tds_reading."""
         texts = [d["text"] for d in REAL_084708_DETECTIONS]
         profile = get_profile(meter_type="tds", texts=texts)
-        self.assertEqual(profile.id, "generic_tds")
+        self.assertEqual(profile.id, "hanna_hi98194")
 
     def test_generic_tds_profile_reachable_but_still_produces_no_tds_for_this_device(self) -> None:
         """Even with the routing fix, generic_tds.json produces no tds value

@@ -64,8 +64,20 @@
     },
     "do_percent": {
       "aliases": ["do_percent", "%do", "%00", "%d0", "sat", "sat."],
-      "exclude_aliases": ["ffmdo", "mg/l", "mgl", "ppm", "mgdo", "d.o.", "do."],
+      "exclude_aliases": [
+        "ffmdo", "mg/l", "mgl", "ppm", "mgdo", "d.o.", "do.",
+        "st", "σt", "sigma-t", "sigmat"
+      ],
       "range": [0, 200],
+      "required": false
+    },
+    "tds": {
+      "aliases": ["tds", "ppmtds", "ppm_tds", "ppm tds"],
+      "exclude_aliases": [
+        "ppmdo", "do_mg", "do_mgl", "ffmdo", "mgdo", "d.o.", "do.", "%do", "sat", "sat.",
+        "us", "us/cm", "uscm", "μs", "μs/cm", "µs", "µs/cm", "cond", "cond.", "conductivity"
+      ],
+      "range": [0, 5000],
       "required": false
     }
   },

@@ -120,6 +120,15 @@ def get_profile(
          with the requested meter_type when that's known (see below)
       3. meter_type default mapping
       4. generic_ph fallback
+
+    meter_type='multi' (or any value that is not a field key any profile
+    declares) is treated as "device unknown, decide from the photo" — it
+    intentionally never appears in METER_TYPE_DEFAULTS, so step 3 is a
+    no-op for it and resolution rests entirely on step 2's unrestricted
+    match_hints scan across every profile. Used by capture flows (e.g. the
+    multi-device "Meter Readings" session) where a single task photographs
+    several different physical meters and the client cannot know in advance
+    which device is in any given shot.
     """
     profiles = load_all_profiles()
 

@@ -130,6 +130,10 @@ _FALLBACK_DATA: dict[str, dict[str, Any]] = {
     "ec": {"ec": 400, "temperature": 28},
     "orp": {"orp": 208.3},
     "do": {"do_percent": 89.4},
+    # "multi" (device unknown, decide from the photo) has no single-device
+    # demo shape to fall back to -- an empty result is the only safe
+    # contract-test default when the OCR pipeline returned nothing usable.
+    "multi": {},
 }
 
 

@@ -699,7 +699,7 @@ async function detectMeterReadingsFromImage(photoSrc) {
   try {
     console.warn('[OCR] request started', {
       endpoint: '/api/ocr/read-meter',
-      meter_type: 'ph',
+      meter_type: 'multi',
       imageUrlLen: imageUrl.length,
       imageUrlPrefix: imageUrl.slice(0, 48)
     });
@@ -713,8 +713,12 @@ async function detectMeterReadingsFromImage(photoSrc) {
       cache: 'no-store',
       body: JSON.stringify({
         image_url: imageUrl,
-        // Multiparameter LCD profiles (e.g. HANNA) are keyed under ph.
-        meter_type: 'ph'
+        // This capture task lets the user photograph any of several
+        // physical meters (HANNA multiparameter, HACH DR300, HACH 2100Q,
+        // ...) in one session -- 'multi' tells the OCR service to pick the
+        // profile from the photo's own content (device brand/model text)
+        // instead of assuming every shot is the same device.
+        meter_type: 'multi'
       })
     });
     const body = await response.json().catch(() => ({}));
