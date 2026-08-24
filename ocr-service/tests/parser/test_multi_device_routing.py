@@ -141,6 +141,45 @@ class TestMultiDeviceRoutingRealEvidence(unittest.TestCase):
         ])
 
 
+class TestBareHachHintRemoved(unittest.TestCase):
+    """Real bug, second cause found in the same "values don't fill in"
+    report: hach_dr300.json's match_hints used to include bare "HACH" --
+    the brand name, not a value/model identifier. Both real HACH devices
+    in this project (2100Q turbidity, DR300 chlorine) show "HACH" on
+    screen (see REAL_084735_DETECTIONS above, a real 2100Q photo). Under
+    meter_type='multi', profiles are scanned unrestricted in file order
+    (hach_2100q before hach_dr300); a 2100Q photo where OCR only recovers
+    "HACH" -- missing "2100Q"/"Turbidity"/"NTU" because they were smaller,
+    angled, or simply not caught -- would fail hach_2100q's own hints and
+    fall through to hach_dr300 purely on the shared brand word, silently
+    mis-binding a turbidity reading as chlorine (or losing it entirely,
+    since chlorine's field has no turbidity alias). Fixed by dropping the
+    ambiguous "HACH" hint; "DR300" and "Chlorine" are each unique to this
+    device and are exactly the value/label text the reading itself shows,
+    not the device model."""
+
+    def test_hach_brand_word_alone_no_longer_matches_dr300(self) -> None:
+        profile = get_profile(meter_type="multi", texts=["HACH", "some", "unrelated", "text"])
+        self.assertNotEqual(profile.id, "hach_dr300")
+
+    def test_2100q_photo_missing_its_own_hints_no_longer_misroutes_to_dr300(self) -> None:
+        """Worst case from the real bug: a 2100Q photo where OCR caught only
+        the shared "HACH" brand word. Must not silently become a chlorine
+        reading -- falls through to the safe multi-field fallback instead."""
+        profile = get_profile(meter_type="multi", texts=["HACH"])
+        self.assertNotEqual(profile.id, "hach_dr300")
+        self.assertEqual(profile.id, "hanna_hi98194")
+
+    def test_real_chlorine_photo_still_resolves_correctly_without_the_hach_hint(self) -> None:
+        """Sanity: the real DR300 fixture also shows "Chlorine" and "DR300"
+        text, so removing the redundant "HACH" hint must not regress the
+        real, already-passing chlorine routing case."""
+        profile = get_profile(
+            meter_type="multi", texts=[d["text"] for d in REAL_CHLORINE_DETECTIONS]
+        )
+        self.assertEqual(profile.id, "hach_dr300")
+
+
 class TestMultiFallbackWhenHintsAreMissing(unittest.TestCase):
     """Real bug (user-reported, live production testing, post-deploy):
     switching between multiple devices in one Meter Readings session --

@@ -2,7 +2,7 @@
   "id": "hach_dr300",
   "name": "HACH DR300 Chlorine Colorimeter",
   "match_hints": {
-    "text_any": ["DR300", "HACH", "Chlorine"]
+    "text_any": ["DR300", "Chlorine"]
   },
   "ignore_tokens": ["LR", "HR", "MENU", "ESC", "OK", "READ", "OPTIONS", "VERIFY CAL"],
   "fields": {
