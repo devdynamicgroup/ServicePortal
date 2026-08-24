@@ -3,7 +3,6 @@ const TASK_KEYS = {
   'visual-check': 'visual',
   'meter-check': 'meter',
   'chlorine-check': 'chlorine',
-  'turbidity-check': 'turbidity',
   'pressure-check': 'pressure',
   'infra-check': 'infra'
 };
@@ -11,8 +10,7 @@ const TASK_PHOTO_IDS = {
   tapphoto: 'tap-photo-preview',
   visual: 'vis-photo-preview',
   meter: 'meter-photo-preview',
-  chlorine: 'cl-photo-preview',
-  turbidity: 'turb-photo-preview'
+  chlorine: 'cl-photo-preview'
 };
 const PHOTO_ID_TASKS = Object.fromEntries(Object.entries(TASK_PHOTO_IDS).map(([key, id]) => [id, key]));
 const CHECK_SVG = '<svg viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>';
@@ -72,8 +70,7 @@ function restoreCurrentPhotoScreen(screenId) {
     's-photo': 'tap-photo-preview',
     's-visual': 'vis-photo-preview',
     's-meter': 'meter-photo-preview',
-    's-chlorine': 'cl-photo-preview',
-    's-turbidity': 'turb-photo-preview'
+    's-chlorine': 'cl-photo-preview'
   };
   if (map[screenId]) restoreTaskPhoto(map[screenId]);
 }
@@ -153,7 +150,7 @@ function renderAssessList() {
     el.innerHTML = done ? CHECK_SVG : '';
   });
 
-  ['tapphoto', 'meter', 'chlorine', 'turbidity'].forEach(key => {
+  ['tapphoto', 'meter', 'chlorine'].forEach(key => {
     const thumbEl = document.getElementById(`thumb-${key}`);
     if (!thumbEl) return;
     let photo = data.photos[key];

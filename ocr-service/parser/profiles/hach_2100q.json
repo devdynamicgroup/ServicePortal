@@ -11,6 +11,12 @@
       "range": [0, 4000],
       "row_hint": 0,
       "required": false
+    },
+    "temperature": {
+      "aliases": ["temp", "temperature", "°c", "ºc", "˚c", "degc"],
+      "exclude_aliases": ["°f", "ºf", "˚f", "degf"],
+      "range": [0, 100],
+      "required": false
     }
   },
   "primary_field": "turbidity"
