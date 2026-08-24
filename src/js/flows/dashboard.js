@@ -175,7 +175,16 @@ async function createManualCase() {
   try {
     discardUnsavedManualCases();
     const now = new Date();
-    const iso = formatDate(now);
+    // The FAB must create the case on whichever day is currently selected on
+    // the calendar (cellDate(S.selDay)), not silently on today's date — a
+    // real bug: staff would select a future day, tap +, and the case would
+    // land on today instead. Only when the selected day IS today do we keep
+    // the original "start on-site now" semantics (in_progress + startedAt);
+    // a case created for a different, not-yet-arrived day cannot have
+    // already started, so it's created as a normal scheduled case instead
+    // (same shape addCaseForSelectedDay already used for that case).
+    const selectedIso = typeof selectedDateIso === 'function' ? selectedDateIso() : formatDate(now);
+    const isToday = selectedIso === formatDate(now);
     const fmtTime = d => {
       const h = d.getHours() % 12 || 12;
       return `${h}:${String(d.getMinutes()).padStart(2, '0')}${d.getHours() >= 12 ? 'PM' : 'AM'}`;
@@ -185,23 +194,44 @@ async function createManualCase() {
       showToast(S.lang === 'th' ? 'สร้างเคสไม่สำเร็จ' : 'Could not create case');
       return;
     }
-    const result = await createDurablePortalCase({
-      name: 'New Client',
-      timeStart: fmtTime(now),
-      timeEnd: fmtTime(end),
-      day: (now.getDay() + 6) % 7,
-      date: iso,
-      status: 'in_progress',
-      startedAt: now.toISOString(),
-      meta: 'Manual case · started on-site'
-    });
+
+    let seed;
+    if (isToday) {
+      seed = {
+        name: 'New Client',
+        timeStart: fmtTime(now),
+        timeEnd: fmtTime(end),
+        day: (now.getDay() + 6) % 7,
+        date: selectedIso,
+        status: 'in_progress',
+        startedAt: now.toISOString(),
+        meta: 'Manual case · started on-site'
+      };
+    } else {
+      const sameDayJobs = jobsOnDate(selectedIso);
+      const hour = Math.min(17, 9 + sameDayJobs.length);
+      const endHour = Math.min(18, hour + 1);
+      seed = {
+        name: 'New Client',
+        timeStart: `${String(hour).padStart(2, '0')}:00`,
+        timeEnd: `${String(endHour).padStart(2, '0')}:00`,
+        day: S.selDay,
+        date: selectedIso,
+        status: 'new',
+        meta: `Case ${sameDayJobs.length + 1} for this day - Owner present`
+      };
+    }
+
+    const result = await createDurablePortalCase(seed);
     if (!result?.ok || !result.case?.notionId) {
       showToast(S.lang === 'th'
         ? 'สร้างเคสไม่สำเร็จ — ยังไม่ได้บันทึกบนเซิร์ฟเวอร์'
         : 'Case was not created — server persistence failed');
       return;
     }
-    weekBase = getMonday(now);
+    // Keep the calendar on whichever week/day the case was actually created
+    // for — never snap back to today's week when a different day was selected.
+    if (isToday) weekBase = getMonday(now);
     S.selDay = result.case.day;
     openJob(result.case.id);
   } finally {
