@@ -36,7 +36,13 @@
   // a DIFFERENT set (a Case added, removed, or rescheduled) gets its own
   // dedupeKey and is correctly treated as new.
   function caseSetFingerprint(list, caseKey) {
-    return list.map(caseKey).filter(Boolean).sort().join(',');
+    // Dedupe ids too, not just sort: if the same Case ever legitimately
+    // appears twice in one sync's job list (an upstream data issue, not
+    // something this module can prevent), a duplicate id must not change
+    // the fingerprint from what a clean, single-entry list for the same
+    // Case set would produce -- otherwise it would be treated as a
+    // different set and get a spurious extra notification.
+    return [...new Set(list.map(caseKey).filter(Boolean))].sort().join(',');
   }
 
   async function runTomorrowReminder(jobs) {

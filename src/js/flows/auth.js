@@ -123,6 +123,16 @@ function getAppAuthHeaders() {
 function resetUserScopedState() {
   if (typeof resetJobsCacheForLogout === 'function') resetJobsCacheForLogout();
   if (typeof clearHighlightedCase === 'function') clearHighlightedCase();
+  // wm-active-case-ref (job-state.js) points restoreActiveCaseFromPersistence()
+  // at whichever Case S.activeJob was on — including hydrating its draft
+  // measurements/photos into the session (job-state.js:restoreActiveCaseFromPersistence).
+  // Found during a Release Gate audit: confirmSignout() (dashboard.js) already
+  // cleared this manually, but clearAppSession() itself did not — so the
+  // handleSessionExpired() path (a server-triggered sign-out, not a manual
+  // tap) skipped it entirely, and the next login on this device could get
+  // silently dropped into the previous user's in-progress Case.
+  if (typeof clearActiveCaseRef === 'function') clearActiveCaseRef();
+  S.activeJob = null;
   if (typeof OperatorNotificationRepository?.clearAllNotificationData === 'function') {
     OperatorNotificationRepository.clearAllNotificationData();
   }

@@ -491,8 +491,10 @@ function openSignoutModal(){ document.getElementById('signout-overlay').classLis
 function closeSignoutModal(){ document.getElementById('signout-overlay').classList.add('hidden'); }
 function confirmSignout(){
   closeSignoutModal();
-  S.activeJob = null;
-  if (typeof clearActiveCaseRef === 'function') clearActiveCaseRef();
+  // clearAppSession() -> resetUserScopedState() (auth.js) owns clearing
+  // S.activeJob / wm-active-case-ref / JOBS / notifications centrally now,
+  // so every sign-out path (this manual one and the server-triggered
+  // handleSessionExpired()) gets the same cleanup instead of drifting.
   if (typeof clearAppSession === 'function') clearAppSession();
   else localStorage.removeItem('wm-session');
   goScreen('s-login');

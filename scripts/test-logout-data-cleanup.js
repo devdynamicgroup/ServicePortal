@@ -54,10 +54,12 @@ function buildContext(localStorage) {
   const sandbox = {
     console,
     window: {},
-    document: { querySelector: () => null }, // updateLoggedInUser touches DOM; not exercised here
+    // updateLoggedInUser/setLoginMessage touch DOM; not exercised for behavior here.
+    document: { querySelector: () => null, getElementById: () => null },
     localStorage,
     JOBS,
-    S: { lang: 'en', user: null }
+    S: { lang: 'en', user: null, activeJob: null },
+    goScreen: () => {} // real navigation.js is not loaded in this focused test
   };
   sandbox.window = sandbox;
   sandbox.global = sandbox;
@@ -73,6 +75,14 @@ function buildContext(localStorage) {
   if (!fnMatch) throw new Error('resetJobsCacheForLogout() not found in job-state.js -- test is out of sync with the real source');
   vm.runInContext(fnMatch[0], sandbox, { filename: 'job-state.js (resetJobsCacheForLogout excerpt)' });
   vm.runInContext('window.resetJobsCacheForLogout = resetJobsCacheForLogout;', sandbox);
+
+  // Same excerpt approach for the active-case-ref helpers (Release Gate
+  // audit finding: handleSessionExpired() must clear this too, not just
+  // the manual sign-out path).
+  const refMatch = jobStateSrc.match(/const ACTIVE_CASE_REF_KEY[\s\S]*?function readActiveCaseRef\(\)[\s\S]*?\r?\n}/);
+  if (!refMatch) throw new Error('active-case-ref helpers not found in job-state.js -- test is out of sync with the real source');
+  vm.runInContext(refMatch[0], sandbox, { filename: 'job-state.js (active-case-ref excerpt)' });
+  vm.runInContext('window.persistActiveCaseRef = persistActiveCaseRef; window.clearActiveCaseRef = clearActiveCaseRef; window.readActiveCaseRef = readActiveCaseRef;', sandbox);
 
   const notifFiles = [
     'src/js/notifications/types.js',
@@ -179,6 +189,21 @@ async function main() {
     { id: 'job-2', notionId: 'case-2', name: 'Alice New Customer', date: '2026-08-24' }
   ]);
   assert(reDetected.filter(Boolean).length === 1, 'Case 6: a new Case for A after signing back in is still detected and notified correctly, not permanently suppressed');
+
+  // --- Release Gate audit finding: wm-active-case-ref (the pointer
+  // restoreActiveCaseFromPersistence() uses to auto-reopen S.activeJob,
+  // including hydrating its draft measurements) must be cleared by EVERY
+  // sign-out path, not just the manual "Sign out" button. handleSessionExpired()
+  // (a server-triggered sign-out on a 401) calls clearAppSession() directly,
+  // bypassing dashboard.js's confirmSignout() -- so before this fix, that
+  // path never cleared the ref, and the next login on the same device could
+  // get silently dropped into the previous user's in-progress Case. ---
+  sandboxA.persistActiveCaseRef({ id: 'job-1', notionId: 'case-1', date: '2026-08-24' });
+  assert(sandboxA.readActiveCaseRef() !== null, 'setup: an active-case ref is persisted before the session-expiry path runs');
+  sandboxA.S.activeJob = { id: 'job-1', notionId: 'case-1' };
+  sandboxA.handleSessionExpired('Your session has expired.');
+  assert(sandboxA.readActiveCaseRef() === null, 'session-expiry sign-out (not just manual "Sign out") clears wm-active-case-ref');
+  assert(sandboxA.S.activeJob === null, 'session-expiry sign-out clears S.activeJob so the next login does not inherit it');
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
