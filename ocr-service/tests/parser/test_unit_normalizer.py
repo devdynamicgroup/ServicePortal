@@ -38,10 +38,18 @@ class TestUnitNormalizer(unittest.TestCase):
         0.8) against temperature's own "°c" alias by the same coincidence,
         and silently mis-binding the temperature VALUE as an EC reading
         depending on field iteration order. A label this short (2 chars) is
-        not meaningful evidence for a fuzzy edit-distance match -- same
-        floor already applied to the substring rule just above."""
+        not meaningful evidence for a fuzzy edit-distance match against an
+        UNRELATED field -- same floor already applied to the substring rule
+        just above. (Temperature itself now recovers "*c" correctly via an
+        explicit character correction, not this fuzzy path -- see
+        test_degree_glyph_corruption_corrects_to_temperature below.)"""
         self.assertEqual(unit_match_score("*C", ["ec", "us", "uscm"]), 0.0)
-        self.assertEqual(unit_match_score("*C", ["°c", "temp", "temperature"]), 0.0)
+
+    def test_degree_glyph_corruption_corrects_to_temperature(self) -> None:
+        """The same real "*C" corruption must still resolve correctly for
+        temperature itself -- via the explicit character correction added
+        alongside the length floor above, not via fuzzy edit-distance."""
+        self.assertEqual(unit_match_score("*C", ["°c", "temp", "temperature"]), 1.0)
 
     def test_longer_garbled_label_still_fuzzy_matches(self) -> None:
         """Sanity: the length floor must not block real, useful fuzzy

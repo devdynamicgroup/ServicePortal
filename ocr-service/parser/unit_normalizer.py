@@ -98,6 +98,20 @@ def _character_correct_unit(label: str) -> tuple[str, list[dict[str, Any]]]:
         corrections.append({"from": label, "to": corrected, "stage": "unit_normalize"})
         return corrected, corrections
 
+    # Real evidence (live photo, HANNA HI98194 "28.40 °C" reading): the tiny
+    # LCD degree glyph is easy for PaddleOCR to misread as an unrelated
+    # symbol rather than drop cleanly. "*c" observed directly; the same
+    # confusion is plausible for other stray-mark substitutions of that one
+    # glyph, so a small, evidence-adjacent set is corrected explicitly here
+    # rather than left to the generic (and now length-gated) fuzzy fallback,
+    # which either can't reach a 2-char label or -- before that gate existed
+    # -- matched it to the wrong field entirely (see the "*c" vs "ec" bug
+    # this accompanies).
+    if raw in {"*c", "'c", "^c", "`c"}:
+        corrected = "°c"
+        corrections.append({"from": label, "to": corrected, "stage": "unit_normalize"})
+        return corrected, corrections
+
     # µ / μ often becomes "?" on Windows/Paddle pipelines → "?sem"
     if raw.startswith("?") and re.match(r"^\?s", raw):
         corrected = "u" + raw[1:]
