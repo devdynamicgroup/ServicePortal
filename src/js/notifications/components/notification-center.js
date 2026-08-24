@@ -151,6 +151,13 @@
     if (bound) return;
     bound = true;
 
+    // Capture phase (the `true` below), not bubble: `.notif-sheet` calls
+    // event.stopPropagation() on every click (so tapping inside the modal
+    // doesn't also trigger the overlay's own backdrop-click-to-close). A
+    // bubble-phase listener on document never sees ANY click inside the
+    // notification modal because of that -- neither this row handler nor
+    // the action-button handler below it ever fired. Capture runs top-down
+    // BEFORE that stopPropagation() call happens, so it isn't affected by it.
     document.addEventListener('click', async (event) => {
       const actionBtn = event.target.closest('[data-notif-action]');
       if (actionBtn) {
@@ -181,7 +188,7 @@
           await refreshNotificationUi();
         }
       }
-    });
+    }, true);
 
     global.OperatorNotificationStore?.subscribe?.(() => {
       refreshNotificationUi();
