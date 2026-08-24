@@ -4,7 +4,7 @@
  * Validate → ocrClient → return. No OCR parsing or engine logic.
  */
 
-const { readMeter } = require('../services/ocrClient');
+const { readMeter, debugReadMeter } = require('../services/ocrClient');
 const { assertAppAuth } = require('../services/app-auth');
 
 function sendJson(res, status, payload) {
@@ -35,6 +35,7 @@ function readBody(req) {
 }
 
 async function handleOcrProxyRoute(req, res, urlPath) {
+  if (urlPath === '/api/ocr/debug-read') return handleOcrDebugReadRoute(req, res);
   if (urlPath !== '/api/ocr/read-meter') return false;
 
   // TEMP debug — remove after OCR fill investigation (visible in Render logs)
@@ -104,6 +105,60 @@ async function handleOcrProxyRoute(req, res, urlPath) {
   });
 
   // Strip internal transport fields before responding to the browser.
+  const { statusCode, ...body } = result;
+  sendJson(res, 200, body);
+  return true;
+}
+
+/**
+ * Diagnostic-only mirror of /api/ocr/read-meter — returns ocr-service's raw
+ * detections/rows/texts for one image instead of just the final parsed
+ * values, so a specific real photo's failure can be traced by request
+ * instead of guessing from production logs (which only record confidence,
+ * not raw OCR text). Never called by the app's own capture flow — for
+ * manual investigation via the browser console only.
+ */
+async function handleOcrDebugReadRoute(req, res) {
+  if (req.method !== 'POST') {
+    sendJson(res, 405, {
+      success: false,
+      error: 'METHOD_NOT_ALLOWED',
+      message: 'Use POST /api/ocr/debug-read'
+    });
+    return true;
+  }
+
+  if (!assertAppAuth(req, res)) return true;
+
+  let payload = {};
+  try {
+    const raw = await readBody(req);
+    payload = raw ? JSON.parse(raw) : {};
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new Error('Body must be a JSON object');
+    }
+  } catch (error) {
+    sendJson(res, 400, {
+      success: false,
+      error: 'INVALID_REQUEST',
+      message: 'Request body must be JSON: { image_url, meter_type }'
+    });
+    return true;
+  }
+
+  const imageUrl = payload.image_url != null ? String(payload.image_url).trim() : '';
+  const meterType = payload.meter_type != null ? String(payload.meter_type).trim() : '';
+
+  if (!imageUrl || !meterType) {
+    sendJson(res, 400, {
+      success: false,
+      error: 'VALIDATION_ERROR',
+      message: 'image_url and meter_type are required'
+    });
+    return true;
+  }
+
+  const result = await debugReadMeter({ image_url: imageUrl, meter_type: meterType });
   const { statusCode, ...body } = result;
   sendJson(res, 200, body);
   return true;

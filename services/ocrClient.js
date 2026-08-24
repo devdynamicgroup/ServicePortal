@@ -329,6 +329,57 @@ async function readMeterOnce(payload, timeoutMs) {
   }
 }
 
+/**
+ * Diagnostic-only counterpart to readMeter(): same input contract, but hits
+ * ocr-service's /ocr/debug-read (returns raw OCR detections/rows/texts
+ * instead of just the final parsed values) so a specific image's failure can
+ * be traced without guessing from the production API response alone. Single
+ * attempt, no retries — never called by the app's own capture flow.
+ */
+async function debugReadMeter(payload) {
+  const misconfig = getProductionMisconfigError();
+  if (misconfig) return misconfig;
+
+  const baseUrl = getOcrServiceUrl();
+  const url = `${baseUrl}/ocr/debug-read`;
+  const timeoutMs = getOcrTimeoutMs();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({
+        image_url: payload.image_url,
+        meter_type: payload.meter_type
+      }),
+      signal: controller.signal
+    });
+
+    const rawText = await response.text();
+    const contentType = response.headers.get('content-type');
+    const parsed = parseOcrServiceBody(rawText, response.status, contentType);
+    if (!parsed.ok) return parsed.error;
+
+    return { ...parsed.body, statusCode: response.status };
+  } catch (error) {
+    const aborted = error?.name === 'AbortError'
+      || /aborted|timeout/i.test(String(error?.message || ''));
+    return {
+      success: false,
+      error: aborted ? 'OCR_TIMEOUT' : 'OCR_OFFLINE',
+      message: 'OCR service is not available',
+      retry: false
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function readMeter(payload) {
   const misconfig = getProductionMisconfigError();
   if (misconfig) {
@@ -361,6 +412,7 @@ async function readMeter(payload) {
 
 module.exports = {
   readMeter,
+  debugReadMeter,
   getOcrServiceUrl,
   getOcrTimeoutMs,
   // Exported for boundary smoke tests only.
