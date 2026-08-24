@@ -89,6 +89,14 @@ function setupDashboardClickDelegation() {
   if (window.__wmDashboardClicksBound) return;
   window.__wmDashboardClicksBound = true;
 
+  // Capture phase (the `true` below), not bubble: #search-results (the
+  // Search modal) lives inside a .modal-sheet that calls
+  // event.stopPropagation() on every click (src/pages/partials/modals.html)
+  // so tapping inside the modal doesn't also trigger the overlay's own
+  // backdrop-click-to-close. A bubble-phase listener on document never sees
+  // a click on a search result card because of that -- same root cause as
+  // the notification click bug (notifications/components/notification-center.js).
+  // #appt-list lives outside any modal, so this doesn't change its behavior.
   document.addEventListener('click', event => {
     const card = event.target.closest('.appt-card[data-job-id]');
     if (!card) return;
@@ -112,41 +120,10 @@ function setupDashboardClickDelegation() {
     if (card.closest('#appt-list')) {
       openJob(jobId);
     }
-  });
+  }, true);
 }
 
 setupDashboardClickDelegation();
-
-async function addCaseForSelectedDay() {
-  const dayIndex = S.selDay;
-  const d = new Date(weekBase);
-  d.setDate(weekBase.getDate() + dayIndex);
-  const iso = formatDate(d);
-  const sameDayJobs = jobsOnDate(iso);
-  const hour = Math.min(17, 9 + sameDayJobs.length);
-  const endHour = Math.min(18, hour + 1);
-  if (typeof createDurablePortalCase !== 'function') {
-    showToast(S.lang === 'th' ? 'สร้างเคสไม่สำเร็จ' : 'Could not create case');
-    return;
-  }
-  const result = await createDurablePortalCase({
-    name: 'New Client',
-    timeStart: `${String(hour).padStart(2, '0')}:00`,
-    timeEnd: `${String(endHour).padStart(2, '0')}:00`,
-    day: dayIndex,
-    date: iso,
-    status: 'new',
-    meta: `Case ${sameDayJobs.length + 1} for this day - Owner present`
-  });
-  if (!result?.ok || !result.case?.notionId) {
-    showToast(S.lang === 'th'
-      ? 'สร้างเคสไม่สำเร็จ — ยังไม่ได้บันทึกบนเซิร์ฟเวอร์'
-      : 'Case was not created — server persistence failed');
-    return;
-  }
-  renderCalendar();
-  showToast(`Added case for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
-}
 
 function discardUnsavedManualCases() {
   const pendingIds = JOBS.filter(j => j.manualPending && !j.notionId).map(j => String(j.id));
@@ -181,8 +158,7 @@ async function createManualCase() {
     // land on today instead. Only when the selected day IS today do we keep
     // the original "start on-site now" semantics (in_progress + startedAt);
     // a case created for a different, not-yet-arrived day cannot have
-    // already started, so it's created as a normal scheduled case instead
-    // (same shape addCaseForSelectedDay already used for that case).
+    // already started, so it's created as a normal scheduled case instead.
     const selectedIso = typeof selectedDateIso === 'function' ? selectedDateIso() : formatDate(now);
     const isToday = selectedIso === formatDate(now);
     const fmtTime = d => {
@@ -246,38 +222,6 @@ function commitManualCaseIfNeeded(job = S.activeJob) {
   if (!job.notionId) return false;
   delete job.manualPending;
   return true;
-}
-
-async function addNextDayAppt() {
-  let dayIndex = S.selDay + 1;
-  if (dayIndex > 6) {
-    weekBase.setDate(weekBase.getDate() + 7);
-    dayIndex = 0;
-  }
-  S.selDay = dayIndex;
-  const d = new Date(weekBase);
-  d.setDate(weekBase.getDate() + dayIndex);
-  if (typeof createDurablePortalCase !== 'function') {
-    showToast(S.lang === 'th' ? 'สร้างเคสไม่สำเร็จ' : 'Could not create case');
-    return;
-  }
-  const result = await createDurablePortalCase({
-    name: 'New Client',
-    timeStart: '9:00AM',
-    timeEnd: '10:00AM',
-    day: dayIndex,
-    date: formatDate(d),
-    status: 'new',
-    meta: 'New appointment - Owner present'
-  });
-  if (!result?.ok || !result.case?.notionId) {
-    showToast(S.lang === 'th'
-      ? 'สร้างเคสไม่สำเร็จ — ยังไม่ได้บันทึกบนเซิร์ฟเวอร์'
-      : 'Case was not created — server persistence failed');
-    return;
-  }
-  renderCalendar();
-  showToast(`Added for ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`);
 }
 
 function renderCalendar() {
