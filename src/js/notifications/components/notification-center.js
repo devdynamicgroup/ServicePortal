@@ -167,8 +167,19 @@
       const row = event.target.closest('.notif-item[data-notif-id]');
       if (row && row.closest('#notif-list')) {
         const id = row.dataset.notifId;
-        await global.OperatorNotificationService?.markRead?.(id);
-        await refreshNotificationUi();
+        const state = global.OperatorNotificationStore?.getState?.();
+        const item = state?.items?.find(n => n.id === id);
+        // Tapping anywhere on the card should do the same thing as its own
+        // action button, not just silently mark it read — a notification
+        // that only "shows" with no visible response to a tap reads as
+        // broken. Falls back to mark-read only when there's genuinely
+        // nothing to navigate to (no action, e.g. a plain info notice).
+        if (item && item.action && item.action !== 'NONE') {
+          await handleNotificationAction(item, item.action);
+        } else {
+          await global.OperatorNotificationService?.markRead?.(id);
+          await refreshNotificationUi();
+        }
       }
     });
 
