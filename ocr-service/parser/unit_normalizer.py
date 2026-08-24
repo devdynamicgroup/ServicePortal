@@ -192,7 +192,16 @@ def unit_match_score(label: str, aliases: list[str]) -> float:
             return 0.9
         if normalized in a and len(normalized) >= 3:
             return 0.9
-        if len(normalized) <= 6 and len(a) <= 6 and _levenshtein(normalized, a) <= 1:
+        # Same floor as the substring rule above: a label this short (e.g. a
+        # degree glyph OCR'd as a stray "*", leaving normalized="*c") is not
+        # meaningful evidence on its own — at 1-2 chars, almost any alias is
+        # within edit distance 1 of almost any other short alias ("*c" both
+        # "matches" ec's "ec" and temperature's own "°c" alias by mistake).
+        # Real bug this guard closes: a HANNA temperature reading's "*C"
+        # label (misread "°C") tied at 0.8 against BOTH ec and temperature,
+        # and ec happened to win on field order -- silently mis-binding the
+        # temperature value as EC instead of leaving it unbound.
+        if len(normalized) >= 3 and len(a) <= 6 and _levenshtein(normalized, a) <= 1:
             return 0.8
 
     # Synonym-driven: normalized token maps to field that appears in aliases
