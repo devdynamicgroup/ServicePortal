@@ -81,6 +81,18 @@
     return repo.unreadCount();
   }
 
+  // Forces the next ensureRepo() call to construct a brand new repository
+  // instance instead of reusing the cached one. Needed on sign-out:
+  // clearAllNotificationData() (repository.js) only clears localStorage —
+  // the cached `repository` object's already-hydrated in-memory _items
+  // array would otherwise keep serving the previous user's notifications
+  // (and let a stale dedupeKey block the next user's identical-looking
+  // event) until the page happened to reload, which this SPA never does
+  // on sign-out.
+  function resetRepository() {
+    repository = null;
+  }
+
   global.OperatorNotificationService = {
     createFromEvent,
     markRead,
@@ -89,6 +101,7 @@
     list,
     unreadCount,
     refreshStore,
+    resetRepository,
     setRepository(next) {
       repository = next;
     }

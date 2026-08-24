@@ -23,29 +23,36 @@
     return activeJobs(jobs).filter(job => isoDateOnly(job.date) === iso);
   }
 
+  // Stable, order-independent fingerprint of which Cases are eligible right
+  // now. Used as (part of) the dedupeKey instead of a once-per-day boolean
+  // marker — a boolean marker can only ever mean "did I check today", which
+  // is indistinguishable from "did I already tell the operator about every
+  // Case that's eligible today". Those are different facts: a Case created
+  // AFTER the first empty check must still produce a reminder the same day.
+  // A content-addressed dedupeKey solves both goals at once: the existing
+  // dedupeKey lookup in service.js (createFromEvent) already treats a
+  // repeat of the same dedupeKey as "already emitted, do nothing" — so the
+  // same eligible set on a later sync is still a no-op (no duplicate), but
+  // a DIFFERENT set (a Case added, removed, or rescheduled) gets its own
+  // dedupeKey and is correctly treated as new.
+  function caseSetFingerprint(list, caseKey) {
+    return list.map(caseKey).filter(Boolean).sort().join(',');
+  }
+
   async function runTomorrowReminder(jobs) {
     const { todayIsoLocal, addDaysIso, formatTimeLabel, caseKey } = Utils();
-    const markers = Repo().loadScheduleMarkers();
     const today = todayIsoLocal();
-    const markerKey = `tomorrow:${today}`;
-    if (markers[markerKey]) return null;
-
     const tomorrow = addDaysIso(today, 1);
     const list = jobsOnIso(jobs, tomorrow)
       .slice()
       .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
-    if (!list.length) {
-      markers[markerKey] = { skipped: true, at: Date.now() };
-      Repo().saveScheduleMarkers(markers);
-      return null;
-    }
+    if (!list.length) return null;
 
+    const fingerprint = caseSetFingerprint(list, caseKey);
     const lines = list.map(job => `${formatTimeLabel(job)}  ${job.name || caseKey(job)}`);
-    markers[markerKey] = { emitted: true, at: Date.now(), count: list.length };
-    Repo().saveScheduleMarkers(markers);
 
     return global.OperatorNotificationDispatcher.emit(Events().TOMORROW_REMINDER, {
-      dedupeKey: markerKey,
+      dedupeKey: `tomorrow:${tomorrow}:${fingerprint}`,
       lines,
       payload: { date: tomorrow, caseIds: list.map(caseKey) }
     });
@@ -53,25 +60,16 @@
 
   async function runTodayJobs(jobs) {
     const { todayIsoLocal, formatTimeLabel, caseKey } = Utils();
-    const markers = Repo().loadScheduleMarkers();
     const today = todayIsoLocal();
-    const markerKey = `today:${today}`;
-    if (markers[markerKey]) return null;
-
     const list = jobsOnIso(jobs, today)
       .slice()
       .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
-    if (!list.length) {
-      markers[markerKey] = { skipped: true, at: Date.now() };
-      Repo().saveScheduleMarkers(markers);
-      return null;
-    }
+    if (!list.length) return null;
 
-    markers[markerKey] = { emitted: true, at: Date.now(), count: list.length };
-    Repo().saveScheduleMarkers(markers);
+    const fingerprint = caseSetFingerprint(list, caseKey);
 
     return global.OperatorNotificationDispatcher.emit(Events().TODAY_JOBS, {
-      dedupeKey: markerKey,
+      dedupeKey: `today:${today}:${fingerprint}`,
       count: list.length,
       firstTime: formatTimeLabel(list[0]),
       payload: { date: today, caseIds: list.map(caseKey) }

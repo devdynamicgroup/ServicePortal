@@ -108,11 +108,47 @@ function getAppAuthHeaders() {
   return {};
 }
 
+/**
+ * Sign-out on a device shared between staff must not leave the previous
+ * user's Cases or notification history (customer names, appointment
+ * details) visible to whoever signs in next. The app is a single-page app
+ * that never reloads on sign-out, so anything left in memory or
+ * localStorage would otherwise still be showing right after the next
+ * login — clearing wm-session alone (the only thing this function did
+ * before) isn't enough. Each module owns clearing its own state; this only
+ * orchestrates the calls. Deliberately does NOT touch device-level,
+ * non-user data (wm-lang, wm-csv-seed-version, the Drive upload queue —
+ * clearing that would drop in-progress photo uploads for the current Case).
+ */
+function resetUserScopedState() {
+  if (typeof resetJobsCacheForLogout === 'function') resetJobsCacheForLogout();
+  if (typeof clearHighlightedCase === 'function') clearHighlightedCase();
+  if (typeof OperatorNotificationRepository?.clearAllNotificationData === 'function') {
+    OperatorNotificationRepository.clearAllNotificationData();
+  }
+  // Order matters: the service caches a repository instance that already
+  // hydrated the previous user's notifications into memory — reset it
+  // AFTER clearing localStorage above, so the next time anything needs the
+  // repository it constructs a fresh one from the now-empty storage instead
+  // of re-reading stale in-memory data.
+  if (typeof OperatorNotificationService?.resetRepository === 'function') {
+    OperatorNotificationService.resetRepository();
+  }
+  if (typeof OperatorNotificationStore?.setItems === 'function') {
+    OperatorNotificationStore.setItems([]);
+  }
+  if (typeof OperatorNotificationObserver?.resetBootstrap === 'function') {
+    OperatorNotificationObserver.resetBootstrap();
+  }
+  if (typeof refreshNotificationUi === 'function') refreshNotificationUi();
+}
+
 async function clearAppSession() {
   try {
     localStorage.removeItem('wm-session');
   } catch { /* ignore */ }
   S.user = null;
+  resetUserScopedState();
   try {
     await fetch('/api/auth/logout', {
       method: 'POST',

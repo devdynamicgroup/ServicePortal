@@ -983,6 +983,26 @@ function clearJobsCache() {
 }
 window.clearJobsCache = clearJobsCache;
 
+/**
+ * Clear this device's local Case cache for a sign-out — in-memory JOBS and
+ * the localStorage snapshot, but deliberately NOT wm-csv-seed-version: that
+ * flag means "this device has already run the one-time CSV import", a
+ * device-level fact unrelated to which staff account is signed in, not
+ * user-private data. (Unlike clearJobsCache() above, which is a manual
+ * debug utility that intentionally forces a full reseed.) The app never
+ * reloads the page on sign-out, so without this the next person to sign in
+ * on the same device would still see the previous user's cached Cases in
+ * memory until their first fresh sync overwrote it.
+ */
+function resetJobsCacheForLogout() {
+  JOBS.length = 0;
+  try {
+    localStorage.removeItem('wm-jobs');
+    localStorage.removeItem('wm-jobs-source');
+  } catch { /* ignore */ }
+}
+window.resetJobsCacheForLogout = resetJobsCacheForLogout;
+
 function jobDraftLookupKeys(job) {
   const keys = [];
   const push = (value) => {

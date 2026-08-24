@@ -96,9 +96,22 @@
     }
   }
 
+  // Sign-out must let the next login's first sync re-seed `seen` from that
+  // user's own current Cases (the normal first-sync-ever behavior above),
+  // instead of staying `true` from the previous user's session — the app
+  // never reloads the page on sign-out, so this in-memory flag would
+  // otherwise carry over and treat every one of the next user's Cases as
+  // individually "new" only if seen ids weren't cleared too; combined with
+  // a cleared seen-ids store (see repository.js clearAllNotificationData),
+  // this keeps the seed-not-flood behavior correct per login, not per page load.
+  function resetBootstrap() {
+    bootstrapped = false;
+  }
+
   global.OperatorNotificationObserver = {
     syncFromJobs,
     detectNewCases,
-    detectLineFailed
+    detectLineFailed,
+    resetBootstrap
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
