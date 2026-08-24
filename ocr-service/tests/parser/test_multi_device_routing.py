@@ -141,6 +141,44 @@ class TestMultiDeviceRoutingRealEvidence(unittest.TestCase):
         ])
 
 
+class TestMultiFallbackWhenHintsAreMissing(unittest.TestCase):
+    """Real bug (user-reported, live production testing, post-deploy):
+    switching between multiple devices in one Meter Readings session --
+    "most values don't fill in". Root cause: get_profile()'s last-resort
+    fallback (reached whenever a photo's brand/model text is cropped out,
+    angled away, or simply missed by OCR, so no match_hints fire) used to
+    try generic_ph FIRST. generic_ph only declares 2 fields (ph, mv) --
+    every other reading (tds, ec, temperature, do, do_percent, orp...)
+    silently has nowhere to bind, no matter what the device actually
+    photographed was. Before meter_type='multi' existed, this same failure
+    mode was masked: meter_type='ph' hit METER_TYPE_DEFAULTS BEFORE the
+    last-resort branch and got hanna_hi98194 (9 fields) instead. 'multi'
+    deliberately skips that default (see get_profile()'s docstring), so it
+    was the first caller to ever actually reach the risky generic_ph
+    fallback. Fixed by reordering the last-resort tuple so hanna_hi98194 is
+    tried first."""
+
+    def test_no_hint_match_falls_back_to_the_richest_profile_not_generic_ph(self) -> None:
+        # No brand/model text at all -- exactly what a tightly-cropped or
+        # blurry photo of an unrecognized device's screen would produce.
+        profile = get_profile(meter_type="multi", texts=["319", "uS/cm", "6.67", "mg/L"])
+        self.assertEqual(profile.id, "hanna_hi98194")
+        self.assertNotEqual(profile.id, "generic_ph")
+
+    def test_fallback_end_to_end_still_binds_a_non_ph_reading(self) -> None:
+        """Concrete proof of the failure mode this closes: an EC reading
+        with no recognizable brand text must still bind under meter_type=
+        'multi'. Under the old generic_ph-first fallback this returned an
+        empty payload -- generic_ph has no 'ec' field at all."""
+        detections = [
+            {"text": "319", "score": 0.99, "box": [255.0, 190.0, 328.0, 227.0]},
+            {"text": "uS/cm", "score": 0.9, "box": [334.0, 193.0, 397.0, 221.0]},
+        ]
+        payload = SpatialMeasurementParser().parse_detections(detections, meter_type="multi")
+        self.assertEqual(payload.profile, "hanna_hi98194")
+        self.assertEqual(payload.data.get("ec"), 319.0)
+
+
 class TestHannaTdsAndTemperatureSynthetic(unittest.TestCase):
     """SYNTHETIC -- no real image file was available to this session for
     the HANNA TDS/salinity/temperature screen. These prove the field_binder

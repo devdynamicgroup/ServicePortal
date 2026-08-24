@@ -162,8 +162,15 @@ def get_profile(
     if default_id and default_id in profiles:
         return profiles[default_id]
 
-    # Last resort
-    for fallback in ("generic_ph", "generic_tds", "hanna_hi98194"):
+    # Last resort — reached whenever hint matching finds nothing (e.g. a
+    # multi-device photo whose brand/model text was cropped out or missed by
+    # OCR) and there's no meter_type default to fall back to. hanna_hi98194
+    # goes first: it's the richest profile (9 fields vs generic_ph's 2), so a
+    # misidentified device still has a chance to bind its reading instead of
+    # being silently reduced to ph/mv only. Matches the safety net every
+    # meter_type='ph' request already had before 'multi' existed, since
+    # METER_TYPE_DEFAULTS['ph'] also resolves to hanna_hi98194.
+    for fallback in ("hanna_hi98194", "generic_tds", "generic_ph"):
         if fallback in profiles:
             return profiles[fallback]
 
