@@ -3,6 +3,7 @@
 !.env.example
 node_modules/
 *.log
+*.log.*
 data/
 tmp/
 
