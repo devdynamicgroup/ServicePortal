@@ -111,24 +111,6 @@ function setupDashboardClickDelegation() {
       return;
     }
 
-    // "Directions" is a real <a href target="_blank"> -- let the browser's
-    // default navigation happen; only stop it from also bubbling into the
-    // card's own openJob() below (weird-user QA Part B, 2026-08-25).
-    if (event.target.closest('.ac-directions')) {
-      event.stopPropagation();
-      return;
-    }
-
-    if (event.target.closest('.ac-locate')) {
-      event.preventDefault();
-      event.stopPropagation();
-      const job = JOBS.find(j => String(j.id) === String(jobId));
-      if (job && typeof openDirectionsFromCurrentLocation === 'function') {
-        openDirectionsFromCurrentLocation(job.addr);
-      }
-      return;
-    }
-
     if (card.closest('#search-results')) {
       closeSearchModal();
       openJob(jobId);
@@ -275,78 +257,6 @@ function renderCalendar() {
 }
 const PIN_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
 const MENU_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
-const DIRECTIONS_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>';
-const LOCATE_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
-
-/**
- * Pure, no-API-key Google Maps link builders (weird-user QA Part B,
- * 2026-08-25). Google resolves a plain-text address itself when the link
- * opens -- no Geocoding/Places API call needed, no GOOGLE_MAPS_API_KEY
- * involved. encodeURIComponent() on the address is the only escaping
- * needed: it safely contains any text (including `&`, `?`, `#`, Thai,
- * emoji) inside the query VALUE, so it can never break out as a second
- * query param or change the URL's origin/scheme.
- */
-function buildMapsSearchUrl(address) {
-  const trimmed = String(address ?? '').trim();
-  if (!trimmed) return '';
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
-}
-
-/**
- * Directions FROM a coordinate TO the address. lat/lng come from
- * navigator.geolocation and must be validated before being placed in the
- * URL (real numbers only, in-range) -- unlike the address, they are
- * inserted unencoded (encodeURIComponent is for text, not for validated
- * numeric coordinates), so validation is the only safety net for them.
- * Invalid/missing coordinates fall back to the destination-only search URL
- * -- never emits a malformed origin.
- */
-function buildMapsDirectionsUrl(address, coords) {
-  const trimmed = String(address ?? '').trim();
-  if (!trimmed) return '';
-  const lat = Number(coords?.lat);
-  const lng = Number(coords?.lng);
-  const validCoords = Number.isFinite(lat) && Number.isFinite(lng)
-    && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
-  if (!validCoords) return buildMapsSearchUrl(trimmed);
-  return `https://www.google.com/maps/dir/?api=1&origin=${lat},${lng}&destination=${encodeURIComponent(trimmed)}&travelmode=driving`;
-}
-
-/**
- * "Use my location" button handler. User-gesture-triggered only (called
- * from a click handler, never automatically) -- the browser's own
- * permission prompt is the actual gate; nothing here bypasses it. On
- * success, opens Google Maps directions in a new tab; on denial/error/
- * unsupported, falls back to the destination-only link -- no retry, no
- * backend call, coordinates are never persisted or sent to Water Motion's
- * own server (only ever placed into the Google Maps URL the browser opens).
- */
-function openDirectionsFromCurrentLocation(address) {
-  const fallback = () => {
-    const url = buildMapsSearchUrl(address);
-    if (url) window.open(url, '_blank', 'noopener,noreferrer');
-    if (typeof showToast === 'function') {
-      showToast(t('dash.locateUnavailable'));
-    }
-  };
-  if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
-    fallback();
-    return;
-  }
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const url = buildMapsDirectionsUrl(address, {
-        lat: position?.coords?.latitude,
-        lng: position?.coords?.longitude
-      });
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
-      else fallback();
-    },
-    () => fallback(), // denied / unavailable / timeout -- all treated the same, no retry
-    { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
-  );
-}
 
 function statusLabel(s) {
   if (s === 'in_progress') return t('dash.status.in_progress');
@@ -356,14 +266,6 @@ function statusLabel(s) {
 }
 
 function buildApptCard(job) {
-  // Empty href is not inert -- it links to the current page, which with
-  // target="_blank" would pop a new tab pointing back at the dashboard
-  // itself. Omit the anchor entirely rather than rendering a broken link
-  // (Final Review defect, 2026-08-25).
-  const directionsUrl = buildMapsSearchUrl(job.addr);
-  const directionsLink = directionsUrl
-    ? '<a class="ac-directions" href="' + directionsUrl + '" target="_blank" rel="noopener noreferrer" aria-label="' + escapeHtml(t('dash.directions')) + '" title="' + escapeHtml(t('dash.directions')) + '">' + DIRECTIONS_SVG + '</a>'
-    : '';
   const pkgFull = job.pkg === 'full';
   const pkgTag = pkgFull ? t('dash.pkg.full') : t('dash.pkg.essential');
   const pkgClass = pkgFull ? 'tag-full-assessment' : 'tag-essential';
@@ -396,10 +298,7 @@ function buildApptCard(job) {
           '<div class="ac-time-end">' + escapeHtml(job.timeEnd) + '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="ac-addr">' + PIN_SVG + '<span>' + escapeHtml(job.addr) + '</span>' +
-        directionsLink +
-        '<button class="ac-locate" type="button" aria-label="' + escapeHtml(t('dash.useMyLocation')) + '" title="' + escapeHtml(t('dash.useMyLocation')) + '">' + LOCATE_SVG + '</button>' +
-      '</div>' +
+      '<div class="ac-addr">' + PIN_SVG + '<span>' + escapeHtml(job.addr) + '</span></div>' +
       '<div class="ac-meta">' +
         '<span>' + escapeHtml(job.meta) + contactLine + '</span>' +
         '<button class="ac-menu" type="button" aria-label="More">' + MENU_SVG + '</button>' +
@@ -567,21 +466,11 @@ function filterAppointments(q){
     const dateLabel = j.date || '—';
     const statusLabel = j.status || 'new';
     const timeLabel = j.timeStart ? String(j.timeStart) : '';
-    // Empty href is not inert (see buildApptCard) -- omit the anchor
-    // entirely rather than rendering a broken link (Final Review defect,
-    // 2026-08-25).
-    const directionsUrl = buildMapsSearchUrl(j.addr);
-    const directionsLink = directionsUrl
-      ? ' <a class="ac-directions" href="' + directionsUrl + '" target="_blank" rel="noopener noreferrer" aria-label="' + escapeHtml(t('dash.directions')) + '" title="' + escapeHtml(t('dash.directions')) + '">' + DIRECTIONS_SVG + '</a>'
-      : '';
     return (
       '<div class="appt-card" style="margin-top:8px" data-job-id="' + escapeHtml(j.id) + '"' +
         (j.notionId ? ' data-notion-id="' + escapeHtml(j.notionId) + '"' : '') + '>' +
         '<div class="ac-name">' + escapeHtml(j.name) + '</div>' +
-        '<div class="ac-addr" style="font-size:12px;color:var(--muted)">' + escapeHtml(j.addr) +
-          directionsLink +
-          ' <button class="ac-locate" type="button" aria-label="' + escapeHtml(t('dash.useMyLocation')) + '" title="' + escapeHtml(t('dash.useMyLocation')) + '">' + LOCATE_SVG + '</button>' +
-        '</div>' +
+        '<div class="ac-addr" style="font-size:12px;color:var(--muted)">' + escapeHtml(j.addr) + '</div>' +
         '<div class="ac-meta" style="font-size:11px;color:var(--muted);margin-top:4px">' +
           escapeHtml(dateLabel) + (timeLabel ? ' · ' + escapeHtml(timeLabel) : '') +
           ' · ' + escapeHtml(statusLabel) +
