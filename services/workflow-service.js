@@ -467,7 +467,17 @@ async function closeCase(caseId, payload = {}) {
     }
 
     const now = new Date().toISOString();
-    const hasPublishedPointer = Number.isFinite(Number(job.result?.waterScore))
+    // Strict presence check, not truthiness or bare coercion: Number(null) is
+    // 0, and Number.isFinite(0) is true, so a brand-new Case (waterScore
+    // still null, but publicReportToken already minted at creation) was
+    // wrongly read as "already has a published score" -- routing every
+    // first-time Complete into the legacy-pointer-freeze path instead of
+    // actually publishing the score, silently freezing 0 as the "score"
+    // (forensic investigation, 2026-08-25).
+    const rawWaterScore = job.result?.waterScore;
+    const hasPublishedPointer = rawWaterScore !== null
+      && rawWaterScore !== undefined
+      && Number.isFinite(Number(rawWaterScore))
       && String(job.result?.publicReportToken || '').trim();
     const closeScore = Number(payload.score);
     if (!hasPublishedPointer && Number.isFinite(closeScore)) {

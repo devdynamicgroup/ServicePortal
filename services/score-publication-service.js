@@ -102,9 +102,18 @@ function responseFromPublication(publication, extras = {}) {
   };
 }
 
+// Equality, not presence: null/undefined must never compare equal to a
+// defined score (including a genuine 0) via bare Number() coercion, or a
+// Case with no score yet would be reported as "already matching" a ledger
+// record whose real published score happens to be exactly 0 -- skipping a
+// resync that was actually needed (forensic investigation, 2026-08-25).
 function casePointerMatchesPublication(job, publication) {
   const snapshot = publication.snapshot || publication;
-  return Number(job?.result?.waterScore) === Number(snapshot.publishedScore)
+  const caseScore = job?.result?.waterScore;
+  const publicationScore = snapshot.publishedScore;
+  if (caseScore === null || caseScore === undefined) return false;
+  if (publicationScore === null || publicationScore === undefined) return false;
+  return Number(caseScore) === Number(publicationScore)
     && String(job?.result?.publicReportToken || '') === String(snapshot.publicReportToken || '');
 }
 
@@ -163,7 +172,11 @@ async function createLedgerRecord(store, fields) {
 
 async function freezeLegacyPointer(store, job, extras = {}) {
   const token = String(job.result?.publicReportToken || '').trim();
-  const score = Number(job.result?.waterScore);
+  const rawScore = job.result?.waterScore;
+  // Strict presence, not bare coercion -- see casePointerMatchesPublication
+  // above and hasPointer below for the same class of bug this closes.
+  if (rawScore === null || rawScore === undefined) return null;
+  const score = Number(rawScore);
   if (!token || !Number.isFinite(score)) return null;
   const existing = await store.findByToken(token);
   if (existing.records.length) return existing.records[0];
@@ -230,7 +243,10 @@ async function createOrReusePublication({ job, payload = {}, caseId } = {}) {
   }
 
   const latestLedger = await store.findLatestByClientPageId(job.notionId);
-  const hasPointer = Number.isFinite(Number(job.result?.waterScore))
+  const rawWaterScore = job.result?.waterScore;
+  const hasPointer = rawWaterScore !== null
+    && rawWaterScore !== undefined
+    && Number.isFinite(Number(rawWaterScore))
     && String(job.result?.publicReportToken || '').trim();
 
   if (intent === 'publish' && latestLedger) {
@@ -358,5 +374,9 @@ module.exports = {
   reconcilePointer,
   resolveReportByToken,
   applyPublicationToJob,
-  syncCasePointer
+  syncCasePointer,
+  // Exported for regression tests only (forensic investigation,
+  // 2026-08-25) -- not part of the public service contract.
+  casePointerMatchesPublication,
+  freezeLegacyPointer
 };

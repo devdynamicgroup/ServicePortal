@@ -398,8 +398,13 @@ function buildScoreHistoryFlexMessage(entries = []) {
   const rows = (Array.isArray(entries) ? entries : []).slice(0, 10);
   const contents = rows.length
     ? rows.map((entry, index) => {
-      const score = Number.isFinite(Number(entry.waterScore))
-        ? String(Math.round(Number(entry.waterScore)))
+      // Strict presence, not bare coercion: Number(null) is 0, which would
+      // show "0" for a history entry that never actually got a score.
+      const rawEntryScore = entry.waterScore;
+      const score = rawEntryScore !== null
+        && rawEntryScore !== undefined
+        && Number.isFinite(Number(rawEntryScore))
+        ? String(Math.round(Number(rawEntryScore)))
         : '—';
       const dateLabel = String(entry.dateLabel || entry.date || '—').slice(0, 32);
       const row = {
@@ -523,7 +528,10 @@ function buildCaseResultFlexMessage({
     ? `สวัสดีคุณ ${clientName}`
     : (isFree ? 'ผลการตรวจน้ำเบื้องต้นพร้อมแล้ว' : 'ผลการตรวจน้ำพร้อมแล้ว');
 
-  const scoreLabel = Number.isFinite(Number(waterScore))
+  // Strict presence, not bare coercion -- see sendCaseResultNotification's
+  // call site below, which now passes waterScore through un-coerced so a
+  // real null still reaches here as null, not a pre-mangled 0.
+  const scoreLabel = waterScore !== null && waterScore !== undefined && Number.isFinite(Number(waterScore))
     ? `Water Score ${Math.round(Number(waterScore))}/100`
     : (isFree ? 'ผลตรวจน้ำเบื้องต้นพร้อมแล้วครับ' : 'ผลตรวจของคุณพร้อมแล้วครับ');
 
@@ -690,7 +698,11 @@ async function sendCaseResultNotification(job, payload) {
     resultLinkUrl,
     feedbackUrl,
     clientName: String(job.name || '').replace(/\s+\S\.$/, '').trim(),
-    waterScore: Number(job.result?.waterScore),
+    // Pass the raw value through -- do NOT coerce here. Number(null) is 0,
+    // which would silently turn "no score yet" into a fake 0 before
+    // buildCaseResultFlexMessage's own presence check ever sees it,
+    // making that check a no-op (forensic investigation, 2026-08-25).
+    waterScore: job.result?.waterScore,
     scoreCardImageUrl: reportToken
       ? `${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(reportToken)}?format=landscape`
       : '',
