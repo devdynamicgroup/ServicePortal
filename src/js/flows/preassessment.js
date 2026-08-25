@@ -841,6 +841,7 @@ function initChipGroups() {
   setPostalForProvince(document.getElementById('ci-city')?.value || 'Bangkok', false);
   updatePreassessmentOptionText();
   initAddressAutocomplete();
+  initMapsLinkField();
 }
 
 function loadGoogleMapsScript(apiKey, lang) {
@@ -880,6 +881,95 @@ function applyGooglePlaceSelection(place) {
   setProvinceValue('Bangkok');
   document.getElementById('address-dropdown')?.classList.add('hidden');
   updatePreassessmentCompletionState();
+}
+
+/**
+ * Fill ci-maps only -- deliberately does NOT touch ci-addr/ci-postal like
+ * applyGooglePlaceSelection() does, so searching a place in the Maps Link
+ * field can never silently overwrite an address the user already typed
+ * elsewhere on the form (2026-08-25, Maps Link field usability fix).
+ */
+function applyGooglePlaceToMapsField(place) {
+  const maps = document.getElementById('ci-maps');
+  if (maps && place?.geometry?.location) {
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    maps.value = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+  updatePreassessmentCompletionState();
+}
+
+/**
+ * Wires real Google Places Autocomplete onto #ci-maps (typing shows
+ * Google's own suggestion dropdown; picking one fills an accurate link) --
+ * loaded lazily on first focus so the SDK is never fetched for a form the
+ * user doesn't touch. GOOGLE_MAPS_API_KEY / /api/maps-config are the
+ * existing, already-configured infrastructure this reuses unchanged.
+ */
+async function wireMapsLinkPlaceSearch() {
+  const input = document.getElementById('ci-maps');
+  if (!input || input.dataset.placesReady) return;
+  input.dataset.placesReady = 'loading';
+  try {
+    const configRes = await fetch('/api/maps-config', { cache: 'no-store' });
+    const config = await configRes.json().catch(() => ({}));
+    if (!config.apiKey) { input.dataset.placesReady = ''; return; }
+    await loadGoogleMapsScript(config.apiKey, S.lang);
+    if (!window.google?.maps?.places) { input.dataset.placesReady = ''; return; }
+    const autocomplete = new google.maps.places.Autocomplete(input, { types: ['geocode', 'establishment'] });
+    autocomplete.addListener('place_changed', () => {
+      applyGooglePlaceToMapsField(autocomplete.getPlace());
+    });
+    input.dataset.placesReady = 'google';
+  } catch (error) {
+    console.warn('[preassessment] Maps Link place search unavailable', error);
+    input.dataset.placesReady = '';
+  }
+}
+
+/**
+ * "Use my current location" button for the Maps Link field.
+ * User-gesture-triggered only (button click) -- the browser's own
+ * permission prompt is the real gate, nothing here bypasses it.
+ * Coordinates are placed directly into the Maps link the user can see and
+ * edit; nothing is sent to Water Motion's own backend from this handler.
+ */
+function useMyLocationForMaps() {
+  const input = document.getElementById('ci-maps');
+  if (!input) return;
+  if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
+    if (typeof showToast === 'function') showToast(t('preassess.mapsLocateUnavailable'));
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const lat = position?.coords?.latitude;
+      const lng = position?.coords?.longitude;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        if (typeof showToast === 'function') showToast(t('preassess.mapsLocateUnavailable'));
+        return;
+      }
+      input.value = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      updatePreassessmentCompletionState();
+    },
+    () => { // denied / unavailable / timeout -- all treated the same, no retry
+      if (typeof showToast === 'function') showToast(t('preassess.mapsLocateUnavailable'));
+    },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+  );
+}
+
+function initMapsLinkField() {
+  const btn = document.getElementById('btn-maps-locate');
+  if (btn && !btn.dataset.wired) {
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', useMyLocationForMaps);
+  }
+  const input = document.getElementById('ci-maps');
+  if (input && !input.dataset.focusWired) {
+    input.dataset.focusWired = '1';
+    input.addEventListener('focus', () => wireMapsLinkPlaceSearch(), { once: true });
+  }
 }
 
 async function initAddressAutocomplete() {

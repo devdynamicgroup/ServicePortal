@@ -60,9 +60,12 @@
         <input class="inp" id="ci-addr" placeholder="Enter address" autocomplete="off" oninput="filterAddressSuggest(this.value)" onfocus="filterAddressSuggest(this.value)">
         <div class="postal-dropdown hidden" id="address-dropdown"></div>
       </div>
-      <div class="field">
+      <div class="field maps-link-field">
         <label><span data-i18n="preassess.maps">Google Maps Link</span> <span class="label-opt" data-i18n="preassess.mapsOpt">(optional)</span></label>
-        <input class="inp" id="ci-maps" placeholder="Paste link from Google Maps">
+        <div class="maps-link-row">
+          <input class="inp" id="ci-maps" placeholder="Paste a link, search a place, or use your location" autocomplete="off">
+          <button type="button" class="btn-maps-locate" id="btn-maps-locate" aria-label="Use my current location" title="Use my current location">📍</button>
+        </div>
       </div>
       <div class="row2">
         <div class="field">
