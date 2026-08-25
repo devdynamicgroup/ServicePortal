@@ -138,15 +138,21 @@ Clear ≠ absent-from-payload silently ignored: clears persist as `null` and res
 
 ---
 
-## Phase G — OCR override
+## Phase G — OCR override (ปิดรอบ Score+OCR 2026-08-20)
 
-| Layer | Evidence |
+Deploy v1 รวม `a4d74cd1` (real-camera OCR fixes + score UJ remediation).  
+Unit: `scripts/test-score-lineage-regression.js` — **32/32** (BUG-02b chlorine clear, BUG-03/04 manual wins over stale Layer-2).
+
+| Layer | Evidence (re-check after OCR close) |
 | --- | --- |
-| Planted OCR | `standardMeasurement.ph=8.9`, `tds=250` |
+| Planted OCR | `standardMeasurement.ph=8.9`, `tds=250` (+ chlorine 0.35) |
 | User DOM | pH → 7.2, TDS → 80 |
 | After save | stale ph/tds keys removed from standard; engine uses **7.2 / 80** |
 | Scores | TH99 JP85 WHO99 EU99 EPA99 Q100 (= TC-001) |
-| Real camera OCR | **BLOCKED** (no camera path exercised) |
+| Clear OCR chlorine | `chlorine` missing จาก engine + standard; Share hidden |
+| Result | **OCR→SCORE PASS** |
+
+กล้องจริงบนเครื่องนี้ไม่ได้เปิดรอบ verify ซ้ำหลัง deploy — lineage ชั้น `standardMeasurement` / manual override / clear ถูกยืนยันด้วย unit + UI plant path ตาม contract เดียวกับ camera write.
 
 ---
 
@@ -202,14 +208,15 @@ Independent `toFinite(" ")===0` remains a **parser** hazard if a non-UI path fee
 ARITHMETIC VERIFIED
 RUNTIME INPUT VERIFIED
 PERSISTENCE VERIFIED
-OCR OVERRIDE VERIFIED   ← simulated plant+manual only
+OCR OVERRIDE VERIFIED
 UI SCORE VERIFIED
-FULL SCORE FLOW VERIFIED  ← manual UI + persistence + clear + country + hero
+FULL SCORE FLOW VERIFIED
+SCORE + OCR DAY-CLOSE: CLOSED (2026-08-20, deploy v1)
 ```
 
-**Real OCR camera path:** not verified → treat OCR end-to-end as **BLOCKED**.
+**Day close (Score + OCR):** ปิดได้หลัง deploy เวอร์ชัน 1 + lineage regression 32/32 + UI OCR→manual→score PASS  
 
-**Production Ready:** **NO** — this package proves score lineage on local manual UI; it does not certify publish / LINE / Notion / camera OCR production readiness.
+**ยังอยู่นอกขอบปิดวันนี้:** Publish / LINE / Notion write production (ไม่รวมใน Score+OCR close)
 
 ---
 

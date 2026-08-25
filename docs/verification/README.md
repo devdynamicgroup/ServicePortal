@@ -24,7 +24,8 @@
 | 14 | [14_INDEPENDENT_SCORE_RUNTIME_QA.md](./14_INDEPENDENT_SCORE_RUNTIME_QA.md) | Independent vs Real UI Runtime QA 2026-08-20 — แยก arithmetic / lineage / UI / E2E; **ARITHMETIC VERIFIED**, **FULL SCORE FLOW ไม่ผ่าน** (ลบ TDS ไม่หาย, reload ล้างค่า) |
 | 15 | [15_USER_JOURNEY_STRESS_QA.md](./15_USER_JOURNEY_STRESS_QA.md) | User Simulation QA 2026-08-20 — มุมเจ้าหน้าที่จริงผ่าน UI; **Full User Journey FAIL**; ไม่สร้าง/ไม่เปิดเคส Notion |
 | 16 | [16_USER_JOURNEY_REMEDIATION.md](./16_USER_JOURNEY_REMEDIATION.md) | Forensic Remediation 2026-08-20 — แก้ P0/P1 ที่ shared layer; **critical journey PASS**; Production Ready **NO** (integration ยัง BLOCKED) |
-| 17 | [17_FULL_USER_SCORE_VERIFICATION.md](./17_FULL_USER_SCORE_VERIFICATION.md) | Full User-Real Score Verification 2026-08-20 — independent formula + real UI lineage; **43/43 PASS**; clear/reload/country/hero OK; **camera OCR BLOCKED**; Production Ready **NO** |
+| 17 | [17_FULL_USER_SCORE_VERIFICATION.md](./17_FULL_USER_SCORE_VERIFICATION.md) | Full User-Real Score Verification 2026-08-20 — **43/43 PASS**; OCR→manual→score **PASS** (v1 deploy + lineage 32/32); **Score+OCR day-close CLOSED**; Publish/LINE ยังนอกขอบ |
+| 18 | [18_CRITICAL_COVERAGE_GAP_FORENSIC_QA.md](./18_CRITICAL_COVERAGE_GAP_FORENSIC_QA.md) | Critical Coverage Gap Forensic QA 2026-08-21 — SHA `a92935f0` match; publication + Case-switch **PASS**; Cal duplicate-found **EVIDENCE LIMITED**; verdict **PRODUCTION QA PASS — EVIDENCE LIMITED**; code changes **NONE** |
 
 ## Flag baseline (as-built defaults)
 
