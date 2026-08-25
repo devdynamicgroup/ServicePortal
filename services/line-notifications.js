@@ -221,11 +221,10 @@ function resolveResultLinkUrl({ reportToken }) {
   return buildReportUrl(reportToken);
 }
 
-function buildCaseResultTextMessage({ resultLinkUrl, feedbackUrl }) {
+function buildCaseResultTextMessage({ resultLinkUrl }) {
   const lines = [
     'ผลตรวจของคุณพร้อมแล้วครับ สามารถดูรายละเอียดได้ที่นี่',
-    resultLinkUrl,
-    feedbackUrl ? `Feedback: ${feedbackUrl}` : ''
+    resultLinkUrl
   ].filter(Boolean);
 
   return { type: 'text', text: lines.join('\n') };
@@ -507,20 +506,6 @@ function buildCaseResultFlexMessage({
       }
     }
   ];
-
-  if (feedbackUrl) {
-    footerButtons.push({
-      type: 'button',
-      style: 'secondary',
-      color: WATER_MOTION_BLUE,
-      height: 'sm',
-      action: {
-        type: 'uri',
-        label: 'Feedback',
-        uri: feedbackUrl
-      }
-    });
-  }
 
   const isFree = resultType === 'free_water_check';
 
