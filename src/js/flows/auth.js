@@ -27,6 +27,11 @@ function setLoginMessage(message = '', type = 'error') {
 
 function updateLoggedInUser(user) {
   S.user = user;
+  // A fresh login re-arms handleSessionExpired()'s once-per-dead-session
+  // guard below (not just "S.user is falsy" -- that's also true right
+  // after a normal manual sign-out, when a genuinely new session-expiry
+  // event later must still be handled in full, not silently skipped).
+  _sessionExpiredHandled = false;
   try {
     localStorage.removeItem('wm-session');
   } catch { /* ignore */ }
@@ -170,13 +175,40 @@ async function clearAppSession() {
   }
 }
 
+// Guards handleSessionExpired() against firing repeatedly for the SAME
+// dead session (a burst of concurrent case-flow calls can all get a 401 at
+// once). Deliberately NOT keyed on "S.user is falsy" -- that's also true
+// right after an ordinary manual sign-out, and a later, genuinely new
+// session-expiry event must still be handled then, not silently skipped.
+// Re-armed by updateLoggedInUser() on the next successful login.
+let _sessionExpiredHandled = false;
+
 /**
  * A previously-valid session (e.g. the 7-day token) was rejected by the
  * server as expired/invalid. Same effect as a manual sign-out, but
  * triggered by the server response instead of the user tapping Sign Out.
+ *
+ * Idempotent per dead session: case-flow API calls (Complete, Start,
+ * assessment autosave, score publish) can all call this independently on a
+ * 401 without needing to coordinate with each other -- a burst of
+ * background syncs hitting an expired session at once won't repeatedly
+ * clear/redirect (2026-08-25, weird-user QA A3).
  */
 function handleSessionExpired(message) {
+  if (_sessionExpiredHandled) return;
+  _sessionExpiredHandled = true;
   clearAppSession();
   goScreen('s-login');
   setLoginMessage(message || 'Your session has expired. Please sign in again.');
+}
+
+/**
+ * Case-flow API calls all share this shape: `{ok:false, error, code}` with
+ * HTTP 401, per services/app-auth.js assertAppAuth(). Centralized here so
+ * every call site checks the same thing instead of re-deriving it
+ * (2026-08-25, weird-user QA A3).
+ */
+function isSessionExpiredResponse(response, payload) {
+  return Boolean(response && response.status === 401)
+    || String(payload?.code || '').toUpperCase() === 'UNAUTHENTICATED';
 }

@@ -368,6 +368,9 @@ async function completeAssessment() {
       if (typeof persistJobs === 'function') persistJobs();
     } catch (error) {
       console.warn('completeAssessment failed', error);
+      // handleSessionExpired() already redirected to login with its own
+      // message -- a second generic toast on top would be confusing.
+      if (error?.sessionExpired) return;
       showToast(error?.message || (S.lang === 'th' ? 'ปิดงานไม่สำเร็จ' : 'Could not complete assessment'));
       // Stay on Assessment — no redirect on score/close failure.
     }

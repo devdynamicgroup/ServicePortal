@@ -366,6 +366,9 @@ async function syncJobAssessmentToNotion(job = S.activeJob) {
         return { ok: false, reason: 'superseded' };
       }
       if (!response.ok || payload.ok === false) {
+        if (typeof isSessionExpiredResponse === 'function' && isSessionExpiredResponse(response, payload)) {
+          if (typeof handleSessionExpired === 'function') handleSessionExpired();
+        }
         draft.assessmentSyncStatus = 'SYNC_FAILED';
         draft.assessmentSyncError = payload.error || `http_${response.status}`;
         persistJobs();
@@ -790,6 +793,9 @@ async function pushCaseOpenToNotion(job = S.activeJob) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.ok === false) {
+      if (typeof isSessionExpiredResponse === 'function' && isSessionExpiredResponse(response, payload)) {
+        if (typeof handleSessionExpired === 'function') handleSessionExpired();
+      }
       console.warn('[pushCaseOpenToNotion] start failed', payload.error || response.status);
       return { ok: false, error: payload.error || 'start_failed' };
     }
@@ -1123,7 +1129,16 @@ function isJobCancelled(job) {
     || ['cancelled', 'canceled'].includes(workflow);
 }
 
+// Every goScreen('s-dash') call fires an un-awaited loadJobsFromApi() call
+// (navigation.js); rapid screen-switching can leave two in flight at once.
+// A generation counter -- bumped at the start of each call, checked right
+// before the JOBS mutation -- ensures an older call's response can never
+// overwrite a newer one's, regardless of network resolve order
+// (2026-08-25, weird-user QA A4).
+let _jobsLoadGen = 0;
+
 async function loadJobsFromApi() {
+  const myJobsLoadGen = ++_jobsLoadGen;
   try {
     const response = await fetch('/api/clients', { cache: 'no-store', credentials: 'same-origin' });
     const payload = await response.json().catch(() => ({}));
@@ -1209,6 +1224,11 @@ async function loadJobsFromApi() {
       }
       return next;
     });
+    if (myJobsLoadGen !== _jobsLoadGen) {
+      // A newer loadJobsFromApi() call has started since this one began --
+      // this response is stale, must not overwrite the newer call's state.
+      return false;
+    }
     JOBS.splice(0, JOBS.length, ...normalizedJobs);
     preservedManualJobs.forEach(job => {
       // Notion is authoritative when API load succeeds — never re-merge CSV seed.

@@ -148,6 +148,13 @@ async function publishScoreBeforeClose(job) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.ok === false) {
+    if (typeof isSessionExpiredResponse === 'function' && isSessionExpiredResponse(response, payload)) {
+      if (typeof handleSessionExpired === 'function') handleSessionExpired();
+      const error = new Error(payload.error || 'Session expired');
+      error.code = 'SCORE_SAVE_FAILED';
+      error.sessionExpired = true;
+      throw error;
+    }
     const error = new Error(payload.error || (S.lang === 'th' ? 'บันทึกคะแนนไม่สำเร็จ' : 'Could not save score'));
     error.code = 'SCORE_SAVE_FAILED';
     throw error;
@@ -205,6 +212,13 @@ async function finalizeCaseCompletion(job, options = {}) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.ok === false) {
+      if (typeof isSessionExpiredResponse === 'function' && isSessionExpiredResponse(response, payload)) {
+        if (typeof handleSessionExpired === 'function') handleSessionExpired();
+        const error = new Error(payload.error || 'Session expired');
+        error.code = 'CLOSE_FAILED';
+        error.sessionExpired = true;
+        throw error;
+      }
       const error = new Error(payload.error || (S.lang === 'th' ? 'ปิดเคสไม่สำเร็จ' : 'Could not close case'));
       error.code = 'CLOSE_FAILED';
       throw error;
@@ -306,6 +320,9 @@ async function completeJob() {
       });
     } catch (error) {
       console.warn('completeJob failed', error);
+      // handleSessionExpired() already redirected to login with its own
+      // message -- a second generic toast on top would be confusing.
+      if (error?.sessionExpired) return;
       showToast(error?.message || (S.lang === 'th' ? 'ปิดเคสไม่สำเร็จ' : 'Could not close case'));
     }
   } finally {
