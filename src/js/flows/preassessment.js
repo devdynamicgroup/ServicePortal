@@ -937,10 +937,10 @@ function showMapsPreview(lat, lng) {
   const container = document.getElementById('maps-preview');
   const hint = document.getElementById('maps-preview-hint');
   if (!container) return;
-  container.classList.remove('hidden');
   hint?.classList.remove('hidden');
 
   if (!mapsPreviewState) {
+    container.innerHTML = ''; // clear the "Loading map…" placeholder
     const map = new google.maps.Map(container, {
       center: { lat, lng },
       zoom: 16,
@@ -987,6 +987,14 @@ function applyGooglePlaceToMapsField(place) {
  * /api/maps-config are the existing, already-configured infrastructure
  * this reuses unchanged.
  */
+function setMapsPreviewMessage(text) {
+  // Only replaces the placeholder while it's still the placeholder -- never
+  // clobbers a real map that's already been created.
+  if (mapsPreviewState) return;
+  const placeholder = document.getElementById('maps-preview-placeholder');
+  if (placeholder) placeholder.textContent = text;
+}
+
 async function wireMapsLinkPlaceSearch() {
   const input = document.getElementById('ci-maps');
   if (!input || input.dataset.placesReady) return;
@@ -994,9 +1002,17 @@ async function wireMapsLinkPlaceSearch() {
   try {
     const configRes = await fetch('/api/maps-config', { cache: 'no-store' });
     const config = await configRes.json().catch(() => ({}));
-    if (!config.apiKey) { input.dataset.placesReady = ''; return; }
+    if (!config.apiKey) {
+      input.dataset.placesReady = '';
+      setMapsPreviewMessage(t('preassess.mapsUnavailable'));
+      return;
+    }
     await loadGoogleMapsScript(config.apiKey, S.lang);
-    if (!window.google?.maps?.places) { input.dataset.placesReady = ''; return; }
+    if (!window.google?.maps?.places) {
+      input.dataset.placesReady = '';
+      setMapsPreviewMessage(t('preassess.mapsUnavailable'));
+      return;
+    }
     const autocomplete = new google.maps.places.Autocomplete(input, { types: ['geocode', 'establishment'] });
     autocomplete.addListener('place_changed', () => {
       applyGooglePlaceToMapsField(autocomplete.getPlace());
@@ -1010,6 +1026,7 @@ async function wireMapsLinkPlaceSearch() {
   } catch (error) {
     console.warn('[preassessment] Maps Link place search unavailable', error);
     input.dataset.placesReady = '';
+    setMapsPreviewMessage(t('preassess.mapsUnavailable'));
   }
 }
 
@@ -1056,11 +1073,11 @@ function initMapsLinkField() {
     btn.dataset.wired = '1';
     btn.addEventListener('click', useMyLocationForMaps);
   }
-  const input = document.getElementById('ci-maps');
-  if (input && !input.dataset.focusWired) {
-    input.dataset.focusWired = '1';
-    input.addEventListener('focus', () => wireMapsLinkPlaceSearch(), { once: true });
-  }
+  // Load eagerly (not on focus) so the map is visible below the field as
+  // soon as the form opens, not only after the user interacts with it --
+  // wireMapsLinkPlaceSearch() has its own placesReady guard, so this is
+  // still safe to call more than once if initChipGroups() re-runs.
+  wireMapsLinkPlaceSearch();
 }
 
 async function initAddressAutocomplete() {

@@ -64,9 +64,13 @@
         <label><span data-i18n="preassess.maps">Google Maps Link</span> <span class="label-opt" data-i18n="preassess.mapsOpt">(optional)</span></label>
         <div class="maps-link-row">
           <input class="inp" id="ci-maps" placeholder="Paste a link, search a place, or use your location" autocomplete="off">
-          <button type="button" class="btn-maps-locate" id="btn-maps-locate" aria-label="Use my current location" title="Use my current location">📍</button>
+          <button type="button" class="btn-maps-locate" id="btn-maps-locate" aria-label="Use my current location" title="Use my current location">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </button>
         </div>
-        <div class="maps-preview hidden" id="maps-preview"></div>
+        <div class="maps-preview" id="maps-preview">
+          <div class="maps-preview-placeholder" id="maps-preview-placeholder" data-i18n="preassess.mapsLoading">Loading map…</div>
+        </div>
         <p class="maps-preview-hint hidden" id="maps-preview-hint" data-i18n="preassess.mapsPickHint">Drag the pin or tap the map to set the exact spot</p>
       </div>
       <div class="row2">
