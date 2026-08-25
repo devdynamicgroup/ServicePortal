@@ -80,12 +80,13 @@ function extract(name, pattern) {
 }
 
 const buildLinkSrc = extract('buildMapsSearchLink', /function buildMapsSearchLink\(lat, lng\) \{[\s\S]*?\n\}/);
+const buildPlaceLinkSrc = extract('buildMapsPlaceLink', /function buildMapsPlaceLink\(address, placeId\) \{[\s\S]*?\n\}/);
 const parseLinkSrc = extract('parseLatLngFromMapsLink', /function parseLatLngFromMapsLink\(value\) \{[\s\S]*?\n\}/);
-const setCoordsSrc = extract('setMapsLinkFromCoords', /function setMapsLinkFromCoords\(lat, lng, \{ recenterMap = true \} = \{\}\) \{[\s\S]*?\n\}/);
+const setCoordsSrc = extract('setMapsLinkFromCoords', /function setMapsLinkFromCoords\(lat, lng, \{ recenterMap = true, address = '', placeId = '' \} = \{\}\) \{[\s\S]*?\n\}/);
 const applyPlaceSrc = extract('applyGooglePlaceToMapsField', /function applyGooglePlaceToMapsField\(place\) \{[\s\S]*?\n\}/);
 const useLocationSrc = extract('useMyLocationForMaps', /function useMyLocationForMaps\(\) \{[\s\S]*?\n\}/);
 
-if (!buildLinkSrc || !parseLinkSrc || !setCoordsSrc || !applyPlaceSrc || !useLocationSrc) {
+if (!buildLinkSrc || !buildPlaceLinkSrc || !parseLinkSrc || !setCoordsSrc || !applyPlaceSrc || !useLocationSrc) {
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(1);
 }
@@ -95,14 +96,41 @@ console.log('\n=== buildMapsSearchLink(lat, lng): pure link format ===');
 {
   const { sandbox } = buildSandbox();
   vm.runInContext(buildLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+  vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
   const link = sandbox.buildMapsSearchLink(13.7563, 100.5018);
   assert(link === 'https://www.google.com/maps/search/?api=1&query=13.7563,100.5018', `correct format (got ${link})`);
+}
+
+console.log('\n=== buildMapsPlaceLink(address, placeId): named-place link format ===');
+{
+  const { sandbox } = buildSandbox();
+  vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
+
+  const withPlaceId = sandbox.buildMapsPlaceLink('123 Sukhumvit Rd, Bangkok', 'ChIJtest12345');
+  assert(withPlaceId === 'https://www.google.com/maps/search/?api=1&query=123%20Sukhumvit%20Rd%2C%20Bangkok&query_place_id=ChIJtest12345',
+    `with place_id: correct format, matches Google's documented Place Search URL scheme (got ${withPlaceId})`);
+
+  const withoutPlaceId = sandbox.buildMapsPlaceLink('123 Sukhumvit Rd, Bangkok', '');
+  assert(withoutPlaceId === 'https://www.google.com/maps/search/?api=1&query=123%20Sukhumvit%20Rd%2C%20Bangkok',
+    `without place_id: still valid, just omits &query_place_id= (got ${withoutPlaceId})`);
+
+  assert(sandbox.buildMapsPlaceLink('', 'ChIJtest12345') === '', 'empty address => empty string, even with a place_id (no point linking to nothing)');
+  assert(sandbox.buildMapsPlaceLink(null, null) === '', 'null address => empty string');
+  assert(sandbox.buildMapsPlaceLink(undefined, undefined) === '', 'undefined address => empty string');
+
+  const thai = sandbox.buildMapsPlaceLink('เทศบาลเมืองปทุมธานี', 'ChIJthai');
+  assert(decodeURIComponent(thai.split('query=')[1].split('&')[0]) === 'เทศบาลเมืองปทุมธานี', `Thai script safely encoded (got ${thai})`);
+
+  const malicious = sandbox.buildMapsPlaceLink('123 St&redirect=evil.com', 'ChIJ&extra=1');
+  const params = malicious.split('?')[1].split('&');
+  assert(params.length === 3 && params[0] === 'api=1', `malicious-looking address/place_id do NOT inject extra query params (got params: ${JSON.stringify(params)})`);
 }
 
 console.log('\n=== parseLatLngFromMapsLink(value): recovers coords, never guesses ===');
 {
   const { sandbox } = buildSandbox();
   vm.runInContext(buildLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+  vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
   vm.runInContext(parseLinkSrc, sandbox, { filename: 'preassessment.js (parseLatLngFromMapsLink excerpt)' });
 
   const roundTrip = sandbox.parseLatLngFromMapsLink(sandbox.buildMapsSearchLink(13.7563, 100.5018));
@@ -121,6 +149,7 @@ console.log('\n=== setMapsLinkFromCoords(lat, lng, opts): the shared write path 
 {
   const { sandbox, elements, previewCalls } = buildSandbox();
   vm.runInContext(buildLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+  vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
   vm.runInContext(setCoordsSrc, sandbox, { filename: 'preassessment.js (setMapsLinkFromCoords excerpt)' });
 
   sandbox.setMapsLinkFromCoords(13.7563, 100.5018);
@@ -147,20 +176,55 @@ console.log('\n=== applyGooglePlaceToMapsField(place): scoped to ci-maps only ==
   elements['ci-addr'] = makeInputEl('Original Address Typed By User');
   elements['ci-postal'] = makeInputEl('10110');
   vm.runInContext(buildLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+  vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
   vm.runInContext(setCoordsSrc, sandbox, { filename: 'preassessment.js (setMapsLinkFromCoords excerpt)' });
   vm.runInContext(applyPlaceSrc, sandbox, { filename: 'preassessment.js (applyGooglePlaceToMapsField excerpt)' });
 
   const place = {
-    formatted_address: '999 Should Not Be Used Rd',
+    formatted_address: '123 Sukhumvit Rd, Bangkok',
+    place_id: 'ChIJtest12345',
     address_components: [{ types: ['postal_code'], long_name: '99999' }],
     geometry: { location: { lat: () => 13.7563, lng: () => 100.5018 } }
   };
   sandbox.applyGooglePlaceToMapsField(place);
 
-  assert(elements['ci-maps'].value === 'https://www.google.com/maps/search/?api=1&query=13.7563,100.5018', `ci-maps filled with an accurate link (got ${elements['ci-maps'].value})`);
+  // A search selection has a real place name -- must produce the "Place
+  // Search" link (opens looking exactly like a normal Google Maps result:
+  // name, photo, card), not a bare coordinate pin (2026-08-25, "want it to
+  // look exactly like Google Maps" follow-up).
+  assert(elements['ci-maps'].value === 'https://www.google.com/maps/search/?api=1&query=123%20Sukhumvit%20Rd%2C%20Bangkok&query_place_id=ChIJtest12345',
+    `ci-maps filled with a named-place link, not raw coordinates (got ${elements['ci-maps'].value})`);
   assert(elements['ci-addr'].value === 'Original Address Typed By User', `ci-addr is NOT touched (got "${elements['ci-addr'].value}")`);
   assert(elements['ci-postal'].value === '10110', `ci-postal is NOT touched either (got "${elements['ci-postal'].value}")`);
   assert(previewCalls.length === 1, 'map preview is shown/updated for the selected place');
+
+  // A place without a place_id (rare, but Autocomplete doesn't guarantee
+  // one for every result type) must still produce a valid named link, just
+  // without the &query_place_id= suffix.
+  const { sandbox: sandbox2, elements: elements2 } = buildSandbox();
+  vm.runInContext(buildLinkSrc, sandbox2, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+  vm.runInContext(buildPlaceLinkSrc, sandbox2, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
+  vm.runInContext(setCoordsSrc, sandbox2, { filename: 'preassessment.js (setMapsLinkFromCoords excerpt)' });
+  vm.runInContext(applyPlaceSrc, sandbox2, { filename: 'preassessment.js (applyGooglePlaceToMapsField excerpt, no place_id)' });
+  sandbox2.applyGooglePlaceToMapsField({
+    formatted_address: '456 Silom Rd, Bangkok',
+    geometry: { location: { lat: () => 13.72, lng: () => 100.53 } }
+  });
+  assert(elements2['ci-maps'].value === 'https://www.google.com/maps/search/?api=1&query=456%20Silom%20Rd%2C%20Bangkok',
+    `no place_id => still a valid named-place link, just without &query_place_id= (got ${elements2['ci-maps'].value})`);
+
+  // A place with geometry but no name at all (edge case) must still fall
+  // back to a coordinate link -- never write an empty/broken query.
+  const { sandbox: sandbox3, elements: elements3 } = buildSandbox();
+  vm.runInContext(buildLinkSrc, sandbox3, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+  vm.runInContext(buildPlaceLinkSrc, sandbox3, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
+  vm.runInContext(setCoordsSrc, sandbox3, { filename: 'preassessment.js (setMapsLinkFromCoords excerpt)' });
+  vm.runInContext(applyPlaceSrc, sandbox3, { filename: 'preassessment.js (applyGooglePlaceToMapsField excerpt, no name)' });
+  sandbox3.applyGooglePlaceToMapsField({
+    geometry: { location: { lat: () => 13.72, lng: () => 100.53 } }
+  });
+  assert(elements3['ci-maps'].value === 'https://www.google.com/maps/search/?api=1&query=13.72,100.53',
+    `no name at all => falls back to coordinate link (got ${elements3['ci-maps'].value})`);
 
   let threw = null;
   try { sandbox.applyGooglePlaceToMapsField({}); } catch (e) { threw = e; }
@@ -177,6 +241,7 @@ console.log('\n=== useMyLocationForMaps(): GPS success + graceful fallback ===')
     };
     sandbox.wireMapsLinkPlaceSearch = async () => {}; // SDK-loading is out of scope for this focused test
     vm.runInContext(buildLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+  vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
     vm.runInContext(setCoordsSrc, sandbox, { filename: 'preassessment.js (setMapsLinkFromCoords excerpt)' });
     vm.runInContext(useLocationSrc, sandbox, { filename: 'preassessment.js (useMyLocationForMaps excerpt)' });
     await sandbox.useMyLocationForMaps();
@@ -195,6 +260,7 @@ console.log('\n=== useMyLocationForMaps(): GPS success + graceful fallback ===')
     };
     sandbox.wireMapsLinkPlaceSearch = async () => {};
     vm.runInContext(buildLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+  vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
     vm.runInContext(setCoordsSrc, sandbox, { filename: 'preassessment.js (setMapsLinkFromCoords excerpt)' });
     vm.runInContext(useLocationSrc, sandbox, { filename: `preassessment.js (useMyLocationForMaps excerpt, ${scenario})` });
     sandbox.useMyLocationForMaps();
@@ -206,6 +272,7 @@ console.log('\n=== useMyLocationForMaps(): GPS success + graceful fallback ===')
   {
     const { sandbox, elements, toasts } = buildSandbox();
     vm.runInContext(buildLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+  vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
     vm.runInContext(setCoordsSrc, sandbox, { filename: 'preassessment.js (setMapsLinkFromCoords excerpt)' });
     vm.runInContext(useLocationSrc, sandbox, { filename: 'preassessment.js (useMyLocationForMaps excerpt, unsupported)' });
     let threw = null;
@@ -223,6 +290,7 @@ console.log('\n=== useMyLocationForMaps(): GPS success + graceful fallback ===')
     };
     sandbox.wireMapsLinkPlaceSearch = async () => {};
     vm.runInContext(buildLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+  vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
     vm.runInContext(setCoordsSrc, sandbox, { filename: 'preassessment.js (setMapsLinkFromCoords excerpt)' });
     vm.runInContext(useLocationSrc, sandbox, { filename: 'preassessment.js (useMyLocationForMaps excerpt, malformed)' });
     sandbox.useMyLocationForMaps();
