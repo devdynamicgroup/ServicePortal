@@ -810,7 +810,16 @@ function mergeReadingLayers(...layers) {
   return out;
 }
 
-const SCORE_READY_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp']);
+// 'temp' deliberately excluded — computeQualityScoreDetail() never uses it
+// (see computeQualityScoreV2.js's notScored list). Readiness must gate on
+// exactly the parameters the score formula actually consumes, not on every
+// field the form happens to display; requiring temp here blocked Complete
+// on Cases where all 6 scored parameters were valid and a real score could
+// already be computed — a genuine data-completeness/score-readiness mixup,
+// not an intentional business rule (forensic investigation, 2026-08-25).
+// Temp itself is unchanged elsewhere: still captured, still shown in the
+// report — it's just no longer required to reach Complete.
+const SCORE_READY_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do']);
 
 /**
  * True when `job` is the operator's currently active Case.
