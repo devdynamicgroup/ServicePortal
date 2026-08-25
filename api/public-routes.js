@@ -102,7 +102,17 @@ async function handleScoreCardRoute(req, res, urlPath, urlObj) {
         }
         job = await getClient(match.clientPageId);
       }
-      if (!job || !Number.isFinite(Number(job.result?.waterScore))) {
+      // Strict presence, not bare coercion: Number(null) is 0, and
+      // Number.isFinite(0) is true, so a fresh Case (waterScore still null,
+      // but publicReportToken already minted at creation) would wrongly
+      // pass this guard and get a "Water Score 0/100" card rendered and
+      // served publicly (same bug class as bb304360, found via weird-user
+      // QA on 2026-08-25 -- this specific site wasn't covered by that patch).
+      const rawWaterScore = job?.result?.waterScore;
+      const hasPublishedScore = rawWaterScore !== null
+        && rawWaterScore !== undefined
+        && Number.isFinite(Number(rawWaterScore));
+      if (!job || !hasPublishedScore) {
         sendJson(res, 404, { ok: false, error: 'Score not published' });
         return true;
       }

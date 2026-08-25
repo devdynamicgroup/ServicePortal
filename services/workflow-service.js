@@ -447,6 +447,14 @@ async function closeCase(caseId, payload = {}) {
 
   return withCaseLock(initial.notionId, async () => {
     let job = await getClient(initial.notionId);
+    // A cancelled/closed Case must never be completed, published, or
+    // notified-to -- reuse the same terminal-state guard startCase() already
+    // has (weird-user QA, 2026-08-25: closeCase had no such guard, so a
+    // cancelled Case could still be scored, marked completed, and trigger a
+    // LINE "your results are ready" push to a customer who cancelled).
+    if (isTerminalCaseStatus(job)) {
+      return { ok: true, idempotent: true, case: job };
+    }
     const currentState = notificationState(job);
     const alreadyCompleted = stateAtLeast(job.workflow?.status, 'completed');
     const lineUserId = String(job.line?.userId || '').trim();
@@ -664,6 +672,7 @@ module.exports = {
   stateAtLeast,
   canTransition,
   withCaseLock,
+  isTerminalCaseStatus,
   linkLineUser,
   startCase,
   closeCase,

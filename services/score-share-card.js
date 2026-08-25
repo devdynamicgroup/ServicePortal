@@ -643,9 +643,12 @@ async function renderShareCardPng(format, options = {}) {
 }
 
 function cardOptionsFromJob(job = {}, overrides = {}) {
-  const score = Number(
-    overrides.score != null ? overrides.score : job.result?.waterScore
-  );
+  // Strict presence, not bare coercion -- see api/public-routes.js's
+  // route-level guard for the same reasoning. This helper has exactly one
+  // caller today (that guarded route), but must not silently default to a
+  // fake 0 for a null score if it's ever called directly in the future.
+  const rawScore = overrides.score != null ? overrides.score : job.result?.waterScore;
+  const score = rawScore !== null && rawScore !== undefined ? Number(rawScore) : NaN;
   const findingsCount = Number(overrides.findingsCount || 0);
   // Prefer the designed customer note. Stale Notion summaries like
   // "Water score 65/100" must not overwrite the card copy.

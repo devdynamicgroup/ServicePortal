@@ -11,7 +11,7 @@ const {
 const { findPropertyKey } = require('./notion/props');
 const { FIELD_ALIASES, notionPageToJob } = require('./notion/mapper');
 const { updateClient, getClient } = require('./notion/clients');
-const { withCaseLock, resolveJob } = require('./workflow-service');
+const { withCaseLock, resolveJob, isTerminalCaseStatus } = require('./workflow-service');
 const { withRetry } = require('./retry');
 const AssessmentSnapshot = require('../src/js/assessment-snapshot');
 
@@ -123,6 +123,18 @@ async function submitCaseAssessment(caseId, body = {}) {
 
   return withCaseLock(initial.notionId, async () => {
     const job = await getClient(initial.notionId);
+    // A cancelled/closed Case must not accept new measurements -- reuse the
+    // same terminal-state guard closeCase()/startCase() already have
+    // (weird-user QA, 2026-08-25: this function had no such guard).
+    if (isTerminalCaseStatus(job)) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: 'terminal_case',
+        snapshot: readExistingSnapshotFromJob(job),
+        case: job
+      };
+    }
     const existing = readExistingSnapshotFromJob(job);
 
     if (existing) {
