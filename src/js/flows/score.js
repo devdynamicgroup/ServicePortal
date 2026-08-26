@@ -23,6 +23,14 @@ const SCORE_BAR_COLORS = Object.freeze({
   pending: '#22c55e'
 });
 
+/** Strict presence — Number(null) is 0, which must not masquerade as a real score. */
+function resolvePublishedScoreNumber(job) {
+  const raw = job?.result?.waterScore ?? job?.draft?.scoreVal;
+  if (raw === null || raw === undefined || raw === '') return NaN;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 function customerVerdict(wq) {
   if (wq >= 81) return { label: t('score.verdict.excellent'), color: SCORE_BAR_COLORS.high, tier: 'high' };
   if (wq >= 51) return { label: t('score.verdict.good'), color: SCORE_BAR_COLORS.mid, tier: 'mid' };
@@ -271,14 +279,26 @@ function resolveDisplayedScore({
   readings = {},
   standardKey = DEFAULT_SCORE_STANDARD_KEY
 } = {}) {
-  if (publicView && Number.isFinite(Number(publishedScore))) {
-    const score = Math.max(0, Math.min(100, Math.round(Number(publishedScore))));
+  if (publicView) {
+    const raw = publishedScore;
+    if (raw !== null && raw !== undefined && raw !== '' && Number.isFinite(Number(raw))) {
+      const score = Math.max(0, Math.min(100, Math.round(Number(raw))));
+      return {
+        score,
+        source: 'published',
+        standardKey: 'quality-v3',
+        engineKey: 'quality-v3',
+        showScore: true,
+        comparison: null,
+        classifications: null
+      };
+    }
     return {
-      score,
+      score: null,
       source: 'published',
       standardKey: 'quality-v3',
       engineKey: 'quality-v3',
-      showScore: true,
+      showScore: false,
       comparison: null,
       classifications: null
     };
@@ -370,8 +390,7 @@ function paramMeaningText(paramName, status) {
 
 function canDisplayScoreNumber(readiness, job = S.activeJob) {
   if (S.publicScoreView) {
-    const published = Number(job?.result?.waterScore ?? job?.draft?.scoreVal);
-    if (Number.isFinite(published)) return true;
+    if (Number.isFinite(resolvePublishedScoreNumber(job))) return true;
   }
   // Overall score needs the formula inputs. OCR still running must not hide a ready score
   // or block opening this screen — pending metrics keep their own loading state.
@@ -482,8 +501,7 @@ function renderStandardSelect(context = getScoreEvalContext()) {
  */
 function isPublishedScoreView(job = S.activeJob) {
   if (!S.publicScoreView) return false;
-  const published = Number(job?.result?.waterScore ?? job?.draft?.scoreVal);
-  return Number.isFinite(published);
+  return Number.isFinite(resolvePublishedScoreNumber(job));
 }
 
 function renderScoreDisplay() {
@@ -983,16 +1001,17 @@ function renderWaterScore(job, options = {}) {
   // Always resolve from tapData / fields / DOM — do not trust stale score-only cache.
   const readings = resolveScoreReadings(job);
 
-  const published = Number(job?.result?.waterScore ?? draft.scoreVal);
+  const published = resolvePublishedScoreNumber(job);
   const detail = typeof computeQualityScoreDetail === 'function'
     ? computeQualityScoreDetail(readings)
     : null;
   const computedScore = detail && Number.isFinite(detail.score)
     ? detail.score
     : computeScoreFromReadings(readings);
-  // Public report may show the published score; field app always uses the fresh calculation.
-  const productionScore = publicView && Number.isFinite(published)
-    ? Math.max(0, Math.min(100, Math.round(published)))
+  // Public /r/{token}: hero uses the frozen published score only — never
+  // recomputes from readings (publication SoT). Field app uses fresh calc.
+  const productionScore = publicView
+    ? (Number.isFinite(published) ? Math.max(0, Math.min(100, Math.round(published))) : null)
     : (Number.isFinite(computedScore) ? computedScore : null);
 
   const taps = draft.taps?.length
