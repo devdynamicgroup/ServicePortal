@@ -202,16 +202,9 @@ async function main() {
 
     const freeBody = extractBodyTexts(freeFlex);
     const paidBody = extractBodyTexts(paidFlex);
-    assert.ok(freeBody.includes('Free Water Check') || freeBody.includes('เบื้องต้น') || freeBody.includes('แพ็กเกจ') || freeBody.includes('ภาพสรุป'));
+    assert.ok(freeBody.includes('Free Water Check') || freeBody.includes('เบื้องต้น') || freeBody.includes('แพ็กเกจ'));
     assert.ok(paidBody.includes('รายละเอียดผลตรวจ') || paidBody.includes('Google'));
     assert.ok(!paidBody.includes('Free Water Check'));
-    // Layer 3: Free must not expose /r even if caller passes a report URL.
-    assert.ok(!freeFlex.contents?.footer, 'Free Complete push has no /r footer');
-    assert.ok(!freeFlex.contents?.hero?.action, 'Free Complete push hero has no /r action');
-    assert.ok(
-      paidFlex.contents?.footer?.contents?.[0]?.action?.uri === 'https://example.com/r',
-      'Paid keeps /r footer CTA'
-    );
     ok('6. Free Water Check vs Paid Assessment message variants');
   } catch (e) {
     fail('6. Free Water Check vs Paid Assessment message variants', e);

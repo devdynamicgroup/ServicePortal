@@ -221,27 +221,10 @@ function resolveResultLinkUrl({ reportToken }) {
   return buildReportUrl(reportToken);
 }
 
-function buildCaseResultTextMessage({
-  resultLinkUrl,
-  resultType,
-  waterScore
-} = {}) {
-  const isFree = resultType === 'free_water_check';
-
-  // Free Complete push: poster is in the Flex hero only — never expose /r/{token}.
-  if (isFree) {
-    const hasScore = waterScore !== null
-      && waterScore !== undefined
-      && Number.isFinite(Number(waterScore));
-    const text = hasScore
-      ? `ผลตรวจน้ำเบื้องต้นพร้อมแล้วครับ (Water Score ${Math.round(Number(waterScore))}/100)`
-      : 'ผลตรวจน้ำเบื้องต้นพร้อมแล้วครับ';
-    return { type: 'text', text };
-  }
-
+function buildCaseResultTextMessage({ resultLinkUrl }) {
   const lines = [
     'ผลตรวจของคุณพร้อมแล้วครับ สามารถดูรายละเอียดได้ที่นี่',
-    String(resultLinkUrl || '').trim()
+    resultLinkUrl
   ].filter(Boolean);
 
   return { type: 'text', text: lines.join('\n') };
@@ -298,13 +281,12 @@ function withQuickReply(message, items = buildOaQuickReplyItems()) {
 }
 
 /**
- * OA "view latest" reply — same Free/Paid delivery contract as Complete→LINE push.
- * Reuses buildCaseResultFlexMessage (poster for Free, /r for Paid).
- * History stays on replyHistory / menu.
+ * OA "view latest" reply only — confirm + open report CTA.
+ * No Water Score preview (score lives on /r/{token} report page).
+ * No history list/count (history stays on replyHistory / menu).
+ * Does not replace closeCase push templates (buildCaseResultFlexMessage).
  */
-function buildViewLatestResultReply({ job, resultType, resultLinkUrl } = {}) {
-  const isFree = resultType === 'free_water_check';
-  const reportToken = String(job?.result?.publicReportToken || '').trim();
+function buildViewLatestResultReply({ resultLinkUrl } = {}) {
   const reportUrl = String(resultLinkUrl || '').trim();
 
   // Keep menu actions except history — history remains via "ประวัติ" intent / rich menu.
@@ -317,25 +299,66 @@ function buildViewLatestResultReply({ job, resultType, resultLinkUrl } = {}) {
     quickReplyItems
   );
 
-  // Free needs a token for score-card poster; Paid needs /r URL — same gate as push path.
-  if (isFree && !reportToken) {
-    return [textMessage];
-  }
-  if (!isFree && !reportUrl) {
+  if (!reportUrl) {
     return [textMessage];
   }
 
-  const messagePayload = {
-    resultLinkUrl: isFree ? '' : reportUrl,
-    clientName: String(job?.name || '').replace(/\s+\S\.$/, '').trim(),
-    waterScore: job?.result?.waterScore,
-    scoreCardImageUrl: reportToken
-      ? `${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(reportToken)}?format=landscape`
-      : '',
-    resultType: resultType || 'paid_assessment'
+  const flexMessage = {
+    type: 'flex',
+    altText: 'ผลตรวจน้ำของคุณพร้อมแล้วครับ',
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: 'WATER MOTION',
+            size: 'xs',
+            color: '#64748b',
+            weight: 'bold'
+          },
+          {
+            type: 'text',
+            text: 'ผลตรวจน้ำของคุณพร้อมแล้วครับ',
+            weight: 'bold',
+            size: 'md',
+            color: '#0f172a',
+            wrap: true
+          },
+          {
+            type: 'text',
+            text: 'กดปุ่มด้านล่างเพื่อดูรายละเอียดผลตรวจ',
+            size: 'sm',
+            color: '#475569',
+            wrap: true
+          }
+        ]
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: WATER_MOTION_BLUE,
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: 'ดูผลตรวจ',
+              uri: reportUrl
+            }
+          }
+        ]
+      }
+    }
   };
 
-  const flexMessage = buildCaseResultFlexMessageForType(messagePayload, messagePayload.resultType);
   return [textMessage, flexMessage];
 }
 
@@ -470,14 +493,8 @@ function buildCaseResultFlexMessage({
   waterScore,
   resultType
 }) {
-  const isFree = resultType === 'free_water_check';
-  // Paid/VIP only: public Water Score page. Free must never get /r/{token} CTAs
-  // (product contract Layer 3). Ignore resultLinkUrl entirely when Free so
-  // callers cannot re-inject a report URL into hero/footer.
-  const reportUri = isFree ? '' : String(resultLinkUrl || '').trim();
-
-  const footerButtons = reportUri
-    ? [{
+  const footerButtons = [
+    {
       type: 'button',
       style: 'primary',
       color: WATER_MOTION_BLUE,
@@ -485,10 +502,12 @@ function buildCaseResultFlexMessage({
       action: {
         type: 'uri',
         label: 'ดูผลตรวจ',
-        uri: reportUri
+        uri: resultLinkUrl
       }
-    }]
-    : [];
+    }
+  ];
+
+  const isFree = resultType === 'free_water_check';
 
   const greeting = clientName
     ? `สวัสดีคุณ ${clientName}`
@@ -502,7 +521,7 @@ function buildCaseResultFlexMessage({
     : (isFree ? 'ผลตรวจน้ำเบื้องต้นพร้อมแล้วครับ' : 'ผลตรวจของคุณพร้อมแล้วครับ');
 
   const bodyDetail = isFree
-    ? 'ดูภาพสรุปผลตรวจด้านบน หากสนใจแพ็กเกจบริการหรือต้องการคำแนะนำเพิ่มเติม ติดต่อ Water Motion ได้เลยครับ'
+    ? 'ดูผลตรวจน้ำเบื้องต้นได้ด้านล่าง หากสนใจแพ็กเกจบริการหรือต้องการคำแนะนำเพิ่มเติม ติดต่อ Water Motion ได้เลยครับ'
     : 'กดปุ่มด้านล่างเพื่อเปิดดูรายละเอียดผลตรวจ และรีวิวบริการบน Google';
 
   const footerCaption = isFree
@@ -515,9 +534,7 @@ function buildCaseResultFlexMessage({
     styles: {
       header: { backgroundColor: WATER_MOTION_BLUE },
       body: { backgroundColor: '#ffffff' },
-      ...(footerButtons.length
-        ? { footer: { backgroundColor: WATER_MOTION_SURFACE } }
-        : {})
+      footer: { backgroundColor: WATER_MOTION_SURFACE }
     },
     header: {
       type: 'box',
@@ -600,37 +617,30 @@ function buildCaseResultFlexMessage({
         }
       ],
       paddingAll: '20px'
-    }
-  };
-
-  if (footerButtons.length) {
-    bubble.footer = {
+    },
+    footer: {
       type: 'box',
       layout: 'vertical',
       spacing: 'sm',
       contents: footerButtons,
       paddingAll: '16px'
-    };
-  }
+    }
+  };
 
-  // Share-card hero — existing score-card path. Free: image only (no /r URI).
-  // Paid: keep tap-through to the Water Score page.
+  // Share-card hero for LINE — landscape 1200×630 template.
   if (scoreCardImageUrl) {
-    const hero = {
+    bubble.hero = {
       type: 'image',
       url: scoreCardImageUrl,
       size: 'full',
       aspectRatio: '1200:630',
-      aspectMode: 'cover'
-    };
-    if (reportUri) {
-      hero.action = {
+      aspectMode: 'cover',
+      action: {
         type: 'uri',
         label: 'ดูผลตรวจ',
-        uri: reportUri
-      };
-    }
-    bubble.hero = hero;
+        uri: resultLinkUrl
+      }
+    };
   }
 
   return {
@@ -660,25 +670,17 @@ async function sendCaseResultNotification(job, payload) {
     || job.feedback?.url
     || ''
   ).trim();
+  if (!resultLinkUrl) {
+    return { ok: false, status: 'failed', messageId: '', error: 'missing_report_url' };
+  }
 
   // Lazy require avoids circular load with line-result-resolver helpers.
   const { resolveResultType, getAvailableResultForCase } = require('./line-result-resolver');
   const presented = getAvailableResultForCase(job);
   const resultType = presented.resultType || resolveResultType(job);
-  const isFree = resultType === 'free_water_check';
-
-  // Paid still requires a report URL. Free delivers poster-only (score-card
-  // hero) and must not fail solely because a /r link is withheld.
-  if (!isFree && !resultLinkUrl) {
-    return { ok: false, status: 'failed', messageId: '', error: 'missing_report_url' };
-  }
-  if (isFree && !reportToken) {
-    return { ok: false, status: 'failed', messageId: '', error: 'missing_report_token_for_poster' };
-  }
 
   const messagePayload = {
-    // Free: never pass /r into Flex/text builders (defense in depth).
-    resultLinkUrl: isFree ? '' : resultLinkUrl,
+    resultLinkUrl,
     feedbackUrl,
     clientName: String(job.name || '').replace(/\s+\S\.$/, '').trim(),
     // Pass the raw value through -- do NOT coerce here. Number(null) is 0,
