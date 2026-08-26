@@ -337,6 +337,8 @@ async function replyViewLatest(event, lineUserId, correlationId) {
     // UX-only latest reply: confirm + open report. Score only on /r/{token}.
     // History stays on replyHistory(). Lookup remains exact lineUserId only.
     const messages = buildViewLatestResultReply({
+      job,
+      resultType: latest.resultType,
       resultLinkUrl: latest.resultUrl
     });
     const result = await sendReplyChecked(event.replyToken, messages, {

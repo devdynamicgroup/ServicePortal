@@ -281,12 +281,11 @@ function withQuickReply(message, items = buildOaQuickReplyItems()) {
 }
 
 /**
- * OA "view latest" reply only — confirm + open report CTA.
- * No Water Score preview (score lives on /r/{token} report page).
- * No history list/count (history stays on replyHistory / menu).
- * Does not replace closeCase push templates (buildCaseResultFlexMessage).
+ * OA "view latest" reply — same rich card as Complete→LINE push
+ * (header score + score-card hero + ดูผลตรวจ). History stays on replyHistory / menu.
  */
-function buildViewLatestResultReply({ resultLinkUrl } = {}) {
+function buildViewLatestResultReply({ job, resultType, resultLinkUrl } = {}) {
+  const reportToken = String(job?.result?.publicReportToken || '').trim();
   const reportUrl = String(resultLinkUrl || '').trim();
 
   // Keep menu actions except history — history remains via "ประวัติ" intent / rich menu.
@@ -303,62 +302,17 @@ function buildViewLatestResultReply({ resultLinkUrl } = {}) {
     return [textMessage];
   }
 
-  const flexMessage = {
-    type: 'flex',
-    altText: 'ผลตรวจน้ำของคุณพร้อมแล้วครับ',
-    contents: {
-      type: 'bubble',
-      size: 'mega',
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'md',
-        contents: [
-          {
-            type: 'text',
-            text: 'WATER MOTION',
-            size: 'xs',
-            color: '#64748b',
-            weight: 'bold'
-          },
-          {
-            type: 'text',
-            text: 'ผลตรวจน้ำของคุณพร้อมแล้วครับ',
-            weight: 'bold',
-            size: 'md',
-            color: '#0f172a',
-            wrap: true
-          },
-          {
-            type: 'text',
-            text: 'กดปุ่มด้านล่างเพื่อดูรายละเอียดผลตรวจ',
-            size: 'sm',
-            color: '#475569',
-            wrap: true
-          }
-        ]
-      },
-      footer: {
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'sm',
-        contents: [
-          {
-            type: 'button',
-            style: 'primary',
-            color: WATER_MOTION_BLUE,
-            height: 'sm',
-            action: {
-              type: 'uri',
-              label: 'ดูผลตรวจ',
-              uri: reportUrl
-            }
-          }
-        ]
-      }
-    }
+  const messagePayload = {
+    resultLinkUrl: reportUrl,
+    clientName: String(job?.name || '').replace(/\s+\S\.$/, '').trim(),
+    waterScore: job?.result?.waterScore,
+    scoreCardImageUrl: reportToken
+      ? `${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(reportToken)}?format=landscape`
+      : '',
+    resultType: resultType || 'paid_assessment'
   };
 
+  const flexMessage = buildCaseResultFlexMessageForType(messagePayload, messagePayload.resultType);
   return [textMessage, flexMessage];
 }
 
