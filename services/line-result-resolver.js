@@ -35,21 +35,19 @@ function caseSortTimestamp(job) {
   ) || 0;
 }
 
-function launchCampaignOfferName() {
-  return String(process.env.WATER_CHECK_CAMPAIGN_OFFER || 'Launch Offer 2026').trim();
-}
-
 /**
- * Free Water Check when campaignOffer matches Launch Offer (or env override).
+ * Essential-package customers get the free-style LINE message; Full
+ * Assessment customers get the paid-style message. Driven by job.pkg, the
+ * same signal api/case-flow-routes.js's isFreeInspectionJob() uses for the
+ * report page (2026-08-26, direct request -- previously this checked
+ * campaignOffer only, which meant a Full Assessment customer who booked
+ * through a campaign link would incorrectly get the free-style message,
+ * and an Essential customer who booked outside a campaign link would
+ * incorrectly get the paid-style message).
  */
 function resolveResultType(job) {
-  const offer = String(job?.campaignOffer || '').trim();
-  if (!offer) return RESULT_TYPES.PAID_ASSESSMENT;
-  const launch = launchCampaignOfferName();
-  if (offer === launch || offer === 'Launch Offer 2026') {
-    return RESULT_TYPES.FREE_WATER_CHECK;
-  }
-  return RESULT_TYPES.PAID_ASSESSMENT;
+  const pkg = String(job?.pkg || 'essential').trim();
+  return pkg === 'full' ? RESULT_TYPES.PAID_ASSESSMENT : RESULT_TYPES.FREE_WATER_CHECK;
 }
 
 function resolveResultUrl(job) {
@@ -155,6 +153,5 @@ module.exports = {
   getLatestAvailableResultByLineUserId,
   getAvailableResultForCase,
   hasLinkedCasesByLineUserId,
-  presentCaseResult,
-  launchCampaignOfferName
+  presentCaseResult
 };

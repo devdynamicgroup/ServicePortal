@@ -167,8 +167,18 @@ function preparePublicScoreMarkup(scoreMarkup) {
   return html;
 }
 
+/**
+ * Essential-package customers (free) get the poster-style share card;
+ * Full Assessment customers (paid, 5,000 THB) get the full Water Score
+ * report. Driven by job.pkg -- persisted to Notion via the "Package
+ * History" property and read back on every job fetch, so this reflects
+ * the customer's actual package choice, not how they originally booked
+ * (2026-08-26, direct request -- previously this checked campaignOffer,
+ * which meant an Essential customer who booked outside a marketing
+ * campaign link would incorrectly see the full report).
+ */
 function isFreeInspectionJob(job) {
-  return Boolean(String(job?.campaignOffer || '').trim());
+  return String(job?.pkg || 'essential').trim() !== 'full';
 }
 
 /**

@@ -182,10 +182,17 @@ async function main() {
 
   // —— 6. Free vs Paid templates ——
   try {
-    const freeType = resolveResultType({ campaignOffer: 'Launch Offer 2026' });
-    const paidType = resolveResultType({ campaignOffer: '' });
+    // resolveResultType is driven by job.pkg (2026-08-26 fix -- previously
+    // by campaignOffer, which let an Essential customer booked outside a
+    // campaign link get the paid-style message, and vice versa).
+    const freeType = resolveResultType({ pkg: 'essential' });
+    const paidType = resolveResultType({ pkg: 'full' });
     assert.strictEqual(freeType, RESULT_TYPES.FREE_WATER_CHECK);
     assert.strictEqual(paidType, RESULT_TYPES.PAID_ASSESSMENT);
+
+    // Default (no pkg field at all) must be treated as Essential/free, not
+    // silently promoted to paid.
+    assert.strictEqual(resolveResultType({}), RESULT_TYPES.FREE_WATER_CHECK);
 
     const freeFlex = buildCaseResultFlexMessageForType({
       resultLinkUrl: 'https://example.com/r',
