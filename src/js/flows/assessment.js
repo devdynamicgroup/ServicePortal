@@ -161,12 +161,23 @@ function renderAssessList() {
       }
     }
     const src = typeof DrivePhoto !== 'undefined' ? DrivePhoto.previewSrc(photo) : (typeof photo === 'string' ? photo : '');
-    if (src) {
+    // A stored-but-not-yet-hydrated Drive photo (fileId/contentUrl on record,
+    // no cached blob/previewUrl -- the normal case right after reopening a
+    // Case) must not be treated as "no photo": fall back to the same
+    // authenticated hydrate used by the capture sub-screens (assessment.js
+    // applyDriveContentSrc), 2026-08-27, otherwise the thumbnail silently
+    // reads as empty even though the photo is on record.
+    const hasDriveRef = Boolean(photo && typeof photo === 'object' && (photo.fileId || photo.contentUrl));
+    if (src || hasDriveRef) {
       thumbEl.innerHTML = '';
       const img = document.createElement('img');
       img.alt = '';
-      img.src = src;
       thumbEl.appendChild(img);
+      if (src) {
+        img.src = src;
+      } else {
+        applyDriveContentSrc(img, photo, '');
+      }
       thumbEl.classList.add('has-photo');
       thumbEl.classList.toggle('upload-failed', Boolean(photo && typeof photo === 'object' && photo.uploadError));
     } else {
