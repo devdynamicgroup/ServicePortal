@@ -3,13 +3,18 @@
  * Matches the approved design plate:
  *  - left/top: site photo (default faucet plate when missing)
  *  - right/bottom: blurred photo wash + headline + dynamic score card
- *  - static QR CTA + Water Motion wordmark
+ *  - QR CTA (per-Case LIFF bind link when a feedbackToken is available,
+ *    falling back to the static "just add the OA as a friend" badge
+ *    otherwise -- e.g. the tokenless /demo preview route) + Water Motion
+ *    wordmark
  */
 
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const QRCode = require('qrcode');
 const { isDriveConfigured, downloadImageContent } = require('./google-drive');
+const { buildLiffBindUrl } = require('./url-builder');
 
 const FORMATS = Object.freeze({
   landscape: { key: 'landscape', width: 1200, height: 630, label: '1200×630' },
@@ -169,6 +174,42 @@ function pngSize(filePath) {
   } catch {
     return null;
   }
+}
+
+// Same footprint as the static score-share-cta-badge.png asset it replaces,
+// so both assetLayer() call sites (landscape/story) need no position changes.
+const CTA_BADGE_W = 294;
+const CTA_BADGE_H = 342;
+
+/**
+ * Per-Case CTA badge (2026-08-27): a customer scanning this QR now lands
+ * directly on their own Case's LIFF bind link (auto-connects LINE, no
+ * fb-xxxx typing) instead of a generic "add this OA as a friend" QR that's
+ * identical for every customer. Rendered fresh every time -- no caching --
+ * matching the rest of this module's "always re-render" model.
+ */
+async function renderDynamicCtaBadge(feedbackToken) {
+  const url = buildLiffBindUrl(feedbackToken);
+  if (!url) return null;
+
+  const qrPng = await QRCode.toBuffer(url, {
+    errorCorrectionLevel: 'M',
+    margin: 0,
+    width: 220,
+    color: { dark: '#FFFFFFFF', light: '#00000000' }
+  });
+  const qrDataUri = `data:image/png;base64,${qrPng.toString('base64')}`;
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${CTA_BADGE_W}" height="${CTA_BADGE_H}" viewBox="0 0 ${CTA_BADGE_W} ${CTA_BADGE_H}">
+  <rect x="0" y="0" width="${CTA_BADGE_W}" height="${CTA_BADGE_H}" rx="20" fill="${BRAND_BLUE}"/>
+  <text x="24" y="44" fill="#FFFFFF" font-family="${FONT}" font-size="26" font-weight="700">Get your score</text>
+  <image href="${qrDataUri}" x="37" y="66" width="220" height="220"/>
+</svg>`;
+
+  const sharp = require('sharp');
+  const png = await sharp(Buffer.from(svg)).png({ compressionLevel: 8 }).toBuffer();
+  return { href: `data:image/png;base64,${png.toString('base64')}`, size: { width: CTA_BADGE_W, height: CTA_BADGE_H } };
 }
 
 /**
@@ -589,6 +630,17 @@ function loadAsset(filePath) {
   return { href: fileToDataUri(filePath, 'image/png'), size };
 }
 
+async function resolveCtaBadge(feedbackToken) {
+  if (!feedbackToken) return loadAsset(CTA_BADGE_ASSET) || loadAsset(QR_ASSET);
+  try {
+    const dynamic = await renderDynamicCtaBadge(feedbackToken);
+    if (dynamic) return dynamic;
+  } catch (error) {
+    console.warn('[score-share-card] dynamic QR badge failed, using static fallback', error.message);
+  }
+  return loadAsset(CTA_BADGE_ASSET) || loadAsset(QR_ASSET);
+}
+
 async function renderShareCardPng(format, options = {}) {
   ensureFontconfig();
   const sharp = require('sharp');
@@ -597,7 +649,7 @@ async function renderShareCardPng(format, options = {}) {
     ...options,
     score: Number(options.score),
     indicators: options.indicators || 8,
-    ctaBadge: loadAsset(CTA_BADGE_ASSET) || loadAsset(QR_ASSET),
+    ctaBadge: await resolveCtaBadge(options.feedbackToken),
     wordmark: loadAsset(WORDMARK_ASSET)
   });
   const svgBuffer = Buffer.from(built.svg);
@@ -664,7 +716,8 @@ function cardOptionsFromJob(job = {}, overrides = {}) {
     indicators: overrides.indicators || 8,
     photoFileId: overrides.photoFileId || job.drive?.latestFileId || '',
     photoUrl: overrides.photoUrl || job.drive?.latestFileUrl || '',
-    photoDataUri: overrides.photoDataUri || ''
+    photoDataUri: overrides.photoDataUri || '',
+    feedbackToken: overrides.feedbackToken || job.feedback?.token || ''
   };
 }
 
@@ -676,5 +729,9 @@ module.exports = {
   buildShareCardSvg,
   renderShareCardPng,
   cardOptionsFromJob,
-  fetchAsDataUri
+  fetchAsDataUri,
+  // Test-only exports (2026-08-27, per-Case QR badge) -- same functions,
+  // same behavior, just reachable from a test file.
+  renderDynamicCtaBadge,
+  resolveCtaBadge
 };
