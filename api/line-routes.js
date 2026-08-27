@@ -239,24 +239,38 @@ function parseOaPostbackData(data) {
   return '';
 }
 
+// Thai keyword regexes are built via `new RegExp(str.normalize('NFKC'))`
+// rather than plain /.../  literals (2026-08-27 QA fix): normalizeLineMessageText()
+// runs the *input* through NFKC before this ever sees it, and NFKC gives
+// Thai SARA AM ("ำ", U+0E33) a compatibility decomposition into NIKHAHIT +
+// SARA AA (U+0E4D U+0E32) -- so a plain regex literal containing "ำ" (like
+// "น้ำ") silently never matched real user input again once it had been
+// normalized, even though the literal renders identically. Every keyword
+// list here gets the same normalize('NFKC') treatment so the pattern and
+// the input are always in the same Unicode form, not just the three
+// alternatives that happened to contain "ำ" today.
+const VIEW_LATEST_INTENT_RE = new RegExp(
+  'ดูผลตรวจ|ดูผลน้ำ|ขอดูผล|ผลตรวจล่าสุด|view\\s*latest|latest\\s*score|ดูคะแนนน้ำ|ผลตรวจน้ำ'.normalize('NFKC')
+);
+const HISTORY_INTENT_RE = new RegExp(
+  'ประวัติ|ผลก่อนหน้า|คะแนนก่อนหน้า|previous\\s*scores?|history|ดูประวัติ'.normalize('NFKC')
+);
+const BOOK_AGAIN_INTENT_RE = new RegExp(
+  'นัดตรวจ|จองอีกครั้ง|book\\s*again|นัดหมาย|จองตรวจ'.normalize('NFKC')
+);
+
 /** M6 NL intents — token path always wins first in handleLineEvent. */
 function detectOaIntent(text) {
   const normalized = normalizeLineMessageText(text).toLowerCase();
   if (!normalized) return '';
 
-  if (
-    /ดูผลตรวจ|ดูผลน้ำ|ขอดูผล|ผลตรวจล่าสุด|view\s*latest|latest\s*score|ดูคะแนนน้ำ|ผลตรวจน้ำ/.test(normalized)
-  ) {
+  if (VIEW_LATEST_INTENT_RE.test(normalized)) {
     return 'view_latest';
   }
-  if (
-    /ประวัติ|ผลก่อนหน้า|คะแนนก่อนหน้า|previous\s*scores?|history|ดูประวัติ/.test(normalized)
-  ) {
+  if (HISTORY_INTENT_RE.test(normalized)) {
     return 'history';
   }
-  if (
-    /นัดตรวจ|จองอีกครั้ง|book\s*again|นัดหมาย|จองตรวจ/.test(normalized)
-  ) {
+  if (BOOK_AGAIN_INTENT_RE.test(normalized)) {
     return 'book_again';
   }
   return '';
@@ -715,5 +729,14 @@ module.exports = {
   // was previously unverified by any executable test. Exporting it changes
   // nothing about handleLineRoute's runtime behavior — it is the same
   // function object, called the same way, from the same module-level Map.
-  claimEvent
+  claimEvent,
+  // Test-only exports (2026-08-27 QA sweep): the inbound webhook decision
+  // tree (which entry point wins when a message could match more than one
+  // pattern) had no executable test coverage at all before this. Same
+  // functions, same behavior — exporting them changes nothing about
+  // handleLineRoute's runtime behavior.
+  resolveInboundDecision,
+  detectOaIntent,
+  parseOaPostbackData,
+  extractFeedbackToken
 };
