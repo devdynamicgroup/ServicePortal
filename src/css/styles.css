@@ -489,7 +489,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .confirm-modal-message{font-size:13.5px;color:var(--muted);line-height:1.45;margin:0 0 18px}
 .confirm-modal-actions-plain{display:flex;gap:8px}
 .confirm-modal-btn{flex:1;border:none;border-radius:12px;padding:10px 14px;font:600 14px inherit;font-family:inherit;cursor:pointer;text-align:center}
-.confirm-modal-btn.ghost{background:transparent;color:var(--text)}
+.confirm-modal-btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
 .confirm-modal-btn.ghost:active{background:var(--bg)}
 .confirm-modal-btn.tonal-danger{background:#fef2f2;color:var(--red)}
 .confirm-modal-btn.tonal-danger:active{background:#fde3e3}
