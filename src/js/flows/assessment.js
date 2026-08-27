@@ -1414,6 +1414,8 @@ async function processMeterSessionOcr(entryId) {
     calcAndShowScore();
   }
 
+  // OCR always runs when imageSrc exists, independently of the Drive upload
+  // below -- readings must fill in even if the backup upload later fails.
   console.warn('[OCR FLOW] uploading image', { meterImageId: entry.id, tapIndex });
   uploadMeterSessionImage(tapIndex, entry.id, imageSrc).catch(error => {
     console.warn('Meter session upload failed', error);

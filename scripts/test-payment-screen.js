@@ -23,6 +23,24 @@ const partials = [
   'src/pages/partials/package-sheet.html'
 ];
 
+// Load the exact same client script list/order index.html uses, instead of a
+// hand-copied snapshot -- a hardcoded copy silently drifts out of sync as
+// new scripts get added to the real app (2026-08-27: this test was failing
+// with "STEP_ICONS is not defined" because the copy predated icons.js,
+// job-state.js, i18n.js, google-drive-client.js, notifications/*,
+// conversion/engine.js, debug/complete-trace.js, explainScore.js, the
+// eligibility engines, measurementValidator.js and feedback.js all being
+// added to index.html's real load order since this test was last written).
+function loadScriptListFromIndexHtml() {
+  const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const match = indexHtml.match(/const scripts = (\[[\s\S]*?\]);/);
+  if (!match) throw new Error('Could not find the scripts array in index.html -- test out of sync with source');
+  const list = JSON.parse(match[1].replace(/'/g, '"'));
+  // app.js/page-loader.js drive the real SPA boot loop and aren't needed for
+  // a single-partial DOM assertion test; keep the rest in their real order.
+  return list.filter(file => file !== 'src/js/page-loader.js' && file !== 'src/js/app.js');
+}
+
 const html = fs.readFileSync(path.join(root, 'src/pages/payment.html'), 'utf8');
 const { document, window } = parseHTML(`<!DOCTYPE html><html><body><div id="app">${html}</div></body></html>`);
 if (typeof Element !== 'undefined' && !Element.prototype.scrollTo) {
@@ -30,39 +48,7 @@ if (typeof Element !== 'undefined' && !Element.prototype.scrollTo) {
 }
 window.scrollTo = () => {};
 
-const scripts = [
-  'src/js/state.js',
-  'src/js/navigation.js',
-  'src/js/flows/auth.js',
-  'src/js/flows/dashboard.js',
-  'src/js/flows/job.js',
-  'src/js/flows/preassessment.js',
-  'src/js/flows/assessment.js',
-  'src/js/score/util/clamp.js',
-  'src/js/score/util/benchmarkMetadata.js',
-  'src/js/score/production/computeProductionScore.js',
-  'src/js/score/production/computeQualityScoreV2.js',
-  'src/js/score/benchmark/registry.js',
-  'src/js/score/benchmark/thailand/limits.js',
-  'src/js/score/benchmark/thailand/weights.js',
-  'src/js/score/benchmark/thailand/score.js',
-  'src/js/score/benchmark/who/limits.js',
-  'src/js/score/benchmark/who/weights.js',
-  'src/js/score/benchmark/who/score.js',
-  'src/js/score/benchmark/eu/limits.js',
-  'src/js/score/benchmark/eu/weights.js',
-  'src/js/score/benchmark/eu/score.js',
-  'src/js/score/benchmark/japan/limits.js',
-  'src/js/score/benchmark/japan/weights.js',
-  'src/js/score/benchmark/japan/score.js',
-  'src/js/score/benchmark/usEpa/limits.js',
-  'src/js/score/benchmark/usEpa/weights.js',
-  'src/js/score/benchmark/usEpa/score.js',
-  'src/js/flows/score.js',
-  'src/js/flows/payment.js',
-  'src/js/flows/feedback.js',
-  'src/js/common.js'
-];
+const scripts = loadScriptListFromIndexHtml();
 
 const ctx = {
   console,
