@@ -27,8 +27,9 @@ const {
 } = require('../services/client-feedback');
 const { fingerprint, withIdempotency, wasReplayed } = require('../services/idempotency-store');
 const { newCorrelationId, logEvent } = require('../services/observability');
-const { publicBaseUrl } = require('../services/url-builder');
+const { publicBaseUrl, buildLiffBindUrl } = require('../services/url-builder');
 const { assertAppAuth } = require('../services/app-auth');
+const QRCode = require('qrcode');
 
 const BOOKING_IDEMPOTENCY_TTL_MS = 30 * 1000;
 
@@ -254,7 +255,48 @@ function freeReportHtml(job) {
 </html>`;
 }
 
-function reportHtml(job) {
+/**
+ * Full Assessment (paid) report page connect-LINE banner (2026-08-27):
+ * the Essential/free poster already gets a per-Case QR baked into its
+ * score-share image (services/score-share-card.js), but the full detailed
+ * report page never had ANY LINE-connect path at all -- a paid customer
+ * viewing this page with no LINE link yet had no automatic option,
+ * leaving fb-xxxx manual chat entry as their only route. Skipped entirely
+ * once already linked, or if there's no feedback token to bind against
+ * (e.g. a degraded ledger-only snapshot with no live Case behind it).
+ */
+async function buildLineConnectSection(job) {
+  if (job?.line?.linked) return '';
+  const token = String(job?.feedback?.token || '').trim();
+  if (!token) return '';
+  const url = buildLiffBindUrl(token);
+  if (!url) return '';
+
+  let qrImg = '';
+  try {
+    const dataUrl = await QRCode.toDataURL(url, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 132,
+      color: { dark: '#1c1917', light: '#ffffff' }
+    });
+    qrImg = `<img src="${dataUrl}" width="88" height="88" alt="" style="border-radius:8px;flex-shrink:0">`;
+  } catch (error) {
+    console.warn('[report_line_connect] QR generation failed', error.message);
+  }
+
+  return `
+  <div style="max-width:640px;margin:0 auto 16px;padding:16px;display:flex;align-items:center;gap:14px;background:#f0f6fe;border:1px solid #dde9fc;border-radius:12px;font-family:Geist,Arial,sans-serif">
+    ${qrImg}
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:700;font-size:15px;color:#1c1917;margin-bottom:4px">เชื่อมบัญชี LINE รับผลตรวจ</div>
+      <div style="font-size:13px;color:#78716c;line-height:1.45;margin-bottom:8px">สแกน QR หรือแตะปุ่มด้านล่างเพื่อเชื่อมบัญชี LINE กับผลตรวจของคุณอัตโนมัติ</div>
+      <a href="${escapeHtml(url)}" style="display:inline-block;padding:9px 16px;background:#284dcd;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:13px">เชื่อมบัญชี LINE</a>
+    </div>
+  </div>`;
+}
+
+async function reportHtml(job) {
   if (!job) return reportNotFoundHtml();
   if (isFreeInspectionJob(job)) return freeReportHtml(job);
 
@@ -265,6 +307,7 @@ function reportHtml(job) {
     report: job
   }).replace(/</g, '\\u003c');
   const scoreMarkup = preparePublicScoreMarkup(loadScorePagePartial());
+  const lineConnectSection = await buildLineConnectSection(job);
 
   return `<!doctype html>
 <html lang="th">
@@ -278,6 +321,7 @@ function reportHtml(job) {
   <link rel="stylesheet" href="/src/css/styles.css?v=${cacheBust}">
 </head>
 <body class="public-report-mode">
+  ${lineConnectSection}
   <div id="app">${scoreMarkup}</div>
   <script>window.__WM_PUBLIC_REPORT__ = ${reportConfig};</script>
   <script src="/src/js/state.js?v=${cacheBust}"></script>
@@ -802,7 +846,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
   if (reportPageMatch && req.method === 'GET') {
     try {
       const report = await getReportByToken(decodeURIComponent(reportPageMatch[1]));
-      sendHtml(res, report ? 200 : 404, reportHtml(report));
+      sendHtml(res, report ? 200 : 404, await reportHtml(report));
     } catch (error) {
       sendHtml(res, error.statusCode || 502, `<p>${escapeHtml(error.message || 'Report unavailable')}</p>`);
     }
@@ -819,4 +863,9 @@ async function handleCaseFlowRoute(req, res, urlPath) {
   return false;
 }
 
-module.exports = { handleCaseFlowRoute };
+module.exports = {
+  handleCaseFlowRoute,
+  // Test-only export (2026-08-27, paid-report LINE connect banner) -- same
+  // function, same behavior, just reachable from a test file.
+  buildLineConnectSection
+};
