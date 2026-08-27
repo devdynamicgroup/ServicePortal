@@ -234,7 +234,8 @@ function buildCaseResultTextMessage({ resultLinkUrl }) {
 const OA_POSTBACK = Object.freeze({
   VIEW_LATEST: 'action=view_latest',
   HISTORY: 'action=history',
-  BOOK_AGAIN: 'action=book_again'
+  BOOK_AGAIN: 'action=book_again',
+  CONTACT_ADMIN: 'action=contact_admin'
 });
 
 function resolveLineBookingUrl() {
@@ -316,17 +317,66 @@ function buildViewLatestResultReply({ job, resultType, resultLinkUrl } = {}) {
   return [textMessage, flexMessage];
 }
 
-// (2026-08-27) Most customers now connect automatically by scanning the QR
-// on their report/poster -- it opens a LIFF link that binds their LINE
-// account with no typing. This text is the fallback for whoever reaches
-// the OA some other way (e.g. never scanned that QR) without having linked
-// yet: at this point in the chat we don't know which Case is theirs, so
-// there's no per-Case link to hand them here -- the fb-xxxx code is kept
-// as the manual backup, framed as optional rather than a required step.
-function buildLinkPromptTextMessage() {
+/**
+ * Unknown/Unlinked Customer reply (2026-08-27, direct request): when the
+ * OA cannot resolve any Case for this LINE userId -- never followed from
+ * the QR/LIFF flow, or messaged the OA some other way -- the customer is
+ * no longer asked to type fb-xxxx or any other code to "identify" their
+ * Case. That was the exact anti-pattern being removed: guessing/recovering
+ * a Case from a customer-typed code is not attempted here at all. Instead
+ * they're handed two ways forward that need no Case lookup whatsoever:
+ * start a new inspection on the existing website booking flow (reuses
+ * resolveLineBookingUrl() -- no new site, no new Case-from-LINE, no new
+ * token/entitlement), or hand the conversation to a human (no ticket
+ * system -- LINE Official Account Manager's own chat inbox already lets
+ * an admin take over any conversation manually; this just ends the
+ * automated reply so there's nothing to conflict with).
+ */
+function buildUnknownCustomerReply() {
   return withQuickReply({
     type: 'text',
-    text: 'ปกติระบบจะเชื่อมบัญชี LINE ให้อัตโนมัติเมื่อสแกน QR จากหน้าผลตรวจ\nถ้ายังไม่ได้เชื่อม ส่งรหัส fb-xxxx จากลิงก์บริการมาที่นี่ได้เลยครับ\nเชื่อมแล้วจะดูผลตรวจ / ประวัติ / นัดตรวจได้จากเมนูด้านล่าง'
+    text: 'สวัสดีครับ 👋\nตอนนี้ยังไม่พบข้อมูลการตรวจของคุณในระบบครับ\n\nหากต้องการตรวจคุณภาพน้ำ เริ่มต้นได้จากเว็บไซต์ของเราเลยครับ\nหากเคยใช้บริการแล้วแต่ยังไม่พบผลตรวจ ติดต่อเจ้าหน้าที่ได้เลยครับ'
+  }, [
+    {
+      type: 'action',
+      action: { type: 'uri', label: 'เริ่มตรวจคุณภาพน้ำ', uri: resolveLineBookingUrl() }
+    },
+    {
+      type: 'action',
+      action: {
+        type: 'postback',
+        label: 'ติดต่อเจ้าหน้าที่',
+        data: OA_POSTBACK.CONTACT_ADMIN,
+        displayText: 'ติดต่อเจ้าหน้าที่'
+      }
+    }
+  ]);
+}
+
+/**
+ * Ends the automated flow with a plain acknowledgment -- no case creation,
+ * no code prompt, no ticket/queue infrastructure. Staff already see and
+ * can reply to this conversation directly from LINE Official Account
+ * Manager's own chat inbox; admin *notification* for this handoff is an
+ * explicit future enhancement, not part of this change.
+ */
+function buildContactAdminAckMessage() {
+  return {
+    type: 'text',
+    text: 'รับทราบครับ เดี๋ยวเจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุดครับ 🙏'
+  };
+}
+
+/**
+ * A LINKED customer's message just didn't match any known command/intent
+ * -- distinct from buildUnknownCustomerReply(), which is only for when no
+ * Case can be resolved for this LINE user at all. Nudges back to the
+ * existing menu instead of implying they need to (re)connect.
+ */
+function buildUnrecognizedMenuPromptMessage() {
+  return withQuickReply({
+    type: 'text',
+    text: 'ขออภัยครับ ไม่เข้าใจข้อความนี้ ลองเลือกจากเมนูด้านล่างได้เลยครับ'
   });
 }
 
@@ -713,7 +763,9 @@ module.exports = {
   resolveLineBookingUrl,
   buildOaQuickReplyItems,
   withQuickReply,
-  buildLinkPromptTextMessage,
+  buildUnknownCustomerReply,
+  buildContactAdminAckMessage,
+  buildUnrecognizedMenuPromptMessage,
   buildFollowWelcomeMessage,
   buildBookAgainMessage,
   buildScoreHistoryFlexMessage

@@ -9,7 +9,9 @@ const {
   buildViewLatestResultReply,
   OA_POSTBACK,
   withQuickReply,
-  buildLinkPromptTextMessage,
+  buildUnknownCustomerReply,
+  buildContactAdminAckMessage,
+  buildUnrecognizedMenuPromptMessage,
   buildFollowWelcomeMessage,
   buildBookAgainMessage,
   buildScoreHistoryFlexMessage,
@@ -236,6 +238,7 @@ function parseOaPostbackData(data) {
   if (raw === OA_POSTBACK.VIEW_LATEST || raw === 'view_latest') return 'view_latest';
   if (raw === OA_POSTBACK.HISTORY || raw === 'history') return 'history';
   if (raw === OA_POSTBACK.BOOK_AGAIN || raw === 'book_again') return 'book_again';
+  if (raw === OA_POSTBACK.CONTACT_ADMIN || raw === 'contact_admin') return 'contact_admin';
   return '';
 }
 
@@ -367,11 +370,11 @@ async function replyViewLatest(event, lineUserId, correlationId) {
 
   const linked = await hasLinkedCasesByLineUserId(lineUserId);
   if (!linked) {
-    return sendReplyChecked(event.replyToken, [buildLinkPromptTextMessage()], {
+    return sendReplyChecked(event.replyToken, [buildUnknownCustomerReply()], {
       correlationId,
       lineUserId,
       eventType: event.type,
-      action: 'view_latest_need_link'
+      action: 'unknown_customer'
     });
   }
 
@@ -389,11 +392,11 @@ async function replyViewLatest(event, lineUserId, correlationId) {
 async function replyHistory(event, lineUserId, correlationId) {
   const resolved = await resolveLineCustomerCases(lineUserId);
   if (!resolved.linked) {
-    return sendReplyChecked(event.replyToken, [buildLinkPromptTextMessage()], {
+    return sendReplyChecked(event.replyToken, [buildUnknownCustomerReply()], {
       correlationId,
       lineUserId,
       eventType: event.type,
-      action: 'history_need_link'
+      action: 'unknown_customer'
     });
   }
   if (!resolved.withReport.length) {
@@ -443,10 +446,26 @@ async function replyUnknownPostback(event, lineUserId, correlationId) {
   });
 }
 
+/**
+ * Ends the automated flow (2026-08-27, Unknown Customer flow) -- no case
+ * lookup, no code prompt, nothing created. Staff pick up the conversation
+ * from LINE Official Account Manager's own chat inbox; admin notification
+ * for this handoff is a separate future enhancement.
+ */
+async function replyContactAdmin(event, lineUserId, correlationId) {
+  return sendReplyChecked(event.replyToken, [buildContactAdminAckMessage()], {
+    correlationId,
+    lineUserId,
+    eventType: event.type,
+    action: 'contact_admin'
+  });
+}
+
 async function handleOaIntent(event, intent, lineUserId, correlationId) {
   if (intent === 'view_latest') return replyViewLatest(event, lineUserId, correlationId);
   if (intent === 'history') return replyHistory(event, lineUserId, correlationId);
   if (intent === 'book_again') return replyBookAgain(event, lineUserId, correlationId);
+  if (intent === 'contact_admin') return replyContactAdmin(event, lineUserId, correlationId);
   return null;
 }
 
@@ -487,11 +506,18 @@ async function handleLineEvent(event) {
   }
 
   if (decision.kind === 'default') {
-    return sendReplyChecked(event.replyToken, [buildLinkPromptTextMessage()], {
+    // Unknown Customer flow (2026-08-27): text that doesn't match any known
+    // command/intent. A LINKED customer just gets nudged back to the menu
+    // (their Case is fine, they just didn't type a recognized command) --
+    // only a customer with NO resolvable Case at all sees the Unknown
+    // Customer reply (website / contact admin, no code prompt).
+    const linked = await hasLinkedCasesByLineUserId(lineUserId);
+    const message = linked ? buildUnrecognizedMenuPromptMessage() : buildUnknownCustomerReply();
+    return sendReplyChecked(event.replyToken, [message], {
       correlationId,
       lineUserId,
       eventType: event.type,
-      action: 'asked_for_token'
+      action: linked ? 'unrecognized_menu_prompt' : 'unknown_customer'
     });
   }
 
@@ -738,5 +764,11 @@ module.exports = {
   resolveInboundDecision,
   detectOaIntent,
   parseOaPostbackData,
-  extractFeedbackToken
+  extractFeedbackToken,
+  // Test-only export (2026-08-27, Unknown Customer flow): the full
+  // event-in/reply-out orchestrator, needed to integration-test that an
+  // unresolvable LINE user genuinely gets the Unknown Customer reply (and
+  // never a guessed/leaked Case) end to end, not just its sub-pieces in
+  // isolation. Same function, same behavior.
+  handleLineEvent
 };
