@@ -481,10 +481,16 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .modal-action.danger{color:var(--red)}
 .btn-danger-solid{background:var(--red);color:#fff;flex:1}
 .confirm-modal-sheet{text-align:center;padding-top:28px}
+.confirm-modal-sheet.tinted{background:var(--accent-50)}
 .confirm-modal-icon{width:52px;height:52px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center}
 .confirm-modal-icon.danger{background:#fef2f2;color:var(--red)}
+.confirm-modal-icon.peach{background:#fbe0cf;color:#b45309}
 .confirm-modal-sheet .modal-title{margin-bottom:6px}
 .confirm-modal-message{font-size:14px;color:var(--muted);line-height:1.5;margin:0 0 22px}
+.confirm-modal-actions-plain{display:flex;gap:24px}
+.confirm-modal-link{background:none;border:none;padding:4px 0;font:600 14px inherit;font-family:inherit;cursor:pointer}
+.confirm-modal-link.muted{color:var(--muted)}
+.confirm-modal-link.danger{color:#c2410c}
 .search-inp{width:100%;margin-bottom:12px}
 .notif-sheet .modal-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:4px}
 .notif-sheet .modal-title{margin:0}

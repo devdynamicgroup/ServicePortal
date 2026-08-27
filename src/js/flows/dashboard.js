@@ -397,8 +397,8 @@ async function cancelCase(id = S.activeJob?.id) {
   const job = JOBS.find(j => String(j.id) === String(id));
   if (!job) return;
   const confirmMsg = typeof t === 'function' && S.lang === 'th'
-    ? `ยกเลิกนัดของ ${job.name}?`
-    : `Cancel case for ${job.name}?`;
+    ? `ยกเลิกเคสของ ${job.name}? การดำเนินการนี้ไม่สามารถย้อนกลับได้`
+    : `Cancel case for ${job.name}? This action cannot be undone.`;
   const confirmed = await showCancelCaseConfirm(confirmMsg);
   if (!confirmed) return;
 

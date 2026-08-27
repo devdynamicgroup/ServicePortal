@@ -118,15 +118,15 @@
 
 <!-- Cancel case confirm -->
 <div id="cancel-case-overlay" class="modal-overlay center hidden" onclick="resolveCancelCase(false)">
-  <div class="modal-sheet center confirm-modal-sheet" onclick="event.stopPropagation()">
-    <div class="confirm-modal-icon danger" aria-hidden="true">
+  <div class="modal-sheet center confirm-modal-sheet tinted" onclick="event.stopPropagation()">
+    <div class="confirm-modal-icon peach" aria-hidden="true">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9.5" y1="14.5" x2="14.5" y2="19.5"/><line x1="14.5" y1="14.5" x2="9.5" y2="19.5"/></svg>
     </div>
     <div class="modal-title" data-i18n="dash.cancelCase.title">Cancel case?</div>
     <p id="cancel-case-message" class="confirm-modal-message"></p>
-    <div class="row" style="gap:10px">
-      <button class="btn btn-secondary" type="button" style="flex:1" onclick="resolveCancelCase(false)" data-i18n="dash.cancelCase.keep">Keep case</button>
-      <button class="btn btn-danger-solid" type="button" onclick="resolveCancelCase(true)" data-i18n="dash.cancelCase.confirm">Cancel case</button>
+    <div class="confirm-modal-actions-plain">
+      <button class="confirm-modal-link muted" type="button" onclick="resolveCancelCase(false)" data-i18n="dash.cancelCase.keep">Keep case</button>
+      <button class="confirm-modal-link danger" type="button" onclick="resolveCancelCase(true)" data-i18n="dash.cancelCase.confirm">Confirm cancel</button>
     </div>
   </div>
 </div>
