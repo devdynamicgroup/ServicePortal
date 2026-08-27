@@ -316,17 +316,24 @@ function buildViewLatestResultReply({ job, resultType, resultLinkUrl } = {}) {
   return [textMessage, flexMessage];
 }
 
+// (2026-08-27) Most customers now connect automatically by scanning the QR
+// on their report/poster -- it opens a LIFF link that binds their LINE
+// account with no typing. This text is the fallback for whoever reaches
+// the OA some other way (e.g. never scanned that QR) without having linked
+// yet: at this point in the chat we don't know which Case is theirs, so
+// there's no per-Case link to hand them here -- the fb-xxxx code is kept
+// as the manual backup, framed as optional rather than a required step.
 function buildLinkPromptTextMessage() {
   return withQuickReply({
     type: 'text',
-    text: 'กรุณาส่งรหัส fb-xxxx จากลิงก์บริการ เพื่อเชื่อมบัญชี LINE กับเคสของคุณ\nเชื่อมแล้วจะดูผลตรวจ / ประวัติ / นัดตรวจได้จากเมนูด้านล่าง'
+    text: 'ปกติระบบจะเชื่อมบัญชี LINE ให้อัตโนมัติเมื่อสแกน QR จากหน้าผลตรวจ\nถ้ายังไม่ได้เชื่อม ส่งรหัส fb-xxxx จากลิงก์บริการมาที่นี่ได้เลยครับ\nเชื่อมแล้วจะดูผลตรวจ / ประวัติ / นัดตรวจได้จากเมนูด้านล่าง'
   });
 }
 
 function buildFollowWelcomeMessage() {
   return withQuickReply({
     type: 'text',
-    text: 'ยินดีต้อนรับสู่ Water Motion\nส่งรหัส fb-xxxx เพื่อเชื่อมบัญชี LINE กับบริการของคุณ'
+    text: 'ยินดีต้อนรับสู่ Water Motion\nสแกน QR จากหน้าผลตรวจเพื่อเชื่อมบัญชีอัตโนมัติ หรือส่งรหัส fb-xxxx ก็ได้เช่นกัน'
   });
 }
 
