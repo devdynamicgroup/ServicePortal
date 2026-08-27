@@ -71,6 +71,9 @@ const I18N = {
     'dash.menu.contact': 'Contact',
     'dash.menu.cancel': 'Cancel',
     'dash.menu.preassess': 'Pre-assessment form',
+    'dash.cancelCase.title': 'Cancel case?',
+    'dash.cancelCase.keep': 'Keep case',
+    'dash.cancelCase.confirm': 'Cancel case',
 
     'job.currentJob': 'Current Job',
     'job.workThrough': 'Work through each step below',
@@ -474,6 +477,9 @@ const I18N = {
     'dash.menu.contact': 'ติดต่อ',
     'dash.menu.cancel': 'ยกเลิกนัด',
     'dash.menu.preassess': 'แบบฟอร์มก่อนประเมิน',
+    'dash.cancelCase.title': 'ยกเลิกเคสนี้?',
+    'dash.cancelCase.keep': 'เก็บเคสไว้',
+    'dash.cancelCase.confirm': 'ยกเลิกเคส',
 
     'job.currentJob': 'งานปัจจุบัน',
     'job.workThrough': 'ดำเนินการตามขั้นตอนด้านล่าง',

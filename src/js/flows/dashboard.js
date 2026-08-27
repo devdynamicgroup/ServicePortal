@@ -374,13 +374,33 @@ function showApptMenu(id) {
 }
 
 function closeActionSheet(){ document.getElementById('action-sheet-overlay').classList.add('hidden'); }
+let _cancelCaseResolve = null;
+// Centered app modal instead of the browser's native confirm() dialog
+// (2026-08-27, direct request) -- confirm() can't be styled and looks out
+// of place next to the rest of the UI's custom modals (e.g. #signout-overlay).
+function showCancelCaseConfirm(message) {
+  return new Promise(resolve => {
+    _cancelCaseResolve = resolve;
+    const msgEl = document.getElementById('cancel-case-message');
+    if (msgEl) msgEl.textContent = message;
+    document.getElementById('cancel-case-overlay')?.classList.remove('hidden');
+  });
+}
+function resolveCancelCase(confirmed) {
+  document.getElementById('cancel-case-overlay')?.classList.add('hidden');
+  const resolve = _cancelCaseResolve;
+  _cancelCaseResolve = null;
+  resolve?.(confirmed);
+}
+
 async function cancelCase(id = S.activeJob?.id) {
   const job = JOBS.find(j => String(j.id) === String(id));
   if (!job) return;
   const confirmMsg = typeof t === 'function' && S.lang === 'th'
     ? `ยกเลิกนัดของ ${job.name}?`
     : `Cancel case for ${job.name}?`;
-  if (!confirm(confirmMsg)) return;
+  const confirmed = await showCancelCaseConfirm(confirmMsg);
+  if (!confirmed) return;
 
   const caseId = job.notionId || job.id;
   const isNotionJob = Boolean(job.notionId || job.notionSource);

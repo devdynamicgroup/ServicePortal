@@ -116,6 +116,18 @@
   </div>
 </div>
 
+<!-- Cancel case confirm -->
+<div id="cancel-case-overlay" class="modal-overlay center hidden" onclick="resolveCancelCase(false)">
+  <div class="modal-sheet center" onclick="event.stopPropagation()">
+    <div class="modal-title" data-i18n="dash.cancelCase.title">Cancel case?</div>
+    <p id="cancel-case-message" style="font-size:14px;color:var(--muted);margin:8px 0 20px;line-height:1.5"></p>
+    <div class="row" style="gap:10px">
+      <button class="btn btn-secondary" type="button" style="flex:1" onclick="resolveCancelCase(false)" data-i18n="dash.cancelCase.keep">Keep case</button>
+      <button class="btn btn-primary" type="button" style="flex:1" onclick="resolveCancelCase(true)" data-i18n="dash.cancelCase.confirm">Cancel case</button>
+    </div>
+  </div>
+</div>
+
 <!-- Month picker -->
 <div id="month-overlay" class="modal-overlay hidden" onclick="closeMonthPicker()">
   <div class="modal-sheet" onclick="event.stopPropagation()">

@@ -7,6 +7,7 @@ function closeTransientOverlays() {
     'notif-overlay',
     'lang-overlay',
     'signout-overlay',
+    'cancel-case-overlay',
     'month-overlay',
     'pkg-overlay',
     'pkg-sheet'
