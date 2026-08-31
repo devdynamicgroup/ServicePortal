@@ -555,6 +555,23 @@ function updateJobHeader(job) {
   if (nameEl) nameEl.textContent = job.name;
   if (timeEl) timeEl.textContent = `${job.timeStart} – ${job.timeEnd}`;
   if (pkgEl) pkgEl.textContent = S.pkg === 'full' ? t('dash.pkg.full') : t('dash.pkg.essential');
+
+  // Field staff read this code aloud so the customer can add LINE and send
+  // it themselves -- the same fb-xxxx token the chat/QR bind flow already
+  // accepts (see api/line-routes.js:extractFeedbackToken). Hidden when a
+  // Case is already LINE-linked, since there's nothing left to connect.
+  const lineCodeField = document.getElementById('job-line-code-field');
+  const lineCodeValue = document.getElementById('job-line-code-value');
+  const feedbackToken = String(job?.feedback?.token || '').trim();
+  const alreadyLinked = Boolean(job?.line?.linked);
+  if (lineCodeField && lineCodeValue) {
+    if (feedbackToken && !alreadyLinked) {
+      lineCodeValue.textContent = feedbackToken;
+      lineCodeField.style.display = '';
+    } else {
+      lineCodeField.style.display = 'none';
+    }
+  }
 }
 
 function persistJobs() {
