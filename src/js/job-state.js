@@ -359,11 +359,68 @@ let _assessmentSyncTimer = null;
 let _assessmentSyncQueue = Promise.resolve();
 let _assessmentSyncSeq = 0;
 
+/**
+ * Order-independent structural equality for two assessment-snapshot `taps`
+ * arrays -- client-side twin of the same check in
+ * services/assessment-persistence-service.js (kept as a small independent
+ * copy rather than a shared import: browser vs. Node runtime, and this is a
+ * ~20-line pure utility, not the kind of logic worth adding cross-runtime
+ * plumbing for). Deliberately not a JSON.stringify comparison -- see the
+ * server-side copy's comment for why. Never touches assessment-snapshot.js
+ * or reinterprets any measurement/scoring semantics.
+ */
+function assessmentTapsEqual(a, b) {
+  if (a === b) return true;
+  if (typeof a === 'number' && typeof b === 'number') {
+    return a === b || (Number.isNaN(a) && Number.isNaN(b));
+  }
+  if (typeof a !== typeof b) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (!assessmentTapsEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  const aIsObj = a !== null && typeof a === 'object';
+  const bIsObj = b !== null && typeof b === 'object';
+  if (aIsObj || bIsObj) {
+    if (!aIsObj || !bIsObj) return false;
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    if (aKeys.length !== bKeys.length) return false;
+    for (const key of aKeys) {
+      if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+      if (!assessmentTapsEqual(a[key], b[key])) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
 function scheduleAssessmentSync(job = S.activeJob) {
   if (!job?.notionId || job.manualPending) return;
   const draft = getJobDraft(job);
   if (typeof AssessmentSnapshot === 'undefined' || !AssessmentSnapshot.draftHasMeasurements(draft)) {
     return;
+  }
+  // Content-equality guard (2026-08-31 root-cause fix): saveActiveJobState()
+  // runs on plain navigation/step-completion too, not just genuine
+  // measurement edits. Skip scheduling the sync entirely when nothing has
+  // actually changed since the last confirmed-persisted content -- avoids
+  // both the wasted network round trip and (defense in depth alongside the
+  // server-side guard) needless revision churn.
+  if (draft._lastSyncedSnapshotTaps) {
+    let candidate = null;
+    try {
+      candidate = buildAssessmentSnapshot(job);
+    } catch {
+      candidate = null;
+    }
+    if (candidate && assessmentTapsEqual(candidate.taps, draft._lastSyncedSnapshotTaps)) {
+      return;
+    }
   }
   clearTimeout(_assessmentSyncTimer);
   _assessmentSyncTimer = setTimeout(() => {
@@ -434,6 +491,11 @@ async function syncJobAssessmentToNotion(job = S.activeJob) {
       draft.assessmentUpdatedAt = saved.updatedAt || snapshot.updatedAt;
       draft.assessmentSyncStatus = 'SYNCED';
       draft.assessmentSyncError = null;
+      // Refresh the content-equality baseline from what the server confirms
+      // is now persisted (whether this call actually wrote or was itself
+      // skipped as a no-change) -- keeps scheduleAssessmentSync()'s guard
+      // accurate for the next call, same fix as the loadJobState() seed.
+      draft._lastSyncedSnapshotTaps = Array.isArray(saved.taps) ? saved.taps : draft._lastSyncedSnapshotTaps;
       persistJobs();
 
       if (payload.case && typeof mergeApiCaseIntoJob === 'function') {
@@ -559,6 +621,23 @@ function loadJobState(job) {
   } else {
     S.activeTap = draft.activeTap || 0;
   }
+
+  // Baseline for scheduleAssessmentSync()'s content-equality guard: what the
+  // server/Notion currently has, right after hydration -- not merely what
+  // this session has synced. Without this, the FIRST saveActiveJobState()
+  // after simply opening an existing, already-measured Case (e.g. a plain
+  // navigation) would find no local baseline yet and sync unconditionally,
+  // reproducing the same revision-inflation-from-navigation bug from a cold
+  // start (2026-08-31 root-cause fix). Read-only use of AssessmentSnapshot's
+  // existing buildSnapshot() -- assessment-snapshot.js itself is untouched.
+  draft._lastSyncedSnapshotTaps = (typeof AssessmentSnapshot !== 'undefined' && AssessmentSnapshot.draftHasMeasurements(draft))
+    ? AssessmentSnapshot.buildSnapshot({
+        taps: draft.taps,
+        tapData: draft.tapData,
+        revision: draft.assessmentRevision || 1,
+        updatedAt: draft.assessmentUpdatedAt || new Date().toISOString()
+      }).taps
+    : null;
 
   // Normalize abandoned in-flight uploads so previews + retry work after reload.
   if (typeof normalizeInterruptedPhoto === 'function') {

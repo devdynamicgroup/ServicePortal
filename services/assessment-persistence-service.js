@@ -17,6 +17,53 @@ const AssessmentSnapshot = require('../src/js/assessment-snapshot');
 
 const PROPERTY_NAME = 'Assessment Snapshot';
 
+/**
+ * Order-independent structural equality for two assessment-snapshot `taps`
+ * arrays. Deliberately NOT a JSON.stringify comparison -- buildTapSnapshot()/
+ * mergeTap() (src/js/assessment-snapshot.js) both build their readings
+ * sub-objects by iterating fixed key-order arrays (METER_KEYS/CHLORINE_KEYS/
+ * STANDARD_KEYS/TASK_KEYS) so property insertion order is deterministic in
+ * practice, but relying on that as an implicit contract across two different
+ * construction paths (a fresh build vs. a merge) is exactly the kind of
+ * false-positive-change risk this must not reintroduce. Arrays stay
+ * position-sensitive (tap order and meterImages order are meaningful data,
+ * not incidental); plain objects are compared by key set + recursive value
+ * equality, independent of property order.
+ *
+ * Pure, read-only, no side effects. Does not touch or reinterpret any
+ * measurement value or scoring semantics -- only decides whether two
+ * snapshots' CONTENT is identical.
+ */
+function snapshotContentEqual(a, b) {
+  if (a === b) return true;
+  if (typeof a === 'number' && typeof b === 'number') {
+    return a === b || (Number.isNaN(a) && Number.isNaN(b));
+  }
+  if (typeof a !== typeof b) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (!snapshotContentEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  const aIsObj = a !== null && typeof a === 'object';
+  const bIsObj = b !== null && typeof b === 'object';
+  if (aIsObj || bIsObj) {
+    if (!aIsObj || !bIsObj) return false;
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    if (aKeys.length !== bKeys.length) return false;
+    for (const key of aKeys) {
+      if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+      if (!snapshotContentEqual(a[key], b[key])) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
 async function ensureAssessmentSnapshotProperty() {
   if (!isNotionConfigured()) {
     const error = new Error('Notion is not configured');
@@ -157,6 +204,27 @@ async function submitCaseAssessment(caseId, body = {}) {
     }
 
     const merged = AssessmentSnapshot.mergeSnapshots(existing, incoming);
+
+    // Content-equality guard (2026-08-31 root-cause fix): saveActiveJobState()
+    // -- and therefore scheduleAssessmentSync() -- fires on plain navigation
+    // and step-completion, not just genuine measurement edits, and had no
+    // way to tell those apart. A merge that produces the SAME taps content
+    // as what's already stored is not a real change; incrementing revision/
+    // assessmentUpdatedAt for it turned "revision" into a count of syncs,
+    // not a count of edits. Skip the write (and the revision/timestamp
+    // advance) entirely when nothing actually changed -- everything else
+    // (terminal-case guard, stale-revision rejection, the merge itself) is
+    // unchanged.
+    if (existing && snapshotContentEqual(merged.taps, existing.taps)) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: 'no_change',
+        snapshot: existing,
+        case: job
+      };
+    }
+
     const serialized = AssessmentSnapshot.serializeSnapshot(merged);
 
     const updated = await updateClient(job.notionId, {
