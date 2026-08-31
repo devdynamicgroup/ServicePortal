@@ -18,10 +18,18 @@
         <span class="tag" id="job-pkg-tag">Essential</span>
       </div>
       <div class="job-intro-sub" data-i18n="job.workThrough">Work through each step below</div>
-      <div class="field" id="job-line-code-field" style="margin-top:10px;display:none">
-        <label data-i18n="job.lineCode.label">LINE connect code</label>
-        <div style="font-size:18px;font-weight:700;letter-spacing:0.03em;font-family:monospace" id="job-line-code-value">—</div>
-        <span class="field-hint" data-i18n="job.lineCode.hint">Read this to the customer on-site: add our LINE, then send this code to connect their result.</span>
+      <div class="line-code-card" id="job-line-code-field" style="display:none">
+        <div class="line-code-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="line-code-body">
+          <div class="line-code-label" data-i18n="job.lineCode.label">LINE connect code</div>
+          <button type="button" class="line-code-chip" id="job-line-code-value" onclick="copyLineCode()">
+            <span id="job-line-code-text">—</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+          <div class="line-code-hint" data-i18n="job.lineCode.hint">Read this to the customer on-site: add our LINE, then send this code to connect their result.</div>
+        </div>
       </div>
     </div>
     <div id="job-steps"></div>

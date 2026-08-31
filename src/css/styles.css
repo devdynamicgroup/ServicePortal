@@ -206,6 +206,14 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .step-done-check svg{width:12px;height:12px}
 .step-card.done .step-done-check{display:flex}
 .step-chevron{color:var(--dim);flex-shrink:0;display:flex;align-items:center}
+.line-code-card{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;margin-top:12px;background:var(--accent-50);border:1px solid var(--accent-100);border-radius:var(--radius-lg)}
+.line-code-icon{width:34px;height:34px;border-radius:50%;background:var(--surface);color:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.line-code-body{flex:1;min-width:0}
+.line-code-label{font-size:11px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.line-code-chip{display:inline-flex;align-items:center;gap:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:19px;font-weight:700;letter-spacing:.02em;color:var(--text);background:var(--surface);border:1px solid var(--accent-100);border-radius:var(--radius);padding:6px 12px;margin-bottom:6px;cursor:pointer;transition:transform .1s}
+.line-code-chip:active{transform:scale(.96)}
+.line-code-chip svg{color:var(--dim);flex-shrink:0}
+.line-code-hint{font-size:12px;color:var(--muted);line-height:1.45}
 .step-card.done .step-chevron{display:none}
 .step-chevron img{width:16px;height:16px;opacity:.5}
 .job-intro{margin-bottom:12px}

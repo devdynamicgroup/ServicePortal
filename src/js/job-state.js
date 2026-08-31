@@ -561,16 +561,28 @@ function updateJobHeader(job) {
   // accepts (see api/line-routes.js:extractFeedbackToken). Hidden when a
   // Case is already LINE-linked, since there's nothing left to connect.
   const lineCodeField = document.getElementById('job-line-code-field');
-  const lineCodeValue = document.getElementById('job-line-code-value');
+  const lineCodeText = document.getElementById('job-line-code-text');
   const feedbackToken = String(job?.feedback?.token || '').trim();
   const alreadyLinked = Boolean(job?.line?.linked);
-  if (lineCodeField && lineCodeValue) {
+  if (lineCodeField && lineCodeText) {
     if (feedbackToken && !alreadyLinked) {
-      lineCodeValue.textContent = feedbackToken;
+      lineCodeText.textContent = feedbackToken;
       lineCodeField.style.display = '';
     } else {
       lineCodeField.style.display = 'none';
     }
+  }
+}
+
+function copyLineCode() {
+  const lineCodeText = document.getElementById('job-line-code-text');
+  const code = String(lineCodeText?.textContent || '').trim();
+  if (!code) return;
+  const done = () => showToast(t('job.lineCode.copied'));
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(code).then(done).catch(done);
+  } else {
+    done();
   }
 }
 
