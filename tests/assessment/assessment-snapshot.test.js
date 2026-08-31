@@ -168,6 +168,69 @@ console.log('\napplySnapshotToDraft + preferDraft');
   const emptyLocal = { tapData: [{ tasks: {}, photos: {} }], assessmentUpdatedAt: '2026-08-10T10:00:00.000Z' };
   const preferred = AssessmentSnapshot.preferDraft(emptyLocal, draft);
   assert(preferred === draft, 'Notion measurements win over empty local');
+
+  // 2026-08-31: neither side has measurements yet (a Case fresh from
+  // Cal.com/the website, never assessed on-site) -- a stale/empty local
+  // draft must not permanently shadow Notion's fully-populated contact
+  // fields just because there's no measurement data to compare.
+  const staleEmptyLocal = { tapData: [{ tasks: {}, photos: {} }], fields: {} };
+  const richRemote = {
+    tapData: [{ tasks: {}, photos: {} }],
+    fields: { 'ci-fname': 'Water', 'ci-lname': 'M.', 'ci-phone': '+66960297415', 'ci-email': 'a@b.com', 'ci-addr': 'Bangkok, 10110' }
+  };
+  const preferredIdentity = AssessmentSnapshot.preferDraft(staleEmptyLocal, richRemote);
+  assert(preferredIdentity === richRemote, 'no measurements on either side: Notion contact fields win over an empty local draft');
+
+  // A local draft that genuinely has MORE identity info than remote (e.g.
+  // an operator typed a correction that has not synced yet) must still win
+  // -- this fix only breaks ties in Notion's favor, never unconditionally.
+  const richerLocal = {
+    tapData: [{ tasks: {}, photos: {} }],
+    fields: { 'ci-fname': 'Water', 'ci-lname': 'M.', 'ci-phone': '+66960297415', 'ci-email': 'a@b.com', 'ci-addr': '123 Real St, Bangkok, 10110' }
+  };
+  const sparseRemote = { tapData: [{ tasks: {}, photos: {} }], fields: { 'ci-fname': 'Water' } };
+  const preferredLocalStillWins = AssessmentSnapshot.preferDraft(richerLocal, sparseRemote);
+  assert(preferredLocalStillWins === richerLocal, 'a local draft with MORE identity fields than remote still wins (not an unconditional remote-first flip)');
+}
+
+console.log('\nOption B — resolveDisplayActiveTap (กิตติชัย-shaped)');
+{
+  const empty = { tasks: {}, photos: {} };
+  const shower = {
+    tasks: { tapphoto: true, visual: true, meter: true, chlorine: true },
+    photos: {},
+    meterReadings: { ph: 7.66, tds: 151, turbidity: 0.62, orp: 194.9, do: 4.74, temp: 28.13 },
+    chlorineReadings: { freeChlorine: 0.03 },
+    standardMeasurement: { ph: 7.66, tds: 151, turbidity: 0.62, orp: 194.9, do: 4.74, temp: 28.13, chlorine: 0.03 }
+  };
+  const draft = {
+    activeTap: 0,
+    taps: ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest'],
+    tapData: [empty, empty, shower, empty, empty]
+  };
+  assert(AssessmentSnapshot.resolveDisplayActiveTap(draft) === 2, 'empty Kitchen → Shower index 2');
+
+  const snap = AssessmentSnapshot.buildSnapshot({
+    taps: draft.taps,
+    tapData: draft.tapData,
+    revision: 45
+  });
+  const hydrated = AssessmentSnapshot.applySnapshotToDraft({ activeTap: 0 }, snap);
+  assert(hydrated.activeTap === 2, 'applySnapshotToDraft sets activeTap to Shower');
+  assert(hydrated.tapData[2].meterReadings.ph === 7.66, 'Shower readings preserved');
+  assert(Object.keys(hydrated.tapData[0].meterReadings || {}).length === 0, 'Kitchen stays empty');
+
+  const keep = AssessmentSnapshot.resolveDisplayActiveTap({
+    activeTap: 2,
+    tapData: draft.tapData
+  });
+  assert(keep === 2, 'keeps Shower when already selected');
+
+  const noData = AssessmentSnapshot.resolveDisplayActiveTap({
+    activeTap: 0,
+    tapData: [empty, empty, empty]
+  });
+  assert(noData === 0, 'all empty → keep current');
 }
 
 console.log('\nCase 13.28 snapshot + score regression via production engine');

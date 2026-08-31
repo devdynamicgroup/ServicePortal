@@ -6,6 +6,51 @@ const JOB_FIELD_IDS = [
   'fb-comment', 'fb-consent'
 ];
 
+// The subset of JOB_FIELD_IDS that represents customer contact/preassessment
+// identity data, as opposed to on-site measurements (m-*) or feedback
+// (fb-*). Used for genuine-edit dirty-tracking (contactFieldsDirtyAt) --
+// see markContactFieldDirtyIfChanged() -- kept as an explicit list rather
+// than deriving it from JOB_FIELD_IDS by prefix so the two concerns stay
+// visibly separate at the definition site, not just by naming convention.
+const CONTACT_FIELD_IDS = [
+  'ci-fname', 'ci-lname', 'ci-phone', 'ci-line', 'ci-email',
+  'ci-contact', 'ci-contact-ph', 'ci-city', 'ci-postal', 'ci-addr', 'ci-maps',
+  'ci-proptype', 'ci-propage', 'ci-filter', 'ci-source', 'ci-consent'
+];
+
+// Snapshot of each contact field's value as of the last time it was
+// populated FROM data (loadJobState hydration), not edited by a person.
+// Compared against on every real input event so a genuine keystroke can be
+// told apart from the DOM simply holding whatever it was populated with --
+// see markContactFieldDirtyIfChanged(). Reset every loadJobState() call;
+// never persisted itself.
+// var (not let): needs to be reachable/settable as a global-scope property
+// for test harnesses (Node's vm module does not expose top-level `let`
+// bindings on the sandbox object, only `var`/function declarations do) --
+// no behavioral difference in the browser, this file has never been an ES
+// module.
+var contactFieldsBaseline = {};
+
+/**
+ * Stamp draft.contactFieldsDirtyAt ONLY when a ci-* field's value has
+ * genuinely changed from what it held right after the last hydration --
+ * not on every navigation/save/render. This is the fix for the forensic
+ * finding that the existing localEditedAt is stamped unconditionally by
+ * saveActiveJobState() on every screen change, which made it unusable as a
+ * "was this field actually edited by a person" signal for contact data
+ * (2026-08-31 root-cause trace).
+ */
+function markContactFieldDirtyIfChanged(id, newValue) {
+  if (!CONTACT_FIELD_IDS.includes(id)) return;
+  const previous = contactFieldsBaseline[id];
+  if (previous === newValue) return;
+  contactFieldsBaseline[id] = newValue;
+  if (!S.activeJob) return;
+  const draft = getJobDraft(S.activeJob);
+  if (!draft) return;
+  draft.contactFieldsDirtyAt = new Date().toISOString();
+}
+
 const DEFAULT_TAPS = ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest'];
 
 /**
@@ -106,8 +151,17 @@ function restoreActiveCaseFromPersistence() {
   // DEFAULT_TAPS (UJ-06 cold-reload wipe).
   if (job.draft?.taps?.length) {
     S.taps = [...job.draft.taps];
-    S.activeTap = job.draft.activeTap || 0;
     S.tapData = fastDeepClone(job.draft.tapData || S.taps.map(() => ({ tasks: {}, photos: {} })));
+    // Option B: if draft.activeTap points at an empty row, show first tap with data.
+    if (typeof AssessmentSnapshot !== 'undefined' && AssessmentSnapshot.resolveDisplayActiveTap) {
+      S.activeTap = AssessmentSnapshot.resolveDisplayActiveTap({
+        activeTap: job.draft.activeTap,
+        tapData: S.tapData
+      });
+      job.draft.activeTap = S.activeTap;
+    } else {
+      S.activeTap = job.draft.activeTap || 0;
+    }
     S.pkg = job.draft.pkg || job.pkg || S.pkg;
   }
   // Only pull the calendar off today for a Case the operator is genuinely
@@ -490,10 +544,21 @@ function loadJobState(job) {
   S.paymentSlipPhoto = draft.paymentSlipPhoto;
   S.paymentSlipSource = draft.paymentSlipSource;
   S.taps = draft.taps?.length ? [...draft.taps] : [...DEFAULT_TAPS];
-  S.activeTap = draft.activeTap || 0;
   S.tapData = draft.tapData?.length
     ? fastDeepClone(draft.tapData)
     : S.taps.map(() => ({ tasks: {}, photos: {} }));
+  // Option B — Active Tap Hydration: never leave UI on an empty tap when another
+  // tap already has persisted measurements/tasks (e.g. Case กิตติชัย → Shower).
+  // Mutates draft.activeTap / S.activeTap only — not tapData contents or score.
+  if (typeof AssessmentSnapshot !== 'undefined' && AssessmentSnapshot.resolveDisplayActiveTap) {
+    S.activeTap = AssessmentSnapshot.resolveDisplayActiveTap({
+      activeTap: draft.activeTap,
+      tapData: S.tapData
+    });
+    draft.activeTap = S.activeTap;
+  } else {
+    S.activeTap = draft.activeTap || 0;
+  }
 
   // Normalize abandoned in-flight uploads so previews + retry work after reload.
   if (typeof normalizeInterruptedPhoto === 'function') {
@@ -518,6 +583,12 @@ function loadJobState(job) {
   }
 
   JOB_FIELD_IDS.forEach(id => writeField(id, draft.fields[id]));
+  // Hydration baseline only -- must never stamp contactFieldsDirtyAt. Records
+  // what each contact field holds right after being populated FROM data, so
+  // a later genuine keystroke (markContactFieldDirtyIfChanged) can tell
+  // itself apart from the DOM merely still holding what was just loaded.
+  contactFieldsBaseline = {};
+  CONTACT_FIELD_IDS.forEach(id => { contactFieldsBaseline[id] = readField(id); });
 
   const ownerVal = draft.owner || 'yes';
   document.querySelectorAll('#owner-radios .radio-item').forEach(el => {
@@ -635,6 +706,33 @@ async function persistActiveCaseScoreStandard(standardKey = S.scoreStandardKey) 
   }
 }
 
+/**
+ * Decide which side's contact/preassessment fields (ci-*) are authoritative
+ * -- kept fully independent of AssessmentSnapshot.preferDraft's measurement
+ * decision (Phase 12: these are separate concerns, not to be merged).
+ *
+ * Freshness-first, per the 2026-08-31 forensic fix: services/notion/
+ * mapper.js rebuilds draft.fields from Notion's LIVE property values on
+ * every single API request -- there is no stored "remote timestamp" to
+ * compare against, because remote has no cached snapshot that could go
+ * stale. Local only wins when there is a genuine edit
+ * (contactFieldsDirtyAt, stamped only on an actual value change -- see
+ * markContactFieldDirtyIfChanged) that has not yet been confirmed synced
+ * (contactSyncedAt, stamped only on a real successful write -- see
+ * syncJobProfileToNotion). Field-count/completeness is never consulted:
+ * that was the original bug (a stale-but-complete local draft could beat a
+ * fresher, equally-complete remote one on a tie).
+ */
+function preferContactFields(localDraft, remoteDraft) {
+  const remoteFields = remoteDraft?.fields || {};
+  const localFields = localDraft?.fields || {};
+  const dirtyAt = Date.parse(localDraft?.contactFieldsDirtyAt || 0) || 0;
+  if (!dirtyAt) return remoteFields; // no genuine local edit ever recorded -- remote (always-live) wins
+  const syncedAt = Date.parse(localDraft?.contactSyncedAt || 0) || 0;
+  if (dirtyAt > syncedAt) return localFields; // a real edit postdates the last confirmed write -- keep it
+  return remoteFields; // the edit has already been confirmed synced -- remote reflects it too
+}
+
 function mergeApiCaseIntoJob(localJob, apiCase) {
   if (!localJob || !apiCase) return localJob;
   const preservedDraft = localJob.draft || getJobDraft(localJob);
@@ -648,7 +746,16 @@ function mergeApiCaseIntoJob(localJob, apiCase) {
     ...preferredDraft,
     ...(isKnownScoreStandardKey(remoteScoreStandard)
       ? { scoreStandardKey: remoteScoreStandard }
-      : (isKnownScoreStandardKey(localScoreStandard) ? { scoreStandardKey: localScoreStandard } : {}))
+      : (isKnownScoreStandardKey(localScoreStandard) ? { scoreStandardKey: localScoreStandard } : {})),
+    // Contact/preassessment fields are decided independently of whichever
+    // side won for measurements (preferredDraft above) -- see
+    // preferContactFields(). contactFieldsDirtyAt/contactSyncedAt are
+    // client-only bookkeeping the API never returns, so they must be
+    // explicitly carried forward from the local side regardless of which
+    // whole draft "won", or a reload would silently forget a pending edit.
+    fields: preferContactFields(preservedDraft, remoteDraft),
+    contactFieldsDirtyAt: preservedDraft?.contactFieldsDirtyAt,
+    contactSyncedAt: preservedDraft?.contactSyncedAt
   };
   const keepInProgress = localJob.status === 'in_progress';
   Object.assign(localJob, apiCase, {
@@ -1143,6 +1250,12 @@ async function syncJobProfileToNotion(job = S.activeJob) {
     }
     if (payload.case) mergeApiCaseIntoJob(job, payload.case);
     else syncJobMetaFromDraft(job, draft);
+    // Confirmed-write marker: contact fields as of this successful sync are
+    // now known to match Notion. Compared against contactFieldsDirtyAt in
+    // preferContactFields() -- an edit stamped BEFORE this point is safely
+    // superseded; an edit stamped AFTER (typed during/after this request)
+    // still correctly looks unsynced.
+    getJobDraft(job).contactSyncedAt = new Date().toISOString();
     persistJobs();
     return { ok: true, case: job };
   } catch (error) {
@@ -1156,6 +1269,17 @@ function isJobCancelled(job) {
   const workflow = String(job?.workflow?.status || '').toLowerCase();
   return ['cancelled', 'canceled'].includes(status)
     || ['cancelled', 'canceled'].includes(workflow);
+}
+
+// CSV mock seed is local/dev only. Production hosts must never treat
+// clients_30_mock_data.csv as the dashboard list (F-01).
+function allowLocalCsvJobSeed() {
+  try {
+    const host = String((typeof location !== 'undefined' && location.hostname) || '').toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
+  } catch {
+    return false;
+  }
 }
 
 // Every goScreen('s-dash') call fires an un-awaited loadJobsFromApi() call
@@ -1178,12 +1302,16 @@ async function loadJobsFromApi() {
         ok: payload.ok,
         error: payload.error || null
       });
+      setDataSource('unavailable', { status: response.status, ok: payload.ok });
       return false;
     }
 
     const jobs = Array.isArray(payload) ? payload : payload.jobs;
-    if (!Array.isArray(jobs) || !jobs.length) {
-      console.warn('[Service Portal] GET /api/clients returned no jobs', payload);
+    // Empty list is a successful production read — not an API failure.
+    // Only a missing/non-array jobs field is malformed.
+    if (!Array.isArray(jobs)) {
+      console.warn('[Service Portal] GET /api/clients malformed jobs payload', payload);
+      setDataSource('unavailable', { reason: 'malformed_jobs' });
       return false;
     }
 
@@ -1245,7 +1373,13 @@ async function loadJobsFromApi() {
             ...preferred,
             ...(isKnownScoreStandardKey(remoteScoreStandard)
               ? { scoreStandardKey: remoteScoreStandard }
-              : (isKnownScoreStandardKey(localScoreStandard) ? { scoreStandardKey: localScoreStandard } : {}))
+              : (isKnownScoreStandardKey(localScoreStandard) ? { scoreStandardKey: localScoreStandard } : {})),
+            // Same independent contact-freshness decision as mergeApiCaseIntoJob
+            // -- see preferContactFields(). Dashboard list refresh is exactly
+            // the path the original bug was reported on.
+            fields: preferContactFields(localDraft, job.draft),
+            contactFieldsDirtyAt: localDraft?.contactFieldsDirtyAt,
+            contactSyncedAt: localDraft?.contactSyncedAt
           };
           next.draft = draft;
           syncJobMetaFromDraft(next, draft);
@@ -1299,6 +1433,7 @@ async function loadJobsFromApi() {
     return true;
   } catch (error) {
     console.warn('[Service Portal] GET /api/clients error', error);
+    setDataSource('unavailable', { error: error.message || 'network_error' });
     return false;
   }
 }

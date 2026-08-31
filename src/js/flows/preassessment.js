@@ -61,6 +61,22 @@ function digitsOnly(value) {
   return (value || '').replace(/\D/g, '');
 }
 
+// A customer typing their number in international format (+66812345678 or
+// 66812345678) used to fail validation outright -- the field only ever
+// recognized the domestic 0xxxxxxxxx shape it displays as a placeholder.
+// Rewrite the +66/66 prefix to the leading 0 this form already expects,
+// rather than teaching validation a second accepted shape.
+function normalizeThaiPhoneDigits(rawValue) {
+  const digits = digitsOnly(rawValue);
+  if (digits.length === 13 && digits.startsWith('0066')) {
+    return `0${digits.slice(4)}`;
+  }
+  if (digits.length === 11 && digits.startsWith('66')) {
+    return `0${digits.slice(2)}`;
+  }
+  return digits;
+}
+
 function getFieldValue(id) {
   const el = document.getElementById(id);
   if (!el) return '';
@@ -69,7 +85,7 @@ function getFieldValue(id) {
     const selected = [...el.options].find(option => option.selected);
     return (el.value || selected?.value || selected?.textContent || S.activeJob?.draft?.fields?.[id] || '').trim();
   }
-  if (id === 'ci-phone' || id === 'ci-contact-ph') return digitsOnly(el.value);
+  if (id === 'ci-phone' || id === 'ci-contact-ph') return normalizeThaiPhoneDigits(el.value);
   if (id === 'ci-city') return (el.value || 'Bangkok').trim();
   return (el.value || S.activeJob?.draft?.fields?.[id] || '').trim();
 }
@@ -200,13 +216,26 @@ function initPreassessmentValidation() {
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    ['input', 'change', 'blur'].forEach(evt => el.addEventListener(evt, updatePreassessmentCompletionState));
+    ['input', 'change', 'blur'].forEach(evt => el.addEventListener(evt, () => {
+      // markContactFieldDirtyIfChanged only stamps when the value actually
+      // differs from what was last loaded -- firing on blur too is harmless,
+      // it just no-ops when nothing changed since baseline.
+      if (typeof markContactFieldDirtyIfChanged === 'function') {
+        markContactFieldDirtyIfChanged(id, typeof readField === 'function' ? readField(id) : el.value);
+      }
+      updatePreassessmentCompletionState();
+    }));
   });
   ['ci-phone', 'ci-contact-ph'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input', () => {
-      const digits = digitsOnly(el.value).slice(0, 10);
+      // Truncating to 10 raw digits on every keystroke (the original behavior)
+      // silently mangled an international-format number before there were
+      // ever enough digits typed to recognize the 66-prefix -- normalize
+      // first, then cap, so +66/66-prefixed input still lands on the correct
+      // domestic 0xxxxxxxxx form instead of a truncated garbage string.
+      const digits = normalizeThaiPhoneDigits(el.value).slice(0, 10);
       if (el.value !== digits) el.value = digits;
       updatePreassessmentCompletionState();
     });

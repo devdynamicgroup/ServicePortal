@@ -342,6 +342,40 @@
     });
   }
 
+  /**
+   * True when a tap row has persisted operator work (measurements / tasks / photos).
+   * Does not use score, eligibility, or draft.fields.
+   */
+  function tapHasPersistedWork(tap) {
+    if (!tap || typeof tap !== 'object') return false;
+    if (Object.keys(tap.meterReadings || {}).length) return true;
+    if (Object.keys(tap.chlorineReadings || {}).length) return true;
+    if (Object.keys(tap.standardMeasurement || {}).length) return true;
+    if (Array.isArray(tap.meterImages) && tap.meterImages.length) return true;
+    if (Object.values(tap.tasks || {}).some(Boolean)) return true;
+    if (Object.values(tap.photos || {}).some(Boolean)) return true;
+    return false;
+  }
+
+  /**
+   * Option B — display activeTap for hydration only.
+   * If current activeTap points at an empty row but another tap has persisted
+   * work, return the first such index. Never mutates tapData contents.
+   */
+  function resolveDisplayActiveTap(draft) {
+    const tapData = Array.isArray(draft?.tapData) ? draft.tapData : [];
+    if (!tapData.length) return 0;
+    const raw = Number(draft?.activeTap);
+    const current = Number.isFinite(raw)
+      ? Math.max(0, Math.min(Math.floor(raw), tapData.length - 1))
+      : 0;
+    if (tapHasPersistedWork(tapData[current])) return current;
+    for (let i = 0; i < tapData.length; i += 1) {
+      if (tapHasPersistedWork(tapData[i])) return i;
+    }
+    return current;
+  }
+
   /** Reconstruct draft.taps / draft.tapData from a validated snapshot. */
   function applySnapshotToDraft(draft, snapshot) {
     const target = draft && typeof draft === 'object' ? draft : {};
@@ -365,6 +399,9 @@
     target.assessmentUpdatedAt = snapshot.updatedAt;
     target.assessmentRevision = snapshot.revision;
     target.assessmentSnapshotVersion = snapshot.version;
+    // Hydration only: point UI at a tap that actually has persisted work.
+    // Does not rewrite tapData / readings / tasks.
+    target.activeTap = resolveDisplayActiveTap(target);
     return target;
   }
 
@@ -381,13 +418,32 @@
     });
   }
 
+  // How many of the core contact/identity fields (name, phone, email,
+  // address) a draft actually has filled in. Used only to break a tie when
+  // neither draft has measurements yet -- e.g. a Case that just arrived from
+  // Cal.com/the website and has never been assessed on-site. Without this,
+  // an empty/partial local draft cached from an earlier, incomplete load
+  // (before the webhook had finished writing the Case) would keep winning
+  // over Notion's fully-populated draft forever, since neither side had any
+  // measurements to compare (2026-08-31, reported as "data shows up once,
+  // then disappears on reopen").
+  function draftIdentityFieldCount(draft) {
+    const fields = draft?.fields;
+    if (!fields || typeof fields !== 'object') return 0;
+    return ['ci-fname', 'ci-lname', 'ci-phone', 'ci-email', 'ci-addr']
+      .reduce((count, key) => count + (String(fields[key] || '').trim() ? 1 : 0), 0);
+  }
+
   /** Prefer richer / newer draft when merging local cache with Notion job. */
   function preferDraft(localDraft, remoteDraft) {
     const localHas = draftHasMeasurements(localDraft);
     const remoteHas = draftHasMeasurements(remoteDraft);
     if (localHas && !remoteHas) return localDraft;
     if (remoteHas && !localHas) return remoteDraft;
-    if (!localHas && !remoteHas) return localDraft || remoteDraft || null;
+    if (!localHas && !remoteHas) {
+      if (draftIdentityFieldCount(remoteDraft) > draftIdentityFieldCount(localDraft)) return remoteDraft;
+      return localDraft || remoteDraft || null;
+    }
 
     // 2026-08-18 (PO-approved): localEditedAt (job-state.js saveActiveJobState)
     // is stamped on every local edit immediately, unlike assessmentUpdatedAt
@@ -429,6 +485,8 @@
     applySnapshotToDraft,
     draftHasMeasurements,
     preferDraft,
+    resolveDisplayActiveTap,
+    tapHasPersistedWork,
     compactPhotoRef,
     asMeasurementNumber
   };
