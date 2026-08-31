@@ -82,11 +82,13 @@ function extract(name, pattern) {
 const buildLinkSrc = extract('buildMapsSearchLink', /function buildMapsSearchLink\(lat, lng\) \{[\s\S]*?\n\}/);
 const buildPlaceLinkSrc = extract('buildMapsPlaceLink', /function buildMapsPlaceLink\(address, placeId\) \{[\s\S]*?\n\}/);
 const parseLinkSrc = extract('parseLatLngFromMapsLink', /function parseLatLngFromMapsLink\(value\) \{[\s\S]*?\n\}/);
+const parsePlaceQuerySrc = extract('parsePlaceQueryFromMapsLink', /function parsePlaceQueryFromMapsLink\(value\) \{[\s\S]*?\n\}/);
+const geocodePlaceQuerySrc = extract('geocodeMapsPlaceQuery', /function geocodeMapsPlaceQuery\(\{ query, placeId \} = \{\}\) \{[\s\S]*?\n\}/);
 const setCoordsSrc = extract('setMapsLinkFromCoords', /function setMapsLinkFromCoords\(lat, lng, \{ recenterMap = true, address = '', placeId = '' \} = \{\}\) \{[\s\S]*?\n\}/);
 const applyPlaceSrc = extract('applyGooglePlaceToMapsField', /function applyGooglePlaceToMapsField\(place\) \{[\s\S]*?\n\}/);
 const useLocationSrc = extract('useMyLocationForMaps', /function useMyLocationForMaps\(\) \{[\s\S]*?\n\}/);
 
-if (!buildLinkSrc || !buildPlaceLinkSrc || !parseLinkSrc || !setCoordsSrc || !applyPlaceSrc || !useLocationSrc) {
+if (!buildLinkSrc || !buildPlaceLinkSrc || !parseLinkSrc || !parsePlaceQuerySrc || !geocodePlaceQuerySrc || !setCoordsSrc || !applyPlaceSrc || !useLocationSrc) {
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(1);
 }
@@ -142,6 +144,103 @@ console.log('\n=== parseLatLngFromMapsLink(value): recovers coords, never guesse
   for (const bad of [null, undefined, '', 'not a link at all', 'https://example.com/foo', 'https://www.google.com/maps/search/?api=1&query=notanumber,also-not-a-number']) {
     const result = sandbox.parseLatLngFromMapsLink(bad);
     assert(result === null, `unparseable input (${JSON.stringify(bad)}) => null, never guesses (got ${JSON.stringify(result)})`);
+  }
+}
+
+console.log('\n=== parsePlaceQueryFromMapsLink(value): recovers place text, the missing half ===');
+{
+  const { sandbox } = buildSandbox();
+  vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
+  vm.runInContext(parsePlaceQuerySrc, sandbox, { filename: 'preassessment.js (parsePlaceQueryFromMapsLink excerpt)' });
+
+  const withId = sandbox.parsePlaceQueryFromMapsLink(sandbox.buildMapsPlaceLink('123 Sukhumvit Rd, Bangkok', 'ChIJtest12345'));
+  assert(withId && withId.query === '123 Sukhumvit Rd, Bangkok' && withId.placeId === 'ChIJtest12345',
+    `round-trips a named-place link this form generated, with place_id (got ${JSON.stringify(withId)})`);
+
+  const withoutId = sandbox.parsePlaceQueryFromMapsLink(sandbox.buildMapsPlaceLink('456 Silom Rd, Bangkok', ''));
+  assert(withoutId && withoutId.query === '456 Silom Rd, Bangkok' && withoutId.placeId === '',
+    `round-trips without a place_id too (got ${JSON.stringify(withoutId)})`);
+
+  const thaiLink = sandbox.buildMapsPlaceLink('เทศบาลเมืองปทุมธานี', '');
+  const thaiParsed = sandbox.parsePlaceQueryFromMapsLink(thaiLink);
+  assert(thaiParsed && thaiParsed.query === 'เทศบาลเมืองปทุมธานี', `Thai script round-trips correctly (got ${JSON.stringify(thaiParsed)})`);
+
+  // Must defer to parseLatLngFromMapsLink for coordinate-only links -- not its job to double-handle those.
+  const coordOnly = sandbox.parsePlaceQueryFromMapsLink('https://www.google.com/maps/search/?api=1&query=13.7563,100.5018');
+  assert(coordOnly === null, `a coordinate-only link => null, that is parseLatLngFromMapsLink's job (got ${JSON.stringify(coordOnly)})`);
+
+  for (const bad of [null, undefined, '', 'not a link at all', 'https://example.com/foo']) {
+    const result = sandbox.parsePlaceQueryFromMapsLink(bad);
+    assert(result === null, `unparseable input (${JSON.stringify(bad)}) => null, never guesses (got ${JSON.stringify(result)})`);
+  }
+}
+
+console.log('\n=== geocodeMapsPlaceQuery({ query, placeId }): resolves via Maps SDK Geocoder only ===');
+{
+  // Success via placeId (preferred -- exact match).
+  {
+    const { sandbox } = buildSandbox();
+    let capturedRequest = null;
+    sandbox.window.google = {
+      maps: {
+        Geocoder: function Geocoder() {
+          this.geocode = (request, cb) => {
+            capturedRequest = request;
+            cb([{ geometry: { location: { lat: () => 13.7563, lng: () => 100.5018 } } }], 'OK');
+          };
+        }
+      }
+    };
+    vm.runInContext(geocodePlaceQuerySrc, sandbox, { filename: 'preassessment.js (geocodeMapsPlaceQuery excerpt, placeId success)' });
+    const result = await sandbox.geocodeMapsPlaceQuery({ query: '123 Sukhumvit Rd', placeId: 'ChIJtest12345' });
+    assert(result && result.lat === 13.7563 && result.lng === 100.5018, `resolves coordinates on success (got ${JSON.stringify(result)})`);
+    assert(capturedRequest && capturedRequest.placeId === 'ChIJtest12345', `prefers placeId over address text when both are known (got ${JSON.stringify(capturedRequest)})`);
+  }
+
+  // Success via address text only (no placeId).
+  {
+    const { sandbox } = buildSandbox();
+    let capturedRequest = null;
+    sandbox.window.google = {
+      maps: {
+        Geocoder: function Geocoder() {
+          this.geocode = (request, cb) => {
+            capturedRequest = request;
+            cb([{ geometry: { location: { lat: () => 13.72, lng: () => 100.53 } } }], 'OK');
+          };
+        }
+      }
+    };
+    vm.runInContext(geocodePlaceQuerySrc, sandbox, { filename: 'preassessment.js (geocodeMapsPlaceQuery excerpt, address success)' });
+    const result = await sandbox.geocodeMapsPlaceQuery({ query: '456 Silom Rd', placeId: '' });
+    assert(result && result.lat === 13.72, `resolves via address text when no placeId is known (got ${JSON.stringify(result)})`);
+    assert(capturedRequest && capturedRequest.address === '456 Silom Rd' && !('placeId' in capturedRequest), `sends { address } request, not a stray empty placeId (got ${JSON.stringify(capturedRequest)})`);
+  }
+
+  // Geocoder reports a failure status (e.g. ZERO_RESULTS) -- must resolve null, never throw/guess.
+  {
+    const { sandbox } = buildSandbox();
+    sandbox.window.google = {
+      maps: {
+        Geocoder: function Geocoder() {
+          this.geocode = (request, cb) => cb(null, 'ZERO_RESULTS');
+        }
+      }
+    };
+    vm.runInContext(geocodePlaceQuerySrc, sandbox, { filename: 'preassessment.js (geocodeMapsPlaceQuery excerpt, ZERO_RESULTS)' });
+    const result = await sandbox.geocodeMapsPlaceQuery({ query: 'nonexistent place asdkjasd', placeId: '' });
+    assert(result === null, `ZERO_RESULTS/failure status => resolves null, never guesses (got ${JSON.stringify(result)})`);
+  }
+
+  // Geocoder/SDK not loaded at all -- must resolve null, never throw.
+  {
+    const { sandbox } = buildSandbox();
+    vm.runInContext(geocodePlaceQuerySrc, sandbox, { filename: 'preassessment.js (geocodeMapsPlaceQuery excerpt, no SDK)' });
+    let threw = null;
+    let result;
+    try { result = await sandbox.geocodeMapsPlaceQuery({ query: 'anything', placeId: '' }); } catch (e) { threw = e; }
+    assert(!threw, `no google.maps.Geocoder available => does not throw (got ${threw && threw.message})`);
+    assert(result === null, `no SDK => resolves null (got ${JSON.stringify(result)})`);
   }
 }
 

@@ -948,6 +948,60 @@ function parseLatLngFromMapsLink(value) {
   return { lat, lng };
 }
 
+/**
+ * Counterpart to parseLatLngFromMapsLink() for the OTHER link shape this
+ * form itself writes -- buildMapsPlaceLink()'s named-place link
+ * (query=<address text>, optionally &query_place_id=<id>), which carries no
+ * coordinates at all. Extracts the address/place-id text only; resolving it
+ * to a pin position is geocodeMapsPlaceQuery()'s job, kept separate so this
+ * stays a pure, synchronous parse -- never guesses on anything that isn't a
+ * recognizable query= link, same discipline as parseLatLngFromMapsLink.
+ * (2026-08-31: re-opening a Case whose ci-maps was set via place search
+ * left the picker pin stuck at the Bangkok default instead of the actual
+ * saved location -- this is the missing half.)
+ */
+function parsePlaceQueryFromMapsLink(value) {
+  const str = String(value || '');
+  const match = str.match(/[?&]query=([^&]+)/);
+  if (!match) return null;
+  let query;
+  try {
+    query = decodeURIComponent(match[1].replace(/\+/g, ' ')).trim();
+  } catch {
+    return null;
+  }
+  if (!query) return null;
+  // A coordinate query is parseLatLngFromMapsLink's job, not this one.
+  if (/^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(query)) return null;
+  const placeIdMatch = str.match(/[?&]query_place_id=([^&]+)/);
+  let placeId = '';
+  if (placeIdMatch) {
+    try { placeId = decodeURIComponent(placeIdMatch[1]); } catch { placeId = ''; }
+  }
+  return { query, placeId };
+}
+
+/**
+ * Resolves a parsePlaceQueryFromMapsLink() result to coordinates via the
+ * Google Maps JS SDK's own Geocoder -- already loaded alongside `places`
+ * (loadGoogleMapsScript), no new API key/endpoint. Only ever moves the
+ * visible picker pin; never rewrites the ci-maps field itself, so the
+ * link the user already has stays exactly as they set it. Resolves null on
+ * any failure (no SDK, no match, network error) -- caller falls back to the
+ * existing Bangkok default rather than guessing.
+ */
+function geocodeMapsPlaceQuery({ query, placeId } = {}) {
+  return new Promise((resolve) => {
+    if (!window.google?.maps?.Geocoder) { resolve(null); return; }
+    const geocoder = new google.maps.Geocoder();
+    const request = placeId ? { placeId } : { address: query };
+    geocoder.geocode(request, (results, status) => {
+      const loc = status === 'OK' ? results?.[0]?.geometry?.location : null;
+      resolve(loc ? { lat: loc.lat(), lng: loc.lng() } : null);
+    });
+  });
+}
+
 // Holds the live google.maps.Map/Marker instances once the picker has been
 // shown, so later updates (search selection, GPS, drag) can move the same
 // map instead of re-creating it. Module-scoped, not persisted -- purely a
@@ -1075,7 +1129,20 @@ async function wireMapsLinkPlaceSearch() {
     // field already has one (editing a Case), otherwise a sensible default
     // (Bangkok) -- so there's always a map to click on, not just search.
     const existing = parseLatLngFromMapsLink(input.value);
-    showMapsPreview(existing?.lat ?? 13.7563, existing?.lng ?? 100.5018);
+    if (existing) {
+      showMapsPreview(existing.lat, existing.lng);
+    } else {
+      const placeQuery = parsePlaceQueryFromMapsLink(input.value);
+      if (placeQuery) {
+        // A named-place link (query=<address>) has no coordinates to read
+        // synchronously -- geocode it so the pin lands where the link
+        // actually points instead of the Bangkok default (2026-08-31 fix).
+        const coords = await geocodeMapsPlaceQuery(placeQuery);
+        showMapsPreview(coords?.lat ?? 13.7563, coords?.lng ?? 100.5018);
+      } else {
+        showMapsPreview(13.7563, 100.5018);
+      }
+    }
   } catch (error) {
     console.warn('[preassessment] Maps Link place search unavailable', error);
     input.dataset.placesReady = '';
