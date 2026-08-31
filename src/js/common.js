@@ -315,8 +315,20 @@ let sendingResultToLine = false;
  * uses.
  *
  * Reuses existing infrastructure only:
- *  - resolveReportEligibility(job).canPublishReport -- the same completeness
- *    gate publishScoreBeforeClose() already enforces, not a new rule.
+ *  - resolveReportEligibility(job).canCalculateScore -- a DIFFERENT, already-
+ *    existing signal from the one Complete uses (Complete/publishScoreBeforeClose
+ *    reads canPublishReport, which additionally requires every inspection
+ *    task -- tapphoto/meter/visual/chlorine/pressure/infra -- checked on
+ *    every tap). canCalculateScore already exists in eligibilityEngine.js
+ *    specifically as "measurements valid, inspection not required" (its own
+ *    doc comment: "Score UI must NOT use [canPublishReport] for showScore --
+ *    use canCalculateScore instead"), and neither the customer-facing
+ *    publication snapshot (score-publication-snapshot.js) nor the LINE
+ *    message itself (line-notifications.js) ever reference inspection/task/
+ *    photo data -- confirmed by reading both before making this change
+ *    (2026-08-31). Send Result asks "can we calculate and send the current
+ *    result," not "is the whole on-site inspection workflow finished" --
+ *    that second question stays Complete's alone, unchanged.
  *  - POST /api/cases/:id/score (publishCaseScore/createOrReusePublication)
  *    -- the same write-once/republish publication ledger Complete uses.
  *    intent:'publish' when the customer has never been sent a result yet
@@ -349,19 +361,20 @@ async function sendResultToLineNow() {
   try {
     saveActiveJobState();
 
-    // Same completeness gate Complete already enforces -- not a new rule,
-    // not a duplicated/hardcoded field list. Missing-field detail comes
-    // straight from the existing Eligibility Contract's own output.
+    // Deliberately NOT canPublishReport (that's Complete's stricter gate,
+    // which also requires every inspection task checked). Send Result only
+    // needs enough valid measurement data to calculate/send the current
+    // result -- inspection-task completion is internal audit data the
+    // customer-facing result never includes, so it must never appear as a
+    // blocker here. Missing-field detail comes straight from the existing
+    // Eligibility Contract's own output -- never inspection fields.
     const eligibility = typeof resolveReportEligibility === 'function' ? resolveReportEligibility(job) : null;
-    if (eligibility && !eligibility.canPublishReport) {
-      const missing = [
-        ...(eligibility.missingMeasurements || []),
-        ...(eligibility.missingInspection || [])
-      ];
+    if (eligibility && !eligibility.canCalculateScore) {
+      const missing = eligibility.missingMeasurements || [];
       const detail = missing.length ? missing.join(', ') : (eligibility.reason || '');
       showToast(S.lang === 'th'
-        ? `ส่งผลไม่ได้ — ข้อมูลยังไม่ครบ${detail ? ': ' + detail : ''}`
-        : `Cannot send yet — incomplete${detail ? ': ' + detail : ''}`);
+        ? `ส่งผลไม่ได้ — ข้อมูลค่าน้ำยังไม่ครบ${detail ? ': ' + detail : ''}`
+        : `Cannot send yet — measurement data incomplete${detail ? ': ' + detail : ''}`);
       return;
     }
 

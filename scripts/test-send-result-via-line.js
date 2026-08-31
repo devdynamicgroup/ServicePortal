@@ -346,27 +346,76 @@ function buildClientSandbox({ fetchImpl, eligibility } = {}) {
 }
 
 async function clientTests() {
-  console.log('\n=== A (client): incomplete result -> no publish, no send, clear message ===');
+  console.log('\n=== A (client): measurements incomplete -> blocked, no publish, no send ===');
   {
     const fetchCalls = [];
     const { sandbox, toasts } = buildClientSandbox({
       fetchImpl: async (url) => { fetchCalls.push(url); throw new Error('must not be called'); },
-      eligibility: { canPublishReport: false, missingMeasurements: ['chlorine'], missingInspection: ['pressure'], reason: 'Inspection incomplete' }
+      // canCalculateScore:false is the real blocker now (not canPublishReport).
+      // missingInspection is deliberately present here too, to prove it's
+      // read (or not) correctly by the assertions below.
+      eligibility: { canCalculateScore: false, canPublishReport: false, missingMeasurements: ['chlorine'], missingInspection: ['pressure'], reason: 'Missing measurements' }
     });
     sandbox.S.activeJob = { id: 'case-1', notionId: 'notion-1', result: {}, notification: {}, draft: {} };
     sandbox.S.scoreVal = 85;
 
     await sandbox.sendResultToLineNow();
 
-    assert(fetchCalls.length === 0, 'incomplete Case: no network call at all (no publish, no send)', fetchCalls);
-    assert(toasts.length === 1 && /chlorine/.test(toasts[0]) && /pressure/.test(toasts[0]), 'user-facing message names the actual missing fields from the eligibility contract', toasts);
+    assert(fetchCalls.length === 0, 'measurements incomplete: no network call at all (no publish, no send)', fetchCalls);
+    assert(toasts.length === 1 && /chlorine/.test(toasts[0]), 'user-facing message names the actual missing MEASUREMENT field', toasts);
+    assert(!/pressure/.test(toasts[0]), 'the message never lists an inspection-task field, even though missingInspection was present on the contract', toasts);
+  }
+
+  console.log('\n=== B (client): measurements complete, INSPECTION tasks incomplete -> ALLOWED (the critical behavior change) ===');
+  {
+    const calls = [];
+    const { sandbox, toasts } = buildClientSandbox({
+      // canCalculateScore:true but canPublishReport:false -- exactly the
+      // "readings done, checklist not done" scenario that used to block
+      // Send Result and must no longer.
+      eligibility: { canCalculateScore: true, canPublishReport: false, missingMeasurements: [], missingInspection: ['tapphoto', 'meter', 'visual', 'chlorine'], reason: 'Inspection incomplete' },
+      fetchImpl: async (url, opts) => {
+        const body = JSON.parse(opts.body || '{}');
+        calls.push({ url, body });
+        if (url.endsWith('/score')) return { ok: true, json: async () => ({ ok: true, score: body.score, reportToken: 'rpt-b', reportUrl: '/r/rpt-b' }) };
+        return { ok: true, json: async () => ({ ok: true, line: { ok: true, status: 'sent' }, case: { result: {}, workflow: {}, notification: { status: 'sent' }, line: {} } }) };
+      }
+    });
+    sandbox.S.activeJob = { id: 'case-b', notionId: 'notion-b', result: {}, notification: { status: 'not_sent' }, draft: {} };
+    sandbox.S.scoreVal = 91;
+
+    await sandbox.sendResultToLineNow();
+
+    assert(calls.some(c => c.url.endsWith('/score')), 'inspection-incomplete Case: publish call proceeds anyway (Send Result is not blocked)', calls);
+    assert(calls.some(c => c.url.endsWith('/send-result')), 'inspection-incomplete Case: send-result call proceeds anyway', calls);
+    assert(toasts.some(t => /สำเร็จ/.test(t)), 'success toast shown -- inspection tasks never surfaced as a blocker', toasts);
+  }
+
+  console.log('\n=== C (client): everything complete -> allowed ===');
+  {
+    const calls = [];
+    const { sandbox, toasts } = buildClientSandbox({
+      eligibility: { canCalculateScore: true, canPublishReport: true, missingMeasurements: [], missingInspection: [] },
+      fetchImpl: async (url, opts) => {
+        calls.push(url);
+        if (url.endsWith('/score')) return { ok: true, json: async () => ({ ok: true, score: 95, reportToken: 'rpt-c', reportUrl: '/r/rpt-c' }) };
+        return { ok: true, json: async () => ({ ok: true, line: { ok: true, status: 'sent' }, case: { result: {}, workflow: {}, notification: { status: 'sent' }, line: {} } }) };
+      }
+    });
+    sandbox.S.activeJob = { id: 'case-c', notionId: 'notion-c', result: {}, notification: { status: 'not_sent' }, draft: {} };
+    sandbox.S.scoreVal = 95;
+
+    await sandbox.sendResultToLineNow();
+
+    assert(calls.length === 2, 'fully complete Case: both publish and send calls happen', calls);
+    assert(toasts.some(t => /สำเร็จ/.test(t)), 'success toast shown', toasts);
   }
 
   console.log('\n=== First send + resend wiring (client): correct intent/force per state ===');
   {
     const calls = [];
     const { sandbox, toasts } = buildClientSandbox({
-      eligibility: { canPublishReport: true, missingMeasurements: [], missingInspection: [] },
+      eligibility: { canCalculateScore: true, canPublishReport: true, missingMeasurements: [], missingInspection: [] },
       fetchImpl: async (url, opts) => {
         const body = JSON.parse(opts.body || '{}');
         calls.push({ url, body });
@@ -390,7 +439,7 @@ async function clientTests() {
   {
     const calls = [];
     const { sandbox, toasts } = buildClientSandbox({
-      eligibility: { canPublishReport: true, missingMeasurements: [], missingInspection: [] },
+      eligibility: { canCalculateScore: true, canPublishReport: true, missingMeasurements: [], missingInspection: [] },
       fetchImpl: async (url, opts) => {
         const body = JSON.parse(opts.body || '{}');
         calls.push({ url, body });
@@ -417,7 +466,7 @@ async function clientTests() {
     let inFlightCount = 0;
     let maxConcurrent = 0;
     const { sandbox } = buildClientSandbox({
-      eligibility: { canPublishReport: true, missingMeasurements: [], missingInspection: [] },
+      eligibility: { canCalculateScore: true, canPublishReport: true, missingMeasurements: [], missingInspection: [] },
       fetchImpl: async (url) => {
         inFlightCount += 1;
         maxConcurrent = Math.max(maxConcurrent, inFlightCount);
@@ -444,7 +493,7 @@ async function clientTests() {
     // timing-sensitive concurrency check above).
     let fetchCallCount = 0;
     const { sandbox } = buildClientSandbox({
-      eligibility: { canPublishReport: true, missingMeasurements: [], missingInspection: [] },
+      eligibility: { canCalculateScore: true, canPublishReport: true, missingMeasurements: [], missingInspection: [] },
       fetchImpl: async (url) => {
         fetchCallCount += 1;
         await new Promise(r => setTimeout(r, 20));
@@ -466,7 +515,7 @@ async function clientTests() {
   console.log('\n=== H (client): failed send does not falsely show success ===');
   {
     const { sandbox, toasts } = buildClientSandbox({
-      eligibility: { canPublishReport: true, missingMeasurements: [], missingInspection: [] },
+      eligibility: { canCalculateScore: true, canPublishReport: true, missingMeasurements: [], missingInspection: [] },
       fetchImpl: async (url) => {
         if (url.endsWith('/score')) return { ok: true, json: async () => ({ ok: true, score: 90, reportToken: 'rpt-z', reportUrl: '/r/rpt-z' }) };
         // Deliberately no `line`/`case` field, and a distinctive error string
