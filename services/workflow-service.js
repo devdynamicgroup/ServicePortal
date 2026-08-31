@@ -241,7 +241,13 @@ async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
   const destination = await resolveNotifyLineDestination(job);
   const lineUserId = String(destination.lineUserId || '').trim();
 
-  if (currentState === 'sent') {
+  // Narrow, explicit opt-in bypass for the "Send Result via LINE" resend
+  // action (2026-08-31) -- payload.force defaults to falsy for every
+  // existing caller (closeCase's two call sites, sendCaseResult via the
+  // /send-result and /repair-notifications routes, and the LINE/LIFF
+  // auto-send-on-bind flows), so none of them change behavior. Only the
+  // new explicit resend trigger ever sets this.
+  if (currentState === 'sent' && !payload.force) {
     return {
       ok: true,
       idempotent: true,

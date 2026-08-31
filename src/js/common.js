@@ -93,10 +93,18 @@ async function publishScoreBeforeClose(job) {
   // The bypass still produces a (legacy-tagged) contract rather than silently
   // skipping one, so every publish is traceable to the architecture that
   // produced it — see calculationMetadata.eligibilityVersion below.
+  // Ensure forensic session exists for non-Assessment entry (e.g. completeJob).
+  if (typeof CompleteTrace !== 'undefined' && !window.__WM_COMPLETE_TRACE_SESSION__) {
+    CompleteTrace.beginComplete(job);
+  }
   const alreadyPublished = Number.isFinite(Number(job?.result?.waterScore));
   const eligibility = alreadyPublished
     ? (typeof EligibilityContract !== 'undefined' ? EligibilityContract.buildLegacy() : null)
     : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(job) : null);
+  // Read-only Complete dual-gate forensic (opt-in).
+  if (typeof CompleteTrace !== 'undefined') {
+    CompleteTrace.recordGate2(job, eligibility);
+  }
   // Official close/publish requires canPublishReport (measurements + inspection).
   // Score display uses canCalculateScore separately — do not collapse them here.
   if (eligibility && !eligibility.canPublishReport) {
@@ -212,6 +220,14 @@ async function finalizeCaseCompletion(job, options = {}) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.ok === false) {
+      if (typeof CompleteTrace !== 'undefined') {
+        CompleteTrace.recordClose({
+          ok: false,
+          stage: 'POST_/close',
+          httpStatus: response.status,
+          error: payload.error || null
+        });
+      }
       if (typeof isSessionExpiredResponse === 'function' && isSessionExpiredResponse(response, payload)) {
         if (typeof handleSessionExpired === 'function') handleSessionExpired();
         const error = new Error(payload.error || 'Session expired');
@@ -256,6 +272,15 @@ async function finalizeCaseCompletion(job, options = {}) {
       }
     }
 
+    if (typeof CompleteTrace !== 'undefined') {
+      CompleteTrace.recordClose({
+        ok: true,
+        stage: 'POST_/close',
+        lineStatus: payload.line?.status || payload.case?.notification?.status || null,
+        lineOk: payload.line?.ok ?? null
+      });
+    }
+
     persistJobs();
     S.activeJob = null;
     if (typeof clearActiveCaseRef === 'function') clearActiveCaseRef();
@@ -269,6 +294,167 @@ async function finalizeCaseCompletion(job, options = {}) {
       completeBtn.textContent = completeBtn.dataset.prevLabel
         || (typeof t === 'function' ? t('common.complete') : (S.lang === 'th' ? 'เสร็จสิ้น' : 'Complete'));
       delete completeBtn.dataset.prevLabel;
+    }
+  }
+}
+
+// In-flight guard for sendResultToLineNow(), same established pattern as
+// completeJob._inFlight / sharingScore (score.js) -- a second rapid click
+// while a send is already running must not fire a second publish/send.
+let sendingResultToLine = false;
+
+/**
+ * Explicit "Send Result via LINE" action (2026-08-31) -- deliberately
+ * separate from completeJob()/finalizeCaseCompletion(): Complete finishes
+ * the on-site workflow and auto-sends once; this is the repeatable action
+ * for "publish and send whatever the current valid result is, right now,"
+ * usable both to (repair-)send a Case that was completed but never
+ * successfully notified, and to explicitly resend after the assessment was
+ * edited post-send. Does not touch scoring -- reads the same live S.scoreVal
+ * Complete already reads, through the same publish endpoint Complete already
+ * uses.
+ *
+ * Reuses existing infrastructure only:
+ *  - resolveReportEligibility(job).canPublishReport -- the same completeness
+ *    gate publishScoreBeforeClose() already enforces, not a new rule.
+ *  - POST /api/cases/:id/score (publishCaseScore/createOrReusePublication)
+ *    -- the same write-once/republish publication ledger Complete uses.
+ *    intent:'publish' when the customer has never been sent a result yet
+ *    (mirrors write-once reuse semantics exactly); intent:'republish' when
+ *    already sent once (mints a NEW immutable publication + report token --
+ *    the old token/link is never touched, by design of that existing
+ *    service).
+ *  - POST /api/cases/:id/send-result (sendCaseResult/executeSendCaseResult)
+ *    -- the same LINE-destination-resolution/notification-lifecycle code
+ *    Retry-LINE already uses. `force:true` is passed ONLY when a result was
+ *    already sent, to opt into the narrow resend bypass added to that
+ *    function's idempotency guard -- never for a genuinely first send.
+ */
+async function sendResultToLineNow() {
+  if (sendingResultToLine) return;
+  const job = S.activeJob;
+  if (!job) {
+    showToast(S.lang === 'th' ? 'ไม่พบงานที่เปิดอยู่' : 'No active job');
+    return;
+  }
+
+  const btn = document.getElementById('btn-send-result-line');
+  sendingResultToLine = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.prevLabel = btn.textContent;
+    btn.textContent = S.lang === 'th' ? 'กำลังส่งผล…' : 'Sending…';
+  }
+
+  try {
+    saveActiveJobState();
+
+    // Same completeness gate Complete already enforces -- not a new rule,
+    // not a duplicated/hardcoded field list. Missing-field detail comes
+    // straight from the existing Eligibility Contract's own output.
+    const eligibility = typeof resolveReportEligibility === 'function' ? resolveReportEligibility(job) : null;
+    if (eligibility && !eligibility.canPublishReport) {
+      const missing = [
+        ...(eligibility.missingMeasurements || []),
+        ...(eligibility.missingInspection || [])
+      ];
+      const detail = missing.length ? missing.join(', ') : (eligibility.reason || '');
+      showToast(S.lang === 'th'
+        ? `ส่งผลไม่ได้ — ข้อมูลยังไม่ครบ${detail ? ': ' + detail : ''}`
+        : `Cannot send yet — incomplete${detail ? ': ' + detail : ''}`);
+      return;
+    }
+
+    const score = Number(S.scoreVal ?? job?.result?.waterScore ?? job?.draft?.scoreVal);
+    if (!Number.isFinite(score)) {
+      showToast(S.lang === 'th' ? 'ยังไม่มีคะแนนน้ำ' : 'Water Score is missing');
+      return;
+    }
+
+    const caseRef = job.notionId || job.id;
+    if (!caseRef || !(job.notionId || job.notionSource)) {
+      showToast(S.lang === 'th' ? 'ยังไม่มีเคสในระบบ' : 'Case is not synced yet');
+      return;
+    }
+
+    const alreadySent = job?.notification?.status === 'sent';
+    const intent = alreadySent ? 'republish' : 'publish';
+    const idempotencyKey = getOrCreatePublishIdempotencyKey(caseRef, intent);
+
+    const publishResponse = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/score`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        score,
+        resultSummary: `Water score ${Math.round(score)}/100`,
+        complianceStatus: S.currentScoreResult?.complianceStatus || null,
+        intent,
+        idempotencyKey
+      })
+    });
+    const publishPayload = await publishResponse.json().catch(() => ({}));
+    if (!publishResponse.ok || publishPayload.ok === false) {
+      if (typeof isSessionExpiredResponse === 'function' && isSessionExpiredResponse(publishResponse, publishPayload)) {
+        if (typeof handleSessionExpired === 'function') handleSessionExpired();
+        return;
+      }
+      showToast(publishPayload.error || (S.lang === 'th' ? 'บันทึกคะแนนไม่สำเร็จ' : 'Could not save score'));
+      return;
+    }
+    clearPublishIdempotencyKey(caseRef, intent);
+    job.result = {
+      ...(job.result || {}),
+      waterScore: publishPayload.score != null ? publishPayload.score : score,
+      reportUrl: publishPayload.reportUrl || job.result?.reportUrl || '',
+      publicReportToken: publishPayload.reportToken || job.result?.publicReportToken || ''
+    };
+
+    const sendResponse = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/send-result`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(alreadySent ? { force: true } : {})
+    });
+    const sendPayload = await sendResponse.json().catch(() => ({}));
+    if (!sendResponse.ok || sendPayload.ok === false) {
+      if (typeof isSessionExpiredResponse === 'function' && isSessionExpiredResponse(sendResponse, sendPayload)) {
+        if (typeof handleSessionExpired === 'function') handleSessionExpired();
+        return;
+      }
+      showToast(sendPayload.error || (S.lang === 'th' ? 'ส่งผล LINE ไม่สำเร็จ' : 'Could not send result via LINE'));
+      return;
+    }
+
+    if (sendPayload.case) {
+      Object.assign(job, {
+        result: { ...(job.result || {}), ...(sendPayload.case.result || {}) },
+        workflow: { ...(job.workflow || {}), ...(sendPayload.case.workflow || {}) },
+        notification: { ...(job.notification || {}), ...(sendPayload.case.notification || {}) },
+        line: { ...(job.line || {}), ...(sendPayload.case.line || {}) }
+      });
+    }
+    persistJobs();
+
+    const lineOk = Boolean(sendPayload.line?.ok) || sendPayload.line?.status === 'sent';
+    if (lineOk) {
+      showToast(alreadySent
+        ? (S.lang === 'th' ? 'ส่งผลล่าสุดให้ลูกค้าทาง LINE สำเร็จ' : 'Latest result sent to customer via LINE')
+        : (S.lang === 'th' ? 'ส่งผลให้ลูกค้าทาง LINE สำเร็จ' : 'Result sent to customer via LINE'));
+    } else if (sendPayload.line?.reason === 'no_line_user_id' || sendPayload.line?.status === 'skipped') {
+      showToast(S.lang === 'th' ? 'ยังไม่ได้เชื่อม LINE กับลูกค้า' : 'Customer is not LINE-linked yet');
+    } else {
+      showToast(S.lang === 'th' ? 'ส่งผล LINE ไม่สำเร็จ' : 'Could not send result via LINE');
+    }
+  } catch (error) {
+    console.warn('sendResultToLineNow failed', error);
+    showToast(S.lang === 'th' ? 'ส่งผล LINE ไม่สำเร็จ' : 'Could not send result via LINE');
+  } finally {
+    sendingResultToLine = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.prevLabel || (S.lang === 'th' ? 'ส่งผลให้ลูกค้าทาง LINE' : 'Send Result via LINE');
+      delete btn.dataset.prevLabel;
     }
   }
 }
