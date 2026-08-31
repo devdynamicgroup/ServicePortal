@@ -453,7 +453,7 @@ async function sendResultToLineNow() {
     sendingResultToLine = false;
     if (btn) {
       btn.disabled = false;
-      btn.textContent = btn.dataset.prevLabel || (S.lang === 'th' ? 'ส่งผลให้ลูกค้าทาง LINE' : 'Send Result via LINE');
+      btn.textContent = btn.dataset.prevLabel || (S.lang === 'th' ? 'ส่งผล' : 'Send');
       delete btn.dataset.prevLabel;
     }
   }

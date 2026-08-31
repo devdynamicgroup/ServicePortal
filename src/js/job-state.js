@@ -708,14 +708,15 @@ function updateJobHeader(job) {
 
   // Field staff read this code aloud so the customer can add LINE and send
   // it themselves -- the same fb-xxxx token the chat/QR bind flow already
-  // accepts (see api/line-routes.js:extractFeedbackToken). Hidden when a
-  // Case is already LINE-linked, since there's nothing left to connect.
+  // accepts (see api/line-routes.js:extractFeedbackToken). Kept visible even
+  // once already linked (2026-08-31, direct feedback): if the LINE link ever
+  // drops on its own, staff can read the same code again immediately instead
+  // of having to go dig it up.
   const lineCodeField = document.getElementById('job-line-code-field');
   const lineCodeText = document.getElementById('job-line-code-text');
   const feedbackToken = String(job?.feedback?.token || '').trim();
-  const alreadyLinked = Boolean(job?.line?.linked);
   if (lineCodeField && lineCodeText) {
-    if (feedbackToken && !alreadyLinked) {
+    if (feedbackToken) {
       lineCodeText.textContent = feedbackToken;
       lineCodeField.style.display = '';
     } else {
