@@ -1,12 +1,19 @@
 /**
  * Case-owned write-once Water Score publication (PD-V7-09).
- * Does not calculate scores. Persists the supplied published number.
+ *
+ * 2026-09-01 (score-consistency fix): a NEW publication's submitted score
+ * is now cross-checked against the canonical Quality V3 score computed
+ * server-side from the Case's own current readings (services/canonical-score.js)
+ * before being persisted -- see createOrReusePublication()'s validation
+ * block below. This does not apply to replay/reuse paths (idempotency
+ * replay, existing-pointer reuse), which persist nothing new.
  */
 const crypto = require('crypto');
 const { getClient, updateClient, findClientByReportToken } = require('./notion/clients');
 const { createNotionPublicationStore, isScorePublicationsConfigured } = require('./notion/score-publications');
 const { withPublicationStoreContract } = require('./publication-store');
 const { buildReportUrl } = require('./url-builder');
+const { computeCanonicalScore } = require('./canonical-score');
 const {
   UNKNOWN,
   compactReadings,
@@ -275,6 +282,27 @@ async function createOrReusePublication({ job, payload = {}, caseId } = {}) {
     if (intent === 'publish' && legacyPublication) {
       return responseFromPublication(legacyPublication, { caseId, reused: true, complianceStatus });
     }
+  }
+
+  // 2026-09-01 (score-consistency fix): from here on, a genuinely NEW
+  // publication record is about to be persisted (nothing above this line
+  // wrote anything new -- both earlier branches only replay/reuse an
+  // existing record). Cross-check the submitted score against the
+  // canonical Quality V3 score computed server-side from this Case's own
+  // current readings before minting anything. REJECT on mismatch rather
+  // than silently correcting -- a mismatch means the client submitted a
+  // stale or otherwise wrong value, and the caller must refresh and retry
+  // rather than have a different number silently published on their
+  // behalf. canonical.score === null (incomplete readings) is not treated
+  // as a mismatch -- that case is already blocked upstream by eligibility.
+  const canonical = computeCanonicalScore(job);
+  if (canonical.score !== null && Math.round(canonical.score) !== Math.round(score)) {
+    const mismatchError = new Error(
+      'Submitted score no longer matches the current assessment. Refresh the score and try again.'
+    );
+    mismatchError.statusCode = 409;
+    mismatchError.code = 'SCORE_MISMATCH';
+    throw mismatchError;
   }
 
   const publicReportToken = await mintUniqueToken(store);

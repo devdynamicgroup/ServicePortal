@@ -378,11 +378,27 @@ async function sendResultToLineNow() {
       return;
     }
 
-    const score = Number(S.scoreVal ?? job?.result?.waterScore ?? job?.draft?.scoreVal);
+    // 2026-09-01 (score-consistency fix): recompute fresh from the Case's
+    // current readings, same as Complete's own check (assessment.js's
+    // validateAssessmentForComplete) already does -- S.scoreVal is only
+    // refreshed at specific UI moments (Score-screen render, country-standard
+    // switch, hydration) and can go stale if a reading changed since the
+    // last of those, e.g. via a direct data edit. Falls back to the cached
+    // value only if the fresh computation genuinely can't run (functions
+    // undefined) or reports incomplete, matching this function's existing
+    // eligibility gate above.
+    const freshReadings = typeof resolveScoreReadings === 'function' ? resolveScoreReadings(job) : null;
+    const freshScore = freshReadings && typeof computeScoreFromReadings === 'function'
+      ? computeScoreFromReadings(freshReadings)
+      : null;
+    const score = Number.isFinite(freshScore)
+      ? freshScore
+      : Number(S.scoreVal ?? job?.result?.waterScore ?? job?.draft?.scoreVal);
     if (!Number.isFinite(score)) {
       showToast(S.lang === 'th' ? 'ยังไม่มีคะแนนน้ำ' : 'Water Score is missing');
       return;
     }
+    S.scoreVal = score;
 
     const caseRef = job.notionId || job.id;
     if (!caseRef || !(job.notionId || job.notionSource)) {
