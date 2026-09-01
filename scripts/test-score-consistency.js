@@ -1,5 +1,34 @@
 /**
- * Regression suite for "Score Consistency Hardening" (2026-09-01).
+ * Regression suite for "Score Consistency Hardening" (2026-09-01, strengthened
+ * 2026-09-01 round 2 -- post-deploy hardening pass).
+ *
+ * Round 2 replaces four tests that were behaviorally weaker than their names
+ * claimed (found during a forensic re-audit of this exact file):
+ *   - Test 5 previously just called createOrReusePublication() again --
+ *     identical in mechanics to Test 1, never exercising closeCase()'s own
+ *     caller wiring at all. Now mocks services/notion/clients and
+ *     services/client-feedback via require.cache injection (so the REAL
+ *     closeCase() function runs, with zero real Notion/network calls) and
+ *     asserts closeCase() itself reaches createOrReusePublication() with the
+ *     canonical score and marks the Case completed.
+ *   - Test 7 previously only inspected the shape of computeCanonicalScore()'s
+ *     return value. Now computes the REAL Thailand benchmark score (loaded
+ *     the same way canonical-score.js loads the Quality V3 engine) for the
+ *     same readings, confirms it differs from the Quality V3 canonical
+ *     score, and proves createOrReusePublication() actively REJECTS it if
+ *     submitted as payload.score -- a behavioral isolation proof, not a
+ *     structural one.
+ *   - Test 8 previously only recomputed a local canonical score and compared
+ *     numbers -- it never re-read the actual persisted ledger record. Now
+ *     re-fetches the original record directly from the store after a
+ *     simulated reading edit and asserts its publishedScore field is
+ *     unchanged.
+ *   - Test 9 previously ran against a brand-new store with no prior
+ *     publication in it, so it never exercised "republish after a real
+ *     prior publish in the same session." Now chains a real first publish
+ *     and a real republish in the same store, and asserts the original
+ *     record (looked up by its own publicationId, not "latest") still
+ *     holds the old score while a second, distinct record holds the new one.
  *
  * ROOT CAUSE (two independent gaps, both closed by this fix):
  *   1. Client staleness: sendResultToLineNow() (src/js/common.js) read the
@@ -192,13 +221,98 @@ async function main() {
     );
   }
 
-  console.log('\n=== Test 5: Complete path (closeCase -> createOrReusePublication) unaffected/still passes ===');
+  console.log('\n=== Test 5: Complete path -- the REAL closeCase() function, not the same choke point called again ===');
   {
     resetPublicationDependencies();
-    makeStoreAndAdapter();
-    const job = makeJob(GOOD_READINGS_FIELDS, { publicReportToken: 'rpt-t5' });
-    const result = await createOrReusePublication({ job, payload: { score: goodCanonical.score, intent: 'publish' }, caseId: 'case-1' });
-    assert(result.ok === true, `Complete's own call through the same createOrReusePublication() choke point still succeeds for a correct score (got ${JSON.stringify(result)})`);
+    const store = createMemoryPublicationStore();
+    setPublicationStore(store);
+
+    const path = require('path');
+    const clientsPath = require.resolve('../services/notion/clients');
+    const feedbackPath = require.resolve('../services/client-feedback');
+    const workflowPath = require.resolve('../services/workflow-service');
+    const originalClientsModule = require.cache[clientsPath];
+    const originalFeedbackModule = require.cache[feedbackPath];
+
+    const NOTION_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+    // ONE shared mutable record, standing in for the single real Notion page
+    // both closeCase()'s own direct updateClient calls AND the publication
+    // service's internal pointer-sync updateClient call would actually
+    // write to in production. Using two disconnected mocks here would let
+    // this test pass for the wrong reason (each mock silently "succeeding"
+    // against its own fake record instead of the same one).
+    let state = {
+      id: 'case-t5-complete',
+      notionId: NOTION_ID,
+      name: 'Complete Test Customer',
+      draft: { fields: GOOD_READINGS_FIELDS },
+      result: { waterScore: null, publicReportToken: '', reportUrl: '' },
+      workflow: { status: 'in_progress' },
+      line: { userId: '' },
+      feedback: { token: '', url: '', status: 'not_sent' },
+      review: { url: '', status: 'not_requested' }
+    };
+    const updateClientCalls = [];
+    function sharedUpdateClient(notionId, patch) {
+      updateClientCalls.push({ notionId, patch });
+      state = {
+        ...state,
+        ...patch,
+        result: {
+          ...state.result,
+          waterScore: patch.latestWaterScore ?? state.result.waterScore,
+          publicReportToken: patch.publicReportToken ?? state.result.publicReportToken,
+          reportUrl: patch.reportUrl ?? state.result.reportUrl
+        }
+      };
+      return JSON.parse(JSON.stringify(state));
+    }
+
+    // The publication service's own DI hook, pointed at the SAME shared state.
+    setPublicationCaseAdapter({
+      async getClient() { return JSON.parse(JSON.stringify(state)); },
+      async updateClient(notionId, patch) { return sharedUpdateClient(notionId, patch); },
+      async findClientByReportToken() { return null; }
+    });
+
+    require.cache[clientsPath] = {
+      id: clientsPath, filename: clientsPath, loaded: true,
+      exports: {
+        async getClient() { return JSON.parse(JSON.stringify(state)); },
+        async updateClient(notionId, patch) { return sharedUpdateClient(notionId, patch); },
+        async findClientByFeedbackToken() { return null; },
+        async findClientByReportToken() { return null; }
+      }
+    };
+    require.cache[feedbackPath] = {
+      id: feedbackPath, filename: feedbackPath, loaded: true,
+      exports: {
+        async upsertFeedbackRecord() { throw new Error('should never be called -- isClientFeedbackConfigured() is mocked false'); },
+        async getFeedbackByToken() { return null; },
+        isClientFeedbackConfigured() { return false; }
+      }
+    };
+    delete require.cache[workflowPath];
+
+    let closeResult;
+    let threw = null;
+    try {
+      const workflowService = require('../services/workflow-service');
+      closeResult = await workflowService.closeCase(NOTION_ID, { score: goodCanonical.score });
+    } catch (e) {
+      threw = e;
+    } finally {
+      delete require.cache[workflowPath];
+      if (originalClientsModule) require.cache[clientsPath] = originalClientsModule; else delete require.cache[clientsPath];
+      if (originalFeedbackModule) require.cache[feedbackPath] = originalFeedbackModule; else delete require.cache[feedbackPath];
+    }
+
+    assert(!threw, `the REAL closeCase() runs against fully-mocked Notion/feedback modules without throwing (${threw && threw.message})`);
+    assert(closeResult && closeResult.ok === true, `closeCase() itself reports success (got ${JSON.stringify(closeResult)})`);
+    const completedCall = updateClientCalls.find(c => c.patch && c.patch.caseWorkflowStatus === 'completed');
+    assert(!!completedCall, 'closeCase() itself (not the publication service) called updateClient with caseWorkflowStatus: "completed" -- proves the distinct caller wiring actually ran, not just createOrReusePublication() again');
+    assert(closeResult && closeResult.case && closeResult.case.result && closeResult.case.result.waterScore === goodCanonical.score, `the Case closeCase() returns carries the canonical score (${goodCanonical.score}), reached via createOrReusePublication() from inside closeCase() itself (got ${closeResult && closeResult.case && closeResult.case.result && closeResult.case.result.waterScore})`);
+    assert(closeResult && closeResult.line && closeResult.line.status === 'skipped' && closeResult.line.reason === 'no_line_user_id', 'no LINE send was attempted (no lineUserId on this fixture) -- confirms zero real notification side effects occurred');
     resetPublicationDependencies();
   }
 
@@ -209,36 +323,121 @@ async function main() {
     assert(canonical.score === null, `canonical score is null (not 0, not a guess) when readings are incomplete (got ${canonical.score})`);
   }
 
-  console.log('\n=== Test 7: country-benchmark engines are never substituted for the canonical Quality V3 score ===');
+  console.log('\n=== Test 7: a country-benchmark score cannot be substituted as the publication score ===');
   {
     const detail = goodCanonical.detail;
     assert(!!detail && !('countryStandard' in detail), 'computeCanonicalScore()\'s detail carries no country-benchmark field -- it is the pure Quality V3 calculation, never a country-gated substitute');
-  }
 
-  console.log('\n=== Test 8: post-publish edit leaves the published score frozen (intentional divergence, must PASS) ===');
-  {
+    // Behavioral proof, not just structural: compute the REAL Thailand
+    // benchmark engine's score for the SAME readings (same vm-loading
+    // technique canonical-score.js itself uses, same load order index.html
+    // uses), then attempt to submit that benchmark score as payload.score --
+    // it must be REJECTED exactly like any other stale/wrong value.
+    const fs = require('fs');
+    const path = require('path');
+    const vm = require('vm');
+    const ROOT = path.join(__dirname, '..');
+    const sandbox = { console, window: {}, document: { getElementById: () => null } };
+    sandbox.window = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    [
+      'src/js/score/util/clamp.js',
+      'src/js/score/util/benchmarkMetadata.js',
+      'src/js/score/production/computeProductionScore.js',
+      'src/js/score/production/computeQualityScoreV2.js',
+      'src/js/score/benchmark/registry.js',
+      'src/js/score/benchmark/thailand/limits.js',
+      'src/js/score/benchmark/thailand/weights.js',
+      'src/js/score/benchmark/thailand/score.js'
+    ].forEach(rel => vm.runInContext(fs.readFileSync(path.join(ROOT, rel), 'utf8'), sandbox, { filename: rel }));
+
+    // OTHER_READINGS_FIELDS is used here, not GOOD_READINGS_FIELDS -- for the
+    // "all excellent" fixture the Thailand and Quality V3 engines happen to
+    // round to the same value (97 == 97), which would make this test
+    // vacuously true. OTHER_READINGS_FIELDS's mid-range readings genuinely
+    // diverge between the two engines (verified below), which is what makes
+    // the isolation proof meaningful.
+    const thailandReadings = {
+      ph: OTHER_READINGS_FIELDS['m-ph'],
+      tds: OTHER_READINGS_FIELDS['m-tds'],
+      chlorine: OTHER_READINGS_FIELDS['m-free-cl'],
+      turbidity: OTHER_READINGS_FIELDS['m-turb'],
+      orp: OTHER_READINGS_FIELDS['m-orp'],
+      do: OTHER_READINGS_FIELDS['m-do'],
+      temp: OTHER_READINGS_FIELDS['m-temp']
+    };
+    const thailandResult = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', thailandReadings);
+    const thailandScore = Math.round(thailandResult.score);
+    assert(Number.isFinite(thailandScore), `Thailand benchmark score computed for the same readings (got ${thailandScore})`);
+    assert(thailandScore !== otherCanonical.score, `Thailand benchmark score (${thailandScore}) genuinely DIFFERS from the Quality V3 canonical score (${otherCanonical.score}) for these readings -- required for this test to be meaningful`);
+
     resetPublicationDependencies();
     makeStoreAndAdapter();
-    const job = makeJob(GOOD_READINGS_FIELDS, { publicReportToken: 'rpt-t8' });
-    const first = await createOrReusePublication({ job, payload: { score: goodCanonical.score, intent: 'publish' }, caseId: 'case-1' });
-    assert(first.ok === true, 'initial publish succeeds');
-    // Simulate a later reading edit: readings changed, but this ledger
-    // record's own snapshot must not silently change on its own -- only a
-    // deliberate republish (Test 9) may produce a new one.
-    const editedJob = makeJob(OTHER_READINGS_FIELDS, { publicReportToken: 'rpt-t8' });
-    const stillCanonicalOld = computeCanonicalScore(editedJob).score;
-    assert(stillCanonicalOld !== first.score, `the LIVE canonical score has moved on since publish (${first.score} -> ${stillCanonicalOld}), while the already-published record's score field is untouched by this computation alone -- this divergence is intentional (publications are write-once snapshots, not live pointers)`);
+    const job = makeJob(OTHER_READINGS_FIELDS, { publicReportToken: 'rpt-t7-benchmark' });
+    const outcome = await expectRejection(
+      createOrReusePublication({ job, payload: { score: thailandScore, intent: 'publish' }, caseId: 'case-1' }),
+      'SCORE_MISMATCH'
+    );
+    assert(outcome.rejected === true, `submitting the Thailand BENCHMARK score (${thailandScore}) as payload.score is REJECTED, not silently accepted as if it were the Quality V3 publication score`);
+    assert(outcome.code === 'SCORE_MISMATCH', `rejection carries code SCORE_MISMATCH (got ${outcome.code})`);
     resetPublicationDependencies();
   }
 
-  console.log('\n=== Test 9: republish after a genuine reading change produces the NEW canonical score ===');
+  console.log('\n=== Test 8: post-publish edit leaves the PERSISTED ledger record frozen (intentional divergence, must PASS) ===');
   {
     resetPublicationDependencies();
-    const { } = makeStoreAndAdapter();
-    const editedJob = makeJob(OTHER_READINGS_FIELDS, { publicReportToken: 'rpt-t9' });
-    const freshCanonical = computeCanonicalScore(editedJob).score;
-    const result = await createOrReusePublication({ job: editedJob, payload: { score: freshCanonical, intent: 'republish' }, caseId: 'case-1' });
-    assert(result.ok === true && result.score === freshCanonical, `republish with the new canonical score succeeds and records the new value (got ${JSON.stringify(result)})`);
+    const { store } = makeStoreAndAdapter();
+    const job = makeJob(GOOD_READINGS_FIELDS, { publicReportToken: 'rpt-t8' });
+    const X = goodCanonical.score;
+    const first = await createOrReusePublication({ job, payload: { score: X, intent: 'publish' }, caseId: 'case-1' });
+    assert(first.ok === true, 'initial publish succeeds');
+
+    // Simulate a later reading edit and compute the new live canonical score.
+    const editedJob = makeJob(OTHER_READINGS_FIELDS, { publicReportToken: 'rpt-t8' });
+    const Y = computeCanonicalScore(editedJob).score;
+    assert(Y !== X, `the LIVE canonical score has moved on since publish (X=${X} -> Y=${Y}) -- required for this test to be meaningful`);
+
+    // The actual proof: re-fetch the PERSISTED record directly from the
+    // store by its own publicationId (not a local recomputation) and
+    // confirm its publishedScore field is still X, unaffected by the fact
+    // that readings changed and the live canonical score is now Y.
+    const persisted = await store.findByPublicationId(first.publicationId);
+    assert(!!persisted, 'the original ledger record is still findable by its own publicationId');
+    assert(persisted && persisted.publishedScore === X, `the PERSISTED record's publishedScore is still X (${X}), NOT Y (${Y}) -- re-read directly from the store, not recomputed locally (got ${persisted && persisted.publishedScore})`);
+    resetPublicationDependencies();
+  }
+
+  console.log('\n=== Test 9: republish after a genuine reading change, chained off a REAL prior publish in the same store ===');
+  {
+    resetPublicationDependencies();
+    const { store } = makeStoreAndAdapter();
+    const X = goodCanonical.score;
+    const job1 = makeJob(GOOD_READINGS_FIELDS, { publicReportToken: 'rpt-t9' });
+    const first = await createOrReusePublication({ job: job1, payload: { score: X, intent: 'publish' }, caseId: 'case-1' });
+    assert(first.ok === true, 'initial publish (X) succeeds, in the same store this republish will chain off of');
+
+    // A genuine reading change on the SAME Case, carrying forward the
+    // pointer state the first publish actually produced (as a real fetch of
+    // the Case after publish would show).
+    const job2 = makeJob(OTHER_READINGS_FIELDS, {
+      publicReportToken: first.reportToken,
+      waterScore: X
+    });
+    const Y = computeCanonicalScore(job2).score;
+    assert(Y !== X, `readings changed -> new canonical score differs (X=${X} -> Y=${Y})`);
+
+    const republished = await createOrReusePublication({ job: job2, payload: { score: Y, intent: 'republish' }, caseId: 'case-1' });
+    assert(republished.ok === true && republished.score === Y, `republish with the new canonical score Y (${Y}) succeeds (got ${republished.score})`);
+    assert(republished.publicationId !== first.publicationId, `republish creates a NEW, distinct publication record (first=${first.publicationId}, second=${republished.publicationId})`);
+
+    // Immutability, proven directly: the ORIGINAL record, looked up by its
+    // own publicationId, must still hold X -- the republish must not have
+    // mutated it in place.
+    const originalStillX = await store.findByPublicationId(first.publicationId);
+    assert(originalStillX && originalStillX.publishedScore === X, `the ORIGINAL record (publicationId=${first.publicationId}) still holds X (${X}) after republish, untouched (got ${originalStillX && originalStillX.publishedScore})`);
+    const newRecordHoldsY = await store.findByPublicationId(republished.publicationId);
+    assert(newRecordHoldsY && newRecordHoldsY.publishedScore === Y, `the NEW record (publicationId=${republished.publicationId}) holds Y (${Y}) (got ${newRecordHoldsY && newRecordHoldsY.publishedScore})`);
     resetPublicationDependencies();
   }
 
