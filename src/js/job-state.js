@@ -1239,22 +1239,44 @@ function jobDraftLookupKeys(job) {
   return keys;
 }
 
-/** Collect local drafts so Notion refresh does not wipe meterImages / tapData. */
+// draft.localEditedAt is stamped unconditionally on every saveActiveJobState()
+// call (see the comment at its assignment site) -- it is already the
+// general-purpose "when was this whole draft object last genuinely saved
+// locally" signal, independent of which specific field changed. Reused here
+// as-is; no new timestamp system introduced.
+function draftLocalEditTimestamp(draft) {
+  return Date.parse(draft?.localEditedAt || 0) || 0;
+}
+
+/**
+ * Collect local drafts so Notion refresh does not wipe meterImages / tapData.
+ * Ingests live JOBS first, then the localStorage snapshot -- but the
+ * localStorage pass may only override an entry already ingested from JOBS
+ * when it is STRICTLY newer (2026-09-01 root-cause fix: previously this was
+ * an unconditional overwrite with no recency check at all, letting a stale
+ * localStorage snapshot -- carrying its own, no-longer-relevant
+ * contactFieldsDirtyAt/contactSyncedAt pair -- silently replace fresher live
+ * state before preferContactFields() ever saw it, defeating that protection
+ * from upstream rather than in it).
+ */
 function collectLocalJobDrafts() {
   const drafts = new Map();
-  const ingest = (jobs) => {
+  const ingest = (jobs, { allowOlderOverwrite }) => {
     if (!Array.isArray(jobs)) return;
     jobs.forEach(job => {
       if (!job?.draft) return;
       jobDraftLookupKeys(job).forEach(key => {
-        drafts.set(key, job.draft);
+        const existing = drafts.get(key);
+        if (!existing || allowOlderOverwrite || draftLocalEditTimestamp(job.draft) > draftLocalEditTimestamp(existing)) {
+          drafts.set(key, job.draft);
+        }
       });
     });
   };
-  ingest(JOBS);
+  ingest(JOBS, { allowOlderOverwrite: true }); // first pass into an empty map -- nothing to compare against yet
   try {
     const raw = localStorage.getItem('wm-jobs');
-    if (raw) ingest(JSON.parse(raw));
+    if (raw) ingest(JSON.parse(raw), { allowOlderOverwrite: false });
   } catch {
     /* ignore corrupt cache */
   }

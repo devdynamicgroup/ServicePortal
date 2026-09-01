@@ -390,6 +390,10 @@ function buildNotionProperties(payload, schemaProperties = {}) {
 
   setText(FIELD_ALIASES.fullName, payload.fullName);
   setText(FIELD_ALIASES.address, payload.address);
+  // Additive/optional -- no-ops until a "Maps Link" column exists in the
+  // live Notion schema (setText already guards on that; confirmed absent
+  // as of 2026-08-31). Works with either rich_text or url column type.
+  setText(FIELD_ALIASES.mapsLink, payload.mapsLink);
   setText(FIELD_ALIASES.phone, payload.phone);
   setText(FIELD_ALIASES.email, payload.email);
   setText(FIELD_ALIASES.lineId, payload.lineId);

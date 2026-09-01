@@ -215,7 +215,28 @@ async function submitCaseAssessment(caseId, body = {}) {
     // advance) entirely when nothing actually changed -- everything else
     // (terminal-case guard, stale-revision rejection, the merge itself) is
     // unchanged.
-    if (existing && snapshotContentEqual(merged.taps, existing.taps)) {
+    //
+    // 2026-09-01 root-cause fix (navigation-triggered revision inflation):
+    // `existing` here is the RAW parsed snapshot -- readExistingSnapshotFromJob()
+    // -> AssessmentSnapshot.parseSnapshot() only JSON.parses and validates
+    // top-level shape, it never re-runs compactReadings()/asMeasurementNumber()
+    // on the stored values. `merged`, by contrast, is always built through
+    // mergeTap() -> mergeReadingMaps() -> compactReadings(), which normalizes
+    // (e.g. coerces a numeric-looking string to a real number). So any stored
+    // snapshot whose serialized shape doesn't already match current
+    // normalization exactly (a legacy write, a manual Notion edit, any other
+    // path that wrote before today's normalization existed) reads back
+    // "different" from the freshly-normalized merge on the very next sync --
+    // even one triggered by pure navigation/step-completion with zero
+    // measurement edits -- inflating revision once, after which the newly
+    // persisted (now-normalized) data compares equal from then on. Comparing
+    // against `existing` re-run through the same normalization (merging it
+    // with itself) closes this gap without weakening detection of a genuine
+    // content edit, which still produces a real, normalized-vs-normalized
+    // difference.
+    const normalizedExisting = existing ? AssessmentSnapshot.mergeSnapshots(existing, existing) : null;
+
+    if (existing && snapshotContentEqual(merged.taps, normalizedExisting.taps)) {
       return {
         ok: true,
         skipped: true,

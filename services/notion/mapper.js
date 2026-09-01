@@ -68,7 +68,13 @@ const FIELD_ALIASES = {
   // Benchmark registry; it is not a published Quality V3 score.
   countryScoreStandard: ['Country Score Standard', 'countryScoreStandard'],
   // Measurement / assessment persistence (Case-level JSON in rich_text).
-  assessmentSnapshot: ['Assessment Snapshot', 'assessmentSnapshot']
+  assessmentSnapshot: ['Assessment Snapshot', 'assessmentSnapshot'],
+  // Preassessment ci-maps -- additive/optional, same pattern as
+  // complianceStatus/countryScoreStandard: setText() no-ops until a matching
+  // column exists in the live Notion schema (confirmed absent as of
+  // 2026-08-31; not created here). Works with either rich_text or url type,
+  // whichever column type ends up created.
+  mapsLink: ['Maps Link', 'Google Maps Link', 'mapsLink']
 };
 
 /** Read Assessment Snapshot rich_text without inserting spaces between segments. */
@@ -356,7 +362,8 @@ function notionPageToJob(page, index) {
     'ci-propage': propertyAge,
     'ci-filter': mapFilter(getPropertyValue(properties, FIELD_ALIASES.currentFilter)),
     'ci-source': source,
-    'ci-consent': Boolean(getPropertyValue(properties, FIELD_ALIASES.consentSigned, false))
+    'ci-consent': Boolean(getPropertyValue(properties, FIELD_ALIASES.consentSigned, false)),
+    'ci-maps': String(getPropertyValue(properties, FIELD_ALIASES.mapsLink) || '')
   };
   job.draft.msConcerns = concern ? [concern] : [];
   job.draft.pkg = pkg;

@@ -11,6 +11,7 @@ const DEFAULT_LAUNCH_CAMPAIGN_OFFER = process.env.WATER_CHECK_CAMPAIGN_OFFER || 
 const CUSTOMER_INPUT_FIELDS = Object.freeze([
   'fullName',
   'address',
+  'mapsLink',
   'phone',
   'email',
   'lineId',
@@ -73,6 +74,37 @@ function buildSystemDefaults({ feedbackToken, reportToken, reviewUrl } = {}) {
   };
 }
 
+const THAI_POSTAL_CODE_PATTERN = /^\d{5}$/;
+
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Detects whether `addr` already ends with the exact [city, postal] tail that
+// composing addressParts.join(', ') below would otherwise (re-)append --
+// covering both the space-attached shape a freshly composed full address
+// naturally has ("...Bangkok 10110") and the comma-separated shape a bare
+// city+postal placeholder has ("Bangkok, 10110"). Parameterized entirely by
+// the current `city` value (never a hardcoded city name), so it generalizes
+// to every serviced province, not just Bangkok, and never touches, rewrites,
+// or truncates addr -- it only ever suppresses a redundant re-append.
+function addressHasLocationSuffix(addr, city) {
+  if (!addr || !city) return false;
+  const trimmed = addr.trim();
+  const spaceAttached = new RegExp(`${escapeRegExp(city)}(\\s+\\d{5})?$`, 'i');
+  if (spaceAttached.test(trimmed)) return true; // "...City" or "...City 10110"
+
+  const segments = trimmed.split(',').map(s => s.trim());
+  if (segments.length >= 2) {
+    const last = segments[segments.length - 1];
+    const secondLast = segments[segments.length - 2];
+    if (THAI_POSTAL_CODE_PATTERN.test(last) && secondLast.toLowerCase() === city.toLowerCase()) {
+      return true; // "..., City, 10110"
+    }
+  }
+  return false;
+}
+
 function mapPreassessmentPayload(body = {}) {
   const fields = body.fields && typeof body.fields === 'object' ? body.fields : body;
   const fname = String(fields['ci-fname'] || fields.fname || '').trim();
@@ -81,6 +113,29 @@ function mapPreassessmentPayload(body = {}) {
   const postal = String(fields['ci-postal'] || fields.postal || '').trim();
   const addr = String(fields['ci-addr'] || fields.address || '').trim();
   const addressParts = [addr, city, postal].filter(Boolean);
+  // 2026-09-01 root-cause fix: only combine city/postal onto the address
+  // when a real street-level addr is present. city/postal are frequently
+  // hydration defaults (services/notion/mapper.js hardcodes 'ci-city' to
+  // 'Bangkok' and 'ci-postal' to '' on every load -- neither ever round-trips
+  // from a real Notion property), so if addr itself is momentarily empty,
+  // joining just [city, postal] would produce a truncated placeholder
+  // ("Bangkok, 10110") that silently overwrites a real, already-saved full
+  // address on the next save. Sending '' here instead means
+  // pickCustomerInput() drops the key entirely, leaving whatever address
+  // Notion already has untouched -- never downgrading it.
+  //
+  // 2026-09-01 compounding fix: even when addr is non-empty, it may already
+  // be a fully-composed address (or a legacy city/postal-only placeholder
+  // left behind by the bug above) from a *previous* composition -- city/postal
+  // themselves reset to hydration defaults on every load, so blindly
+  // re-joining them on every resync keeps appending another copy of the city
+  // ("...Bangkok 10110, Bangkok", then "..., Bangkok, Bangkok", etc). Only
+  // join when addr does not already end with that exact city/postal tail.
+  const address = !addr
+    ? ''
+    : addressHasLocationSuffix(addr, city)
+      ? addr
+      : addressParts.join(', ');
 
   const concerns = Array.isArray(body.msConcerns)
     ? body.msConcerns
@@ -93,7 +148,8 @@ function mapPreassessmentPayload(body = {}) {
 
   return pickCustomerInput({
     fullName: [fname, lname].filter(Boolean).join(' ') || String(body.fullName || '').trim(),
-    address: addressParts.join(', '),
+    address,
+    mapsLink: fields['ci-maps'] || fields.mapsLink || '',
     phone: fields['ci-phone'] || fields.phone || '',
     email: fields['ci-email'] || fields.email || '',
     lineId: fields['ci-line'] || fields.lineId || '',
@@ -284,6 +340,7 @@ module.exports = {
   SYSTEM_GENERATED_FIELDS,
   DEFAULT_LAUNCH_CAMPAIGN_OFFER,
   mapPreassessmentPayload,
+  addressHasLocationSuffix,
   buildSystemDefaults,
   createCase,
   submitCustomerPreassessment,
