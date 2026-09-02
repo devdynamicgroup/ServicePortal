@@ -172,6 +172,14 @@ function renderAssessList() {
       thumbEl.innerHTML = '';
       const img = document.createElement('img');
       img.alt = '';
+      // A stored photo reference that fails to actually load (expired/
+      // mismatched Drive link, etc.) must not fall through to the browser's
+      // own broken-image glyph -- drop back to the "no photo yet" camera
+      // placeholder instead, same as if nothing had been captured.
+      img.onerror = () => {
+        thumbEl.innerHTML = '';
+        thumbEl.classList.remove('has-photo', 'upload-failed');
+      };
       thumbEl.appendChild(img);
       if (src) {
         img.src = src;
