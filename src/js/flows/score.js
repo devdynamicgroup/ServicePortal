@@ -458,16 +458,20 @@ function orderedStandardsForSelect() {
   return SCORE_STANDARD_ORDER.filter(key => reg?.has?.(key));
 }
 
+/** Spec shows the same Benchmark filter twice (hero + content) -- keep both in sync. */
 function renderStandardSelect(context = getScoreEvalContext()) {
-  const selectEl = document.getElementById('score-standard-select');
-  if (!selectEl) return;
   const selected = context.selectedStandard;
   const order = orderedStandardsForSelect();
-  selectEl.innerHTML = order.map(key => {
+  const optionsHtml = order.map(key => {
     const standard = getWaterQualityStandard(key);
     return `<option value="${key}"${selected === key ? ' selected' : ''}>${t(standard.shortKey)}</option>`;
   }).join('');
-  selectEl.onchange = () => setScoreReferenceStandard(selectEl.value);
+  ['score-standard-select', 'score-standard-select-top'].forEach(id => {
+    const selectEl = document.getElementById(id);
+    if (!selectEl) return;
+    selectEl.innerHTML = optionsHtml;
+    selectEl.onchange = () => setScoreReferenceStandard(selectEl.value);
+  });
 }
 
 /**
@@ -1468,24 +1472,33 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
   });
 }
 
+/** Spec shows the same location filter twice (hero + content) -- keep both in sync. */
 function renderLocationSelect() {
-  const wrap = document.getElementById('score-room-select-wrap');
-  const selectEl = document.getElementById('score-room-select');
   const taps = S.taps?.length ? S.taps : [];
-  if (!wrap || !selectEl) return;
+  const pairs = [
+    ['score-room-select-wrap', 'score-room-select'],
+    ['score-room-select-wrap-top', 'score-room-select-top']
+  ];
 
   if (taps.length <= 1) {
-    wrap.classList.add('hidden');
+    pairs.forEach(([wrapId]) => document.getElementById(wrapId)?.classList.add('hidden'));
     return;
   }
-  wrap.classList.remove('hidden');
 
   const allLabel = `${t('score.allLocations')} (${taps.length})`;
   const options = [{ key: 'all', label: allLabel }, ...taps.map(tap => ({ key: tap, label: tap }))];
-  selectEl.innerHTML = options.map(opt =>
+  const optionsHtml = options.map(opt =>
     `<option value="${opt.key}"${S.scoreTapFilter === opt.key ? ' selected' : ''}>${opt.label}</option>`
   ).join('');
-  selectEl.onchange = () => setScoreTapFilter(selectEl.value);
+
+  pairs.forEach(([wrapId, selectId]) => {
+    const wrap = document.getElementById(wrapId);
+    const selectEl = document.getElementById(selectId);
+    if (!wrap || !selectEl) return;
+    wrap.classList.remove('hidden');
+    selectEl.innerHTML = optionsHtml;
+    selectEl.onchange = () => setScoreTapFilter(selectEl.value);
+  });
 }
 
 function setScoreTapFilter(key) {
