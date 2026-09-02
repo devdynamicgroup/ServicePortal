@@ -31,7 +31,7 @@ body.public-report-mode #s-score .score-scroll{padding-bottom:calc(24px + env(sa
 .hdr,.dash-topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;height:64px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;flex-shrink:0;width:100%}
 .hdr-back{width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);color:var(--text);margin-left:-6px;flex-shrink:0}
 .hdr-title{font-weight:600;font-size:14px;flex:1}
-.hdr-action{font-size:14px;color:var(--blue);font-weight:500;background:none;border:none;cursor:pointer;padding:4px 0;white-space:nowrap}
+.hdr-action{font-size:14px;color:var(--blue);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0;white-space:nowrap}
 .hdr-icons{display:flex;align-items:center;gap:12px;flex-shrink:0}
 .hdr-icon-btn{width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);padding:0}
 .hdr-icon-btn.danger{color:var(--red)}
@@ -1511,3 +1511,14 @@ button.score-metric-row:active{background:#faf9f8}
 
 /* ─── Section titles ─────────────────────────────── */
 .section-title{font-size:17px;font-weight:600;margin-bottom:12px}
+
+/* ─── Pre-assessment Form (matches Figma spec) ───── */
+#s-preassess .card,
+#s-preassess .consent-label{border:none}
+#s-preassess .content-consent.gap12{gap:16px}
+#s-preassess .card.gap12{gap:16px}
+#s-preassess .field label{font-size:14px;font-weight:600}
+#s-preassess .pkg-opt .po-price{color:var(--blue)}
+#s-preassess .pkg-opt .po-name{font-size:14px;color:var(--text)}
+#s-preassess .pkg-opt.sel .po-name{color:#fff}
+#s-preassess .pkg-opt .po-desc{font-size:12px}
