@@ -18,9 +18,9 @@ function getScoreStyle(wq) {
 /** Three customer-facing bar colors only — Excellent / Good / Needs attention. */
 const SCORE_BAR_COLORS = Object.freeze({
   high: '#284dcd', // Excellent — blue
-  mid: '#22c55e',  // Good — green
+  mid: '#6bd499',  // Good — green
   low: '#f07b7b',  // Needs attention — red
-  pending: '#22c55e'
+  pending: '#6bd499'
 });
 
 function customerVerdict(wq) {
@@ -1472,11 +1472,10 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
   });
 }
 
-/** Spec shows the same location filter twice (hero + content) -- keep both in sync. */
+/** Location filter now lives only in the hero row (removed from the duplicate below). */
 function renderLocationSelect() {
   const taps = S.taps?.length ? S.taps : [];
   const pairs = [
-    ['score-room-select-wrap', 'score-room-select'],
     ['score-room-select-wrap-top', 'score-room-select-top']
   ];
 
