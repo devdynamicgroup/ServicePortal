@@ -564,10 +564,12 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .lang-opt.sel .lang-check{opacity:1}
 .month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;margin-top:8px}
 .month-grid .mg-hdr{font-size:11px;color:var(--muted);font-weight:600;padding:6px 0}
-.month-day{padding:10px 4px;border-radius:var(--radius);cursor:pointer;font-size:14px;font-weight:500}
+.month-day{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border-radius:var(--radius);cursor:pointer;font-size:14px;font-weight:500}
 .month-day:hover,.month-day.sel{background:var(--accent-50);color:var(--blue)}
 .month-day.today{font-weight:700;background:var(--accent-50);color:var(--blue)}
 .month-day.other{color:var(--dim);pointer-events:none}
+.month-day .mg-dot{width:4px;height:4px;border-radius:50%;background:var(--blue);visibility:hidden}
+.month-day.has-jobs .mg-dot{visibility:visible}
 .month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .month-nav .modal-title{margin:0;flex:1;text-align:center;font-size:17px}
 .month-nav-btn{width:36px;height:36px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}

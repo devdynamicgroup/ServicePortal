@@ -589,7 +589,8 @@ function renderMonthGrid(){
     const cd=new Date(y,m,day); cd.setHours(0,0,0,0);
     const isToday=cd.getTime()===today.getTime();
     const isSel=cd.getTime()===selDate.getTime();
-    html.push(`<span class="month-day${isToday?' today':''}${isSel?' sel':''}" onclick="pickMonthDay(${y},${m},${day})">${day}</span>`);
+    const hasJobs=jobsOnDate(formatDate(cd)).length>0;
+    html.push(`<span class="month-day${isToday?' today':''}${isSel?' sel':''}${hasJobs?' has-jobs':''}" onclick="pickMonthDay(${y},${m},${day})"><span class="mg-day-num">${day}</span><span class="mg-dot"></span></span>`);
   }
   document.getElementById('month-grid').innerHTML=html.join('');
 }
