@@ -1215,22 +1215,19 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-metric-list{
   display:flex;
   flex-direction:column;
-  gap:0;
+  gap:8px;
   margin:0;
   padding:0;
-  border:1px solid transparent;
-  border-radius:12px;
-  background:#ffffff;
-  overflow:hidden;
+  border:0;
+  background:transparent;
 }
 .score-metric-item{
   border:1px solid transparent;
-  border-radius:0;
-  background:#ffffff;
+  border-radius:4px;
+  background:var(--bg);
   overflow:hidden;
   transition:border-color .15s,box-shadow .15s;
 }
-.score-metric-item+.score-metric-item{border-top:1px solid #f2f0ec}
 .score-metric-item.is-open{
   border-color:#d7d3cd;
   box-shadow:0 4px 14px rgba(28,25,23,.06);
@@ -1313,7 +1310,7 @@ button.score-metric-row:active{background:#faf9f8}
 .score-metric-name{
   min-width:0;
   font-size:13px;
-  font-weight:600;
+  font-weight:400;
   line-height:1.25;
   color:var(--text);
   overflow-wrap:anywhere;
@@ -1322,7 +1319,7 @@ button.score-metric-row:active{background:#faf9f8}
   min-width:0;
   font-size:11px;
   font-weight:500;
-  color:#9ca3af;
+  color:var(--dim);
   text-align:left;
   white-space:nowrap;
   overflow:hidden;
@@ -1331,7 +1328,7 @@ button.score-metric-row:active{background:#faf9f8}
 .score-metric-value{
   min-width:2.2rem;
   font-size:13px;
-  font-weight:700;
+  font-weight:400;
   text-align:right;
   font-variant-numeric:tabular-nums;
   white-space:nowrap;
@@ -1341,7 +1338,7 @@ button.score-metric-row:active{background:#faf9f8}
   justify-content:flex-end;
   gap:5px;
   font-size:12px;
-  font-weight:650;
+  font-weight:400;
   white-space:nowrap;
 }
 .score-dot{width:6px;height:6px}
