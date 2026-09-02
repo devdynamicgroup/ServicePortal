@@ -620,14 +620,18 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .tap-tab{flex-shrink:0;font-size:14px;font-weight:500;cursor:pointer;color:var(--dim);padding:6px 0 10px;position:relative;white-space:nowrap;background:none;border:none;font-family:inherit}
 .tap-tab.active{color:var(--text);font-weight:600}
 .tap-tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--blue);z-index:2}
-.tap-add-btn{width:32px;height:32px;border-radius:50%;border:1.5px dashed var(--border);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;margin-bottom:8px}
+.tap-add-btn{width:24px;height:24px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;margin-bottom:10px;color:var(--text)}
 .tap-add-btn img{width:16px;height:16px;opacity:.6}
 
 /* ─── Assessment rows ────────────────────────────── */
 .assess-list-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:8px}
 .assess-list-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer}
 .assess-list-row:last-child{border-bottom:none}
+.assess-cards{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.assess-card{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border-radius:8px;cursor:pointer}
 .assess-check{flex-shrink:0}
+.li-check.assess-num:not(.done){border:none;background:var(--bg);color:var(--text);font-size:12px;font-weight:600}
+.li-check.assess-num:not(.done)::before{content:attr(data-step)}
 .assess-thumb{width:40px;height:40px;border-radius:6px;flex-shrink:0;background:var(--bg);border:1px solid var(--border);overflow:hidden;position:relative}
 .assess-thumb:not(.has-photo)::before{content:'';position:absolute;inset:0;background:center/20px 20px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='1.6'%3E%3Cpath d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'/%3E%3Ccircle cx='12' cy='13' r='4'/%3E%3C/svg%3E");opacity:.65}
 .assess-thumb.has-photo{background:none;border-color:var(--border)}
@@ -635,7 +639,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .assess-chevron{display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.45}
 .assess-icon{width:40px;height:40px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .assess-icon img{width:24px;height:24px;object-fit:contain}
-.assess-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer}
+.assess-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border-radius:var(--radius);margin-bottom:8px;cursor:pointer}
 .assess-row.locked{opacity:.85;cursor:default}
 .assess-title-lock.dimmed{color:var(--dim)}
 .assess-num{width:20px;height:20px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:400;color:var(--text);flex-shrink:0}
@@ -649,6 +653,10 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .sec-label-hint{font-size:12px;color:var(--dim);margin-left:6px;font-weight:400;text-transform:none;letter-spacing:0}
 .sec-label-row{margin-bottom:12px;margin-top:16px;line-height:1.4}
 .sec-label-row:first-child{margin-top:0}
+.sec-title-row{margin-bottom:12px;margin-top:16px}
+.sec-title-row:first-child{margin-top:0}
+.sec-title-row .sec-title{font-size:17px;font-weight:600;color:var(--text)}
+.sec-title-row .sec-sub{font-size:14px;color:var(--dim);margin-top:2px}
 .tap-name-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px}
 .tap-name-card .field label{font-size:14px;font-weight:600;color:#27272a}
 .tap-name-row{display:flex;gap:10px;align-items:flex-end}

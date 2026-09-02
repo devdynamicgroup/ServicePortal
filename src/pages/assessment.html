@@ -20,31 +20,31 @@
       </div>
     </div>
 
-    <div class="sec-label-row"><span class="sec-label-upper" data-i18n="assess.essential">Essential</span><span class="sec-label-hint" data-i18n="assess.essentialHint">Required for all packages</span></div>
-    <div class="assess-list-card">
-      <div class="assess-list-row" onclick="goScreen('s-photo')">
-        <span id="tapphoto-check" class="li-check assess-check"></span>
+    <div class="sec-title-row"><div class="sec-title" data-i18n="assess.essential">Essential</div><div class="sec-sub" data-i18n="assess.essentialHint">Required for all packages</div></div>
+    <div class="assess-cards">
+      <div class="assess-card" onclick="goScreen('s-photo')">
+        <span id="tapphoto-check" class="li-check assess-check assess-num" data-step="1"></span>
         <div class="assess-body"><div class="assess-title" data-i18n="assess.task.tapPhoto">Add tap photo</div><div class="assess-sub" data-i18n="assess.task.tapPhotoSub">Photograph tap &amp; surrounding area</div></div>
         <div class="assess-thumb" id="thumb-tapphoto" aria-hidden="true"></div>
       </div>
-      <div class="assess-list-row" onclick="goScreen('s-visual')">
-        <span id="visual-check" class="li-check assess-check"></span>
+      <div class="assess-card" onclick="goScreen('s-visual')">
+        <span id="visual-check" class="li-check assess-check assess-num" data-step="2"></span>
         <div class="assess-body"><div class="assess-title" data-i18n="assess.task.visual">Visual Check</div><div class="assess-sub" data-i18n="assess.task.visualSub">Appearance and smell before measuring</div></div>
         <span class="assess-chevron"><img src="" data-icon="chevron" alt="" width="16" height="16"></span>
       </div>
-      <div class="assess-list-row" onclick="goScreen('s-meter')">
-        <span id="meter-check" class="li-check assess-check"></span>
-        <div class="assess-body"><div class="assess-title" data-i18n="assess.task.meter">Meter Readings</div><div class="assess-sub" data-i18n="assess.task.meterSub">pH · TDS · EC · Temp · ORP · DO</div></div>
+      <div class="assess-card" onclick="goScreen('s-meter')">
+        <span id="meter-check" class="li-check assess-check assess-num" data-step="3"></span>
+        <div class="assess-body"><div class="assess-title" data-i18n="assess.task.meter">Meter Readings</div><div class="assess-sub" data-i18n="assess.task.meterSub">pH · TDS · EC · Temp · Turbidity · ORP · DO</div></div>
         <div class="assess-thumb" id="thumb-meter" aria-hidden="true"></div>
       </div>
-      <div class="assess-list-row" onclick="goScreen('s-chlorine')">
-        <span id="chlorine-check" class="li-check assess-check"></span>
+      <div class="assess-card" onclick="goScreen('s-chlorine')">
+        <span id="chlorine-check" class="li-check assess-check assess-num" data-step="4"></span>
         <div class="assess-body"><div class="assess-title" data-i18n="assess.task.chlorine">Chlorine Test</div><div class="assess-sub" data-i18n="assess.task.chlorineSub">Free chlorine · Total chlorine</div></div>
         <div class="assess-thumb" id="thumb-chlorine" aria-hidden="true"></div>
       </div>
     </div>
 
-    <div class="sec-label-row" id="full-section-label"><span class="sec-label-upper" data-i18n="assess.full">Full Assessment</span><span class="sec-label-hint" data-i18n="assess.fullHint">Upgrade to unlock additional tests</span></div>
+    <div class="sec-title-row" id="full-section-label"><div class="sec-title" data-i18n="assess.full">Full Assessment</div><div class="sec-sub" data-i18n="assess.fullHint">Upgrade to unlock additional tests</div></div>
     <div id="full-section">
       <div class="assess-row locked" id="row-pressure" onclick="requireFull('s-pressure')">
         <div class="assess-lock"><img src="" data-icon="lock" alt=""></div>
