@@ -51,7 +51,8 @@ body.public-report-mode #s-score .score-scroll{padding-bottom:calc(24px + env(sa
 .btn:active{transform:scale(.97)}
 .btn-primary{background:var(--blue);color:#fff;flex:1}
 .btn-primary:disabled{opacity:.4;pointer-events:none}
-.btn-ghost,.btn-secondary{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.btn-ghost,.btn-secondary{background:var(--bg);color:var(--text)}
+.btn-ghost{border:1px solid var(--border)}
 .btn-outline{background:transparent;color:var(--blue);border:1.5px solid var(--blue)}
 .btn-sm{padding:8px 14px;font-size:13px;border-radius:var(--radius);height:auto}
 .btn-danger{background:#fef2f2;color:var(--red);border:1px solid #fecaca}
@@ -196,14 +197,14 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .pkg-full{background:var(--accent-50);color:var(--blue)}
 
 /* ─── Step cards (job checklist) ─────────────────── */
-.step-card{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;cursor:pointer;transition:opacity .15s}
+.step-card{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface);border-radius:var(--radius);margin-bottom:8px;cursor:pointer;transition:opacity .15s}
 .step-card:last-child{margin-bottom:0}
 .step-card.disabled{opacity:.5;pointer-events:none}
 .step-icon-circle{width:40px;height:40px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .step-icon-circle img{width:20px;height:20px;object-fit:contain}
 .step-card-body{flex:1;min-width:0}
-.step-card-title{font-weight:500;font-size:15px;color:var(--text)}
-.step-card-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.step-card-title{font-weight:600;font-size:14px;color:var(--text)}
+.step-card-sub{font-size:12px;color:var(--dim);margin-top:2px}
 .step-done-check{width:24px;height:24px;border-radius:50%;background:var(--blue);display:none;align-items:center;justify-content:center;flex-shrink:0}
 .step-done-check svg{width:12px;height:12px}
 .step-card.done .step-done-check{display:flex}
@@ -222,6 +223,7 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .job-intro{margin-bottom:12px}
 .job-intro-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .job-intro-sub{font-size:13px;color:var(--muted)}
+.job-change-pkg{margin-left:auto;background:none;border:none;padding:0;cursor:pointer;font-size:14px;font-weight:600;color:var(--blue);font-family:inherit;white-space:nowrap}
 
 /* ─── Package picker ─────────────────────────────── */
 .pkg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}

@@ -28,6 +28,18 @@ function openJob(id) {
   });
 }
 
+function showJobHeaderMenu() {
+  const job = S.activeJob;
+  if (!job) return;
+  document.getElementById('action-sheet-title').textContent = job.name;
+  const actions = [
+    { label: t('dash.menu.cancel'), fn: () => { closeActionSheet(); cancelCase(job.id); } }
+  ];
+  document.getElementById('action-sheet-actions').innerHTML = actions.map(a=>`<button class="modal-action" type="button">${a.label}</button>`).join('');
+  document.getElementById('action-sheet-actions').querySelectorAll('.modal-action').forEach((btn,i)=>btn.onclick=actions[i].fn);
+  document.getElementById('action-sheet-overlay').classList.remove('hidden');
+}
+
 const STEP_SVGS = STEP_ICONS;
 
 function renderJobSteps() {
