@@ -1414,7 +1414,7 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
       const src = photoSrc(photo);
       if (!src || seen.has(src)) continue;
       seen.add(src);
-      images.push({ label, src });
+      images.push({ label, src, tap: taps[i] });
       break;
     }
   });
@@ -1466,10 +1466,35 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
     };
   });
 
+  // A swiped-to photo belongs to one specific room's readings -- when browsing
+  // "All locations", follow the visible photo so the metric list below always
+  // matches what's on screen instead of staying on the aggregate, which would
+  // otherwise read as a mismatch to a customer comparing photo vs numbers.
+  let syncedTap = null;
+  const syncReadingsToPhoto = (idx) => {
+    // Once a swipe has taken over the filter, keep following swipes even
+    // though scoreTapFilter is no longer 'all' -- only a manual dropdown
+    // pick (setScoreTapFilter, which clears this flag) should stop it.
+    if (S.scoreTapFilter !== 'all' && !S._scorePhotoAutoSynced) return;
+    const tap = images[idx]?.tap;
+    if (!tap || tap === syncedTap) return;
+    syncedTap = tap;
+    S.scoreTapFilter = tap;
+    S._scorePhotoAutoSynced = true;
+    const context = getScoreEvalContext();
+    renderScoreReadings(context);
+    renderScoreImprove(context);
+    ['score-room-select', 'score-room-select-top'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = tap;
+    });
+  };
+
   const syncDots = () => {
     const width = track.clientWidth || 1;
     const idx = Math.max(0, Math.min(images.length - 1, Math.round(track.scrollLeft / width)));
     Array.from(dotsEl.children).forEach((d, i) => d.classList.toggle('is-active', i === idx));
+    syncReadingsToPhoto(idx);
   };
 
   const goTo = (index) => {
@@ -1525,6 +1550,7 @@ function renderLocationSelect() {
 function setScoreTapFilter(key) {
   const context = getScoreEvalContext();
   S.scoreTapFilter = key;
+  S._scorePhotoAutoSynced = false;
   renderScoreReadings(context);
   renderScoreImprove(context);
   renderScorePhotos();
