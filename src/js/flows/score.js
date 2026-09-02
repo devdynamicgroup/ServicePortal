@@ -606,7 +606,7 @@ function renderScoreDisplay() {
           ? t('score.msg.complianceWarningOverride')
           : t('score.msg.complianceFailOverride');
       } else {
-        noteEl.textContent = t('score.benchmark.disclaimer');
+        noteEl.textContent = scoreSummaryNote(wq, findings);
       }
       noteEl.hidden = false;
     } else if (readiness?.ocrBusy) {
