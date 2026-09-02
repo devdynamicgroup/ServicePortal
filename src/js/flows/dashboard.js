@@ -117,6 +117,12 @@ function setupDashboardClickDelegation() {
       return;
     }
 
+    if (card.closest('#history-list')) {
+      closeHistoryModal();
+      openJob(jobId);
+      return;
+    }
+
     if (card.closest('#appt-list')) {
       openJob(jobId);
     }
@@ -265,13 +271,18 @@ function statusLabel(s) {
   return t('dash.status.new');
 }
 
-function buildApptCard(job) {
+function buildApptCard(job, opts = {}) {
   const pkgFull = job.pkg === 'full';
   const pkgTag = pkgFull ? t('dash.pkg.full') : t('dash.pkg.essential');
   const pkgClass = pkgFull ? 'tag-full-assessment' : 'tag-essential';
-  const progressTag = job.status === 'in_progress'
-    ? '<span class="tag tag-progress">' + t('dash.status.in_progress') + '</span>'
-    : '';
+  let statusTag = '';
+  if (job.status === 'in_progress') {
+    statusTag = '<span class="tag tag-progress">' + t('dash.status.in_progress') + '</span>';
+  } else if (opts.showDate && job.status === 'done') {
+    statusTag = '<span class="tag tag-done">' + t('dash.status.done') + '</span>';
+  } else if (opts.showDate && job.status === 'cancelled') {
+    statusTag = '<span class="tag tag-cancelled">' + t('history.cancelled') + '</span>';
+  }
   const contactLine = job.contact
     ? '<br>' + t('dash.contact') + ': ' + job.contact
     : '';
@@ -282,14 +293,19 @@ function buildApptCard(job) {
     || (job.notionId && String(job.notionId).replace(/-/g, '') === String(highlightJobId).replace(/-/g, ''))
   ) ? ' is-notif-target' : '';
   const jobId = escapeHtml(job.id);
+  const dateLine = opts.showDate && job.date
+    ? '<div class="history-date">' + escapeHtml(job.date) + '</div>'
+    : '';
 
   return (
     '<div class="appt-card' + stripeClass + highlightClass + '" data-job-id="' + jobId + '">' +
+      '<button class="ac-menu" type="button" aria-label="More">' + MENU_SVG + '</button>' +
+      dateLine +
       '<div class="ac-top">' +
         '<div class="ac-left">' +
           '<div class="ac-tags">' +
             '<span class="tag ' + pkgClass + '">' + pkgTag + '</span>' +
-            progressTag +
+            statusTag +
           '</div>' +
           '<div class="ac-name">' + escapeHtml(job.name) + '</div>' +
         '</div>' +
@@ -301,7 +317,6 @@ function buildApptCard(job) {
       '<div class="ac-addr">' + PIN_SVG + '<span>' + escapeHtml(job.addr) + '</span></div>' +
       '<div class="ac-meta">' +
         '<span>' + escapeHtml(job.meta) + contactLine + '</span>' +
-        '<button class="ac-menu" type="button" aria-label="More">' + MENU_SVG + '</button>' +
       '</div>' +
     '</div>'
   );
@@ -499,6 +514,45 @@ function filterAppointments(q){
       '</div>'
     );
   }).join('') || '<p style="color:var(--muted);font-size:14px">No matches</p>';
+}
+function openHistoryModal() {
+  document.getElementById('history-overlay').classList.remove('hidden');
+  document.getElementById('history-search-input').value = '';
+  renderHistory();
+}
+function closeHistoryModal() {
+  document.getElementById('history-overlay')?.classList.add('hidden');
+}
+function renderHistory() {
+  const statusFilter = document.getElementById('history-status-select')?.value || 'done';
+  const rangeFilter = document.getElementById('history-range-select')?.value || 'all';
+  const needle = String(document.getElementById('history-search-input')?.value || '').toLowerCase().trim();
+
+  const rangeDays = Number(rangeFilter);
+  const cutoffIso = Number.isFinite(rangeDays) && rangeDays > 0
+    ? isoDateOnly(new Date(Date.now() - rangeDays * 86400000).toISOString())
+    : '';
+
+  const jobs = JOBS
+    .filter(j => !j.manualPending)
+    .filter(j => statusFilter === 'all' ? j.status !== 'new' : j.status === statusFilter)
+    .filter(j => {
+      if (!cutoffIso) return true;
+      const jobIso = jobDateIso(j);
+      return jobIso && jobIso >= cutoffIso;
+    })
+    .filter(j => {
+      if (!needle) return true;
+      const hay = [j.name, j.addr, j.meta].map(v => String(v || '').toLowerCase());
+      return hay.some(part => part.includes(needle));
+    })
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.timeStart || '').localeCompare(String(a.timeStart || '')));
+
+  const list = document.getElementById('history-list');
+  if (!list) return;
+  list.innerHTML = jobs.length
+    ? jobs.map(j => buildApptCard(j, { showDate: true })).join('')
+    : '<p class="appt-empty">' + escapeHtml(t('history.empty')) + '</p>';
 }
 function openLangModal(){
   const lang = S?.lang || 'en';

@@ -75,6 +75,36 @@
   </div>
 </div>
 
+<!-- History: completed / past appointments -->
+<div id="history-overlay" class="modal-overlay hidden" onclick="closeHistoryModal()">
+  <div class="modal-sheet history-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title-row">
+      <div class="modal-title" data-i18n="history.title">History</div>
+    </div>
+    <div class="history-filters">
+      <div class="score-select-wrap">
+        <select class="score-select" id="history-status-select" aria-label="Status" onchange="renderHistory()">
+          <option value="done" data-i18n="dash.status.done">Done</option>
+          <option value="all" data-i18n="history.allStatuses">All statuses</option>
+          <option value="in_progress" data-i18n="dash.status.in_progress">In progress</option>
+          <option value="cancelled" data-i18n="history.cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div class="score-select-wrap">
+        <select class="score-select" id="history-range-select" aria-label="Time range" onchange="renderHistory()">
+          <option value="all" data-i18n="history.allTime">All time</option>
+          <option value="7" data-i18n="history.last7">Last 7 days</option>
+          <option value="30" data-i18n="history.last30">Last 30 days</option>
+          <option value="90" data-i18n="history.last90">Last 3 months</option>
+        </select>
+      </div>
+    </div>
+    <input class="inp search-inp" id="history-search-input" data-i18n-placeholder="history.searchPlaceholder" placeholder="Search by name or address..." oninput="renderHistory()">
+    <div id="history-list" class="history-list"></div>
+  </div>
+</div>
+
 <!-- Client Feedback -->
 <div id="feedback-overlay" class="modal-overlay hidden" onclick="closeFeedbackModal()">
   <div class="modal-sheet feedback-modal" onclick="event.stopPropagation()">
