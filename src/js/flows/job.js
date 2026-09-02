@@ -161,13 +161,16 @@ function completePreassess() {
     }).catch(() => {});
   }
 }
+// Payment screen only: once a package is picked there, collapse to a
+// single full-width card showing just the selection. The Preassessment
+// screen's own pkg-row must stay as two side-by-side cards that only
+// swap which one is highlighted -- selPkg()'s own .sel toggle already
+// handles that, so this function must not touch #pkg-ess/.pkg-row at all.
 function updatePackageVisibility() {
   const isFull = S.pkg === 'full';
-  document.getElementById('pkg-ess')?.classList.toggle('hidden', isFull);
   document.getElementById('pay-toggle-ess')?.classList.toggle('hidden', isFull);
-  document.querySelectorAll('.pkg-row').forEach(row => row.classList.toggle('pkg-row-single', isFull));
+  document.querySelectorAll('.pay-pkg-row').forEach(row => row.classList.toggle('pkg-row-single', isFull));
   if (isFull) {
-    document.getElementById('pkg-full')?.classList.add('sel');
     document.getElementById('pay-toggle-full')?.classList.add('sel');
   }
 }
