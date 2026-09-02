@@ -1516,6 +1516,7 @@ button.score-metric-row:active{background:#faf9f8}
 #s-preassess .card,
 #s-preassess .consent-label{border:none}
 #s-preassess .content-consent.gap12{gap:16px}
+#s-preassess .content-consent.gap12>.section-title{margin-bottom:0}
 #s-preassess .card.gap12{gap:16px}
 #s-preassess .field label{font-size:14px;font-weight:600}
 #s-preassess .pkg-opt .po-price{color:var(--blue)}
