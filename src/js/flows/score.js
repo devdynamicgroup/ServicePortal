@@ -452,17 +452,32 @@ function activeStandardKey() {
   return activeComparisonResult()?.standardKey || S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY;
 }
 
-/** Thai first, then fixed strictness order (not sample score). */
-function orderedStandardsForSelect() {
+/**
+ * UI ordering only -- ranks the dropdown by each standard's own computed
+ * score for the current readings (lowest/strictest-looking result first,
+ * highest last). Never changes what any standard actually scores; a
+ * standard whose score can't be computed yet (incomplete readings) just
+ * keeps SCORE_STANDARD_ORDER's relative position at the end instead of
+ * being dropped or crashing the sort.
+ */
+function orderedStandardsForSelect(readings) {
   const reg = benchmarkRegistry();
-  return SCORE_STANDARD_ORDER.filter(key => reg?.has?.(key));
+  const keys = SCORE_STANDARD_ORDER.filter(key => reg?.has?.(key));
+  if (!readings || !Object.keys(readings).length) return keys;
+  const ranked = keys.map(key => {
+    const result = buildComparisonScoreResult(readings, key);
+    return { key, score: Number.isFinite(result?.score) ? result.score : null };
+  });
+  const withScore = ranked.filter(r => r.score !== null).sort((a, b) => a.score - b.score);
+  const withoutScore = ranked.filter(r => r.score === null);
+  return [...withScore, ...withoutScore].map(r => r.key);
 }
 
 function renderStandardSelect(context = getScoreEvalContext()) {
   const selectEl = document.getElementById('score-standard-select');
   if (!selectEl) return;
   const selected = context.selectedStandard;
-  const order = orderedStandardsForSelect();
+  const order = orderedStandardsForSelect(context.readings);
   selectEl.innerHTML = order.map(key => {
     const standard = getWaterQualityStandard(key);
     return `<option value="${key}"${selected === key ? ' selected' : ''}>${t(standard.shortKey)}</option>`;
