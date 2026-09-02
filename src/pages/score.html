@@ -65,46 +65,48 @@
           </div>
         </div>
 
-        <div class="score-report-filters">
-          <div class="score-benchmark-row">
-            <label class="score-benchmark-label" for="score-standard-select" data-i18n="score.benchmark">Benchmark</label>
-            <select class="score-select" id="score-standard-select" aria-label="Reference standard"></select>
+        <div class="score-content-panel">
+          <div class="score-report-filters">
+            <div class="score-benchmark-row">
+              <label class="score-benchmark-label" for="score-standard-select" data-i18n="score.benchmark">Benchmark</label>
+              <select class="score-select" id="score-standard-select" aria-label="Reference standard"></select>
+            </div>
           </div>
+
+          <p class="score-params-scope" id="score-params-scope" hidden data-i18n="score.paramsOverall">Overall average across taps</p>
+          <div class="score-metric-list" id="score-readings-rows"></div>
+
+          <section class="score-bottom-media" aria-label="Room photos">
+            <div class="score-photo-carousel" id="score-photo-carousel" hidden>
+              <div class="score-photo-track" id="score-photo-track" tabindex="0" role="region" aria-label="Room photo gallery"></div>
+            </div>
+            <div class="score-photo-placeholder" id="score-photo-placeholder" hidden>
+              <span class="score-photo-placeholder-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </span>
+              <span class="score-photo-placeholder-text" id="score-photo-placeholder-text">Photos will appear once captured</span>
+            </div>
+          </section>
+
+          <section class="score-improve" id="score-improve-section" hidden>
+            <h2 class="score-improve-title">
+              <span id="score-improve-heading" data-i18n="score.improveTitle">Room to improve</span>
+              <span id="score-improve-count"></span>
+            </h2>
+            <div id="score-improve-list" class="score-improve-list"></div>
+          </section>
+
+          <div class="score-photo-dots" id="score-photo-dots" hidden></div>
+
+          <section class="score-all-good" id="score-all-good" hidden>
+            <div class="score-all-good-card">
+              <span class="score-all-good-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="score-all-good-text" id="score-all-good-text">All indicators at international-level quality</span>
+            </div>
+          </section>
         </div>
-
-        <p class="score-params-scope" id="score-params-scope" hidden data-i18n="score.paramsOverall">Overall average across taps</p>
-        <div class="score-metric-list" id="score-readings-rows"></div>
-
-        <section class="score-bottom-media" aria-label="Room photos">
-          <div class="score-photo-carousel" id="score-photo-carousel" hidden>
-            <div class="score-photo-track" id="score-photo-track" tabindex="0" role="region" aria-label="Room photo gallery"></div>
-          </div>
-          <div class="score-photo-placeholder" id="score-photo-placeholder" hidden>
-            <span class="score-photo-placeholder-icon" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            </span>
-            <span class="score-photo-placeholder-text" id="score-photo-placeholder-text">Photos will appear once captured</span>
-          </div>
-        </section>
-
-        <section class="score-improve" id="score-improve-section" hidden>
-          <h2 class="score-improve-title">
-            <span id="score-improve-heading" data-i18n="score.improveTitle">Room to improve</span>
-            <span id="score-improve-count"></span>
-          </h2>
-          <div id="score-improve-list" class="score-improve-list"></div>
-        </section>
-
-        <div class="score-photo-dots" id="score-photo-dots" hidden></div>
-
-        <section class="score-all-good" id="score-all-good" hidden>
-          <div class="score-all-good-card">
-            <span class="score-all-good-icon" aria-hidden="true">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            </span>
-            <span class="score-all-good-text" id="score-all-good-text">All indicators at international-level quality</span>
-          </div>
-        </section>
 
       </div>
     </section>

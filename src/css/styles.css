@@ -1152,6 +1152,9 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   margin:12px 0 10px;
 }
 .score-report-filters-top{margin:0 0 14px}
+/* Spec's lower "Content" panel is white, distinct from the #FAFAF9 page/hero
+   bg -- without it the grey metric chips below have no contrast to sit on. */
+.score-content-panel{background:#ffffff;margin:0 -16px;padding:16px}
 .score-report-filters .score-location-row,
 .score-report-filters .score-benchmark-row{
   display:flex;
