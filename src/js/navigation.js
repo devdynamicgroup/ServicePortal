@@ -57,5 +57,17 @@ function goScreen(id) {
   if (typeof scroller?.scrollTo === 'function') scroller.scrollTo(0, 0);
   else if (scroller) scroller.scrollTop = 0;
   if (typeof window.scrollTo === 'function') window.scrollTo(0, 0);
+
+  // Meter Readings: jump straight into the camera on entry instead of
+  // landing on the form first -- only when this tap has no meter photo
+  // yet, so re-opening an already-photographed tap to edit values doesn't
+  // keep reopening the camera every time.
+  if (id === 's-meter' && typeof openCameraCapture === 'function') {
+    const tap = S.tapData?.[S.activeTap];
+    const hasMeterPhoto = Boolean(tap?.meterImages?.length || tap?.photos?.meter);
+    if (!hasMeterPhoto) {
+      openCameraCapture('meter-photo-input', 'meter-photo-preview');
+    }
+  }
 }
 function goBack(id) { goScreen(id); }
