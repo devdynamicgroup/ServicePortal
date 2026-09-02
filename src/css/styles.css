@@ -1521,5 +1521,6 @@ button.score-metric-row:active{background:#faf9f8}
 #s-preassess .field label{font-size:14px;font-weight:600}
 #s-preassess .pkg-opt .po-price{color:var(--blue)}
 #s-preassess .pkg-opt .po-name{font-size:14px;color:var(--text)}
+#s-preassess .pkg-opt.sel .po-price,
 #s-preassess .pkg-opt.sel .po-name{color:#fff}
 #s-preassess .pkg-opt .po-desc{font-size:12px}
