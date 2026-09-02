@@ -1437,12 +1437,34 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
 
   if (placeholder) placeholder.hidden = true;
   wrap.hidden = false;
-  track.innerHTML = images.map(img => `<div class="score-photo-slide"><img src="${img.src}" alt="${img.label}" draggable="false" loading="lazy"></div>`).join('');
+  track.innerHTML = images.map((img, i) => `<div class="score-photo-slide" data-slide-index="${i}"><img src="${img.src}" alt="${img.label}" draggable="false" loading="lazy"></div>`).join('');
   const showDots = images.length > 1;
   dotsEl.hidden = !showDots;
   dotsEl.innerHTML = images.map((_, i) =>
     `<button type="button" class="score-photo-dot${i === 0 ? ' is-active' : ''}" aria-label="Photo ${i + 1} of ${images.length}" data-photo-index="${i}"></button>`
   ).join('');
+
+  // A stored photo reference that fails to actually load (expired/mismatched
+  // Drive link, etc.) must not sit in the carousel as a solid broken-image
+  // box -- drop that one slide (and its dot) instead. If every slide fails,
+  // fall back to the "no photo yet" placeholder like nothing was captured.
+  track.querySelectorAll('.score-photo-slide img').forEach(imgEl => {
+    imgEl.onerror = () => {
+      const slide = imgEl.closest('.score-photo-slide');
+      const idx = Number(slide?.dataset.slideIndex);
+      slide?.remove();
+      dotsEl.querySelector(`[data-photo-index="${idx}"]`)?.remove();
+      const remaining = track.querySelectorAll('.score-photo-slide').length;
+      dotsEl.hidden = remaining <= 1;
+      if (!remaining) {
+        wrap.hidden = true;
+        if (placeholder) {
+          placeholder.hidden = false;
+          if (placeholderText) placeholderText.textContent = t('score.readiness.photosPending');
+        }
+      }
+    };
+  });
 
   const syncDots = () => {
     const width = track.clientWidth || 1;
