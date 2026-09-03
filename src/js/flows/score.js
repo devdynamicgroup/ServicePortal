@@ -1490,11 +1490,24 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
     });
   };
 
-  const syncDots = () => {
+  const activeSlideIndex = () => {
     const width = track.clientWidth || 1;
-    const idx = Math.max(0, Math.min(images.length - 1, Math.round(track.scrollLeft / width)));
+    return Math.max(0, Math.min(images.length - 1, Math.round(track.scrollLeft / width)));
+  };
+
+  const highlightActiveDot = () => {
+    const idx = activeSlideIndex();
     Array.from(dotsEl.children).forEach((d, i) => d.classList.toggle('is-active', i === idx));
-    syncReadingsToPhoto(idx);
+  };
+
+  // Only a genuine user swipe (the scroll listener below) should hand the
+  // filter over to a room's photo -- an unconditional call on every render
+  // (e.g. right after the user picks a different room from the dropdown)
+  // could immediately fight that manual pick back to whatever room the
+  // carousel happens to be sitting on.
+  const syncDots = () => {
+    highlightActiveDot();
+    syncReadingsToPhoto(activeSlideIndex());
   };
 
   const goTo = (index) => {
@@ -1512,10 +1525,12 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
     }
     : null;
 
-  // Keep swipe feel stable after re-render.
+  // Keep swipe feel stable after re-render. Dot highlight only -- does not
+  // touch scoreTapFilter, so a render triggered by picking a room from the
+  // dropdown can never get immediately overridden here.
   requestAnimationFrame(() => {
     track.scrollLeft = 0;
-    syncDots();
+    highlightActiveDot();
   });
 }
 
