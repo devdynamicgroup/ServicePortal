@@ -9,7 +9,10 @@ function getMonday(d) {
   const day = d.getDay(), diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const m = new Date(d); m.setDate(diff); m.setHours(0,0,0,0); return m;
 }
-function shiftWeek(dir) { clearHighlightedCase(); weekBase.setDate(weekBase.getDate() + dir*7); renderCalendar(); }
+// Browsing to another week is not the same as choosing a day: it must not
+// carry the old selection's weekday index into the new week (that made the
+// highlight/appointment-list silently "follow" a week you never tapped into).
+function shiftWeek(dir) { clearHighlightedCase(); weekBase.setDate(weekBase.getDate() + dir*7); S.selDay = -1; renderCalendar(); }
 
 /* ── Date helpers (job.date is the source of truth) ───────────── */
 // Local calendar date -> 'YYYY-MM-DD' (no timezone shift).
@@ -29,9 +32,10 @@ function compareJobsBySchedule(a, b) {
   if (dateCmp) return dateCmp;
   return String(a.timeStart || '').localeCompare(String(b.timeStart || ''));
 }
-// The real date currently selected in the dashboard.
+// The real date currently selected in the dashboard, or '' when the user is
+// just browsing weeks and hasn't tapped a day (S.selDay === -1).
 function selectedDateIso() {
-  return cellDate(S.selDay);
+  return S.selDay === -1 ? '' : cellDate(S.selDay);
 }
 // Prefer job.date (Notion appointment / Created 1). No createdTime or weekday fallback.
 function jobDateIso(job) {
@@ -178,7 +182,7 @@ async function createManualCase() {
     // the original "start on-site now" semantics (in_progress + startedAt);
     // a case created for a different, not-yet-arrived day cannot have
     // already started, so it's created as a normal scheduled case instead.
-    const selectedIso = typeof selectedDateIso === 'function' ? selectedDateIso() : formatDate(now);
+    const selectedIso = (typeof selectedDateIso === 'function' ? selectedDateIso() : '') || formatDate(now);
     const isToday = selectedIso === formatDate(now);
     const fmtTime = d => {
       const h = d.getHours() % 12 || 12;
@@ -270,7 +274,7 @@ function renderCalendar() {
     chip.onclick = () => { clearHighlightedCase(); S.selDay = i; renderCalendar(); };
     strip.appendChild(chip);
   }
-  const d = new Date(weekBase); d.setDate(weekBase.getDate() + S.selDay);
+  const d = new Date(weekBase); d.setDate(weekBase.getDate() + (S.selDay === -1 ? 0 : S.selDay));
   document.getElementById('wn-month').textContent = d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
   renderJobs();
 }
@@ -587,7 +591,7 @@ function confirmSignout(){
   goScreen('s-login');
   showToast('Signed out');
 }
-function openMonthPicker(){ S.monthPickerDate=new Date(weekBase); S.monthPickerDate.setDate(weekBase.getDate()+S.selDay); renderMonthGrid(); document.getElementById('month-overlay').classList.remove('hidden'); }
+function openMonthPicker(){ S.monthPickerDate=new Date(weekBase); S.monthPickerDate.setDate(weekBase.getDate()+(S.selDay===-1?0:S.selDay)); renderMonthGrid(); document.getElementById('month-overlay').classList.remove('hidden'); }
 function closeMonthPicker(){ document.getElementById('month-overlay').classList.add('hidden'); }
 function shiftMonth(dir){ S.monthPickerDate.setMonth(S.monthPickerDate.getMonth()+dir); renderMonthGrid(); }
 function renderMonthGrid(){
@@ -595,13 +599,13 @@ function renderMonthGrid(){
   document.getElementById('month-picker-title').textContent=d.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
   const first=new Date(y,m,1), start=(first.getDay()+6)%7, days=new Date(y,m+1,0).getDate();
   const today=new Date(); today.setHours(0,0,0,0);
-  const selDate=new Date(weekBase); selDate.setDate(weekBase.getDate()+S.selDay); selDate.setHours(0,0,0,0);
+  const selDate = S.selDay===-1 ? null : (() => { const sd=new Date(weekBase); sd.setDate(weekBase.getDate()+S.selDay); sd.setHours(0,0,0,0); return sd; })();
   let html=['<span class="mg-hdr">M</span><span class="mg-hdr">T</span><span class="mg-hdr">W</span><span class="mg-hdr">T</span><span class="mg-hdr">F</span><span class="mg-hdr">S</span><span class="mg-hdr">S</span>'];
   for(let i=0;i<start;i++) html.push('<span class="month-day other"></span>');
   for(let day=1;day<=days;day++){
     const cd=new Date(y,m,day); cd.setHours(0,0,0,0);
     const isToday=cd.getTime()===today.getTime();
-    const isSel=cd.getTime()===selDate.getTime();
+    const isSel=selDate!==null && cd.getTime()===selDate.getTime();
     const hasJobs=jobsOnDate(formatDate(cd)).length>0;
     html.push(`<span class="month-day${isToday?' today':''}${isSel?' sel':''}${hasJobs?' has-jobs':''}" onclick="pickMonthDay(${y},${m},${day})"><span class="mg-day-num">${day}</span><span class="mg-dot"></span></span>`);
   }
