@@ -314,12 +314,12 @@ function buildApptCard(job, opts = {}) {
     '<div class="appt-card' + stripeClass + highlightClass + '" data-job-id="' + jobId + '">' +
       '<button class="ac-menu" type="button" aria-label="More">' + MENU_SVG + '</button>' +
       dateLine +
+      '<div class="ac-tags">' +
+        '<span class="tag ' + pkgClass + '">' + pkgTag + '</span>' +
+        statusTag +
+      '</div>' +
       '<div class="ac-top">' +
         '<div class="ac-left">' +
-          '<div class="ac-tags">' +
-            '<span class="tag ' + pkgClass + '">' + pkgTag + '</span>' +
-            statusTag +
-          '</div>' +
           '<div class="ac-name">' + escapeHtml(job.name) + '</div>' +
           '<div class="ac-addr">' + PIN_SVG + '<span>' + escapeHtml(job.addr) + '</span></div>' +
         '</div>' +
