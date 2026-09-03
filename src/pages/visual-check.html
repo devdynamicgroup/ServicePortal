@@ -1,40 +1,54 @@
 <div id="s-visual" class="screen">
   <div class="hdr">
     <button class="hdr-back" type="button" onclick="goBack('s-assess')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <span class="hdr-title">Visual Check</span>
+    <span class="hdr-title" data-i18n="visual.title">Visual Check</span>
   </div>
-  <div class="content gap12">
-    <div class="sec-label">Water Colour</div>
-    <div class="seg" id="seg-colour">
-      <div class="seg-opt sel" onclick="selSeg(this,'colour')">Clear</div>
-      <div class="seg-opt" onclick="selSeg(this,'colour')">Slight Tint</div>
-      <div class="seg-opt" onclick="selSeg(this,'colour')">Yellow / Brown</div>
+  <div class="content">
+    <div class="visual-section">
+      <div class="visual-card">
+        <div class="sec-label" data-i18n="visual.waterColour">Water Colour</div>
+        <div class="seg" id="seg-colour">
+          <div class="seg-opt sel" onclick="selSeg(this,'colour')" data-i18n="visual.clear">Clear</div>
+          <div class="seg-opt" onclick="selSeg(this,'colour')" data-i18n="visual.slightTint">Slight Tint</div>
+          <div class="seg-opt" onclick="selSeg(this,'colour')" data-i18n="visual.yellowBrown">Yellow / Brown</div>
+        </div>
+      </div>
     </div>
-    <div class="sec-label" style="margin-top:16px">Smell</div>
-    <div class="seg" id="seg-smell">
-      <div class="seg-opt sel" onclick="selSeg(this,'smell')">None</div>
-      <div class="seg-opt" onclick="selSeg(this,'smell')">Chlorine</div>
-      <div class="seg-opt" onclick="selSeg(this,'smell')">Earthy / Musty</div>
-      <div class="seg-opt" onclick="selSeg(this,'smell')">Sulphur</div>
-      <div class="seg-opt" onclick="selSeg(this,'smell')">Metallic</div>
-      <div class="seg-opt" onclick="selSeg(this,'smell')">Other</div>
+    <div class="visual-section">
+      <div class="visual-card">
+        <div class="sec-label" data-i18n="visual.smell">Smell</div>
+        <div class="seg" id="seg-smell">
+          <div class="seg-opt sel" onclick="selSeg(this,'smell')" data-i18n="visual.none">None</div>
+          <div class="seg-opt" onclick="selSeg(this,'smell')" data-i18n="visual.chlorine">Chlorine</div>
+          <div class="seg-opt" onclick="selSeg(this,'smell')" data-i18n="visual.earthyMusty">Earthy / Musty</div>
+          <div class="seg-opt" onclick="selSeg(this,'smell')" data-i18n="visual.sulphur">Sulphur</div>
+          <div class="seg-opt" onclick="selSeg(this,'smell')" data-i18n="visual.metallic">Metallic</div>
+          <div class="seg-opt" onclick="selSeg(this,'smell')" data-i18n="visual.other">Other</div>
+        </div>
+      </div>
     </div>
-    <div class="field" style="margin-top:4px"><label>Note <span style="color:var(--muted);font-weight:400">(optional)</span></label><textarea class="inp" id="visual-note" placeholder="Any observations..."></textarea></div>
-    <div>
-      <div style="font-size:13px;font-weight:500;margin-bottom:8px;color:#374151">Photo <span style="color:var(--muted);font-weight:400">(optional)</span></div>
-      <div class="photo-capture">
-        <div class="photo-box" onclick="openCameraCapture('vis-photo-input','vis-photo-preview')">
-          <img id="vis-photo-preview" src="" style="display:none" alt="">
-          <span class="pb-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78716c" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
-          <span class="pb-label">No photo attached</span>
-          <span class="photo-status hidden">Photo added</span>
-          <input type="file" id="vis-photo-input" accept="image/*" onchange="previewPhoto(this,'vis-photo-preview')">
+    <div class="visual-section">
+      <div class="visual-card">
+        <div class="field"><label><span data-i18n="visual.note">Note</span> <span style="color:var(--muted);font-weight:400" data-i18n="visual.optional">(optional)</span></label><textarea class="inp" id="visual-note" data-i18n-placeholder="visual.notePlaceholder" placeholder="Any observations..."></textarea></div>
+      </div>
+    </div>
+    <div class="visual-section">
+      <div class="visual-card">
+        <div class="sec-label"><span data-i18n="visual.photo">Photo</span> <span style="color:var(--muted);font-weight:400;text-transform:none" data-i18n="visual.optional">(optional)</span></div>
+        <div class="photo-capture">
+          <div class="photo-box" onclick="openCameraCapture('vis-photo-input','vis-photo-preview')">
+            <img id="vis-photo-preview" src="" style="display:none" alt="">
+            <span class="pb-icon"><svg width="20" height="18" viewBox="0 0 24 24" fill="none" stroke="#1c1917" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+            <span class="pb-label" data-i18n="visual.add">Add</span>
+            <span class="photo-status hidden" data-i18n="photo.added">Photo added</span>
+            <input type="file" id="vis-photo-input" accept="image/*" onchange="previewPhoto(this,'vis-photo-preview')">
+          </div>
         </div>
       </div>
     </div>
   </div>
   <div class="foot">
-    <button class="btn btn-ghost" onclick="goBack('s-assess')">Cancel</button>
-    <button class="btn btn-primary" onclick="completeSub('visual-check','s-assess')">Complete</button>
+    <button class="btn btn-ghost" onclick="goBack('s-assess')" data-i18n="common.cancel">Cancel</button>
+    <button class="btn btn-primary" onclick="completeSub('visual-check','s-assess')" data-i18n="common.complete">Complete</button>
   </div>
 </div>
