@@ -83,26 +83,28 @@
           <select class="inp" id="ci-propage"><option value="">Please select</option><option value="0-5 yrs">0-5 yrs</option><option value="5-10 yrs">5-10 yrs</option><option value="10-20 yrs">10-20 yrs</option><option value="20+ yrs">20+ yrs</option><option value="Not sure">Not sure</option></select>
         </div>
       </div>
-      <div class="field">
-        <label data-i18n="preassess.members">Household Members</label>
-        <div class="ms-wrap" id="ms-members" data-max="0">
-          <button type="button" class="inp ms-trigger" onclick="toggleMs('ms-members')">
-            <span class="ms-value ms-placeholder">Please select</span>
-            <svg class="ms-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="ms-menu hidden">
-            <label class="ms-opt"><input type="checkbox" value="Adults only"> Adults only</label>
-            <label class="ms-opt"><input type="checkbox" value="Child under 3"> Child under 3</label>
-            <label class="ms-opt"><input type="checkbox" value="Children 3-12"> Children 3-12</label>
-            <label class="ms-opt"><input type="checkbox" value="Elderly family member"> Elderly family member</label>
-            <label class="ms-opt"><input type="checkbox" value="Health concerns"> Someone with allergies, sensitive skin, or health concerns</label>
-            <label class="ms-opt"><input type="checkbox" value="Pets"> Pets</label>
+      <div class="row2">
+        <div class="field">
+          <label data-i18n="preassess.members">Household Members</label>
+          <div class="ms-wrap" id="ms-members" data-max="0">
+            <button type="button" class="inp ms-trigger" onclick="toggleMs('ms-members')">
+              <span class="ms-value ms-placeholder">Please select</span>
+              <svg class="ms-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="ms-menu hidden">
+              <label class="ms-opt"><input type="checkbox" value="Adults only"> Adults only</label>
+              <label class="ms-opt"><input type="checkbox" value="Child under 3"> Child under 3</label>
+              <label class="ms-opt"><input type="checkbox" value="Children 3-12"> Children 3-12</label>
+              <label class="ms-opt"><input type="checkbox" value="Elderly family member"> Elderly family member</label>
+              <label class="ms-opt"><input type="checkbox" value="Health concerns"> Someone with allergies, sensitive skin, or health concerns</label>
+              <label class="ms-opt"><input type="checkbox" value="Pets"> Pets</label>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="field">
-        <label data-i18n="preassess.filter">Current Filter</label>
-        <select class="inp" id="ci-filter"><option value="">Please select</option><option value="Drinking water filter">Drinking water filter</option><option value="RO system">RO system</option><option value="Whole-house filter">Whole-house filter</option><option value="Building/condo filter">Building/condo filter</option><option value="None">None</option><option value="Not sure">Not sure</option></select>
+        <div class="field">
+          <label data-i18n="preassess.filter">Current Filter</label>
+          <select class="inp" id="ci-filter"><option value="">Please select</option><option value="Drinking water filter">Drinking water filter</option><option value="RO system">RO system</option><option value="Whole-house filter">Whole-house filter</option><option value="Building/condo filter">Building/condo filter</option><option value="None">None</option><option value="Not sure">Not sure</option></select>
+        </div>
       </div>
       <div class="field">
         <label data-i18n="preassess.concerns">Water Concerns</label>
