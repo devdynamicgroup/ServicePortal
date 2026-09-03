@@ -114,11 +114,14 @@
       <p class="feedback-review-lead" data-i18n="fb.reviewLead">Thank you for choosing Water Motion.</p>
       <p class="feedback-review-body" data-i18n="fb.reviewBody">Scan the QR code or tap the link below to leave a Google review.</p>
       <img class="feedback-review-qr" id="fb-review-qr" src="" alt="Google Review QR Code" width="160" height="160">
-      <a class="feedback-review-url" id="fb-review-link-display" href="https://g.page/r/Ce0EFhVtUyRpEBM/review" target="_blank" rel="noopener noreferrer">https://g.page/r/Ce0EFhVtUyRpEBM/review</a>
+      <div class="feedback-review-url-row">
+        <a class="feedback-review-url" id="fb-review-link-display" href="https://g.page/r/Ce0EFhVtUyRpEBM/review" target="_blank" rel="noopener noreferrer">https://g.page/r/Ce0EFhVtUyRpEBM/review</a>
+        <button class="btn-copy-review-link" type="button" onclick="copyFeedbackReviewLink()" data-i18n="fb.copyLink" aria-label="Copy link">Copy</button>
+      </div>
     </div>
     <div class="row feedback-review-actions">
       <button class="btn btn-secondary btn-complete-narrow" type="button" onclick="completeFeedback()" data-i18n="common.complete">Complete</button>
-      <button class="btn btn-primary btn-google" type="button" onclick="openGoogleReview()" data-i18n="fb.google">Leave Google Review</button>
+      <button class="btn btn-primary btn-google" type="button" onclick="closeFeedbackModal()" data-i18n="fb.back">Back</button>
     </div>
   </div>
 </div>

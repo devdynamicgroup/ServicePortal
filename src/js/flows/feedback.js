@@ -47,6 +47,16 @@ function openGoogleReview() {
   window.open(reviewUrl, '_blank', 'noopener,noreferrer');
 }
 
+async function copyFeedbackReviewLink() {
+  const reviewUrl = resolveGoogleReviewUrl();
+  try {
+    await navigator.clipboard?.writeText(reviewUrl);
+    showToast(typeof t === 'function' ? t('fb.linkCopied') : 'Review link copied');
+  } catch {
+    showToast(typeof t === 'function' ? t('fb.shareFailed') : 'Could not share link');
+  }
+}
+
 function completeFeedback() {
   closeFeedbackModal();
   S.stepsDone.feedback = true;
