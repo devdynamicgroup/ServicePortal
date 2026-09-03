@@ -78,11 +78,11 @@ function getPaymentMarkup() {
     <div class="section-title pay-sec-gap" data-i18n="pay.method">Payment Method</div>
     <div class="pay-method-list pay-method-exact">
       <button class="pay-method sel" id="pm-cash" type="button" onclick="selPayMethod('cash')">
-        <span class="pm-icon cash"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 10.5h.01M18 13.5h.01"/></svg></span>
+        <span class="pm-icon cash"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M244.24,60a8,8,0,0,0-7.75-.4c-42.93,21-73.59,11.16-106,.78-34-10.89-69.25-22.14-117.95,1.64A8,8,0,0,0,8,69.24V189.17a8,8,0,0,0,11.51,7.19c42.93-21,73.59-11.16,106.05-.78,19.24,6.15,38.84,12.42,61,12.42,17.09,0,35.73-3.72,56.91-14.06a8,8,0,0,0,4.49-7.18V66.83A8,8,0,0,0,244.24,60ZM232,181.67c-40.6,18.17-70.25,8.69-101.56-1.32-19.24-6.15-38.84-12.42-61-12.42a122,122,0,0,0-45.4,9V74.33c40.6-18.17,70.25-8.69,101.56,1.32S189.14,96,232,79.09ZM128,96a32,32,0,1,0,32,32A32,32,0,0,0,128,96Zm0,48a16,16,0,1,1,16-16A16,16,0,0,1,128,144ZM56,96v48a8,8,0,0,1-16,0V96a8,8,0,1,1,16,0Zm144,64V112a8,8,0,1,1,16,0v48a8,8,0,1,1-16,0Z"/></svg></span>
         <span class="pm-body"><span class="pm-name" data-i18n="pay.cash">Cash</span><span class="pm-sub" id="pm-cash-amt">&#3647;0</span></span>
       </button>
       <button class="pay-method" id="pm-bank" type="button" onclick="selPayMethod('bank')">
-        <span class="pm-icon bank"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><path d="M3 10h18L12 4 3 10Z"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 18h18M2 21h20"/></svg></span>
+        <span class="pm-icon bank"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M24,104H48v64H32a8,8,0,0,0,0,16H224a8,8,0,0,0,0-16H208V104h24a8,8,0,0,0,4.19-14.81l-104-64a8,8,0,0,0-8.38,0l-104,64A8,8,0,0,0,24,104Zm40,0H96v64H64Zm80,0v64H112V104Zm48,64H160V104h32ZM128,41.39,203.74,88H52.26ZM248,208a8,8,0,0,1-8,8H16a8,8,0,0,1,0-16H240A8,8,0,0,1,248,208Z"/></svg></span>
         <span class="pm-body">
           <span class="pm-name" data-i18n="pay.bank">Bank Transfer</span>
           <span class="pm-account-row" onclick="event.stopPropagation();copyBankAccount()">
@@ -91,22 +91,20 @@ function getPaymentMarkup() {
           </span>
         </span>
         <span class="pm-actions">
-          <span class="pm-icon-btn" role="button" aria-label="View account" onclick="event.stopPropagation();showToast('Account: 986-4-89945-7')"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span>
-          <span class="pm-icon-btn" role="button" aria-label="Copy account" onclick="event.stopPropagation();copyBankAccount()"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></span>
+          <span class="pm-icon-btn" role="button" aria-label="View account" onclick="event.stopPropagation();showToast('Account: 986-4-89945-7')"><svg width="30" height="30" viewBox="0 0 256 256" fill="currentColor"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg></span>
+          <span class="pm-icon-btn" role="button" aria-label="Copy account" onclick="event.stopPropagation();copyBankAccount()"><svg width="30" height="30" viewBox="0 0 256 256" fill="currentColor"><path d="M216,112v96a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V112A16,16,0,0,1,56,96H80a8,8,0,0,1,0,16H56v96H200V112H176a8,8,0,0,1,0-16h24A16,16,0,0,1,216,112ZM93.66,69.66,120,43.31V136a8,8,0,0,0,16,0V43.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,69.66Z"/></svg></span>
         </span>
       </button>
     </div>
     <div class="section-title pay-sec-gap" data-i18n="pay.record">Payment Record</div>
-    <p class="photo-title" data-i18n="pay.uploadTitle">Upload slip or receipt</p>
-    <p class="photo-hint" id="slip-sub" data-i18n="pay.uploadSub">Photo of transfer confirmation or cash receipt</p>
-    <div class="photo-capture" id="slip-upload-card">
-      <div class="photo-box" onclick="openCameraCapture('slip-input','slip-preview')">
-        <img id="slip-preview" src="" style="display:none" alt="">
-        <span class="pb-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#78716c" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
-        <span class="pb-label">No slip attached</span>
-        <span class="photo-status hidden">Photo added</span>
-        <input type="file" id="slip-input" accept="image/*" onchange="handleSlipUpload(this)">
+    <div class="slip-upload-card" id="slip-upload-card" onclick="openCameraCapture('slip-input','slip-preview')">
+      <div class="slip-upload-body">
+        <div class="ut-title" data-i18n="pay.uploadTitle">Upload slip or receipt</div>
+        <div class="ut-sub" id="slip-sub" data-i18n="pay.uploadSub">Photo of transfer confirmation or cash receipt</div>
       </div>
+      <span class="slip-cam-icon"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M208,56H180.28L166.65,35.56A8,8,0,0,0,160,32H96a8,8,0,0,0-6.65,3.56L75.71,56H48A24,24,0,0,0,24,80V192a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V80A24,24,0,0,0,208,56Zm8,136a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H80a8,8,0,0,0,6.66-3.56L100.28,48h55.43l13.63,20.44A8,8,0,0,0,176,72h32a8,8,0,0,1,8,8ZM128,88a44,44,0,1,0,44,44A44.05,44.05,0,0,0,128,88Zm0,72a28,28,0,1,1,28-28A28,28,0,0,1,128,160Z"/></svg></span>
+      <div class="slip-preview-frame"><img id="slip-preview" src="" style="display:none" alt=""></div>
+      <input type="file" id="slip-input" accept="image/*" onchange="handleSlipUpload(this)">
     </div>
   </div>
   <div class="foot">

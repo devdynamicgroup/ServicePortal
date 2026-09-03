@@ -517,8 +517,7 @@ async function syncJobAssessmentToNotion(job = S.activeJob) {
 }
 
 function restoreSlipPreview() {
-  const card = document.getElementById('slip-upload-card');
-  const box = card?.querySelector('.photo-box') || document.querySelector('#slip-preview')?.closest('.photo-box');
+  const box = document.getElementById('slip-upload-card');
   const sub = document.getElementById('slip-sub');
   const preview = document.getElementById('slip-preview');
   if (!preview) return;
@@ -550,9 +549,7 @@ function restoreSlipPreview() {
         preview.style.display = 'block';
         preview.classList.add('preview');
         box?.classList.add('has-photo');
-        box?.querySelector('.pb-icon')?.classList.add('hidden');
-        box?.querySelector('.pb-label')?.classList.add('hidden');
-        box?.querySelector('.photo-status')?.classList.remove('hidden');
+        box?.querySelector('.slip-cam-icon')?.classList.add('hidden');
       }
     }
     if (sub) sub.textContent = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
@@ -563,9 +560,7 @@ function restoreSlipPreview() {
   preview.style.display = 'none';
   preview.classList.remove('preview');
   box?.classList.remove('has-photo');
-  box?.querySelector('.pb-icon')?.classList.remove('hidden');
-  box?.querySelector('.pb-label')?.classList.remove('hidden');
-  box?.querySelector('.photo-status')?.classList.add('hidden');
+  box?.querySelector('.slip-cam-icon')?.classList.remove('hidden');
   if (sub && !S.paymentSlipPhoto) sub.textContent = typeof t === 'function' ? t('pay.uploadSub') : 'Photo of transfer confirmation or cash receipt';
 }
 
