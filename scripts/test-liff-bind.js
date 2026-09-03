@@ -102,10 +102,15 @@ async function withFetch(mockImpl, fn) {
 }
 
 // ---- fake req/res for handleLiffRoute ----
-function fakeReq(method, body) {
+// `url` defaults to '' (no query string) -- matches every pre-existing call
+// site below, which passes the effective path directly as the 3rd arg to
+// handleLiffRoute() and never relied on req.url. Tests that need to prove
+// the real liff.state query-unwrapping pass `url` explicitly.
+function fakeReq(method, body, url = '') {
   const { EventEmitter } = require('events');
   const req = new EventEmitter();
   req.method = method;
+  req.url = url;
   process.nextTick(() => {
     if (body !== undefined) req.emit('data', Buffer.from(JSON.stringify(body)));
     req.emit('end');
@@ -122,35 +127,47 @@ function fakeRes() {
   };
 }
 
-// ---- canonical URL <-> route contract (2026-09-03 fix) ----
-// buildLiffBindUrl() and handleLiffRoute() were previously tested in
-// isolation and never proven to actually connect -- that's exactly how the
-// query-string/path-segment mismatch went unnoticed. This block simulates
-// the real request chain: LIFF forwards whatever follows
-// https://liff.line.me/{liffId}/ onto the app's registered Endpoint URL
-// (verbatim, per LINE's own LIFF URL scheme), then server.js strips the
-// query string and hands the bare path to handleLiffRoute() exactly like a
-// real request. If buildLiffBindUrl() ever regresses to a query string, or
-// handleLiffRoute()'s route regex changes shape, this fails.
-console.log('\n=== canonical URL -> real route contract ===');
+// ---- canonical URL <-> real route contract (2026-09-03, corrected) ----
+// The 2026-09-03 "fix" that changed buildLiffBindUrl() from `?token=` to a
+// path segment was based on a WRONG assumption: that LIFF forwards the part
+// after the LIFF ID as a literal path segment on the Endpoint URL. A real
+// redirect trace proved otherwise -- LIFF actually bundles it into a
+// `liff.state` QUERY PARAMETER on the bare Endpoint URL:
+//   https://liff.line.me/{liffId}/fb-xxxx
+//     -> https://serviceportal.onrender.com/liff/bind?liff.state=%2Ffb-xxxx
+// NOT `/liff/bind/fb-xxxx`. The previous version of this test simulated the
+// wrong shape and therefore "passed" while the real scan 404'd -- exactly
+// the kind of gap this test exists to catch. This block reconstructs the
+// ACTUAL redirect shape (verified against a live https://liff.line.me
+// redirect, not assumed) and proves resolveLiffEffectivePath() unwraps it
+// correctly before handleLiffRoute()'s path regex ever sees it.
+console.log('\n=== canonical URL -> real route contract (liff.state) ===');
 {
   const { buildLiffBindUrl } = require(`${ROOT}/services/url-builder`);
-  const ENDPOINT_PATH = '/liff/bind'; // the app's one registered LIFF GET route
+  const { resolveLiffEffectivePath } = require(`${ROOT}/api/liff-routes`);
+  const ENDPOINT_URL = '/liff/bind'; // the app's registered LIFF Endpoint URL path (verified in LINE Developers Console, no trailing slash)
   const canonicalUrl = buildLiffBindUrl('fb-contract-9x');
   const liffOrigin = new URL(canonicalUrl);
   const liffIdSegment = `/${liffOrigin.pathname.split('/')[1]}`; // "/2011272555-MAtmaEy4"
-  const extraAfterLiffId = liffOrigin.pathname.slice(liffIdSegment.length); // whatever LIFF forwards verbatim
-  check(extraAfterLiffId === '/fb-contract-9x', 'the part LIFF forwards after the LIFF ID is a plain path segment, not a query string');
+  const extraAfterLiffId = liffOrigin.pathname.slice(liffIdSegment.length); // "/fb-contract-9x" -- what LIFF actually wraps into liff.state
 
-  // server.js: `const urlPath = req.url.split('?')[0]` -- simulate that exact transform on the forwarded request.
-  const forwardedRequestUrl = `${ENDPOINT_PATH}${extraAfterLiffId}${liffOrigin.search}`;
-  const urlPathAfterServerStrip = forwardedRequestUrl.split('?')[0];
+  // The REAL shape LIFF produces: bare Endpoint URL + `?liff.state=<encoded extra path>`.
+  const realForwardedUrl = `${ENDPOINT_URL}?liff.state=${encodeURIComponent(extraAfterLiffId)}`;
+  check(realForwardedUrl === '/liff/bind?liff.state=%2Ffb-contract-9x', `matches the exact shape observed from a live LIFF redirect (got ${realForwardedUrl})`);
+
+  // server.js: `const urlPath = req.url.split('?')[0]` -- the query string (and liff.state with it) is stripped here.
+  const urlPathAfterServerStrip = realForwardedUrl.split('?')[0];
+  check(urlPathAfterServerStrip === '/liff/bind', 'server.js\'s own query-strip leaves a bare path with the token gone -- proves handleLiffRoute() cannot skip resolveLiffEffectivePath()');
+
+  // handleLiffRoute() must re-derive the token from req.url's liff.state, not from the already-stripped urlPath.
+  const effectivePath = resolveLiffEffectivePath({ url: realForwardedUrl }, urlPathAfterServerStrip);
+  check(effectivePath === '/liff/bind/fb-contract-9x', `resolveLiffEffectivePath() reconstructs the real path from liff.state (got ${effectivePath})`);
 
   mockFeedback = { clientPageId: 'page-1', clientName: 'Somchai', feedbackToken: 'fb-contract-9x' };
   const res = fakeRes();
-  const handled = await handleLiffRoute(fakeReq('GET'), res, urlPathAfterServerStrip);
-  check(handled === true, 'the URL buildLiffBindUrl() actually generates resolves to a route handleLiffRoute() recognizes');
-  check(res.statusCode === 200, 'and that route serves the bind page (200), not a 404');
+  const handled = await handleLiffRoute(fakeReq('GET', undefined, realForwardedUrl), res, urlPathAfterServerStrip);
+  check(handled === true, 'end-to-end: the URL buildLiffBindUrl() actually generates resolves to a route handleLiffRoute() recognizes, through the REAL liff.state shape');
+  check(res.statusCode === 200, 'and that route serves the bind page (200), not a 404 -- this is the exact request shape that 404\'d on a real phone before this fix');
   check(res.body.includes('/api/liff/bind/fb-contract-9x'), 'and the served page posts back using the SAME token buildLiffBindUrl() was given -- nothing lost in the round trip');
 }
 

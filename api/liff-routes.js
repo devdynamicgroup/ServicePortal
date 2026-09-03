@@ -196,7 +196,28 @@ function liffBindHtml(token, feedback) {
 </html>`;
 }
 
+// LIFF's redirect service does NOT append the part after the LIFF ID
+// (https://liff.line.me/{liffId}/{token}) as a real path segment on the
+// registered Endpoint URL. It bundles that whole segment into a single
+// `liff.state` query parameter instead: a real trace confirmed opening
+// https://liff.line.me/{liffId}/fb-xxxx lands here as
+// `/liff/bind?liff.state=%2Ffb-xxxx`, not `/liff/bind/fb-xxxx` -- so the
+// path-only route below never matched a real scan (2026-09-03 finding).
+// This is LIFF's own platform behavior, not something buildLiffBindUrl()
+// or the registered Endpoint URL configuration can avoid -- the server has
+// to unwrap `liff.state` itself before routing.
+function resolveLiffEffectivePath(req, urlPath) {
+  const rawUrl = String(req?.url || '');
+  const queryIndex = rawUrl.indexOf('?');
+  if (queryIndex === -1) return urlPath;
+  const state = new URLSearchParams(rawUrl.slice(queryIndex)).get('liff.state');
+  if (!state) return urlPath;
+  const extra = state.startsWith('/') ? state : `/${state}`;
+  return urlPath.replace(/\/$/, '') + extra;
+}
+
 async function handleLiffRoute(req, res, urlPath) {
+  urlPath = resolveLiffEffectivePath(req, urlPath);
   const bindPageMatch = urlPath.match(/^\/liff\/bind\/([^/]+)$/);
   if (bindPageMatch && req.method === 'GET') {
     const token = decodeURIComponent(bindPageMatch[1]);
@@ -251,4 +272,4 @@ async function handleLiffRoute(req, res, urlPath) {
   return false;
 }
 
-module.exports = { handleLiffRoute, verifyLiffIdToken, liffBindHtml };
+module.exports = { handleLiffRoute, verifyLiffIdToken, liffBindHtml, resolveLiffEffectivePath };
