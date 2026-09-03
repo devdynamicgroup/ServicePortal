@@ -6,7 +6,8 @@ const {
   isClientFeedbackConfigured
 } = require('./client-feedback');
 const { sendCaseResultNotification } = require('./line-notifications');
-const { publicBaseUrl, buildReportUrl, buildFeedbackUrl, resolveReviewUrl: resolveDefaultReviewUrl, DEFAULT_REVIEW_URL } = require('./url-builder');
+const { publicBaseUrl, buildReportUrl, buildFeedbackUrl, buildLiffBindUrl, resolveReviewUrl: resolveDefaultReviewUrl, DEFAULT_REVIEW_URL } = require('./url-builder');
+const QRCode = require('qrcode');
 const { isCancelledJob } = require('./water-check-offer-service');
 const { newCorrelationId, logEvent } = require('./observability');
 const { dualWriteAfterCaseSuccess } = require('./migration/dual-write');
@@ -35,6 +36,33 @@ const sendingStartedAt = new Map();
 function isTerminalCaseStatus(job) {
   const workflowStatus = String(job?.workflow?.status || '').toLowerCase();
   return isCancelledJob(job) || workflowStatus === 'closed';
+}
+
+// Post-submit "Send Result" connect payload (2026-09-03) -- when a customer
+// isn't LINE-linked yet, the client needs the same canonical LIFF bind URL
+// the score poster and report banner already use (buildLiffBindUrl), plus a
+// ready-made QR so the Job page never needs its own QR-generation code or a
+// new endpoint. Same QR style as api/case-flow-routes.js:buildLineConnectSection
+// (dark:#1c1917, light:#ffffff) for visual consistency across all three
+// LINE-connect touchpoints. Never throws -- a QR failure must not break the
+// "result sent" response; the client still gets `url` and can fall back to
+// Copy Link or the manual code.
+async function buildLineConnectPayload(job) {
+  const token = String(job?.feedback?.token || '').trim();
+  const url = buildLiffBindUrl(token);
+  if (!url) return { connectUrl: '', connectQr: '' };
+  let connectQr = '';
+  try {
+    connectQr = await QRCode.toDataURL(url, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 132,
+      color: { dark: '#1c1917', light: '#ffffff' }
+    });
+  } catch (error) {
+    console.warn('[line_connect_payload] QR generation failed', error.message);
+  }
+  return { connectUrl: url, connectQr };
 }
 
 function withCaseLock(key, operation) {
@@ -287,7 +315,12 @@ async function executeSendCaseResult(job, payload = {}, caseId = job?.id) {
       ok: true,
       action: 'skipped',
       case: job,
-      line: { ok: false, status: 'skipped', reason: 'no_line_user_id' }
+      line: {
+        ok: false,
+        status: 'skipped',
+        reason: 'no_line_user_id',
+        ...(await buildLineConnectPayload(job))
+      }
     };
   }
 

@@ -471,7 +471,23 @@ async function sendResultToLineNow() {
         ? (S.lang === 'th' ? 'ส่งผลล่าสุดให้ลูกค้าทาง LINE สำเร็จ' : 'Latest result sent to customer via LINE')
         : (S.lang === 'th' ? 'ส่งผลให้ลูกค้าทาง LINE สำเร็จ' : 'Result sent to customer via LINE'));
     } else if (sendPayload.line?.reason === 'no_line_user_id' || sendPayload.line?.status === 'skipped') {
-      showToast(S.lang === 'th' ? 'ยังไม่ได้เชื่อม LINE กับลูกค้า' : 'Customer is not LINE-linked yet');
+      // Result genuinely sent/published successfully -- the customer just
+      // isn't LINE-linked yet. Open the connect modal so staff can hand the
+      // QR/link over right now instead of a dead-end toast. connectUrl/
+      // connectQr come straight from the same POST /api/cases/:id/send-result
+      // response (services/workflow-service.js:buildLineConnectPayload) --
+      // no separate request. Missing connectUrl (e.g. Case has no
+      // feedbackToken) falls back to the old toast rather than opening a
+      // broken/empty modal.
+      if (sendPayload.line?.connectUrl && typeof openLineConnectModal === 'function') {
+        openLineConnectModal({
+          url: sendPayload.line.connectUrl,
+          qr: sendPayload.line.connectQr || '',
+          code: job.feedback?.token || ''
+        });
+      } else {
+        showToast(S.lang === 'th' ? 'ยังไม่ได้เชื่อม LINE กับลูกค้า' : 'Customer is not LINE-linked yet');
+      }
     } else {
       showToast(S.lang === 'th' ? 'ส่งผล LINE ไม่สำเร็จ' : 'Could not send result via LINE');
     }
@@ -485,6 +501,70 @@ async function sendResultToLineNow() {
       btn.textContent = btn.dataset.prevLabel || (S.lang === 'th' ? 'ส่งผล' : 'Send');
       delete btn.dataset.prevLabel;
     }
+  }
+}
+
+/**
+ * Post-"Send Result" LINE connect modal (2026-09-03) -- shown only after a
+ * successful send/publish when the customer isn't LINE-linked yet (see the
+ * no_line_user_id branch in sendResultToLineNow() above). Every value here
+ * comes from that one existing response; this never makes its own request,
+ * never generates a token, and never talks to the LIFF/binding endpoints
+ * directly -- it only displays what services/workflow-service.js already
+ * computed via the canonical buildLiffBindUrl().
+ */
+let _lineConnect = { url: '', code: '' };
+
+function openLineConnectModal({ url, qr, code }) {
+  _lineConnect = { url: url || '', code: code || '' };
+  const overlay = document.getElementById('line-connect-overlay');
+  if (!overlay) return;
+
+  const qrImg = document.getElementById('line-connect-qr');
+  if (qrImg) qrImg.src = qr || '';
+
+  const codeEl = document.getElementById('line-connect-code');
+  if (codeEl) codeEl.textContent = _lineConnect.code || '—';
+
+  overlay.classList.remove('hidden');
+}
+
+function closeLineConnectModal() {
+  const overlay = document.getElementById('line-connect-overlay');
+  if (overlay) overlay.classList.add('hidden');
+}
+
+function copyLineConnectLink() {
+  if (!_lineConnect.url) return;
+  const btn = document.getElementById('line-connect-linkbtn');
+  const done = () => {
+    showToast(t('line.connect.linkCopied'));
+    if (!btn) return;
+    btn.classList.add('done');
+    clearTimeout(btn._resetTimer);
+    btn._resetTimer = setTimeout(() => btn.classList.remove('done'), 1600);
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(_lineConnect.url).then(done).catch(done);
+  } else {
+    done();
+  }
+}
+
+function copyLineConnectCode() {
+  if (!_lineConnect.code) return;
+  const btn = document.getElementById('line-connect-copycode');
+  const done = () => {
+    showToast(t('job.lineCode.copied'));
+    if (!btn) return;
+    btn.classList.add('done');
+    clearTimeout(btn._resetTimer);
+    btn._resetTimer = setTimeout(() => btn.classList.remove('done'), 1600);
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(_lineConnect.code).then(done).catch(done);
+  } else {
+    done();
   }
 }
 

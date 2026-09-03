@@ -39,7 +39,7 @@ async function main() {
 console.log('=== buildLiffBindUrl(token) ===');
 {
   const { buildLiffBindUrl } = require(`${ROOT}/services/url-builder`);
-  check(buildLiffBindUrl('fb-tq3x') === 'https://liff.line.me/2011272555-MAtmaEy4?token=fb-tq3x', 'builds the expected liff.line.me URL with the default LIFF ID');
+  check(buildLiffBindUrl('fb-tq3x') === 'https://liff.line.me/2011272555-MAtmaEy4/fb-tq3x', 'builds the expected liff.line.me URL with the default LIFF ID, token as a path segment (not a query string -- server.js strips query strings before any route matches)');
   check(buildLiffBindUrl('') === '', 'empty token => empty string, no throw');
   check(buildLiffBindUrl(null) === '', 'null token => empty string, no throw');
 }
@@ -120,6 +120,38 @@ function fakeRes() {
     writeHead(status, headers) { this.statusCode = status; this.headers = headers; },
     end(chunk) { this.body = chunk; }
   };
+}
+
+// ---- canonical URL <-> route contract (2026-09-03 fix) ----
+// buildLiffBindUrl() and handleLiffRoute() were previously tested in
+// isolation and never proven to actually connect -- that's exactly how the
+// query-string/path-segment mismatch went unnoticed. This block simulates
+// the real request chain: LIFF forwards whatever follows
+// https://liff.line.me/{liffId}/ onto the app's registered Endpoint URL
+// (verbatim, per LINE's own LIFF URL scheme), then server.js strips the
+// query string and hands the bare path to handleLiffRoute() exactly like a
+// real request. If buildLiffBindUrl() ever regresses to a query string, or
+// handleLiffRoute()'s route regex changes shape, this fails.
+console.log('\n=== canonical URL -> real route contract ===');
+{
+  const { buildLiffBindUrl } = require(`${ROOT}/services/url-builder`);
+  const ENDPOINT_PATH = '/liff/bind'; // the app's one registered LIFF GET route
+  const canonicalUrl = buildLiffBindUrl('fb-contract-9x');
+  const liffOrigin = new URL(canonicalUrl);
+  const liffIdSegment = `/${liffOrigin.pathname.split('/')[1]}`; // "/2011272555-MAtmaEy4"
+  const extraAfterLiffId = liffOrigin.pathname.slice(liffIdSegment.length); // whatever LIFF forwards verbatim
+  check(extraAfterLiffId === '/fb-contract-9x', 'the part LIFF forwards after the LIFF ID is a plain path segment, not a query string');
+
+  // server.js: `const urlPath = req.url.split('?')[0]` -- simulate that exact transform on the forwarded request.
+  const forwardedRequestUrl = `${ENDPOINT_PATH}${extraAfterLiffId}${liffOrigin.search}`;
+  const urlPathAfterServerStrip = forwardedRequestUrl.split('?')[0];
+
+  mockFeedback = { clientPageId: 'page-1', clientName: 'Somchai', feedbackToken: 'fb-contract-9x' };
+  const res = fakeRes();
+  const handled = await handleLiffRoute(fakeReq('GET'), res, urlPathAfterServerStrip);
+  check(handled === true, 'the URL buildLiffBindUrl() actually generates resolves to a route handleLiffRoute() recognizes');
+  check(res.statusCode === 200, 'and that route serves the bind page (200), not a 404');
+  check(res.body.includes('/api/liff/bind/fb-contract-9x'), 'and the served page posts back using the SAME token buildLiffBindUrl() was given -- nothing lost in the round trip');
 }
 
 console.log('\n=== GET /liff/bind/:token (page) ===');

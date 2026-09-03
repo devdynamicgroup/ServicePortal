@@ -105,6 +105,36 @@
   </div>
 </div>
 
+<!-- LINE connect (post "Send Result") -->
+<div id="line-connect-overlay" class="modal-overlay hidden" onclick="closeLineConnectModal()">
+  <div class="modal-sheet line-connect-modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="line-connect-sent" data-i18n="line.connect.sent">Result sent</div>
+    <div class="modal-title" data-i18n="line.connect.title">Connect LINE to receive results</div>
+    <div class="card line-connect-card">
+      <p class="line-connect-lead" data-i18n="line.connect.scanLead">Have the customer scan this QR</p>
+      <img class="line-connect-qr" id="line-connect-qr" src="" alt="LINE connect QR code" width="160" height="160">
+      <p class="line-connect-sub" data-i18n="line.connect.scanSub">Scanning opens LINE to confirm and connect to this Case's result.</p>
+      <div class="line-connect-divider" data-i18n="line.connect.orLink">or send the link instead</div>
+      <button class="line-connect-linkbtn" id="line-connect-linkbtn" type="button" onclick="copyLineConnectLink()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span data-i18n="line.connect.copyLink">Copy Link</span>
+      </button>
+      <div class="line-connect-divider" data-i18n="line.connect.orCode">or use the code instead</div>
+      <div class="line-connect-code-row">
+        <span class="line-connect-code" id="line-connect-code">—</span>
+        <button class="line-connect-copycode" id="line-connect-copycode" type="button" onclick="copyLineConnectCode()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span data-i18n="line.connect.copyCode">Copy Code</span>
+        </button>
+      </div>
+    </div>
+    <div class="row line-connect-actions">
+      <button class="btn btn-primary" type="button" onclick="closeLineConnectModal()" data-i18n="common.complete">Done</button>
+    </div>
+  </div>
+</div>
+
 <!-- Client Feedback -->
 <div id="feedback-overlay" class="modal-overlay hidden" onclick="closeFeedbackModal()">
   <div class="modal-sheet feedback-modal" onclick="event.stopPropagation()">

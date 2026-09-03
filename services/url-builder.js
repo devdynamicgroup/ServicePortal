@@ -29,11 +29,19 @@ function resolveReviewUrl(explicitUrl) {
 // LIFF app "Case Bind" (2026-08-26) -- lets a customer tap a link to bind
 // their LINE account to a Case automatically via LIFF's login/profile SDK,
 // instead of typing the fb-xxxx code by hand in chat.
+//
+// Token travels as an extra PATH segment after the LIFF ID, not a query
+// string (fixed 2026-09-03). LIFF forwards whatever comes after
+// https://liff.line.me/{liffId}/ onto the app's registered Endpoint URL --
+// but server.js strips the query string (`req.url.split('?')[0]`) before any
+// route ever runs, so a `?token=` here could never reach
+// api/liff-routes.js's `/liff/bind/:token` path-based route. The path form
+// is the only one server.js's routing can ever resolve; keep them matched.
 function buildLiffBindUrl(feedbackToken) {
   const token = String(feedbackToken ?? '').trim();
   if (!token) return '';
   const liffId = String(process.env.LIFF_ID || '2011272555-MAtmaEy4').trim();
-  return `https://liff.line.me/${liffId}?token=${encodeURIComponent(token)}`;
+  return `https://liff.line.me/${liffId}/${encodeURIComponent(token)}`;
 }
 
 module.exports = {
