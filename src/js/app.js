@@ -123,7 +123,7 @@ window.goScreen = function(id) {
       if (typeof updateProvinceOptions === 'function') updateProvinceOptions();
       if (typeof updatePreassessmentOptionText === 'function') updatePreassessmentOptionText();
       if (typeof updatePackageVisibility === 'function') updatePackageVisibility();
-      if (typeof updatePreassessmentCompletionState === 'function') updatePreassessmentCompletionState();
+      if (typeof validatePreassessment === 'function') validatePreassessment({ showErrors: false });
       if (typeof initAddressAutocomplete === 'function') initAddressAutocomplete();
     }
     if (id === 's-payment' && typeof updatePaymentScreen === 'function') updatePaymentScreen();
