@@ -321,13 +321,13 @@ function buildApptCard(job, opts = {}) {
             statusTag +
           '</div>' +
           '<div class="ac-name">' + escapeHtml(job.name) + '</div>' +
+          '<div class="ac-addr">' + PIN_SVG + '<span>' + escapeHtml(job.addr) + '</span></div>' +
         '</div>' +
         '<div class="ac-times">' +
           '<div class="ac-time-start">' + escapeHtml(formatDisplayTime(job.timeStart)) + '</div>' +
           '<div class="ac-time-end">' + escapeHtml(formatDisplayTime(job.timeEnd)) + '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="ac-addr">' + PIN_SVG + '<span>' + escapeHtml(job.addr) + '</span></div>' +
       '<div class="ac-meta">' +
         '<span>' + escapeHtml(job.meta) + contactLine + '</span>' +
       '</div>' +
