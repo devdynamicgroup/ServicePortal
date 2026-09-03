@@ -127,7 +127,7 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .dash-user{flex:1;min-width:0}
 .dash-user-name{font-weight:600;font-size:14px;color:var(--text)}
 .dash-user-role{font-size:12px;color:var(--dim)}
-.dash-actions{display:flex;align-items:center;gap:8px}
+.dash-actions{display:flex;align-items:center;gap:16px}
 .dash-icon-btn{width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);padding:0;position:relative}
 .dash-notif-btn .notif-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:#fff;font:700 10px/16px Geist,system-ui,sans-serif;text-align:center}
 .dash-notif-btn .notif-badge[hidden]{display:none!important}
