@@ -331,7 +331,7 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 #s-visual .visual-card{display:flex;flex-direction:column;gap:10px;background:#fff;border-radius:var(--radius);padding:16px}
 #s-visual .sec-label{font-size:14px;font-weight:600;text-transform:none;letter-spacing:normal;color:#27272a;margin:0}
 #s-visual .seg{gap:8px}
-#s-visual .seg-opt{min-height:64px;padding:8px 12px;border-radius:var(--radius);font-size:17px;font-weight:400;color:#1c1917;display:flex;align-items:center;justify-content:center;line-height:1.3}
+#s-visual .seg-opt{flex:1;min-width:0;height:64px;box-sizing:border-box;padding:8px 12px;border-radius:var(--radius);font-size:16px;font-weight:400;color:#1c1917;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.25;overflow:hidden}
 #s-visual .field label{font-size:14px;font-weight:600;color:#27272a}
 #s-visual .photo-box{width:64px;height:64px;min-height:64px;flex:0 0 auto;padding:8px 12px;gap:2px;border-style:solid;border-radius:var(--radius)}
 #s-visual .photo-box.has-photo{padding:0}
