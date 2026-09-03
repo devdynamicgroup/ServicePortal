@@ -58,7 +58,7 @@ function getPaymentMarkup() {
   return `
 <div id="s-payment" class="screen pay-screen">
   <div class="hdr">
-    <button class="hdr-back" type="button" onclick="goBack('s-job')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <button class="hdr-back" type="button" onclick="goBack('s-job')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
     <span class="hdr-title" data-i18n="pay.title">Payment</span>
   </div>
   <div class="content pay-content">
