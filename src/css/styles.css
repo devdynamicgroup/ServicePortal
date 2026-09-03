@@ -29,6 +29,7 @@ body.public-report-mode #s-score .score-scroll{padding-bottom:calc(24px + env(sa
 
 /* ─── Header bar ─────────────────────────────────── */
 .hdr,.dash-topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;height:64px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;flex-shrink:0;width:100%}
+.dash-topbar{background:var(--bg)}
 .hdr-back{width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);color:var(--text);margin-left:-6px;flex-shrink:0}
 .hdr-title{font-weight:600;font-size:14px;flex:1}
 .hdr-action{font-size:14px;color:var(--blue);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0;white-space:nowrap}
@@ -122,9 +123,9 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .li-check.active{border-color:var(--blue)}
 
 /* ─── Week strip ─────────────────────────────────── */
-.dash-avatar{width:40px;height:40px;border-radius:50%;background:var(--accent-100);color:var(--blue);font-weight:600;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dash-avatar{width:36px;height:36px;border-radius:50%;background:#fff;color:var(--blue);font-weight:600;font-size:17px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .dash-user{flex:1;min-width:0}
-.dash-user-name{font-weight:600;font-size:15px;color:var(--text)}
+.dash-user-name{font-weight:600;font-size:14px;color:var(--text)}
 .dash-user-role{font-size:12px;color:var(--dim)}
 .dash-actions{display:flex;align-items:center;gap:8px}
 .dash-icon-btn{width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);padding:0;position:relative}
@@ -158,8 +159,11 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .dash-add-btn{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--blue);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap}
 .dash-add-btn.secondary{background:var(--accent-50);border-color:var(--accent-100)}
 .dash-add-btn svg{flex-shrink:0}
-.dash-fab{position:fixed;left:50%;transform:translateX(calc(-50% + 155px));bottom:calc(24px + env(safe-area-inset-bottom));width:52px;height:52px;border-radius:50%;border:none;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 4px rgba(0,0,0,.25);cursor:pointer;z-index:30}
-.dash-fab:active{transform:translateX(calc(-50% + 155px)) scale(.95)}
+/* #app is centered with max-width:390px, so a raw right:20px would hug the
+   browser window's edge on wider screens instead of the 390px app frame --
+   max() keeps it 20px from the app's own right edge at any viewport width. */
+.dash-fab{position:fixed;right:max(20px,calc(50% - 175px));bottom:calc(20px + env(safe-area-inset-bottom));width:60px;height:60px;border-radius:50%;border:none;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 4px rgba(0,0,0,.25);cursor:pointer;z-index:30}
+.dash-fab:active{transform:scale(.95)}
 .dash-fab:disabled{opacity:.55;cursor:not-allowed}
 .btn-draft:disabled{opacity:.55;cursor:not-allowed}
 .appt-empty{text-align:center;padding:40px 16px;color:var(--muted);font-size:14px;line-height:1.6}
