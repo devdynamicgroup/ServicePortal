@@ -139,12 +139,15 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .day-strip{display:flex;padding:16px 16px;gap:4px;overflow-x:auto}
 .day-strip::-webkit-scrollbar{display:none}
 .day-chip{flex:1;min-width:42px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:4px;border-radius:var(--radius-lg);cursor:pointer;border:1px solid transparent;position:relative;background:#fff}
+/* Marks the real calendar date, independent of which day is currently
+   selected/viewed -- stays on today even after tapping another day. */
+.day-chip.today{background:var(--accent-50)}
 .day-chip.holiday .dc-d{color:var(--text)}
 .day-chip.muted:not(.sel) .dc-dow,.day-chip.muted:not(.sel) .dc-d{color:var(--dim)}
 .day-chip.muted:not(.sel){opacity:.85}
 .day-chip .dc-dow{font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text)}
 .day-chip .dc-d{font-size:17px;font-weight:600;color:var(--text)}
-.day-chip .dc-dot{width:6px;height:6px;border-radius:50%;background:var(--blue);margin-top:2px;visibility:hidden;opacity:1}
+.day-chip .dc-dot{display:inline-block;width:6px;height:6px;flex-shrink:0;border-radius:50%;background:var(--blue);margin-top:2px;visibility:hidden;opacity:1}
 .day-chip.sel .dc-dot,.day-chip.has-jobs .dc-dot{visibility:visible;opacity:1}
 .appt-header{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 8px}
 .appt-header h2{font-size:17px;font-weight:600}
