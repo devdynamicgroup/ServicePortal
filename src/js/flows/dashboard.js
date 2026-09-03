@@ -85,6 +85,19 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;');
 }
 
+/** Display only -- job.timeStart/timeEnd stay whatever format they're stored
+ * in (24h "HH:MM" from Notion, or already-formatted "H:MMAM" from the
+ * manual-case flow); this never rewrites the stored value. */
+function formatDisplayTime(value) {
+  const raw = String(value ?? '').trim();
+  const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return raw;
+  const hour24 = Number(match[1]);
+  const hour = hour24 % 12 || 12;
+  const period = hour24 >= 12 ? 'PM' : 'AM';
+  return `${hour}:${match[2]}${period}`;
+}
+
 function setupDashboardClickDelegation() {
   if (window.__wmDashboardClicksBound) return;
   window.__wmDashboardClicksBound = true;
@@ -310,8 +323,8 @@ function buildApptCard(job, opts = {}) {
           '<div class="ac-name">' + escapeHtml(job.name) + '</div>' +
         '</div>' +
         '<div class="ac-times">' +
-          '<div class="ac-time-start">' + escapeHtml(job.timeStart) + '</div>' +
-          '<div class="ac-time-end">' + escapeHtml(job.timeEnd) + '</div>' +
+          '<div class="ac-time-start">' + escapeHtml(formatDisplayTime(job.timeStart)) + '</div>' +
+          '<div class="ac-time-end">' + escapeHtml(formatDisplayTime(job.timeEnd)) + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="ac-addr">' + PIN_SVG + '<span>' + escapeHtml(job.addr) + '</span></div>' +
