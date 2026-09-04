@@ -485,8 +485,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .login-msg.hidden{display:none!important}
 .login-fields{display:flex;flex-direction:column;gap:16px;width:100%}
 .login-cta{display:flex;flex-direction:column;gap:16px;width:100%}
-.login-body .field{width:100%;margin-bottom:0}
-.login-body .field label{font-size:14px;font-weight:600;color:#27272a;margin-bottom:6px;display:block}
+.login-body .field{width:100%;margin-bottom:0;gap:4px}
+.login-body .field label{font-size:14px;font-weight:600;color:#27272a;display:block}
 .login-body .inp{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);height:40px;font-size:17px}
 .login-body .inp::placeholder{color:var(--dim)}
 .login-body .inp:-webkit-autofill,
