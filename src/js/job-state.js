@@ -701,6 +701,17 @@ function updateJobHeader(job) {
   if (timeEl) timeEl.textContent = `${job.timeStart} – ${job.timeEnd}`;
   if (pkgEl) pkgEl.textContent = S.pkg === 'full' ? t('dash.pkg.full') : t('dash.pkg.essential');
 
+  const mapsBtn = document.getElementById('job-maps-btn');
+  if (mapsBtn) {
+    const mapsLink = getJobDraft(job)?.fields?.['ci-maps'] || '';
+    mapsBtn.classList.toggle('hidden', !mapsLink);
+  }
+}
+
+function openJobMapsLink() {
+  const mapsLink = getJobDraft(S.activeJob)?.fields?.['ci-maps'] || '';
+  if (!mapsLink) return;
+  window.open(mapsLink, '_blank', 'noopener');
 }
 
 // A "done" Case opened from History is a closed record, not work in

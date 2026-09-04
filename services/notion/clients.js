@@ -387,13 +387,33 @@ function buildNotionProperties(payload, schemaProperties = {}) {
     if (!chunks.length) return;
     properties[key] = { rich_text: chunks };
   };
+  // Like setText, but also accepts a Notion "URL" column -- the natural
+  // type for a link field, which the plain rich_text-only setText() would
+  // silently drop (2026-09-04: found while wiring up Maps Link; the column
+  // doesn't exist in the live schema yet, but whichever type gets added
+  // now works instead of only rich_text).
+  const setTextOrUrl = (aliases, value) => {
+    if (value === undefined || value === null || value === '') return;
+    const key = findPropertyKey(schemaProperties, aliases);
+    if (!key) return;
+    const type = schemaProperties[key]?.type;
+    if (type === 'url') {
+      properties[key] = { url: String(value) };
+      return;
+    }
+    if (type !== 'rich_text') return;
+    const text = String(value);
+    const chunks = AssessmentSnapshot.chunkRichText(text);
+    if (!chunks.length) return;
+    properties[key] = { rich_text: chunks };
+  };
 
   setText(FIELD_ALIASES.fullName, payload.fullName);
   setText(FIELD_ALIASES.address, payload.address);
   // Additive/optional -- no-ops until a "Maps Link" column exists in the
-  // live Notion schema (setText already guards on that; confirmed absent
-  // as of 2026-08-31). Works with either rich_text or url column type.
-  setText(FIELD_ALIASES.mapsLink, payload.mapsLink);
+  // live Notion schema. setTextOrUrl (not setText) so either a Text or a
+  // URL column type works once it's added (2026-09-04).
+  setTextOrUrl(FIELD_ALIASES.mapsLink, payload.mapsLink);
   setText(FIELD_ALIASES.phone, payload.phone);
   setText(FIELD_ALIASES.email, payload.email);
   setText(FIELD_ALIASES.lineId, payload.lineId);
