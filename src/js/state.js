@@ -24,6 +24,16 @@ const S = {
   scoreDetail: {},
   googleReviewUrl: 'https://g.page/r/Ce0EFhVtUyRpEBM/review'
 };
+// A top-level `const` in a classic script creates a lexical binding, not a
+// property of window/globalThis -- so bare `S` works everywhere (same
+// script-scope), but `global.S` (the pattern the notifications/* modules
+// use throughout) reads window.S and always got undefined. Re-attach
+// explicitly, same fix already applied to WaterScoreBenchmarkRegistry
+// (src/js/score/benchmark/registry.js) for the same reason (2026-09-04:
+// found while debugging "tapping a notification doesn't navigate" -- this
+// silently broke Thai notification text too, since global.S?.lang was
+// always undefined).
+if (typeof window !== 'undefined') window.S = S;
 
 const KTB_LOGO = 'src/assets/ktb-logo.png';
 const POSTAL_DATA = [
@@ -44,3 +54,9 @@ const POSTAL_DATA = [
 ];
 // Populated from GET /api/clients (Notion), with CSV/localStorage fallback in app.js.
 const JOBS = [];
+// Same const-vs-window gap as S above -- global.JOBS (used by
+// notifications/index.js, notifications/observer.js, and
+// notification-center.js's findJobByCaseId) was always undefined, so a
+// notification tap could never resolve which Case/date to navigate to and
+// silently landed on whatever the calendar already showed.
+if (typeof window !== 'undefined') window.JOBS = JOBS;
