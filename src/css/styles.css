@@ -675,6 +675,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .sec-title-row .sec-title{font-size:17px;font-weight:600;color:var(--text)}
 .sec-title-row .sec-sub{font-size:14px;color:var(--dim);margin-top:2px}
 .tap-name-card{background:var(--surface);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px}
+.tap-name-card .field{gap:4px}
 .tap-name-card .field label{font-size:14px;font-weight:600;color:#27272a}
 .tap-name-row{display:flex;gap:10px;align-items:flex-end}
 .tap-name-row .field{flex:1;margin:0}
