@@ -83,9 +83,21 @@ function addTap() {
   renderAssessList();
 }
 
-function updateTapName() {
-  const v = document.getElementById('tap-name').value.trim();
+// Rename applies live as staff type (liveUpdateTapName), so the tab label
+// never lags behind an un-clicked "Update" button. The button stays as an
+// explicit confirmation action (requested even though it's no longer
+// required) and still gives a toast + full tab-bar refresh.
+function liveUpdateTapName() {
+  const el = document.getElementById('tap-name');
+  if (!el) return;
+  const v = el.value.trim();
   S.taps[S.activeTap] = v || `Tap ${S.activeTap + 1}`;
+  const tabBtn = document.getElementById('tap-tabs')?.children[S.activeTap];
+  if (tabBtn) tabBtn.textContent = S.taps[S.activeTap];
+}
+
+function updateTapName() {
+  liveUpdateTapName();
   renderTapTabs();
   showToast('Tap name updated');
 }
@@ -253,10 +265,9 @@ function requiredAssessmentTaskKeys(pkg = S.pkg) {
 /**
  * True when a tap has any real engagement (a task marked done, or a photo
  * captured) — as opposed to being an untouched default room tab the
- * surveyor never opened. DEFAULT_TAPS pre-populates 5 room slots
- * (Kitchen/Master bath/Shower/Laundry/Guest) on every job regardless of how
- * many rooms are actually being assessed, so completeness must not demand
- * tasks on rooms nobody ever started (2026-08-18 fix).
+ * surveyor never opened. Staff can add extra taps via addTap(), so
+ * completeness must not demand tasks on rooms nobody ever started
+ * (2026-08-18 fix).
  */
 function tapHasAnyEngagement(tap) {
   if (!tap) return false;

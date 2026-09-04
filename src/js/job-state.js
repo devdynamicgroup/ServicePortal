@@ -51,7 +51,11 @@ function markContactFieldDirtyIfChanged(id, newValue) {
   draft.contactFieldsDirtyAt = new Date().toISOString();
 }
 
-const DEFAULT_TAPS = ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest'];
+// A new Case starts with exactly one tap -- staff add more with the "+"
+// button as they actually visit rooms, instead of every job being
+// pre-seeded with 5 named rooms regardless of how many are being assessed
+// (2026-09-04).
+const DEFAULT_TAPS = ['Tap 1'];
 
 /**
  * Deep-clone tapData (which can carry several base64 photo blobs per tap)

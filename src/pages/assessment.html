@@ -14,7 +14,7 @@
       <div class="field">
         <label data-i18n="assess.tapName">Tap Name</label>
         <div class="inp-inline-wrap">
-          <input class="inp inp-inline" id="tap-name" data-i18n-placeholder="assess.tapNamePh" placeholder="e.g. kitchen, master bath, shower">
+          <input class="inp inp-inline" id="tap-name" oninput="liveUpdateTapName()" data-i18n-placeholder="assess.tapNamePh" placeholder="e.g. kitchen, master bath, shower">
           <button type="button" class="inp-inline-action" onclick="updateTapName()" data-i18n="assess.update">Update</button>
         </div>
       </div>

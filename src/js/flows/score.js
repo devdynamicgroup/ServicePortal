@@ -1001,7 +1001,7 @@ function renderWaterScore(job, options = {}) {
 
   const taps = draft.taps?.length
     ? [...draft.taps]
-    : (S.taps?.length ? [...S.taps] : ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest']);
+    : (S.taps?.length ? [...S.taps] : [...DEFAULT_TAPS]);
 
   // Score Architecture V2 (2026-08-17, PO-approved): a render function must
   // not be able to change which Case is globally active as a side effect

@@ -6,7 +6,7 @@ const S = {
   weekOffset: 0,
   selDay: new Date().getDay() === 0 ? 6 : new Date().getDay() - 1,
   activeJob: null,
-  taps: ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest'],
+  taps: ['Tap 1'],
   activeTap: 0,
   tapData: null,
   searchQuery: '',
