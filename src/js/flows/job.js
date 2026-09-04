@@ -184,6 +184,7 @@ function selPkg(p) {
   updatePackageVisibility();
   if (document.getElementById('s-payment') || S.screen === 's-payment') updatePaymentScreen();
   updateAssessScreen();
+  if (S.activeJob && typeof updateJobHeader === 'function') updateJobHeader(S.activeJob);
 }
 function updatePayToggle() {
   const ess = document.getElementById('pay-toggle-ess');

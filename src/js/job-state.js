@@ -705,6 +705,9 @@ function updateJobHeader(job) {
   if (timeEl) timeEl.textContent = `${job.timeStart} – ${job.timeEnd}`;
   if (pkgEl) pkgEl.textContent = S.pkg === 'full' ? t('dash.pkg.full') : t('dash.pkg.essential');
 
+  const changePkgBtn = document.getElementById('job-change-pkg-btn');
+  if (changePkgBtn) changePkgBtn.classList.toggle('hidden', S.pkg === 'full');
+
   const mapsBtn = document.getElementById('job-maps-btn');
   if (mapsBtn) {
     const mapsLink = getJobDraft(job)?.fields?.['ci-maps'] || '';

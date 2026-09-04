@@ -36,6 +36,7 @@ body.public-report-mode #s-score .score-scroll{padding-bottom:calc(24px + env(sa
 .hdr-icons{display:flex;align-items:center;gap:12px;flex-shrink:0}
 .hdr-icon-btn{width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);padding:0}
 .hdr-icon-btn.danger{color:var(--red)}
+.hdr-icon-btn-dark{color:var(--text)}
 
 /* ─── Scroll content ─────────────────────────────── */
 .content{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;padding-bottom:calc(var(--bar) + 24px);-webkit-overflow-scrolling:touch;min-height:0;background:var(--bg)}
@@ -408,6 +409,7 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .pay-sec-gap{margin-top:14px}
 .pay-content .section-title{font-size:15px;margin-bottom:8px}
 .pay-pkg-row .pkg-opt{font-family:inherit;text-align:left;cursor:pointer;width:100%;padding:10px}
+.pay-pkg-row .pkg-opt:disabled{cursor:default}
 .pay-pkg-row .pkg-opt:not(.sel){background:var(--surface)}
 .pay-pkg-row .pkg-opt:not(.sel) .po-price{color:#a5b4fc}
 .pay-pkg-row .pkg-opt:not(.sel) .po-name{color:#71717a}
