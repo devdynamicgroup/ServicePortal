@@ -32,7 +32,7 @@ body.public-report-mode #s-score .score-scroll{padding-bottom:calc(24px + env(sa
 .dash-topbar{background:var(--bg)}
 .hdr-back{width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);color:var(--text);margin-left:-6px;flex-shrink:0}
 .hdr-title{font-weight:600;font-size:14px;flex:1}
-.hdr-action{font-size:14px;color:var(--blue);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0;white-space:nowrap}
+.hdr-action{font-size:14px;color:var(--blue);font-weight:600;font-family:inherit;background:none;border:none;cursor:pointer;padding:4px 0;white-space:nowrap}
 .hdr-icons{display:flex;align-items:center;gap:12px;flex-shrink:0}
 .hdr-icon-btn{width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);padding:0}
 .hdr-icon-btn.danger{color:var(--red)}
