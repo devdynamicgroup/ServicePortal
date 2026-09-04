@@ -407,7 +407,10 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .pay-sec-gap{margin-top:14px}
 .pay-content .section-title{font-size:15px;margin-bottom:8px}
 .pay-pkg-row .pkg-opt{font-family:inherit;text-align:left;cursor:pointer;width:100%;padding:10px}
-.pay-pkg-row .pkg-opt:not(.sel){background:var(--surface);opacity:.5}
+.pay-pkg-row .pkg-opt:not(.sel){background:var(--surface)}
+.pay-pkg-row .pkg-opt:not(.sel) .po-price{color:#a5b4fc}
+.pay-pkg-row .pkg-opt:not(.sel) .po-name{color:#71717a}
+.pay-pkg-row .pkg-opt:not(.sel) .po-desc{color:#a1a1aa}
 .pay-pkg-row .po-price{font-size:14px;margin-bottom:2px}
 .pay-pkg-row .po-name{font-size:12px}
 .pay-method-list{display:flex;flex-direction:column;gap:8px}

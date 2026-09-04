@@ -161,18 +161,17 @@ function completePreassess() {
     }).catch(() => {});
   }
 }
-// Payment screen only: once a package is picked there, collapse to a
-// single full-width card showing just the selection. The Preassessment
+// Payment screen: both package cards stay visible side by side, with the
+// unselected one shown muted (2026-09-04 spec) -- the customer can still
+// see what the other tier offers even after picking one. The Preassessment
 // screen's own pkg-row must stay as two side-by-side cards that only
 // swap which one is highlighted -- selPkg()'s own .sel toggle already
 // handles that, so this function must not touch #pkg-ess/.pkg-row at all.
 function updatePackageVisibility() {
-  const isFull = S.pkg === 'full';
-  document.getElementById('pay-toggle-ess')?.classList.toggle('hidden', isFull);
-  document.querySelectorAll('.pay-pkg-row').forEach(row => row.classList.toggle('pkg-row-single', isFull));
-  if (isFull) {
-    document.getElementById('pay-toggle-full')?.classList.add('sel');
-  }
+  document.getElementById('pay-toggle-ess')?.classList.remove('hidden');
+  document.querySelectorAll('.pay-pkg-row').forEach(row => row.classList.remove('pkg-row-single'));
+  document.getElementById('pay-toggle-full')?.classList.toggle('sel', S.pkg === 'full');
+  document.getElementById('pay-toggle-ess')?.classList.toggle('sel', S.pkg === 'essential');
 }
 
 function selPkg(p) {
