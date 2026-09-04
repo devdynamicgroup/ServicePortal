@@ -88,8 +88,6 @@ const I18N = {
 
     'job.currentJob': 'Current Job',
     'job.workThrough': 'Work through each step below',
-    'job.lineCode.label': 'LINE connect code',
-    'job.lineCode.hint': 'Read this to the customer on-site: add our LINE, then send this code to connect their result.',
     'job.lineCode.copied': 'Code copied',
     'line.connect.sent': 'Result sent',
     'line.connect.title': 'Connect LINE to receive results',
@@ -536,8 +534,6 @@ const I18N = {
 
     'job.currentJob': 'งานปัจจุบัน',
     'job.workThrough': 'ดำเนินการตามขั้นตอนด้านล่าง',
-    'job.lineCode.label': 'รหัสเชื่อม LINE',
-    'job.lineCode.hint': 'บอกรหัสนี้ให้ลูกค้าหน้างาน: ให้แอด LINE เราแล้วพิมพ์รหัสนี้ส่งไป เพื่อเชื่อมรับผลตรวจ',
     'job.lineCode.copied': 'คัดลอกรหัสแล้ว',
     'line.connect.sent': 'ส่งผลตรวจเรียบร้อยแล้ว',
     'line.connect.title': 'เชื่อมบัญชี LINE รับผลตรวจ',

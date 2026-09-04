@@ -701,35 +701,6 @@ function updateJobHeader(job) {
   if (timeEl) timeEl.textContent = `${job.timeStart} – ${job.timeEnd}`;
   if (pkgEl) pkgEl.textContent = S.pkg === 'full' ? t('dash.pkg.full') : t('dash.pkg.essential');
 
-  // Field staff read this code aloud so the customer can add LINE and send
-  // it themselves -- the same fb-xxxx token the chat/QR bind flow already
-  // accepts (see api/line-routes.js:extractFeedbackToken). Kept visible even
-  // once already linked (2026-08-31, direct feedback): if the LINE link ever
-  // drops on its own, staff can read the same code again immediately instead
-  // of having to go dig it up.
-  const lineCodeField = document.getElementById('job-line-code-field');
-  const lineCodeText = document.getElementById('job-line-code-text');
-  const feedbackToken = String(job?.feedback?.token || '').trim();
-  if (lineCodeField && lineCodeText) {
-    if (feedbackToken) {
-      lineCodeText.textContent = feedbackToken;
-      lineCodeField.style.display = '';
-    } else {
-      lineCodeField.style.display = 'none';
-    }
-  }
-}
-
-function copyLineCode() {
-  const lineCodeText = document.getElementById('job-line-code-text');
-  const code = String(lineCodeText?.textContent || '').trim();
-  if (!code) return;
-  const done = () => showToast(t('job.lineCode.copied'));
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(code).then(done).catch(done);
-  } else {
-    done();
-  }
 }
 
 function persistJobs() {

@@ -208,15 +208,6 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .step-done-check svg{width:12px;height:12px}
 .step-card.done .step-done-check{display:flex}
 .step-chevron{color:var(--dim);flex-shrink:0;display:flex;align-items:center}
-.line-code-card{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;margin-top:10px;background:var(--accent-50);border:1px solid var(--accent-100);border-radius:var(--radius)}
-.line-code-icon{width:22px;height:22px;border-radius:50%;background:var(--surface);color:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-.line-code-icon svg{width:12px;height:12px}
-.line-code-body{flex:1;min-width:0}
-.line-code-label{font-size:9.5px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
-.line-code-chip{display:inline-flex;align-items:center;gap:5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:700;letter-spacing:.02em;color:var(--text);background:var(--surface);border:1px solid var(--accent-100);border-radius:var(--radius);padding:3px 8px;margin-bottom:4px;cursor:pointer;transition:transform .1s}
-.line-code-chip:active{transform:scale(.96)}
-.line-code-chip svg{width:11px;height:11px;color:var(--dim);flex-shrink:0}
-.line-code-hint{font-size:10.5px;color:var(--muted);line-height:1.35}
 .line-send-card{display:flex;align-items:center;gap:12px}
 .line-send-icon{width:38px;height:38px;border-radius:50%;background:#06C755;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .line-send-icon svg{width:18px;height:18px}
