@@ -48,7 +48,7 @@ body.public-report-mode #s-score .score-scroll{padding-bottom:calc(24px + env(sa
 .foot .btn-case-cancel{width:82px;flex-shrink:0;padding-left:10px;padding-right:10px}
 
 /* ─── Buttons ────────────────────────────────────── */
-.btn{border:none;border-radius:var(--radius);padding:10px 18px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:opacity .15s,transform .1s;text-transform:capitalize;height:40px}
+.btn{border:none;border-radius:var(--radius);padding:10px 18px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:opacity .15s,transform .1s;text-transform:capitalize;height:40px}
 .btn:active{transform:scale(.97)}
 .btn-primary{background:var(--blue);color:#fff;flex:1}
 .btn-primary:disabled{opacity:.4;pointer-events:none}
