@@ -1,6 +1,6 @@
 const I18N = {
   en: {
-    'login.headline': "Know your home's water.",
+    'login.headline': "Know your home’s water.",
     'login.subtitle': 'Log in to your account',
     'login.username': 'Username',
     'login.password': 'Password',
