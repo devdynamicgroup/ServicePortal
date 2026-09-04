@@ -215,7 +215,7 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .line-send-body{flex:1;min-width:0}
 .line-send-title{font-size:14.5px;font-weight:600;color:var(--text);line-height:1.3}
 .line-send-sub{font-size:12.5px;color:var(--dim);margin-top:2px;line-height:1.45}
-.line-send-btn{width:100%;height:38px;padding:0 18px;border:none;border-radius:var(--radius);background:#06C755;color:#fff;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:opacity .15s,transform .1s}
+.line-send-btn{width:100%;height:38px;padding:0 18px;border:none;border-radius:var(--radius);background:#06C755;color:#fff;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s,transform .1s}
 .line-send-btn:active{transform:scale(.96)}
 .line-send-btn:disabled{opacity:.5;pointer-events:none}
 .step-card.done .step-chevron{display:none}

@@ -351,11 +351,15 @@ async function sendResultToLineNow() {
   }
 
   const btn = document.getElementById('btn-send-result-line');
+  // The button's own text lives in a nested label span (not btn.textContent
+  // directly) so the leading send-icon <svg> survives the loading-state swap
+  // below instead of being wiped along with it.
+  const btnLabel = (typeof btn?.querySelector === 'function' && btn.querySelector('.line-send-btn-label')) || btn;
   sendingResultToLine = true;
   if (btn) {
     btn.disabled = true;
-    btn.dataset.prevLabel = btn.textContent;
-    btn.textContent = S.lang === 'th' ? 'กำลังส่งผล…' : 'Sending…';
+    btnLabel.dataset.prevLabel = btnLabel.textContent;
+    btnLabel.textContent = S.lang === 'th' ? 'กำลังส่งผล…' : 'Sending…';
   }
 
   try {
@@ -498,8 +502,8 @@ async function sendResultToLineNow() {
     sendingResultToLine = false;
     if (btn) {
       btn.disabled = false;
-      btn.textContent = btn.dataset.prevLabel || (S.lang === 'th' ? 'ส่งผล' : 'Send');
-      delete btn.dataset.prevLabel;
+      btnLabel.textContent = btnLabel.dataset.prevLabel || (S.lang === 'th' ? 'ส่งผล' : 'Send');
+      delete btnLabel.dataset.prevLabel;
     }
   }
 }
