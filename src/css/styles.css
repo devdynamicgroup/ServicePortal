@@ -129,7 +129,7 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .dash-user-role{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dash-actions{display:flex;align-items:center;gap:16px}
 .dash-icon-btn{width:24px;height:24px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);padding:0;position:relative}
-.dash-notif-btn .notif-badge{position:absolute;top:-2px;right:-4px;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:#dc2626;color:#fff;font:700 9px/14px Geist,system-ui,sans-serif;text-align:center}
+.dash-notif-btn .notif-badge{box-sizing:border-box;position:absolute;top:-4px;right:-6px;min-width:16px;height:16px;padding:0 3px;border-radius:999px;background:#dc2626;border:2px solid var(--bg);color:#fff;font:700 9px/12px Geist,system-ui,sans-serif;text-align:center}
 .dash-notif-btn .notif-badge[hidden]{display:none!important}
 .cal-section{background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:64px;z-index:25}
 .week-nav{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 0}
