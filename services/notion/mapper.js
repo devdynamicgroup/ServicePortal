@@ -223,9 +223,12 @@ function defaultJobDraft(job) {
     scoreBaseReadings: null,
     paymentSlipPhoto: null,
     paymentSlipSource: null,
-    taps: ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest'],
+    // A new Case starts with exactly one tap -- staff add more as they
+    // actually visit rooms (mirrors job-state.js's client-side DEFAULT_TAPS,
+    // 2026-09-04).
+    taps: ['Tap 1'],
     activeTap: 0,
-    tapData: ['Kitchen', 'Master bath', 'Shower', 'Laundry', 'Guest'].map(() => ({ tasks: {}, photos: {} })),
+    tapData: [{ tasks: {}, photos: {} }],
     owner: 'yes',
     msMembers: [],
     msConcerns: [],
