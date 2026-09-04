@@ -10,6 +10,7 @@ function openJob(id) {
   if (typeof persistActiveCaseRef === 'function') persistActiveCaseRef(S.activeJob);
   loadJobState(S.activeJob);
   updateJobHeader(S.activeJob);
+  if (typeof updateJobEditability === 'function') updateJobEditability(S.activeJob);
   renderJobSteps();
   updateAssessScreen();
   renderCalendar();

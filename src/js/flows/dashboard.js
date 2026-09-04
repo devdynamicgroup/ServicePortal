@@ -314,9 +314,13 @@ function buildApptCard(job, opts = {}) {
     ? '<div class="history-date">' + escapeHtml(job.date) + '</div>'
     : '';
 
+  // Start/Reschedule/Contact/Preassess/Cancel don't apply to a closed
+  // History record -- the "..." menu is only for active/upcoming appointments.
+  const menuBtn = opts.showDate ? '' : '<button class="ac-menu" type="button" aria-label="More">' + MENU_SVG + '</button>';
+
   return (
     '<div class="appt-card' + stripeClass + highlightClass + '" data-job-id="' + jobId + '">' +
-      '<button class="ac-menu" type="button" aria-label="More">' + MENU_SVG + '</button>' +
+      menuBtn +
       dateLine +
       '<div class="ac-tags">' +
         '<span class="tag ' + pkgClass + '">' + pkgTag + '</span>' +

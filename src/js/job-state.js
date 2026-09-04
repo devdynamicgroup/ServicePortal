@@ -703,6 +703,17 @@ function updateJobHeader(job) {
 
 }
 
+// A "done" Case opened from History is a closed record, not work in
+// progress -- hide the edit affordances (Save Draft/Complete footer, the
+// "..." header menu whose only action is Cancel) so it doesn't read as an
+// invitation to keep editing. The LINE resend card stays visible/enabled:
+// resending a completed result to the customer is a legitimate action here.
+function updateJobEditability(job) {
+  const isDone = job?.status === 'done';
+  document.getElementById('job-foot')?.classList.toggle('hidden', isDone);
+  document.getElementById('job-more-btn')?.classList.toggle('hidden', isDone);
+}
+
 function persistJobs() {
   try {
     localStorage.setItem('wm-jobs', JSON.stringify(JOBS));
