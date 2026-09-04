@@ -631,13 +631,13 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .pkg-detail-card ul{font-size:13px;color:var(--muted);padding-left:16px;display:flex;flex-direction:column;gap:4px;margin-top:8px}
 
 /* ─── Tap tabs (assessment) ──────────────────────── */
-.tap-bar-wrap{background:var(--surface);border-bottom:1px solid var(--border);margin:0 -16px 16px;padding:8px 16px 0;display:flex;align-items:flex-end;gap:12px;position:relative;z-index:1;flex-shrink:0}
-.tap-tabs{display:flex;gap:16px;overflow-x:auto;flex:1;position:relative;padding-bottom:10px}
+.tap-bar-wrap{background:var(--surface);border-bottom:1px solid var(--border);margin:0 -16px 16px;padding:8px 16px;gap:16px;display:flex;align-items:flex-end;position:relative;z-index:1;flex-shrink:0}
+.tap-tabs{display:flex;gap:16px;overflow-x:auto;flex:1;position:relative}
 .tap-tabs::-webkit-scrollbar{display:none}
-.tap-tab{flex-shrink:0;font-size:14px;font-weight:500;cursor:pointer;color:var(--dim);padding:6px 0 10px;position:relative;white-space:nowrap;background:none;border:none;font-family:inherit}
+.tap-tab{flex-shrink:0;font-size:14px;font-weight:500;cursor:pointer;color:var(--dim);padding:2px 0 4px;position:relative;white-space:nowrap;background:none;border:none;font-family:inherit}
 .tap-tab.active{color:var(--text);font-weight:600}
 .tap-tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--blue);z-index:2}
-.tap-add-btn{width:24px;height:24px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;margin-bottom:10px;color:var(--text)}
+.tap-add-btn{width:24px;height:24px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;color:var(--text)}
 .tap-add-btn img{width:16px;height:16px}
 
 /* ─── Assessment rows ────────────────────────────── */
