@@ -19,7 +19,7 @@ const ICON = {
   chevron: `${ICON_BASE}chevron.svg?v=${ICON_CACHE_BUST}`,
   plus: `${ICON_BASE}plus.svg?v=${ICON_CACHE_BUST}`,
   lock: `${ICON_BASE}lock.svg?v=${ICON_CACHE_BUST}`,
-  logo: `${ICON_BASE}logo.png?v=5`
+  logo: `${ICON_BASE}logo.svg?v=${ICON_CACHE_BUST}`
 };
 
 // Phosphor Icons (regular weight, https://github.com/phosphor-icons/core) --
