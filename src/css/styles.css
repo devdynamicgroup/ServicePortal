@@ -501,7 +501,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .login-body .btn-login{width:100%;height:41px;padding:12px 24px;font-size:14px;font-weight:600;border-radius:var(--radius);text-transform:capitalize;color:#fafaf9}
 .login-brand-block{display:flex;flex-direction:column;gap:24px;align-items:center;width:100%;margin-bottom:40px}
 .login-footer{padding:16px 24px 22px;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
-.login-lang{display:flex;overflow:hidden;border-radius:var(--radius);border:1px solid var(--border);width:64px;height:32px;flex-shrink:0}
+.login-lang{display:flex;width:64px;height:32px;flex-shrink:0}
 .lang-btn{padding:10px;width:32px;height:32px;border:none;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;font-family:inherit;flex:1}
 .lang-btn.sel{background:var(--blue);color:#fff}
 .lang-btn:not(.sel){background:#fff;color:var(--text)}
