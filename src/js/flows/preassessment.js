@@ -1009,6 +1009,22 @@ function geocodeMapsPlaceQuery({ query, placeId } = {}) {
 let mapsPreviewState = null;
 
 /**
+ * Reverse-geocodes a coordinate to a real address via the same Geocoder
+ * geocodeMapsPlaceQuery() already uses -- no new API key/endpoint. Resolves
+ * null on any failure (no SDK, no match, network error).
+ */
+function reverseGeocodeLatLng(lat, lng) {
+  return new Promise((resolve) => {
+    if (!window.google?.maps?.Geocoder) { resolve(null); return; }
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+      const result = status === 'OK' ? results?.[0] : null;
+      resolve(result ? { address: result.formatted_address, placeId: result.place_id } : null);
+    });
+  });
+}
+
+/**
  * Single place that writes to ci-maps AND keeps the visible picker map in
  * sync, no matter which of the three triggers (place search, "use my
  * location", or dragging/tapping the map itself) caused the change --
@@ -1021,11 +1037,25 @@ function setMapsLinkFromCoords(lat, lng, { recenterMap = true, address = '', pla
   const trimmedAddress = String(address || '').trim();
   // A named place (search selection) gets the "Place Search" link, which
   // opens looking exactly like a normal Google Maps result -- name, photo,
-  // card -- not a bare coordinate pin. GPS/map-click has no name to give,
-  // so those keep the coordinate-only link (there's nothing else to show).
-  input.value = trimmedAddress ? buildMapsPlaceLink(trimmedAddress, placeId) : buildMapsSearchLink(lat, lng);
+  // card -- not a bare coordinate pin. GPS/map-click has no name to give
+  // up front, so those start with the coordinate-only link...
+  const coordLink = buildMapsSearchLink(lat, lng);
+  input.value = trimmedAddress ? buildMapsPlaceLink(trimmedAddress, placeId) : coordLink;
   if (recenterMap) showMapsPreview(lat, lng);
   updatePreassessmentCompletionState();
+
+  // ...then reverse-geocode in the background and upgrade to a real place
+  // link once resolved. A bare coordinate link opens Google Maps almost
+  // empty (Plus Code + "Add missing place", no name/photo/info) -- staff
+  // reported this looking broken (2026-09-04). Only overwrite if the field
+  // still holds the coordinate link we just set, so a newer edit wins.
+  if (!trimmedAddress) {
+    reverseGeocodeLatLng(lat, lng).then((resolved) => {
+      if (!resolved?.address || input.value !== coordLink) return;
+      input.value = buildMapsPlaceLink(resolved.address, resolved.placeId);
+      updatePreassessmentCompletionState();
+    });
+  }
 }
 
 /**

@@ -84,7 +84,10 @@ const buildPlaceLinkSrc = extract('buildMapsPlaceLink', /function buildMapsPlace
 const parseLinkSrc = extract('parseLatLngFromMapsLink', /function parseLatLngFromMapsLink\(value\) \{[\s\S]*?\n\}/);
 const parsePlaceQuerySrc = extract('parsePlaceQueryFromMapsLink', /function parsePlaceQueryFromMapsLink\(value\) \{[\s\S]*?\n\}/);
 const geocodePlaceQuerySrc = extract('geocodeMapsPlaceQuery', /function geocodeMapsPlaceQuery\(\{ query, placeId \} = \{\}\) \{[\s\S]*?\n\}/);
-const setCoordsSrc = extract('setMapsLinkFromCoords', /function setMapsLinkFromCoords\(lat, lng, \{ recenterMap = true, address = '', placeId = '' \} = \{\}\) \{[\s\S]*?\n\}/);
+const reverseGeocodeSrc = extract('reverseGeocodeLatLng', /function reverseGeocodeLatLng\(lat, lng\) \{[\s\S]*?\n\}/);
+// setMapsLinkFromCoords now calls reverseGeocodeLatLng internally (background
+// upgrade to a named-place link) -- both must load into the same sandbox.
+const setCoordsSrc = `${reverseGeocodeSrc}\n${extract('setMapsLinkFromCoords', /function setMapsLinkFromCoords\(lat, lng, \{ recenterMap = true, address = '', placeId = '' \} = \{\}\) \{[\s\S]*?\n\}/)}`;
 const applyPlaceSrc = extract('applyGooglePlaceToMapsField', /function applyGooglePlaceToMapsField\(place\) \{[\s\S]*?\n\}/);
 const useLocationSrc = extract('useMyLocationForMaps', /function useMyLocationForMaps\(\) \{[\s\S]*?\n\}/);
 
@@ -266,6 +269,74 @@ console.log('\n=== setMapsLinkFromCoords(lat, lng, opts): the shared write path 
     sandbox.setMapsLinkFromCoords(bad[0], bad[1]);
     assert(elements['ci-maps'].value === 'https://untouched', `invalid coords [${bad}] => ci-maps left untouched, no garbage written (got "${elements['ci-maps'].value}")`);
     assert(previewCalls.length === 0, `invalid coords [${bad}] => map is not touched either`);
+  }
+}
+
+console.log('\n=== setMapsLinkFromCoords(lat, lng): background reverse-geocode upgrade ===');
+{
+  // GPS/drag has no name up front (bare coordinate link opens Google Maps
+  // almost empty -- Plus Code + "Add missing place", reported as looking
+  // broken, 2026-09-04). Success should silently upgrade ci-maps to a real
+  // named-place link once the reverse-geocode resolves.
+  {
+    const { sandbox, elements, previewCalls } = buildSandbox();
+    sandbox.window.google = {
+      maps: {
+        Geocoder: function Geocoder() {
+          this.geocode = (request, cb) => {
+            assert(request.location && request.location.lat === 13.7563 && request.location.lng === 100.5018,
+              `reverseGeocodeLatLng sends { location: {lat,lng} } (got ${JSON.stringify(request)})`);
+            cb([{ formatted_address: '99 Reverse-Geocoded Rd, Bangkok', place_id: 'ChIJreverse999' }], 'OK');
+          };
+        }
+      }
+    };
+    vm.runInContext(buildLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+    vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
+    vm.runInContext(setCoordsSrc, sandbox, { filename: 'preassessment.js (setMapsLinkFromCoords excerpt)' });
+
+    sandbox.setMapsLinkFromCoords(13.7563, 100.5018);
+    assert(elements['ci-maps'].value === 'https://www.google.com/maps/search/?api=1&query=13.7563,100.5018',
+      `starts with the coordinate link immediately, no blocking on the geocode (got ${elements['ci-maps'].value})`);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert(elements['ci-maps'].value === 'https://www.google.com/maps/search/?api=1&query=99%20Reverse-Geocoded%20Rd%2C%20Bangkok&query_place_id=ChIJreverse999',
+      `upgrades to a named-place link once the reverse-geocode resolves (got ${elements['ci-maps'].value})`);
+  }
+
+  // Failure (no match / no SDK) must leave the coordinate link exactly as-is -- never guess.
+  {
+    const { sandbox, elements } = buildSandbox();
+    vm.runInContext(buildLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+    vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
+    vm.runInContext(setCoordsSrc, sandbox, { filename: 'preassessment.js (setMapsLinkFromCoords excerpt)' });
+
+    sandbox.setMapsLinkFromCoords(13.7563, 100.5018);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert(elements['ci-maps'].value === 'https://www.google.com/maps/search/?api=1&query=13.7563,100.5018',
+      `no SDK => stays on the coordinate link, no crash (got ${elements['ci-maps'].value})`);
+  }
+
+  // A newer edit (user typed/pasted something else) while the geocode was in
+  // flight must win -- the async upgrade must not clobber it.
+  {
+    const { sandbox, elements } = buildSandbox();
+    sandbox.window.google = {
+      maps: {
+        Geocoder: function Geocoder() {
+          this.geocode = (request, cb) => cb([{ formatted_address: 'Should Not Apply', place_id: '' }], 'OK');
+        }
+      }
+    };
+    vm.runInContext(buildLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsSearchLink excerpt)' });
+    vm.runInContext(buildPlaceLinkSrc, sandbox, { filename: 'preassessment.js (buildMapsPlaceLink excerpt)' });
+    vm.runInContext(setCoordsSrc, sandbox, { filename: 'preassessment.js (setMapsLinkFromCoords excerpt)' });
+
+    sandbox.setMapsLinkFromCoords(13.7563, 100.5018);
+    elements['ci-maps'].value = 'https://pasted-by-user-meanwhile';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert(elements['ci-maps'].value === 'https://pasted-by-user-meanwhile',
+      `a newer edit during the geocode wins, async upgrade does not clobber it (got ${elements['ci-maps'].value})`);
   }
 }
 
