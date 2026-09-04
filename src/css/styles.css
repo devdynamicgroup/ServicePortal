@@ -627,6 +627,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 
 /* ─── Package detail sheet ───────────────────────── */
 .pkg-detail-card{border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:10px;background:var(--surface);cursor:pointer;transition:all .15s}
+.pkg-sheet-readonly .pkg-detail-card{cursor:default;pointer-events:none}
 .pkg-detail-card.sel{border-color:var(--blue);background:var(--blue);color:#fff}
 .pkg-detail-card.sel .pkg-detail-sub,.pkg-detail-card.sel li{color:rgba(255,255,255,.85)}
 .pkg-detail-title{font-weight:700;font-size:15px;margin-bottom:8px}

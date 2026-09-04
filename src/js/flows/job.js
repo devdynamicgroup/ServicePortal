@@ -193,9 +193,10 @@ function updatePayToggle() {
   if(full) full.classList.toggle('sel', S.pkg==='full');
   updatePackageVisibility();
 }
-function showPkgSheet() {
+function showPkgSheet({ readOnly = false } = {}) {
   document.getElementById('pkg-overlay').classList.remove('hidden');
   document.getElementById('pkg-sheet').classList.remove('hidden');
+  document.getElementById('pkg-sheet')?.classList.toggle('pkg-sheet-readonly', readOnly);
   syncPkgSheetSelection();
 }
 function hidePkgSheet()  { document.getElementById('pkg-overlay').classList.add('hidden'); document.getElementById('pkg-sheet').classList.add('hidden'); }
