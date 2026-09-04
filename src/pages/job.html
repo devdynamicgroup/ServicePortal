@@ -22,16 +22,18 @@
       <div class="job-intro-sub" data-i18n="job.workThrough">Work through each step below</div>
     </div>
     <div id="job-steps"></div>
-    <div class="sec-label">ผลการตรวจ</div>
+    <div class="sec-label" data-i18n="job.resultSection">ผลการตรวจ</div>
     <div class="card line-send-card">
-      <div class="line-send-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <div class="line-send-row">
+        <div class="line-send-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="line-send-body">
+          <div class="line-send-title" data-i18n="job.sendLine.title">ส่งผลให้ลูกค้าทาง LINE</div>
+          <div class="line-send-sub" data-i18n="job.sendLine.sub">ส่งผลล่าสุดให้ลูกค้าอีกครั้ง</div>
+        </div>
       </div>
-      <div class="line-send-body">
-        <div class="line-send-title">ส่งผลให้ลูกค้าทาง LINE</div>
-        <div class="line-send-sub">เผยแพร่ผลล่าสุดและส่งให้ลูกค้าอีกครั้ง</div>
-      </div>
-      <button type="button" class="line-send-btn" id="btn-send-result-line" onclick="sendResultToLineNow()">ส่งผล</button>
+      <button type="button" class="line-send-btn" id="btn-send-result-line" onclick="sendResultToLineNow()" data-i18n="job.sendLine.cta">ส่งผล</button>
     </div>
   </div>
   <div class="foot" id="job-foot">

@@ -88,6 +88,10 @@ const I18N = {
 
     'job.currentJob': 'Current Job',
     'job.workThrough': 'Work through each step below',
+    'job.resultSection': 'Test Results',
+    'job.sendLine.title': 'Send Result via LINE',
+    'job.sendLine.sub': 'Publish and resend the latest result',
+    'job.sendLine.cta': 'Send',
     'job.lineCode.copied': 'Code copied',
     'line.connect.sent': 'Result sent',
     'line.connect.title': 'Connect LINE to receive results',
@@ -534,6 +538,10 @@ const I18N = {
 
     'job.currentJob': 'งานปัจจุบัน',
     'job.workThrough': 'ดำเนินการตามขั้นตอนด้านล่าง',
+    'job.resultSection': 'ผลการตรวจ',
+    'job.sendLine.title': 'ส่งผลให้ลูกค้าทาง LINE',
+    'job.sendLine.sub': 'ส่งผลล่าสุดให้ลูกค้าอีกครั้ง',
+    'job.sendLine.cta': 'ส่งผล',
     'job.lineCode.copied': 'คัดลอกรหัสแล้ว',
     'line.connect.sent': 'ส่งผลตรวจเรียบร้อยแล้ว',
     'line.connect.title': 'เชื่อมบัญชี LINE รับผลตรวจ',
