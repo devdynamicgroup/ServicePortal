@@ -658,10 +658,10 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .assess-icon img{width:24px;height:24px;object-fit:contain}
 .assess-row{display:flex;align-items:center;gap:16px;padding:8px 16px;background:var(--surface);border-radius:var(--radius);margin-bottom:8px;cursor:pointer}
 .assess-row.locked{cursor:default}
-.assess-title-lock{color:var(--dim)}
 .assess-num{width:20px;height:20px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:400;color:#000;flex-shrink:0}
 .assess-body{flex:1;min-width:0}
 .assess-title{font-weight:600;font-size:14px;color:var(--text)}
+.assess-title.assess-title-lock{color:var(--dim)}
 .assess-sub{font-size:12px;color:var(--dim);margin-top:2px;line-height:1.1}
 .assess-lock{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .assess-lock img{width:24px;height:24px}
