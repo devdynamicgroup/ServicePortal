@@ -63,14 +63,25 @@
     await refreshNotificationUi();
   }
 
+  // Notion IDs show up dashed in some places and compact (no dashes) in
+  // others -- item.caseId and job.notionId don't always agree on which.
+  // Comparing both forms against both sides (like dashboard.js's own
+  // highlight matcher already does) is what makes the "jump to notif
+  // target" scroll+highlight actually fire for every notification instead
+  // of silently no-op'ing whenever the two happened to be formatted
+  // differently.
   function findJobByCaseId(caseId) {
     if (!caseId || !Array.isArray(global.JOBS)) return null;
     const needle = String(caseId);
-    return global.JOBS.find(job =>
-      String(job.notionId || '') === needle
-      || String(job.id || '') === needle
-      || String(job.id || '') === needle.replace(/-/g, '')
-    ) || null;
+    const needleCompact = needle.replace(/-/g, '');
+    return global.JOBS.find(job => {
+      const notionId = String(job.notionId || '');
+      const id = String(job.id || '');
+      return notionId === needle
+        || notionId.replace(/-/g, '') === needleCompact
+        || id === needle
+        || id === needleCompact;
+    }) || null;
   }
 
   // Case's own appointment date (source of truth is job.date; see dashboard.js).

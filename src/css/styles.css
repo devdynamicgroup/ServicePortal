@@ -170,8 +170,8 @@ textarea.inp{resize:none;min-height:80px;height:auto;padding:12px 13px}
 .appt-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent-100)}
 .appt-card.stripe-full::before{background:var(--blue)}
 .appt-card:active{box-shadow:0 0 0 2px var(--accent-100)}
-.appt-card.is-notif-target{box-shadow:0 0 0 2px var(--blue);animation:notif-target-pulse 1.6s ease-out 2}
-@keyframes notif-target-pulse{0%{box-shadow:0 0 0 2px var(--blue)}50%{box-shadow:0 0 0 5px var(--blue)}100%{box-shadow:0 0 0 2px var(--blue)}}
+.appt-card.is-notif-target{animation:notif-target-fade 1.8s ease-out}
+@keyframes notif-target-fade{0%{box-shadow:0 0 0 1.5px var(--blue);background:var(--accent-50)}55%{box-shadow:0 0 0 1.5px var(--blue);background:var(--accent-50)}100%{box-shadow:0 0 0 0 transparent;background:var(--surface)}}
 .appt-card .ac-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .appt-card .ac-left{flex:1;min-width:0}
 .appt-card .ac-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
