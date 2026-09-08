@@ -361,9 +361,14 @@ function buildUnknownCustomerReply() {
  * explicit future enhancement, not part of this change.
  */
 function buildContactAdminAckMessage() {
+  // Wording deliberately does not promise speed/urgency ("as soon as
+  // possible") -- there is no active notification to staff yet (see the doc
+  // comment above), only their own manual check of the LINE Official
+  // Account Manager inbox, so nothing backs an SLA-sounding claim
+  // (2026-09-08).
   return {
     type: 'text',
-    text: 'รับทราบครับ เดี๋ยวเจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุดครับ 🙏'
+    text: 'รับทราบครับ ข้อความถึงเจ้าหน้าที่แล้ว จะติดต่อกลับเมื่อสะดวกครับ 🙏'
   };
 }
 
@@ -380,11 +385,32 @@ function buildUnrecognizedMenuPromptMessage() {
   });
 }
 
+/**
+ * Shown when someone follows the OA fresh -- at that moment they may or may
+ * not already have a completed inspection with a QR/code to connect
+ * (previously assumed they always did, which read as confusing to a
+ * genuinely new prospect with nothing to scan yet). Covers both real paths
+ * instead of only the one that assumes prior context (2026-09-08).
+ */
 function buildFollowWelcomeMessage() {
   return withQuickReply({
     type: 'text',
-    text: 'ยินดีต้อนรับสู่ Water Motion\nสแกน QR จากหน้าผลตรวจเพื่อเชื่อมบัญชีอัตโนมัติ หรือส่งรหัส fb-xxxx ก็ได้เช่นกัน'
-  });
+    text: 'ยินดีต้อนรับสู่ Water Motion 👋\nหากเคยตรวจคุณภาพน้ำกับเราแล้ว สแกน QR จากหน้าผลตรวจ หรือส่งรหัส fb-xxxx เพื่อเชื่อมบัญชีได้เลยครับ\nหากยังไม่เคยใช้บริการ เริ่มต้นได้จากปุ่มด้านล่าง'
+  }, [
+    {
+      type: 'action',
+      action: { type: 'uri', label: 'เริ่มตรวจคุณภาพน้ำ', uri: resolveLineBookingUrl() }
+    },
+    {
+      type: 'action',
+      action: {
+        type: 'postback',
+        label: 'ติดต่อเจ้าหน้าที่',
+        data: OA_POSTBACK.CONTACT_ADMIN,
+        displayText: 'ติดต่อเจ้าหน้าที่'
+      }
+    }
+  ]);
 }
 
 function buildBookAgainMessage() {
@@ -520,6 +546,25 @@ function buildCaseResultFlexMessage({
 
   const isFree = resultType === 'free_water_check';
 
+  // feedbackUrl (/f/{token}) is Water Motion's OWN rating form first -- it
+  // only surfaces the actual Google review link/QR after that form is
+  // submitted (case-flow-routes.js:customerFeedbackHtml). So the button
+  // label here must promise a rating/feedback step, never "review on
+  // Google" directly, or it repeats the exact broken-promise pattern this
+  // fix exists to close (2026-09-08).
+  if (!isFree && feedbackUrl) {
+    footerButtons.push({
+      type: 'button',
+      style: 'link',
+      height: 'sm',
+      action: {
+        type: 'uri',
+        label: 'ให้คะแนนบริการ',
+        uri: feedbackUrl
+      }
+    });
+  }
+
   const greeting = clientName
     ? `สวัสดีคุณ ${clientName}`
     : (isFree ? 'ผลการตรวจน้ำเบื้องต้นพร้อมแล้ว' : 'ผลการตรวจน้ำพร้อมแล้ว');
@@ -533,7 +578,9 @@ function buildCaseResultFlexMessage({
 
   const bodyDetail = isFree
     ? 'ดูผลตรวจน้ำเบื้องต้นได้ด้านล่าง หากสนใจแพ็กเกจบริการหรือต้องการคำแนะนำเพิ่มเติม ติดต่อ Water Motion ได้เลยครับ'
-    : 'กดปุ่มด้านล่างเพื่อเปิดดูรายละเอียดผลตรวจ และรีวิวบริการบน Google';
+    : (feedbackUrl
+      ? 'กดปุ่มด้านล่างเพื่อเปิดดูรายละเอียดผลตรวจ หรือให้คะแนนบริการของเรา'
+      : 'กดปุ่มด้านล่างเพื่อเปิดดูรายละเอียดผลตรวจ');
 
   const footerCaption = isFree
     ? 'Water Motion · Free Water Check'

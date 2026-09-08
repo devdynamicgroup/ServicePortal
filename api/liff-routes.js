@@ -140,7 +140,7 @@ function liffBindHtml(token, feedback) {
   <div class="card" id="state-loading">
     <div class="spinner"></div>
     <h1>กำลังเชื่อมบัญชี LINE...</h1>
-    <p>${clientName ? `สวัสดีคุณ${clientName} ` : ''}กรุณารอสักครู่</p>
+    <p>${clientName ? `สวัสดีคุณ ${clientName} ` : ''}กรุณารอสักครู่</p>
   </div>
   <div class="card" id="state-ok" style="display:none">
     <div class="icon ok">&#10003;</div>
@@ -181,6 +181,7 @@ function liffBindHtml(token, feedback) {
         }
         if (data.reason === 'already_linked') {
           document.getElementById('ok-title').textContent = 'บัญชี LINE นี้เชื่อมไว้แล้ว';
+          document.getElementById('ok-text').textContent = 'ไม่ต้องทำอะไรเพิ่มเติมครับ';
         } else if (data.pendingAutoSend) {
           document.getElementById('ok-text').textContent = 'กำลังเตรียมผลตรวจให้ครับ รอสักครู่';
         }
