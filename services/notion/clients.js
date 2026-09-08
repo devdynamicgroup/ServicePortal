@@ -352,11 +352,23 @@ function buildNotionProperties(payload, schemaProperties = {}) {
     else if (type === 'email') properties[key] = { email: text };
     else if (type === 'url') properties[key] = { url: text };
   };
+  /**
+   * "Select-shaped" write for a single choice value. Some Notion databases
+   * configure a logically single-choice field (e.g. package) as an actual
+   * multi_select property rather than select -- writing the old select-only
+   * shape against a multi_select property is silently dropped by Notion (the
+   * property just never appears in the accepted payload, no error), which
+   * is how "Package History" writes went missing entirely (2026-09-08
+   * forensic trace). Both shapes take the same single value; only the
+   * envelope differs.
+   */
   const setSelect = (aliases, value) => {
     if (!value) return;
     const key = findPropertyKey(schemaProperties, aliases);
-    if (!key || schemaProperties[key]?.type !== 'select') return;
-    properties[key] = { select: { name: String(value) } };
+    if (!key) return;
+    const type = schemaProperties[key]?.type;
+    if (type === 'select') properties[key] = { select: { name: String(value) } };
+    else if (type === 'multi_select') properties[key] = { multi_select: [{ name: String(value) }] };
   };
   const setCheckbox = (aliases, value) => {
     const key = findPropertyKey(schemaProperties, aliases);

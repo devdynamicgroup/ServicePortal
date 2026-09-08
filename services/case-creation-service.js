@@ -1,4 +1,5 @@
 const { createClient, updateClient, getAllClients } = require('./notion/clients');
+const { packageOptionName } = require('./notion/mapper');
 const { generateFeedbackToken, generateReportToken } = require('./case-tokens');
 const { isCancelledJob, invalidateOfferCache } = require('./water-check-offer-service');
 const { buildReportUrl, buildFeedbackUrl, resolveReviewUrl } = require('./url-builder');
@@ -55,6 +56,13 @@ function pickCustomerInput(payload = {}) {
       input[key] = payload[key];
     }
   });
+  // Single normalization point for both producers of packageHistory --
+  // mapPreassessmentPayload() (staff app, POST .../preassessment) and the
+  // raw skipMap payload createManualCaseInNotion() sends straight to
+  // POST /api/cases -- both end up here, so translating the app's internal
+  // 'essential'/'full' tokens to real Notion option names only needs to
+  // happen once (2026-09-08).
+  if (input.packageHistory) input.packageHistory = packageOptionName(input.packageHistory);
   return input;
 }
 

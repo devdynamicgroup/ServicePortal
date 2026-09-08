@@ -103,6 +103,26 @@ function mapPackage(value) {
   return text.includes('premium') || text.includes('full') ? 'full' : 'essential';
 }
 
+/**
+ * Inverse of mapPackage() for the write path. The app only ever produces
+ * the two short internal tokens 'essential' | 'full' (src/js/state.js's
+ * default, job.pkg/draft.pkg) -- neither is a real "Package History" select
+ * option name in Notion (those are 'Essential', 'Full Assessment', 'Full +
+ * Lab', 'Premium', 'Standard', 'Basic'). Writing the raw token straight
+ * through would create a stray new option ("full") instead of landing on
+ * the real "Full Assessment" one Notion already has. Anything else (already
+ * a real option name, or unrecognized) passes through unchanged rather than
+ * being forced into one of the two -- this only translates the two known
+ * internal tokens, it doesn't guess at arbitrary input (2026-09-08).
+ */
+function packageOptionName(value) {
+  const raw = String(value || '').trim();
+  const lower = raw.toLowerCase();
+  if (lower === 'full') return 'Full Assessment';
+  if (lower === 'essential') return 'Essential';
+  return raw;
+}
+
 function mapPropertyType(value) {
   const text = String(value || '').toLowerCase();
   if (text.includes('condo') || text.includes('คอนโด')) return 'Condominium';
@@ -397,6 +417,7 @@ module.exports = {
   compactNotionId,
   splitClientName,
   mapPackage,
+  packageOptionName,
   mapPropertyType,
   mapPropertyAge,
   mapFilter,
