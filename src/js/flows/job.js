@@ -30,6 +30,73 @@ function openJob(id) {
   });
 }
 
+/** Job header "Call" button -- real tel: link using the customer's own phone number. */
+function callActiveJobClient() {
+  const job = S.activeJob;
+  const phone = String(getJobDraft(job)?.fields?.['ci-phone'] || '').trim();
+  if (!phone) {
+    showToast(S.lang === 'th' ? 'ไม่พบเบอร์โทรลูกค้า' : 'No phone number on file');
+    return;
+  }
+  window.location.href = `tel:${phone.replace(/[^\d+]/g, '')}`;
+}
+
+let _chattingActiveJob = false;
+
+/**
+ * Job header "Chat" button -- there is no way to deep-link into a live 1:1
+ * LINE chat with a specific customer (only their opaque lineUserId is ever
+ * stored, never a public LINE ID), so this does the closest real thing
+ * instead of a fake/no-op button: if already connected, resend the latest
+ * result via LINE (sendResultToLineNow, existing); if not connected yet,
+ * open the same connect-QR popup the auto-prompt uses (GET
+ * /api/cases/:id/line-connect) -- deliberately NOT sendResultToLineNow's own
+ * unlinked fallback, since that requires eligible score data first and
+ * would otherwise dead-end with an "incomplete" toast on early jobs where
+ * connecting is exactly what staff want to do before data is ready
+ * (2026-09-08).
+ */
+async function chatActiveJobClient() {
+  if (_chattingActiveJob) return;
+  const job = S.activeJob;
+  if (!job) return;
+
+  if (job.line?.linked) {
+    if (typeof sendResultToLineNow === 'function') sendResultToLineNow();
+    return;
+  }
+
+  const caseRef = job.notionId || job.id;
+  if (!caseRef) return;
+  _chattingActiveJob = true;
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/line-connect`, {
+      credentials: 'same-origin'
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) {
+      showToast(S.lang === 'th' ? 'เปิดหน้าเชื่อม LINE ไม่สำเร็จ' : 'Could not open LINE connect');
+      return;
+    }
+    if (data.linked) {
+      if (typeof sendResultToLineNow === 'function') sendResultToLineNow();
+      return;
+    }
+    if (!data.connectUrl) {
+      showToast(S.lang === 'th' ? 'ยังไม่มีลิงก์เชื่อม LINE สำหรับเคสนี้' : 'No LINE connect link for this case yet');
+      return;
+    }
+    if (typeof openLineConnectPromptModal === 'function') {
+      openLineConnectPromptModal({ url: data.connectUrl, qr: data.connectQr || '' });
+    }
+  } catch (error) {
+    console.warn('chatActiveJobClient failed', error);
+    showToast(S.lang === 'th' ? 'เปิดหน้าเชื่อม LINE ไม่สำเร็จ' : 'Could not open LINE connect');
+  } finally {
+    _chattingActiveJob = false;
+  }
+}
+
 function showJobHeaderMenu() {
   const job = S.activeJob;
   if (!job) return;
