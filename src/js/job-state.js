@@ -713,6 +713,19 @@ function updateJobHeader(job) {
     const mapsLink = getJobDraft(job)?.fields?.['ci-maps'] || '';
     mapsBtn.classList.toggle('hidden', !mapsLink);
   }
+
+  // "Send Result" reads differently depending on whether the customer has
+  // ever connected LINE -- tapping it when unlinked only ever opens the
+  // connect QR (see sendResultToLineNow/openLineConnectModal), it never
+  // delivers anything, so the button/subtitle must say so up front instead
+  // of promising a send that can't happen yet (2026-09-08).
+  const lineSendSub = document.getElementById('line-send-sub');
+  const lineSendLabel = document.getElementById('line-send-btn-label');
+  if (lineSendSub || lineSendLabel) {
+    const linked = Boolean(job?.line?.linked);
+    if (lineSendSub) lineSendSub.textContent = t(linked ? 'job.sendLine.sub' : 'job.sendLine.subUnlinked');
+    if (lineSendLabel) lineSendLabel.textContent = t(linked ? 'job.sendLine.cta' : 'job.sendLine.ctaConnect');
+  }
 }
 
 function openJobMapsLink() {
