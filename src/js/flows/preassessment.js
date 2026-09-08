@@ -768,6 +768,18 @@ function selectAddressSuggestion(label, code, city) {
   const postal = document.getElementById('ci-postal');
   if (postal && postalCode) postal.value = postalCode;
 
+  // Only fills an EMPTY Maps Link -- never overwrites one the user already
+  // set (via GPS, map drag, or the Maps field's own search), matching the
+  // same never-clobber rule applyGooglePlaceToMapsField follows in the
+  // other direction. Reuses `label` as-is (the same text already filling
+  // ci-addr, sourced from Nominatim's display_name for online results) --
+  // no coordinates needed since buildMapsPlaceLink() only needs a name
+  // (2026-09-08, Address/Maps Link sync fix).
+  const maps = document.getElementById('ci-maps');
+  if (maps && !maps.value.trim() && label) {
+    maps.value = buildMapsPlaceLink(label);
+  }
+
   document.getElementById('address-dropdown')?.classList.add('hidden');
   updatePreassessmentCompletionState();
 }
@@ -893,23 +905,6 @@ function loadGoogleMapsScript(apiKey, lang) {
     script.onerror = () => reject(new Error('Google Maps failed to load'));
     document.head.appendChild(script);
   });
-}
-
-function applyGooglePlaceSelection(place) {
-  const addr = document.getElementById('ci-addr');
-  const postal = document.getElementById('ci-postal');
-  const maps = document.getElementById('ci-maps');
-  if (addr && place.formatted_address) addr.value = place.formatted_address;
-  const postalComp = place.address_components?.find(c => c.types.includes('postal_code'));
-  if (postal && postalComp) postal.value = postalComp.long_name;
-  if (maps && place.geometry?.location) {
-    const lat = place.geometry.location.lat();
-    const lng = place.geometry.location.lng();
-    maps.value = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-  }
-  setProvinceValue('Bangkok');
-  document.getElementById('address-dropdown')?.classList.add('hidden');
-  updatePreassessmentCompletionState();
 }
 
 /** Pure link builder -- single source of truth for the ci-maps URL format. */
@@ -1102,10 +1097,12 @@ function showMapsPreview(lat, lng) {
 }
 
 /**
- * Fill ci-maps only -- deliberately does NOT touch ci-addr/ci-postal like
- * applyGooglePlaceSelection() does, so searching a place in the Maps Link
- * field can never silently overwrite an address the user already typed
- * elsewhere on the form (2026-08-25, Maps Link field usability fix).
+ * Fill ci-maps only -- deliberately never touches ci-addr/ci-postal, so
+ * searching a place in the Maps Link field can never silently overwrite an
+ * address the user already typed elsewhere on the form (2026-08-25, Maps
+ * Link field usability fix). The reverse direction (Address selection
+ * filling in an empty Maps Link) is handled separately by
+ * selectAddressSuggestion(), which never overwrites an existing Maps Link.
  */
 function applyGooglePlaceToMapsField(place) {
   const location = place?.geometry?.location;
@@ -1116,14 +1113,6 @@ function applyGooglePlaceToMapsField(place) {
   });
 }
 
-/**
- * Wires real Google Places Autocomplete onto #ci-maps (typing shows
- * Google's own suggestion dropdown; picking one fills an accurate link and
- * shows the picker map) -- loaded lazily on first focus so the SDK is
- * never fetched for a form the user doesn't touch. GOOGLE_MAPS_API_KEY /
- * /api/maps-config are the existing, already-configured infrastructure
- * this reuses unchanged.
- */
 function setMapsPreviewMessage(text) {
   // Only replaces the placeholder while it's still the placeholder -- never
   // clobbers a real map that's already been created.
@@ -1132,6 +1121,16 @@ function setMapsPreviewMessage(text) {
   if (placeholder) placeholder.textContent = text;
 }
 
+/**
+ * Wires real Google Places Autocomplete onto #ci-maps (typing shows
+ * Google's own suggestion dropdown; picking one fills an accurate link and
+ * shows the picker map). Called eagerly from initMapsLinkField() (not on
+ * focus) so the picker map is visible below the field as soon as the form
+ * opens -- the placesReady guard below makes repeat calls (e.g.
+ * initChipGroups() re-running) safe no-ops. GOOGLE_MAPS_API_KEY /
+ * /api/maps-config are the existing, already-configured infrastructure
+ * this reuses unchanged.
+ */
 async function wireMapsLinkPlaceSearch() {
   const input = document.getElementById('ci-maps');
   if (!input || input.dataset.placesReady) return;
