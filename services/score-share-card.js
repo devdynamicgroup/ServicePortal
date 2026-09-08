@@ -130,18 +130,72 @@ function scoreSummaryNote(score, findingsCount = 0) {
   return 'Your water quality needs attention.';
 }
 
+/**
+ * Grapheme clusters, not UTF-16 code units -- a Thai base consonant plus its
+ * vowel/tone marks (e.g. "น้ำ") must stay glued together or the character
+ * fallback below would split a diacritic off its base char mid-glyph.
+ * Intl.Segmenter is a Node/V8 built-in (no dependency); the code-point
+ * spread is only a defensive fallback for a runtime without it.
+ */
+function graphemeClusters(text) {
+  try {
+    return Array.from(new Intl.Segmenter('th', { granularity: 'grapheme' }).segment(String(text)), (s) => s.segment);
+  } catch {
+    return [...String(text)];
+  }
+}
+
+/**
+ * Breaks one token that alone exceeds the per-line budget into grapheme-safe
+ * chunks of at most maxCharsPerLine each. Thai (and other unspaced scripts)
+ * arrives as a single giant "word" from wrapNote's whitespace split -- this
+ * is what lets that run still wrap instead of overflowing the card as one
+ * unbroken line. Reuses the same character-count budget wrapNote's word path
+ * already uses, so it doesn't need its own separately-tuned threshold.
+ */
+function splitLongToken(token, maxCharsPerLine) {
+  const clusters = graphemeClusters(token);
+  const chunks = [];
+  let current = '';
+  for (const cluster of clusters) {
+    if (current.length + cluster.length > maxCharsPerLine && current) {
+      chunks.push(current);
+      current = cluster;
+    } else {
+      current += cluster;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+/**
+ * Word-wraps on whitespace like before (unchanged for English/Latin note
+ * text). A token wider than the whole line budget -- the common case for
+ * unspaced Thai, since Thai has no spaces between words -- is additionally
+ * split into grapheme-safe chunks via splitLongToken() first; those chunks
+ * then flow through the exact same line-accumulation loop as ordinary words,
+ * just without a joining space between chunks of the same original token
+ * (there was no real word break there, only a forced line break).
+ */
 function wrapNote(text, maxCharsPerLine, maxLines = 3) {
   const words = String(text || '').split(/\s+/).filter(Boolean);
   const lines = [];
   let current = '';
+  outer:
   for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length > maxCharsPerLine && current) {
-      lines.push(current);
-      current = word;
-      if (lines.length >= maxLines) break;
-    } else {
-      current = next;
+    const pieces = word.length > maxCharsPerLine ? splitLongToken(word, maxCharsPerLine) : [word];
+    for (let i = 0; i < pieces.length; i++) {
+      const piece = pieces[i];
+      const joiner = i === 0 && current ? ' ' : '';
+      const next = `${current}${joiner}${piece}`;
+      if (next.length > maxCharsPerLine && current) {
+        lines.push(current);
+        current = piece;
+        if (lines.length >= maxLines) break outer;
+      } else {
+        current = next;
+      }
     }
   }
   if (lines.length < maxLines && current) lines.push(current);
@@ -733,5 +787,9 @@ module.exports = {
   // Test-only exports (2026-08-27, per-Case QR badge) -- same functions,
   // same behavior, just reachable from a test file.
   renderDynamicCtaBadge,
-  resolveCtaBadge
+  resolveCtaBadge,
+  // Test-only exports (2026-09-08, Thai/unspaced note wrapping) -- same
+  // functions, same behavior, just reachable from a test file.
+  wrapNote,
+  splitLongToken
 };
