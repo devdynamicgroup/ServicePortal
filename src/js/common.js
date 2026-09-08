@@ -656,7 +656,7 @@ function closeLineConnectPromptModal() {
  * Validates workflow steps, then reuses shared production completion orchestration.
  */
 async function completeJob() {
-  // Ignore re-entry while sync → finalize is in flight (same pattern as completeAssessment).
+  // Ignore re-entry while sync → finalize is in flight (same pattern as viewWaterScore).
   if (completeJob._inFlight) return;
 
   if (!S.activeJob) {

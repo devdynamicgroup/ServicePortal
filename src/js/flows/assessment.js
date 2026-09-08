@@ -336,26 +336,49 @@ function validateAssessmentForComplete({ showErrors = true } = {}) {
 }
 
 /**
- * Assessment Complete entry point.
- * Validates assessment only, then reuses shared production completion
- * (publishScoreBeforeClose → POST /close → closeCase report + LINE).
- * Does not mint report tokens or send LINE itself.
+ * "View Water Score" entry point (Assessment screen footer).
+ *
+ * UX-01 fix (2026-09-08 audit): this button's label never promised to close
+ * the Case or send anything to the customer -- it only promised to show the
+ * score -- but it used to call the full production completion pipeline
+ * (publishScoreBeforeClose → POST /close → closeCase report + LINE), the
+ * exact same case-closing operation as the Job screen's own "Complete"
+ * button (completeJob() in common.js). That mismatch is fixed here: this
+ * now only validates the assessment is score-ready, marks the assess/score
+ * steps done, and navigates to the score screen. It intentionally does NOT
+ * publish, close, or send LINE -- completeJob() (gated on
+ * missingJobSteps().length === 0, which these two step flags feed) remains
+ * the single place that actually closes a Case and delivers a result. Score
+ * calculation itself (validateAssessmentForComplete's computeScoreFromReadings
+ * call, Quality V3, benchmarks, etc.) is unchanged -- only what happens
+ * AFTER that computation changed.
  */
-async function completeAssessment() {
-  // Ignore re-entry while validation → sync → finalize is in flight.
-  if (completeAssessment._inFlight) return;
+async function viewWaterScore() {
+  // Ignore re-entry while validation → sync is in flight.
+  if (viewWaterScore._inFlight) return;
 
   if (!S.activeJob) {
     showToast(S.lang === 'th' ? 'ไม่พบงานที่เปิดอยู่' : 'No active job');
     return;
   }
 
-  completeAssessment._inFlight = true;
+  viewWaterScore._inFlight = true;
   try {
     if (typeof commitManualCaseIfNeeded === 'function') commitManualCaseIfNeeded();
     saveActiveJobState?.();
 
+    // Read-only Complete dual-gate forensic (opt-in via wmCompleteTrace / __WM_COMPLETE_TRACE__).
+    // Gate 1 (score-readiness) still applies here; Gate 2 (close eligibility)
+    // now only ever fires from completeJob(), the real close entry point.
+    if (typeof CompleteTrace !== 'undefined') {
+      CompleteTrace.beginComplete(S.activeJob);
+      CompleteTrace.recordGate1Before(S.activeJob);
+    }
+
     const check = validateAssessmentForComplete({ showErrors: true });
+    if (typeof CompleteTrace !== 'undefined') {
+      CompleteTrace.recordGate1After(check);
+    }
     if (!check.valid) {
       return;
     }
@@ -374,41 +397,33 @@ async function completeAssessment() {
       }
     }
 
-    // Score value only — workflow steps commit after finalize succeeds (below).
+    // Display value only, primed for the score screen -- calcAndShowScore()
+    // recomputes it live on render anyway. Not a publish; nothing is sent
+    // to Notion or the customer here.
     S.scoreVal = check.score;
 
-    if (typeof finalizeCaseCompletion !== 'function') {
-      showToast(S.lang === 'th' ? 'ปิดงานไม่สำเร็จ' : 'Could not complete assessment');
-      return;
+    S.stepsDone = S.stepsDone || {};
+    S.stepsDone.assess = true;
+    S.stepsDone.score = true;
+    if (job.draft) {
+      job.draft.stepsDone = { ...(job.draft.stepsDone || {}), assess: true, score: true };
     }
-
-    try {
-      await finalizeCaseCompletion(job, {
-        buttonSelector: '#s-assess .foot .btn-primary',
-        busyLabel: S.lang === 'th' ? 'กำลังปิดงาน…' : 'Completing…'
-      });
-      // Local workflow commit only after score + close succeeded.
-      // finalize already cleared activeJob; write draft on the closed job record.
-      S.stepsDone = S.stepsDone || {};
-      S.stepsDone.assess = true;
-      S.stepsDone.score = true;
-      if (job.draft) {
-        job.draft.stepsDone = { ...(job.draft.stepsDone || {}), assess: true, score: true };
-      }
-      if (typeof persistJobs === 'function') persistJobs();
-    } catch (error) {
-      console.warn('completeAssessment failed', error);
-      // handleSessionExpired() already redirected to login with its own
-      // message -- a second generic toast on top would be confusing.
-      if (error?.sessionExpired) return;
-      showToast(error?.message || (S.lang === 'th' ? 'ปิดงานไม่สำเร็จ' : 'Could not complete assessment'));
-      // Stay on Assessment — no redirect on score/close failure.
-    }
+    if (typeof persistJobs === 'function') persistJobs();
+    if (typeof renderJobSteps === 'function') renderJobSteps();
+    goScreen('s-score');
+  } catch (error) {
+    console.warn('viewWaterScore failed', error);
+    if (typeof CompleteTrace !== 'undefined') CompleteTrace.recordError(error);
+    // handleSessionExpired() already redirected to login with its own
+    // message -- a second generic toast on top would be confusing.
+    if (error?.sessionExpired) return;
+    showToast(error?.message || (S.lang === 'th' ? 'ไม่สามารถแสดงคะแนนได้' : 'Could not show score'));
+    // Stay on Assessment — no redirect on validation/sync failure.
   } finally {
-    completeAssessment._inFlight = false;
+    viewWaterScore._inFlight = false;
   }
 }
-completeAssessment._inFlight = false;
+viewWaterScore._inFlight = false;
 
 function selSeg(el, group) {
   el.closest('.seg').querySelectorAll('.seg-opt').forEach(o => o.classList.remove('sel'));
