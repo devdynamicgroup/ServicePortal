@@ -15,6 +15,7 @@ function openJob(id) {
   updateAssessScreen();
   renderCalendar();
   goScreen('s-job');
+  if (typeof maybeAutoPromptLineConnect === 'function') maybeAutoPromptLineConnect(S.activeJob);
   pushCaseOpenToNotion(S.activeJob).then(result => {
     if (!result?.ok) return;
     if (result.deferred) return;

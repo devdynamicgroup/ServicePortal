@@ -598,6 +598,60 @@ function copyLineConnectCode() {
 }
 
 /**
+ * Auto-connect prompt (2026-09-08) -- a small centered popup (distinct from
+ * the post-"Send Result" bottom sheet above) offered the first time a Case
+ * that isn't LINE-linked is opened this session, so staff can get the
+ * customer connected as early as possible instead of only remembering at
+ * send time. Read-only on the server (case-flow.js:getLineConnectInfo) --
+ * never publishes a score or touches notification status, just returns the
+ * same QR/link the post-send modal already builds. Dismissing ("ไว้ทีหลัง")
+ * or confirming ("สแกนแล้ว") both just close it; the real connection is
+ * still only ever established by the customer's own LIFF/webhook bind, same
+ * as every other entry point -- this never marks anything linked itself.
+ */
+let _lineConnectPrompt = { url: '' };
+const _lineConnectPromptShown = new Set();
+
+async function maybeAutoPromptLineConnect(job) {
+  if (!job || job.status === 'done' || job.status === 'cancelled') return;
+  if (job.line?.linked) return;
+  const caseRef = job.notionId || job.id;
+  if (!caseRef) return;
+  const key = String(caseRef);
+  if (_lineConnectPromptShown.has(key)) return;
+  _lineConnectPromptShown.add(key);
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(caseRef)}/line-connect`, {
+      credentials: 'same-origin'
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false || data.linked || !data.connectUrl) return;
+    // Guard against a stale response arriving after the operator already
+    // navigated away from this Case (e.g. switched jobs quickly).
+    if (String(S.activeJob?.notionId || S.activeJob?.id || '') !== key) return;
+    if (typeof openLineConnectPromptModal === 'function') {
+      openLineConnectPromptModal({ url: data.connectUrl, qr: data.connectQr || '' });
+    }
+  } catch (error) {
+    console.warn('maybeAutoPromptLineConnect failed', error);
+  }
+}
+
+function openLineConnectPromptModal({ url, qr }) {
+  _lineConnectPrompt = { url: url || '' };
+  const overlay = document.getElementById('line-connect-prompt-overlay');
+  if (!overlay) return;
+  const qrImg = document.getElementById('line-connect-prompt-qr');
+  if (qrImg) qrImg.src = qr || '';
+  overlay.classList.remove('hidden');
+}
+
+function closeLineConnectPromptModal() {
+  const overlay = document.getElementById('line-connect-prompt-overlay');
+  if (overlay) overlay.classList.add('hidden');
+}
+
+/**
  * Current Job Complete entry point.
  * Validates workflow steps, then reuses shared production completion orchestration.
  */

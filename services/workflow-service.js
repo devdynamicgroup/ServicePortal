@@ -721,5 +721,6 @@ module.exports = {
   publishCaseScore,
   recordFeedback,
   submitCaseFeedback,
-  resolveJob
+  resolveJob,
+  buildLineConnectPayload
 };

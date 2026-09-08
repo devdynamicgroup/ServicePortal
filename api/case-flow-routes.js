@@ -13,7 +13,8 @@ const {
   getReportByToken,
   getFeedbackByToken,
   submitFeedback,
-  submitCaseFeedback
+  submitCaseFeedback,
+  getLineConnectInfo
 } = require('../services/case-flow');
 const {
   submitCaseAssessment
@@ -762,6 +763,23 @@ async function handleCaseFlowRoute(req, res, urlPath) {
     try {
       const result = await sendCaseResult(decodeURIComponent(sendResultMatch[1]), await readJson(req));
       sendJson(res, 200, result);
+    } catch (error) {
+      sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
+    }
+    return true;
+  }
+
+  // Job screen auto-connect prompt (2026-09-08) -- read-only, never
+  // publishes a score or touches notification status (see
+  // case-flow.js:getLineConnectInfo). linked:true means the client should
+  // just skip showing the prompt; no QR/link/code is returned in that case.
+  const lineConnectMatch = urlPath.match(/^\/api\/cases\/([^/]+)\/line-connect$/);
+  if (lineConnectMatch && req.method === 'GET') {
+    if (!assertAppAuth(req, res)) return true;
+    try {
+      const info = await getLineConnectInfo(decodeURIComponent(lineConnectMatch[1]));
+      if (!info) { sendJson(res, 404, { ok: false, error: 'Case not found' }); return true; }
+      sendJson(res, 200, { ok: true, ...info });
     } catch (error) {
       sendJson(res, error.statusCode || 502, { ok: false, error: error.message });
     }

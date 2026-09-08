@@ -135,6 +135,22 @@
   </div>
 </div>
 
+<!-- LINE auto-connect prompt (Job screen open, 2026-09-08) -->
+<div id="line-connect-prompt-overlay" class="modal-overlay center hidden" onclick="closeLineConnectPromptModal()">
+  <div class="modal-sheet center confirm-modal-sheet" onclick="event.stopPropagation()">
+    <div class="confirm-modal-icon line" aria-hidden="true">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <div class="modal-title" data-i18n="line.connectPrompt.title">Connect the customer's LINE now?</div>
+    <p class="confirm-modal-message" data-i18n="line.connectPrompt.message">Scan now instead of coming back to it later — the result sends automatically once the inspection is complete.</p>
+    <img class="line-connect-qr" id="line-connect-prompt-qr" src="" alt="LINE connect QR code">
+    <div class="confirm-modal-actions-plain">
+      <button class="confirm-modal-btn ghost" type="button" onclick="closeLineConnectPromptModal()" data-i18n="line.connectPrompt.later">Later</button>
+      <button class="confirm-modal-btn tonal-line" type="button" onclick="closeLineConnectPromptModal()" data-i18n="line.connectPrompt.scanned">Scanned</button>
+    </div>
+  </div>
+</div>
+
 <!-- Client Feedback -->
 <div id="feedback-overlay" class="modal-overlay hidden" onclick="closeFeedbackModal()">
   <div class="modal-sheet feedback-modal" onclick="event.stopPropagation()">
