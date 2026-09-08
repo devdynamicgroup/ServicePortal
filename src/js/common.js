@@ -342,6 +342,23 @@ let sendingResultToLine = false;
  *    already sent, to opt into the narrow resend bypass added to that
  *    function's idempotency guard -- never for a genuinely first send.
  */
+
+/**
+ * Reads job.workflow.status -- already returned on every send-result response
+ * (services/workflow-service.js's executeSendCaseResult returns `case: job`,
+ * merged into the client job by sendResultToLineNow above) -- to tell the
+ * connect modal whether this Case has actually been completed (workflow
+ * reached 'completed' or later) or is still in progress. This mirrors
+ * WORKFLOW_STATES' order in workflow-service.js (the same list
+ * stateAtLeast()/pendingAutoSend already use server-side to decide whether a
+ * freshly-linked customer gets the result auto-sent immediately) -- it does
+ * not invent a new completion rule, just reads the existing field the server
+ * already computed (2026-09-08, LINE connect modal state-aware copy).
+ */
+function isCaseWorkflowComplete(job) {
+  const COMPLETED_OR_LATER = ['completed', 'result_sent', 'feedback_submitted', 'review_requested', 'closed'];
+  return COMPLETED_OR_LATER.includes(String(job?.workflow?.status || '').toLowerCase());
+}
 async function sendResultToLineNow() {
   if (sendingResultToLine) return;
   const job = S.activeJob;
@@ -487,7 +504,8 @@ async function sendResultToLineNow() {
         openLineConnectModal({
           url: sendPayload.line.connectUrl,
           qr: sendPayload.line.connectQr || '',
-          code: job.feedback?.token || ''
+          code: job.feedback?.token || '',
+          complete: isCaseWorkflowComplete(job)
         });
       } else {
         showToast(S.lang === 'th' ? 'ยังไม่ได้เชื่อม LINE กับลูกค้า' : 'Customer is not LINE-linked yet');
@@ -519,7 +537,7 @@ async function sendResultToLineNow() {
  */
 let _lineConnect = { url: '', code: '' };
 
-function openLineConnectModal({ url, qr, code }) {
+function openLineConnectModal({ url, qr, code, complete = false }) {
   _lineConnect = { url: url || '', code: code || '' };
   const overlay = document.getElementById('line-connect-overlay');
   if (!overlay) return;
@@ -529,6 +547,13 @@ function openLineConnectModal({ url, qr, code }) {
 
   const codeEl = document.getElementById('line-connect-code');
   if (codeEl) codeEl.textContent = _lineConnect.code || '—';
+
+  // State-aware lead: "result ready to deliver" vs "saved, inspection still
+  // in progress" -- must never claim the result was already sent via LINE,
+  // since this modal only ever appears when it was NOT (see doc comment
+  // above sendResultToLineNow).
+  const leadEl = document.getElementById('line-connect-lead');
+  if (leadEl) leadEl.textContent = t(complete ? 'line.connect.readyComplete' : 'line.connect.readyIncomplete');
 
   overlay.classList.remove('hidden');
 }
