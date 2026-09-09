@@ -653,8 +653,6 @@ function renderPropertySuggestion(match) {
   bar.innerHTML = '';
 }
 
-function suggestProperty() {}
-
 function addressSuggestionPool() {
   const province = getSelectedProvince();
   const fromPostal = POSTAL_DATA
@@ -783,8 +781,6 @@ function selectAddressSuggestion(label, code, city) {
   document.getElementById('address-dropdown')?.classList.add('hidden');
   updatePreassessmentCompletionState();
 }
-
-function filterPostal() {}
 
 function applyPropertySuggestion() {
   if (!propertySuggestion) return;

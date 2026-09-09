@@ -30,9 +30,13 @@
  *     manual-case skipMap create path) get it for free.
  *
  * Run: node scripts/test-package-history-write.js
- * (Test 8 hits the real production Notion DB -- creates one throwaway test
- * Case, same createTestCase() helper QA scripts already use, tagged
- * clearly in its name for the existing test-data cleanup pass.)
+ *
+ * Pure/safe unit coverage only (no network, no Notion) -- this is what
+ * generic regression commands should run. The live production round-trip
+ * that used to be "test 8" in this file was split out on 2026-09-09
+ * (test-script isolation safety pass, after re-running it accidentally
+ * created production Cases) to scripts/manual-prod/verify-package-history-live.js,
+ * which is NOT safe to run generically and creates a real Case every time.
  */
 
 const { buildNotionProperties } = require('../services/notion/clients');
@@ -111,44 +115,5 @@ console.log('\n=== 7. Missing property in schema is a no-op, not a throw ===');
   assert(Object.keys(props).length === 0, 'an empty schema (property not found) produces no properties and does not throw');
 }
 
-console.log('\n=== 8. Live round-trip against real Notion (read-back, not just HTTP 200) ===');
-{
-  (async () => {
-    try {
-      require('dotenv').config();
-      const { createTestCase } = require('../services/case-creation-service');
-      const { submitCustomerPreassessment } = require('../services/case-creation-service');
-      const { getClient } = require('../services/notion/clients');
-
-      const created = await createTestCase({
-        fullName: `QA-PKG-WRITE-DELETE-ME ${Date.now()}`
-      });
-      const caseId = created.case.notionId;
-
-      const result = await submitCustomerPreassessment(caseId, {
-        fields: {},
-        fullName: created.case.name,
-        package: 'full'
-      });
-      assert(result.ok === true, 'submitCustomerPreassessment responds ok:true');
-
-      // Read back directly from Notion (not the app's cached response) --
-      // this is the exact check that would have caught the original bug,
-      // where the HTTP response was 200 but the property never landed.
-      const rawPage = await getClient(caseId);
-      const pkgProp = rawPage?.pkg;
-      assert(pkgProp === 'full', `re-fetched Case from Notion shows pkg === 'full' (got "${pkgProp}")`);
-
-      console.log(`  (throwaway test Case created: ${caseId} -- tagged QA-PKG-WRITE-DELETE-ME for the existing test-data cleanup pass)`);
-    } catch (error) {
-      failed += 1;
-      console.error(`  FAIL  live round-trip threw: ${error.message}`);
-    }
-    finishUp();
-  })();
-}
-
-function finishUp() {
-  console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'} -- ${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
-}
+console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'} -- ${passed} passed, ${failed} failed`);
+if (failed > 0) process.exit(1);
