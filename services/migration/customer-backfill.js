@@ -24,6 +24,7 @@ const {
   ensureCustomersSchema,
   getCustomerSchemaStatus
 } = require('../customer-domain');
+const { isStrongMatch } = require('../customer-domain/matcher');
 
 const FINGERPRINT_PREFIX = 'backfill:v1';
 const DEFAULT_REPORT_DIR = path.join(process.cwd(), 'tmp', 'customer-backfill');
@@ -116,12 +117,14 @@ function emptyReport(meta) {
     duplicateCandidates: 0,
     conflicts: 0,
     ambiguousMatches: 0,
+    weakCandidates: 0,
     errors: 0,
     skipped: [],
     wouldCreate: [],
     created: [],
     wouldMatch: [],
     matched: [],
+    weakCandidatesList: [],
     duplicateCandidatesList: [],
     conflictsList: [],
     ambiguousMatchesList: [],
@@ -336,6 +339,22 @@ function planForCase(identity, index, report) {
 
   if (candidates.length === 1 || (candidates.length > 1 && new Set(candidates.map(c => c.customer.customerId)).size === 1)) {
     const customer = candidates[0].customer;
+    const via = candidates[0].via;
+
+    // Same identity-strength contract as the live path
+    // (services/customer-domain/resolver.js / matcher.js:isStrongMatch):
+    // a unique phone-only or email-only candidate is still just a signal,
+    // not proof of identity. Report it as a candidate for a human to
+    // review -- never write Case.customerId/customerPageId from it.
+    if (!isStrongMatch([via])) {
+      return {
+        action: 'weak_candidate',
+        customerId: customer.customerId,
+        notionPageId: customer.notionPageId,
+        via
+      };
+    }
+
     const lineConflict = detectLineConflict(identity, customer);
     if (lineConflict) {
       report.conflicts += 1;
@@ -477,6 +496,23 @@ async function runCustomerBackfill(options = {}) {
 
     try {
       const plan = planForCase(identity, index, report);
+
+      if (plan.action === 'weak_candidate') {
+        // Report-only: a phone/email-only candidate is surfaced for human
+        // review, never auto-written -- same contract as resolver.js's
+        // weak_match. dry-run and write mode behave identically here since
+        // there is no write to skip.
+        report.weakCandidates += 1;
+        report.weakCandidatesList.push({
+          caseNotionId: identity.caseNotionId,
+          customerId: plan.customerId,
+          via: plan.via
+        });
+        if (mode === 'write') {
+          processedSet.add(identity.caseNotionId);
+        }
+        continue;
+      }
 
       if (plan.action === 'skip' || plan.action === 'error' || plan.action === 'ambiguous'
         || plan.action === 'blocked_line_conflict' || plan.action === 'duplicate_blocked'
@@ -662,5 +698,11 @@ module.exports = {
   verifySchemaReadiness,
   ensureCaseCustomerLinkProps,
   runCustomerBackfill,
-  rollbackCustomerBackfill
+  rollbackCustomerBackfill,
+  // Test-only: exercise the pure planning decision directly, without the
+  // Notion I/O runCustomerBackfill() wraps it in. Same functions, same
+  // behavior, just reachable from a test file.
+  planForCase,
+  indexCustomers,
+  emptyReport
 };

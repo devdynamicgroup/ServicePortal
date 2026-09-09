@@ -5,7 +5,7 @@
  * Does not query Notion directly, does not modify Case, no migration reporting.
  */
 
-const { matchCustomer } = require('./matcher');
+const { matchCustomer, isStrongMatch } = require('./matcher');
 const {
   createCustomerFromIdentity,
   applyIdentityPatch,
@@ -106,6 +106,27 @@ async function resolveAndLinkCustomer(input = {}) {
 
   if (match.status === 'one') {
     customer = match.customers[0];
+
+    if (!isStrongMatch(match.via)) {
+      // Phone/email alone identified a candidate Customer, but that is a
+      // signal, not proof -- do not patch this Customer's identity fields
+      // and do not link this Case to them. Returning early here means no
+      // link is written and dual-write's own no-op-on-non-'matched'
+      // handling takes care of the rest (see services/migration/dual-write.js).
+      return {
+        status: 'weak_match',
+        customerId: customer.customerId,
+        caseId: caseNotionId,
+        conflicts: [{
+          type: 'weak_signal_match',
+          matchedCustomerId: customer.customerId,
+          via: match.via
+        }],
+        error: null,
+        customer
+      };
+    }
+
     const lineConflict = detectLineOverwriteConflict(identity, customer);
     if (lineConflict) conflicts.push(lineConflict);
     conflicts.push(...collectSoftConflicts(identity, customer));

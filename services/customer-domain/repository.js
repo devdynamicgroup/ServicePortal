@@ -132,11 +132,23 @@ function buildCustomerProperties(payload, schemaProperties = {}) {
     else if (type === 'email') properties[key] = { email: text };
     else if (type === 'url') properties[key] = { url: text };
   };
+  /**
+   * Schema-aware single-choice write. Some Notion databases configure a
+   * logically single-choice field as an actual multi_select property rather
+   * than select -- writing the old select-only shape against a multi_select
+   * property is silently dropped by Notion (no error, property just never
+   * appears in the accepted payload). This is the exact same defect class
+   * found and fixed on the Case repository's packageHistory field
+   * (services/notion/clients.js) -- applying the same fix here preemptively,
+   * since this Customers DB schema hasn't been created/verified yet.
+   */
   const setSelect = (aliases, value) => {
     if (!value) return;
     const key = findPropertyKey(schemaProperties, aliases);
-    if (!key || schemaProperties[key]?.type !== 'select') return;
-    properties[key] = { select: { name: String(value) } };
+    if (!key) return;
+    const type = schemaProperties[key]?.type;
+    if (type === 'select') properties[key] = { select: { name: String(value) } };
+    else if (type === 'multi_select') properties[key] = { multi_select: [{ name: String(value) }] };
   };
   const setCheckbox = (aliases, value) => {
     if (value === undefined) return;

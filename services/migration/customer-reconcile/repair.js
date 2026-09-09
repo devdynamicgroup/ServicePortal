@@ -10,6 +10,7 @@ const { updateClient } = require('../../notion/clients');
 const { linkCaseToCustomer } = require('../../customer-domain/linker');
 const { applyIdentityPatch } = require('../../customer-domain/creator');
 const { normalizePhone, normalizeEmail } = require('../../customer-domain/validate');
+const { isStrongMatch } = require('../../customer-domain/matcher');
 const { CUSTOMER_STATUS } = require('../../customer-domain/aliases');
 const { extractCaseIdentity, isInactiveCustomer } = require('./scanner');
 
@@ -98,6 +99,23 @@ function proposeRepairs(action, context = {}) {
         });
         continue;
       }
+
+      // Same identity-strength contract as the live path
+      // (services/customer-domain/resolver.js / matcher.js:isStrongMatch):
+      // a unique phone-only or email-only match is a candidate for a human
+      // to review, not authorization to auto-link.
+      if (!isStrongMatch([match.via])) {
+        proposals.push({
+          action,
+          status: 'skipped',
+          reason: 'weak_evidence_no_auto_link',
+          via: match.via,
+          caseNotionId: finding.caseNotionId,
+          customerId: match.customer.customerId
+        });
+        continue;
+      }
+
       proposals.push({
         action,
         status: 'proposed',
