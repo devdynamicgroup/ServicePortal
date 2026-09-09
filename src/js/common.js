@@ -12,6 +12,13 @@ async function saveDraft() {
   const draftBtns = document.querySelectorAll('.btn-draft');
   draftBtns.forEach(btn => { btn.disabled = true; });
   try {
+    // UX-09 fix (2026-09-09 audit): a sync-failure toast used to be
+    // unconditionally overwritten a moment later by the generic "Draft
+    // saved" toast below -- showToast() reuses a single element, so the
+    // second call replaced the first before anyone could read it, making a
+    // real sync failure look like a clean save. Show exactly one toast per
+    // outcome instead.
+    let syncFailedToastShown = false;
     if (S.activeJob) {
       if (typeof commitManualCaseIfNeeded === 'function') commitManualCaseIfNeeded();
       saveActiveJobState();
@@ -21,6 +28,7 @@ async function saveDraft() {
         const synced = await ensureCaseSyncedToNotion(S.activeJob);
         if (!synced?.ok && S.activeJob?.manual && !S.activeJob?.notionId) {
           showToast(S.lang === 'th' ? 'บันทึกร่างแล้ว แต่ยังซิงค์ Notion ไม่สำเร็จ' : 'Draft saved, but Notion sync failed');
+          syncFailedToastShown = true;
         }
       }
       if (typeof syncJobAssessmentToNotion === 'function' && S.activeJob?.notionId) {
@@ -29,7 +37,9 @@ async function saveDraft() {
       if (typeof renderCalendar === 'function') renderCalendar();
       else if (typeof renderJobs === 'function') renderJobs();
     }
-    showToast('Draft saved');
+    if (!syncFailedToastShown) {
+      showToast(S.lang === 'th' ? 'บันทึกร่างแล้ว' : 'Draft saved');
+    }
     const profileJob = S.activeJob;
     goScreen('s-dash');
     if (profileJob?.notionId && typeof syncJobProfileToNotion === 'function') {
@@ -196,7 +206,7 @@ async function finalizeCaseCompletion(job, options = {}) {
     completeBtn.disabled = true;
     completeBtn.dataset.prevLabel = completeBtn.textContent;
     completeBtn.textContent = options.busyLabel
-      || (S.lang === 'th' ? 'กำลังส่งผล…' : 'Sending…');
+      || (S.lang === 'th' ? 'กำลังปิดเคส…' : 'Completing…');
   }
 
   try {
@@ -694,7 +704,7 @@ async function completeJob() {
     try {
       await finalizeCaseCompletion(job, {
         buttonSelector: '#s-job .foot .btn-primary',
-        busyLabel: S.lang === 'th' ? 'กำลังส่งผล…' : 'Sending…'
+        busyLabel: S.lang === 'th' ? 'กำลังปิดเคส…' : 'Completing…'
       });
     } catch (error) {
       console.warn('completeJob failed', error);
