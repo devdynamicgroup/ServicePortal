@@ -719,11 +719,26 @@ function updateJobHeader(job) {
   // connect QR (see sendResultToLineNow/openLineConnectModal), it never
   // delivers anything, so the button/subtitle must say so up front instead
   // of promising a send that can't happen yet (2026-09-08).
+  //
+  // UX-07 (2026-09-11): "linked" alone doesn't say whether THIS result was
+  // ever actually delivered -- job.notification.status is a separate,
+  // already-persisted signal (not_sent/ready/sending/sent/failed) that
+  // previously only ever surfaced via a 2s toast right after sending, gone
+  // by the time staff reopens the Case later. Surface it persistently here
+  // instead of introducing any new state -- reads the same field the
+  // Operator Notification Center already keys off.
   const lineSendSub = document.getElementById('line-send-sub');
   const lineSendLabel = document.getElementById('line-send-btn-label');
   if (lineSendSub || lineSendLabel) {
     const linked = Boolean(job?.line?.linked);
-    if (lineSendSub) lineSendSub.textContent = t(linked ? 'job.sendLine.sub' : 'job.sendLine.subUnlinked');
+    const notifStatus = String(job?.notification?.status || '').toLowerCase();
+    let subKey = 'job.sendLine.subUnlinked';
+    if (linked) {
+      if (notifStatus === 'sent') subKey = 'job.sendLine.subSent';
+      else if (notifStatus === 'failed') subKey = 'job.sendLine.subFailed';
+      else subKey = 'job.sendLine.subReady';
+    }
+    if (lineSendSub) lineSendSub.textContent = t(subKey);
     if (lineSendLabel) lineSendLabel.textContent = t(linked ? 'job.sendLine.cta' : 'job.sendLine.ctaConnect');
   }
 }
