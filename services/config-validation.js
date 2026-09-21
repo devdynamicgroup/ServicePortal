@@ -22,8 +22,16 @@ function validateProductionConfig() {
     warnings.push({ code: 'line_secret_missing', message: 'LINE_CHANNEL_SECRET missing' });
   }
 
-  const base = publicBaseUrl();
-  if (!base || !/^https:\/\//i.test(base)) {
+  let base = '';
+  try {
+    base = publicBaseUrl();
+  } catch (error) {
+    warnings.push({
+      code: 'public_base_url_required',
+      message: error.message || 'PUBLIC_BASE_URL must be set in production'
+    });
+  }
+  if (base && !/^https:\/\//i.test(base)) {
     warnings.push({
       code: 'public_url_insecure_or_empty',
       message: 'PUBLIC_BASE_URL / RENDER_EXTERNAL_URL should be https for LINE assets'

@@ -24,6 +24,7 @@ const {
 } = require('../services/workflow-service');
 const { buildFeedbackUrl } = require('../services/url-builder');
 const { newCorrelationId, logLineLifecycle } = require('../services/observability');
+const { trackBackground } = require('../services/background-work');
 const {
   resolveLineCustomerCases: resolveLineCustomerCasesDomain
 } = require('../services/customer-domain/line-reader');
@@ -127,14 +128,14 @@ function logErrorStack(error) {
 
 function scheduleBackground(task) {
   const run = () => {
-    Promise.resolve()
-      .then(() => task())
-      .catch(error => {
-        console.error('[line_background] unhandled', {
-          error: error?.message || String(error),
-          stack: logErrorStack(error)
-        });
+    // Part L P1-C/D: register with process drain so SIGTERM can await in-flight
+    // post-ACK work (best-effort; not a durable queue).
+    trackBackground(() => task()).catch((error) => {
+      console.error('[line_background] unhandled', {
+        error: error?.message || String(error),
+        stack: logErrorStack(error)
       });
+    });
   };
 
   // Prefer setImmediate so work runs after the current response I/O turn.

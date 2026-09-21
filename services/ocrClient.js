@@ -5,6 +5,12 @@
  * Never throws raw HTTP/network errors to callers; returns a standardized object.
  */
 
+const { GoogleAuth } = require('google-auth-library');
+
+// google-auth-library ships as a transitive dependency of googleapis (already
+// in package.json) — reused here rather than adding a new dependency.
+const googleAuth = new GoogleAuth();
+
 function getOcrServiceUrl() {
   return String(process.env.OCR_SERVICE_URL || 'http://127.0.0.1:5055').replace(/\/$/, '');
 }
@@ -36,8 +42,9 @@ function getProductionMisconfigError() {
 function getOcrTimeoutMs() {
   const raw = Number(process.env.OCR_TIMEOUT);
   if (Number.isFinite(raw) && raw > 0) return Math.floor(raw);
-  // Paddle cold start + first predict often exceeds 30s on free-tier hosts.
-  return 120000;
+  // Part L P1-F: default fits Cloud Run request timeout 300s with 3 attempts
+  // + warmup delays: 3×90s + 2×8s = 286s < 300s.
+  return 90000;
 }
 
 const RETRYABLE_ERRORS = new Set([
@@ -51,6 +58,12 @@ const MAX_READ_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 5000;
 const ENGINE_WARMUP_DELAY_MS = 8000;
 
+/** Worst-case portal wall-clock for ENGINE_UNAVAILABLE path (ms). */
+function getOcrWorstCaseBudgetMs() {
+  return (getOcrTimeoutMs() * MAX_READ_ATTEMPTS)
+    + (ENGINE_WARMUP_DELAY_MS * Math.max(0, MAX_READ_ATTEMPTS - 1));
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -58,6 +71,25 @@ function sleep(ms) {
 function isDebug() {
   return String(process.env.OCR_DEBUG || '').toLowerCase() === 'true'
     || String(process.env.DEBUG || '').toLowerCase() === 'true';
+}
+
+/**
+ * Cloud Run service-to-service auth: obtains a Google-signed ID token scoped
+ * to the OCR service URL via the Cloud Run runtime identity (ADC / metadata
+ * server) — no static credentials, no service-account keys. Skipped for
+ * local/dev OCR URLs, which run without Cloud Run IAM in front of them.
+ * Throws on failure so callers can distinguish auth errors from OCR errors.
+ */
+async function getOcrAuthHeaders(baseUrl) {
+  if (isLocalOcrUrl(baseUrl)) return {};
+  try {
+    const client = await googleAuth.getIdTokenClient(baseUrl);
+    const idToken = await client.idTokenProvider.fetchIdToken(baseUrl);
+    return { Authorization: `Bearer ${idToken}` };
+  } catch (error) {
+    if (isDebug() && error?.stack) console.warn(error.stack);
+    throw error;
+  }
 }
 
 /**
@@ -259,6 +291,19 @@ async function readMeterOnce(payload, timeoutMs) {
     timeoutMs
   });
 
+  let authHeaders;
+  try {
+    authHeaders = await getOcrAuthHeaders(baseUrl);
+  } catch (error) {
+    console.warn('[ocr-client] request failed', { reason: 'auth_token_error' });
+    return {
+      success: false,
+      error: 'OCR_AUTH_ERROR',
+      message: 'Failed to obtain OCR service authentication token',
+      retry: false
+    };
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -267,7 +312,8 @@ async function readMeterOnce(payload, timeoutMs) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'application/json'
+        Accept: 'application/json',
+        ...authHeaders
       },
       body: JSON.stringify({
         image_url: payload.image_url,
@@ -275,6 +321,22 @@ async function readMeterOnce(payload, timeoutMs) {
       }),
       signal: controller.signal
     });
+
+    if (response.status === 401 || response.status === 403) {
+      const rawText = await response.text();
+      console.warn('[ocr-client] request failed', {
+        reason: 'auth_rejected',
+        status: response.status,
+        preview: previewText(rawText, 300)
+      });
+      return {
+        success: false,
+        error: 'OCR_AUTH_ERROR',
+        message: 'OCR service rejected the request (authentication/authorization failure)',
+        retry: false,
+        statusCode: response.status
+      };
+    }
 
     const rawText = await response.text();
     const contentType = response.headers.get('content-type');
@@ -343,6 +405,19 @@ async function debugReadMeter(payload) {
   const baseUrl = getOcrServiceUrl();
   const url = `${baseUrl}/ocr/debug-read`;
   const timeoutMs = getOcrTimeoutMs();
+
+  let authHeaders;
+  try {
+    authHeaders = await getOcrAuthHeaders(baseUrl);
+  } catch (error) {
+    return {
+      success: false,
+      error: 'OCR_AUTH_ERROR',
+      message: 'Failed to obtain OCR service authentication token',
+      retry: false
+    };
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -351,7 +426,8 @@ async function debugReadMeter(payload) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'application/json'
+        Accept: 'application/json',
+        ...authHeaders
       },
       body: JSON.stringify({
         image_url: payload.image_url,
@@ -359,6 +435,16 @@ async function debugReadMeter(payload) {
       }),
       signal: controller.signal
     });
+
+    if (response.status === 401 || response.status === 403) {
+      return {
+        success: false,
+        error: 'OCR_AUTH_ERROR',
+        message: 'OCR service rejected the request (authentication/authorization failure)',
+        retry: false,
+        statusCode: response.status
+      };
+    }
 
     const rawText = await response.text();
     const contentType = response.headers.get('content-type');
@@ -415,6 +501,9 @@ module.exports = {
   debugReadMeter,
   getOcrServiceUrl,
   getOcrTimeoutMs,
+  getOcrWorstCaseBudgetMs,
+  MAX_READ_ATTEMPTS,
+  ENGINE_WARMUP_DELAY_MS,
   // Exported for boundary smoke tests only.
   sanitizePythonJsonText,
   parseOcrServiceBody

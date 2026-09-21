@@ -2,6 +2,7 @@ const { getNotionClient } = require('./notion/client');
 const { getNotionConfig } = require('../config/env');
 const { findPropertyKey, getPropertyValue } = require('./notion/props');
 const { findClientByFeedbackToken, getClient, updateClient } = require('./notion/clients');
+const { publicBaseUrl } = require('./url-builder');
 
 const FEEDBACK_ALIASES = {
   title: ['Name', 'Client Feedback', 'Feedback', 'Title'],
@@ -211,7 +212,7 @@ function feedbackLookupDebug(token, extra = {}) {
 
 function clientMatchToFeedbackPayload(client, job) {
   const reportToken = String(job?.result?.publicReportToken || '').trim();
-  const base = (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.onrender.com').replace(/\/$/, '');
+  const base = publicBaseUrl();
   const reportUrl = reportToken
     ? `${base}/r/${encodeURIComponent(reportToken)}`
     : String(job?.result?.reportUrl || '')

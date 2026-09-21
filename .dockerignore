@@ -11,3 +11,23 @@ ocr-service/
 .claude/
 .vscode/
 .idea/
+
+# Local/runtime data — never bake into production image
+data/
+tmp/
+backups/
+.venv/
+venv/
+ocr/
+
+# Google / credential material (gitignored ≠ dockerignored)
+credentials/
+*-service-account*.json
+*service-account*.json
+solar-bolt-*.json
+**/google-service-account.json
+render-google-service-account*.txt
+*.pem
+*.key
+*.p12
+*.pfx

@@ -6,8 +6,43 @@
 
 const DEFAULT_REVIEW_URL = 'https://g.page/r/Ce0EFhVtUyRpEBM/review';
 
+function isCloudRunRuntime() {
+  return Boolean(process.env.K_SERVICE);
+}
+
+function isProductionLikeRuntime() {
+  const nodeEnv = String(process.env.NODE_ENV || '').toLowerCase();
+  if (nodeEnv === 'production') return true;
+  if (process.env.RENDER || process.env.RENDER_SERVICE_ID) return true;
+  if (isCloudRunRuntime()) return true;
+  return false;
+}
+
+/**
+ * Canonical public origin for report/feedback/LINE absolute URLs.
+ * Cloud Run / production MUST set PUBLIC_BASE_URL — never silently use a
+ * hardcoded Render hostname (Part L P1-B).
+ */
 function publicBaseUrl() {
-  return (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://serviceportal.onrender.com').replace(/\/$/, '');
+  const configured = String(process.env.PUBLIC_BASE_URL || '').trim();
+  if (configured) return configured.replace(/\/$/, '');
+
+  // Render injects RENDER_EXTERNAL_URL. Accept only when not on Cloud Run.
+  const renderUrl = String(process.env.RENDER_EXTERNAL_URL || '').trim();
+  if (renderUrl && !isCloudRunRuntime()) {
+    return renderUrl.replace(/\/$/, '');
+  }
+
+  if (isProductionLikeRuntime()) {
+    const error = new Error(
+      'PUBLIC_BASE_URL must be set in production (Cloud Run / Render). Hardcoded host fallbacks are disabled.'
+    );
+    error.statusCode = 500;
+    error.code = 'PUBLIC_BASE_URL_REQUIRED';
+    throw error;
+  }
+
+  return 'http://127.0.0.1:3000';
 }
 
 function buildReportUrl(reportToken) {
@@ -50,5 +85,7 @@ module.exports = {
   buildReportUrl,
   buildFeedbackUrl,
   buildLiffBindUrl,
-  resolveReviewUrl
+  resolveReviewUrl,
+  isCloudRunRuntime,
+  isProductionLikeRuntime
 };

@@ -13,6 +13,8 @@ function isProductionRuntime() {
   if (nodeEnv === 'production') return true;
   // Render sets NODE_ENV=production in normal deploys; treat RENDER* as production too.
   if (process.env.RENDER || process.env.RENDER_SERVICE_ID) return true;
+  // Cloud Run injects K_SERVICE — treat as production for cookie/auth strictness.
+  if (process.env.K_SERVICE) return true;
   return false;
 }
 
@@ -294,7 +296,10 @@ function assertAppAuth(req, res) {
 }
 
 function sessionCookieHeader(token, { clear = false } = {}) {
-  const secure = String(process.env.PUBLIC_BASE_URL || '').startsWith('https');
+  // Part L P1-B: Secure on HTTPS PUBLIC_BASE_URL or any production-like host
+  // (incl. Cloud Run K_SERVICE), so unset PUBLIC_BASE_URL cannot drop Secure on HTTPS.
+  const secure = String(process.env.PUBLIC_BASE_URL || '').startsWith('https')
+    || isProductionRuntime();
   const parts = [
     `${SESSION_COOKIE}=${clear ? '' : encodeURIComponent(token)}`,
     'Path=/',

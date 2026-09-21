@@ -96,6 +96,12 @@ const {
   sessionCookieHeader,
   requireAppAuth
 } = require('./services/app-auth');
+const {
+  isSensitiveStaticRequest: isSensitiveStaticRequestForRoot,
+  isAllowedStaticFile: isAllowedStaticFileForRoot,
+  resolveStaticPath
+} = require('./services/static-asset-guard');
+const { drainBackgroundWork } = require('./services/background-work');
 
 // M8.1: register Customer Domain infrastructure (flags default OFF — no behavior change).
 try {
@@ -118,14 +124,15 @@ const types = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.csv': 'text/csv; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
-  '.ico': 'image/x-icon'
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.map': 'application/json; charset=utf-8'
 };
 
 // Non-sensitive Drive status to aid debugging at startup (does not print private keys).
@@ -342,12 +349,15 @@ async function handleApiRequest(req, res) {
 }
 
 function resolvePath(urlPath) {
-  const decoded = decodeURIComponent(urlPath.split('?')[0]);
-  const requested = decoded === '/' ? '/index.html' : decoded;
-  const fullPath = path.normalize(path.join(root, requested));
+  return resolveStaticPath(root, urlPath);
+}
 
-  if (!fullPath.startsWith(root)) return null;
-  return fullPath;
+function isSensitiveStaticRequest(urlPath) {
+  return isSensitiveStaticRequestForRoot(root, urlPath);
+}
+
+function isAllowedStaticFile(fullPath) {
+  return isAllowedStaticFileForRoot(root, fullPath);
 }
 
 async function handleRequest(req, res) {
@@ -377,6 +387,12 @@ async function handleRequestInner(req, res) {
     return;
   }
 
+  // Part K: never static-serve credentials / secrets / non-asset trees.
+  if (isSensitiveStaticRequest(req.url)) {
+    send(res, 404, 'Not Found');
+    return;
+  }
+
   const filePath = resolvePath(req.url);
   if (!filePath) {
     send(res, 403, 'Forbidden');
@@ -384,8 +400,16 @@ async function handleRequestInner(req, res) {
   }
 
   fs.stat(filePath, (statErr, stat) => {
-    const isAssetRequest = req.url.startsWith('/src/') || req.url.includes('.');
+    const urlPathOnly = req.url.split('?')[0];
+    const isAssetRequest = urlPathOnly.startsWith('/src/')
+      || urlPathOnly.startsWith('/assets/')
+      || urlPathOnly.includes('.');
     if ((statErr || !stat.isFile()) && isAssetRequest) {
+      send(res, 404, 'Not Found');
+      return;
+    }
+
+    if (!statErr && stat.isFile() && !isAllowedStaticFile(filePath)) {
       send(res, 404, 'Not Found');
       return;
     }
@@ -411,21 +435,25 @@ async function handleRequestInner(req, res) {
 function listen(nextPort) {
   const server = http.createServer(handleRequest);
 
-  // Global diagnostics to help catch startup crashes in hosted environments.
-  process.on('uncaughtException', err => {
-    try {
-      console.error('[UNCAUGHT EXCEPTION]', err && err.message ? err.message : String(err));
-      if (err && err.stack) console.error(err.stack);
-    } catch (e) { /* ignore logging failures */ }
-    process.exit(1);
-  });
-  process.on('unhandledRejection', reason => {
-    try {
-      console.error('[UNHANDLED REJECTION]', reason && reason.message ? reason.message : String(reason));
-      if (reason && reason.stack) console.error(reason.stack);
-    } catch (e) { /* ignore logging failures */ }
-    process.exit(1);
-  });
+  // Register process diagnostics once (listen may recurse on EADDRINUSE).
+  if (!process.listenerCount('uncaughtException')) {
+    process.on('uncaughtException', err => {
+      try {
+        console.error('[UNCAUGHT EXCEPTION]', err && err.message ? err.message : String(err));
+        if (err && err.stack) console.error(err.stack);
+      } catch (e) { /* ignore logging failures */ }
+      process.exit(1);
+    });
+  }
+  if (!process.listenerCount('unhandledRejection')) {
+    process.on('unhandledRejection', reason => {
+      try {
+        console.error('[UNHANDLED REJECTION]', reason && reason.message ? reason.message : String(reason));
+        if (reason && reason.stack) console.error(reason.stack);
+      } catch (e) { /* ignore logging failures */ }
+      process.exit(1);
+    });
+  }
 
   server.once('error', error => {
     if (error.code === 'EADDRINUSE') {
@@ -442,6 +470,46 @@ function listen(nextPort) {
     startGoogleReviewScheduler();
     startCareLifecycleScheduler();
   });
+
+  // Part L P1-C: Cloud Run sends SIGTERM — drain HTTP + best-effort background work.
+  if (!listen._shutdownHooksInstalled) {
+    listen._shutdownHooksInstalled = true;
+    let shuttingDown = false;
+    const shutdown = async (signal) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      console.log(`[shutdown] ${signal} received — closing server`);
+      const forceTimer = setTimeout(() => {
+        console.warn('[shutdown] drain timeout — exiting');
+        process.exit(1);
+      }, 25000);
+      if (typeof forceTimer.unref === 'function') forceTimer.unref();
+
+      try {
+        await new Promise((resolve) => {
+          server.close(() => resolve());
+        });
+        const drain = await drainBackgroundWork(20000);
+        console.log('[shutdown] drained', drain);
+        clearTimeout(forceTimer);
+        process.exit(0);
+      } catch (error) {
+        console.error('[shutdown] failed', error && error.message ? error.message : error);
+        clearTimeout(forceTimer);
+        process.exit(1);
+      }
+    };
+    process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
+    process.on('SIGINT', () => { void shutdown('SIGINT'); });
+  }
 }
 
-listen(port);
+if (require.main === module) {
+  listen(port);
+}
+
+module.exports = {
+  resolvePath,
+  isAllowedStaticFile,
+  isSensitiveStaticRequest
+};
