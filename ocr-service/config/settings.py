@@ -140,6 +140,15 @@ class Settings:
     ocr_second_pass_det_model: str = "PP-OCRv6_medium_det"
     ocr_second_pass_rec_model: str = "PP-OCRv6_medium_rec"
 
+    # Application-level shared-secret auth (Option B — for callers that can't
+    # obtain a Cloud Run ID token, e.g. Render). Empty secret = feature off.
+    # See services/ocrClient.js for the caller side.
+    # OCR_SHARED_SECRET_PREVIOUS enables zero-downtime rotation: both primary
+    # and previous are accepted during the rotation window (validator only).
+    ocr_shared_secret: str = ""
+    ocr_shared_secret_previous: str = ""
+    ocr_auth_required: bool = False
+
 
 def load_settings() -> Settings:
     # Local overrides (gitignored). Existing process env wins (tests set OCR_ENGINE=mock).
@@ -180,6 +189,9 @@ def load_settings() -> Settings:
         ocr_second_pass_enabled=_env_bool("OCR_SECOND_PASS_ENABLED", True),
         ocr_second_pass_det_model=_env("OCR_SECOND_PASS_DET_MODEL", "PP-OCRv6_medium_det"),
         ocr_second_pass_rec_model=_env("OCR_SECOND_PASS_REC_MODEL", "PP-OCRv6_medium_rec"),
+        ocr_shared_secret=_env("OCR_SHARED_SECRET", ""),
+        ocr_shared_secret_previous=_env("OCR_SHARED_SECRET_PREVIOUS", ""),
+        ocr_auth_required=_env_bool("OCR_AUTH_REQUIRED", False),
     )
 
 

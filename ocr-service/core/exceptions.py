@@ -27,6 +27,13 @@ class ValidationError(OcrServiceError):
     default_message = "Invalid request"
 
 
+class AuthenticationError(OcrServiceError):
+    error_code = "UNAUTHORIZED"
+    http_status = 401
+    retry = False
+    default_message = "Authentication required"
+
+
 class UnsupportedMeterError(OcrServiceError):
     error_code = "UNSUPPORTED_METER"
     http_status = 200

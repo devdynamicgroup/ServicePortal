@@ -74,14 +74,36 @@ function isDebug() {
 }
 
 /**
- * Cloud Run service-to-service auth: obtains a Google-signed ID token scoped
- * to the OCR service URL via the Cloud Run runtime identity (ADC / metadata
- * server) — no static credentials, no service-account keys. Skipped for
- * local/dev OCR URLs, which run without Cloud Run IAM in front of them.
- * Throws on failure so callers can distinguish auth errors from OCR errors.
+ * OCR service-to-service auth. Two independent mechanisms, selected by host:
+ *
+ * - Cloud Run (K_SERVICE present): Google-signed ID token via the Cloud Run
+ *   runtime identity (ADC / metadata server) — no static credentials, no
+ *   service-account keys. Validated entirely by Cloud Run's platform IAM;
+ *   the OCR application never sees this token.
+ * - Off Cloud Run (e.g. Render): no metadata server exists, so an ID token
+ *   can never be obtained there. Falls back to a static shared secret sent
+ *   as a header (OCR_SHARED_SECRET), validated by the OCR application
+ *   itself (Option B soft rollout — see ocr-service/api/validators.py).
+ *
+ * Skipped entirely for local/dev OCR URLs, which run without either
+ * boundary in front of them. Throws on failure so callers can distinguish
+ * auth errors from OCR errors.
  */
+const OCR_SHARED_SECRET_HEADER = 'X-OCR-Shared-Secret';
+
+function isCloudRunRuntime() {
+  return Boolean(process.env.K_SERVICE);
+}
+
 async function getOcrAuthHeaders(baseUrl) {
   if (isLocalOcrUrl(baseUrl)) return {};
+
+  if (!isCloudRunRuntime()) {
+    const sharedSecret = process.env.OCR_SHARED_SECRET;
+    if (!sharedSecret) return {};
+    return { [OCR_SHARED_SECRET_HEADER]: sharedSecret };
+  }
+
   try {
     const client = await googleAuth.getIdTokenClient(baseUrl);
     const idToken = await client.idTokenProvider.fetchIdToken(baseUrl);

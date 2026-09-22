@@ -122,6 +122,7 @@ def _handle_read_meter(
     request_id: str,
 ) -> tuple[int, dict[str, Any]]:
     try:
+        validators.require_shared_secret(headers, request_id)
         validators.require_json_content_type(headers)
         payload = validators.parse_json_body(body)
         image_url, meter_type = validators.validate_read_meter_payload(payload)
@@ -158,6 +159,7 @@ def _handle_debug_read(
     returns raw detections/preprocessing/confidence instead of just the final
     data dict. Never used by the frontend; for manual investigation only."""
     try:
+        validators.require_shared_secret(headers, request_id)
         validators.require_json_content_type(headers)
         payload = validators.parse_json_body(body)
         image_url, meter_type = validators.validate_read_meter_payload(payload)
