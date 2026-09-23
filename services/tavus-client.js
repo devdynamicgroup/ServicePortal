@@ -48,7 +48,7 @@ function buildConversationalContext({ customerName, waterScore } = {}) {
   if (waterScore !== null && waterScore !== undefined && Number.isFinite(Number(waterScore))) {
     lines.push(`Their most recent Water Score is ${waterScore}/100.`);
   }
-  lines.push('Keep every answer concise but substantive: a few sentences that fully address the question, not a one-liner and not a lecture.');
+  lines.push('Match answer length to the question: a simple question gets a short, direct answer; a question that needs explanation gets a few sentences, not a lecture. Never pad with a repeated greeting or a long preamble — get to the point immediately. This is a spoken conversation, so avoid answers that run noticeably longer than what the question actually needs.');
   return lines.join(' ');
 }
 
