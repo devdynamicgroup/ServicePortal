@@ -277,13 +277,14 @@ function notionPageToJob(page, index) {
   const lineDisplayName = getPropertyValue(properties, FIELD_ALIASES.lineDisplayName)
     || getPropertyValue(properties, FIELD_ALIASES.lineId);
   const lineUserId = getPropertyValue(properties, FIELD_ALIASES.lineUserId);
-  // OP LINE destination feature (2026-10-05): the raw "LINE ID" property,
-  // read independently of the lineDisplayName fallback above. Once a Case
-  // is linked, `ci-line`/`lineDisplayName` above intentionally SHADOWS this
-  // raw value (existing behavior, unchanged) -- so without this separate
-  // read, the frontend would have no way to see an OP-typed public LINE ID
-  // for an already-linked Case at all. This is additive only: it does not
-  // change ci-line, lineDisplayName, or any existing field.
+  // The raw "LINE ID" property -- what the Pre-assessment Form's ci-line
+  // field actually edits/saves, and the OP LINE destination id. ci-line
+  // below used to reuse lineDisplayName (verified identity) once linked,
+  // silently showing that instead of whatever was actually saved here, so
+  // an edit to the form field appeared to do nothing (or "revert") the next
+  // time the Case was opened. job.line.displayName (below) keeps its own
+  // existing lineDisplayName fallback semantics unchanged; only ci-line's
+  // source changes (2026-10-05 root-cause fix).
   const linePublicId = getPropertyValue(properties, FIELD_ALIASES.lineId) || '';
   const workflowStatus = getPropertyValue(properties, FIELD_ALIASES.caseWorkflowStatus) || status;
   // Appointment cancel is stored on Case Workflow Status; surface it as job.status
@@ -385,7 +386,7 @@ function notionPageToJob(page, index) {
     'ci-fname': fname,
     'ci-lname': lname,
     'ci-phone': String(getPropertyValue(properties, FIELD_ALIASES.phone) || ''),
-    'ci-line': lineDisplayName,
+    'ci-line': linePublicId,
     'ci-email': getPropertyValue(properties, FIELD_ALIASES.email),
     'ci-city': 'Bangkok',
     'ci-postal': '',
