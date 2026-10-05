@@ -741,6 +741,67 @@ function updateJobHeader(job) {
     if (lineSendSub) lineSendSub.textContent = t(subKey);
     if (lineSendLabel) lineSendLabel.textContent = t(linked ? 'job.sendLine.cta' : 'job.sendLine.ctaConnect');
   }
+
+  // OP LINE (2026-10-05): two independent, never-conflated concepts --
+  //   1. VERIFIED identity (job.line.linked + job.line.displayName), from
+  //      linkLineUser() only. Never editable, never guessed.
+  //   2. A validated PUBLIC LINE ID (job.line.publicId -- the raw, separate
+  //      read of the OP-typed "LINE ID" Notion property added in
+  //      services/notion/mapper.js; independent of the lineDisplayName
+  //      fallback that already shadows ci-line once a Case is linked).
+  //      resolveLinePersonalUrl() only ever builds a line.me destination
+  //      from THIS field -- never from lineUserId, which is opaque and
+  //      cannot be turned into a public URL (LINE's own platform
+  //      limitation, not an engineering gap -- see
+  //      src/js/flows/job.js:chatActiveJobClient()'s doc comment).
+  // Label prefers the verified display name when present; otherwise falls
+  // back to the OP-typed public ID text itself (still honest -- never a
+  // fabricated name). The arrow only appears when a real, validated
+  // destination exists; the click target (handleOpLineAction) uses that
+  // destination when present, or falls back to the existing
+  // chatActiveJobClient() action -- never a second LINE integration.
+  const opLineCard = document.getElementById('op-line-card');
+  const opLineName = document.getElementById('op-line-name');
+  const opLineArrow = document.getElementById('op-line-arrow');
+  if (opLineCard) {
+    const verifiedName = String(job?.line?.linked && job?.line?.displayName || '').trim();
+    const publicId = String(job?.line?.publicId || '').trim();
+    const destination = resolveLinePersonalUrl(publicId);
+    const label = verifiedName || publicId;
+    opLineCard.classList.toggle('hidden', !label);
+    opLineCard.dataset.destination = destination || '';
+    if (opLineName) opLineName.textContent = label;
+    if (opLineArrow) opLineArrow.classList.toggle('hidden', !destination);
+  }
+}
+
+// Pure validator + resolver: builds a line.me personal-profile destination
+// ONLY from a validated public LINE ID (the format LINE itself documents
+// for a `~handle`, and the same format this app's own i18n copy at
+// 'preassess.err.lineId' already describes: 4-30 letters/numbers/dot/
+// underscore/dash). Never accepts arbitrary text -- malformed/empty input
+// returns null, never a URL, and the caller must treat null as "no
+// destination available" rather than fabricating one. Never takes
+// lineUserId as input anywhere in this codebase.
+const LINE_PUBLIC_ID_PATTERN = /^[A-Za-z0-9._-]{4,30}$/;
+function resolveLinePersonalUrl(publicId) {
+  const trimmed = String(publicId || '').trim();
+  if (!LINE_PUBLIC_ID_PATTERN.test(trimmed)) return null;
+  return `https://line.me/ti/p/~${encodeURIComponent(trimmed)}`;
+}
+
+// OP LINE card click target (job.html). Opens the validated destination
+// when one exists; otherwise falls back to the existing
+// chatActiveJobClient() action -- reusing it exactly as-is, never a second
+// LINE-send/connect implementation.
+function handleOpLineAction() {
+  const card = document.getElementById('op-line-card');
+  const destination = card?.dataset?.destination || '';
+  if (destination) {
+    window.open(destination, '_blank', 'noopener');
+    return;
+  }
+  if (typeof chatActiveJobClient === 'function') chatActiveJobClient();
 }
 
 function openJobMapsLink() {

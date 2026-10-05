@@ -277,6 +277,14 @@ function notionPageToJob(page, index) {
   const lineDisplayName = getPropertyValue(properties, FIELD_ALIASES.lineDisplayName)
     || getPropertyValue(properties, FIELD_ALIASES.lineId);
   const lineUserId = getPropertyValue(properties, FIELD_ALIASES.lineUserId);
+  // OP LINE destination feature (2026-10-05): the raw "LINE ID" property,
+  // read independently of the lineDisplayName fallback above. Once a Case
+  // is linked, `ci-line`/`lineDisplayName` above intentionally SHADOWS this
+  // raw value (existing behavior, unchanged) -- so without this separate
+  // read, the frontend would have no way to see an OP-typed public LINE ID
+  // for an already-linked Case at all. This is additive only: it does not
+  // change ci-line, lineDisplayName, or any existing field.
+  const linePublicId = getPropertyValue(properties, FIELD_ALIASES.lineId) || '';
   const workflowStatus = getPropertyValue(properties, FIELD_ALIASES.caseWorkflowStatus) || status;
   // Appointment cancel is stored on Case Workflow Status; surface it as job.status
   // so the dashboard can hide cancelled cases after Notion refresh.
@@ -325,7 +333,8 @@ function notionPageToJob(page, index) {
       userId: lineUserId || '',
       linked: asBoolean(getPropertyValue(properties, FIELD_ALIASES.lineLinked)) || Boolean(lineUserId),
       linkedAt: getPropertyValue(properties, FIELD_ALIASES.lineLinkedAt) || null,
-      pushReady: Boolean(lineUserId)
+      pushReady: Boolean(lineUserId),
+      publicId: linePublicId
     },
     workflow: {
       status: workflowStatus,

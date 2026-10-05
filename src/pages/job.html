@@ -22,6 +22,28 @@
       <div class="job-intro-sub" data-i18n="job.workThrough">Work through each step below</div>
     </div>
     <div id="job-steps"></div>
+    <!-- OP LINE (2026-10-05): verified LINE identity, display-only -- never an
+         editable input (that would be ci-line on the Pre-assessment form,
+         which is a separate OP-typed field and untouched by this). Hidden
+         unless a verified displayName (job.line.linked) or a validated
+         public LINE ID (job.line.publicId, validated by
+         resolveLinePersonalUrl() -- never lineUserId) is present. The
+         click target is handleOpLineAction(), which opens the validated
+         line.me destination when one exists, or falls back to the
+         existing chatActiveJobClient() action otherwise -- never a second
+         LINE integration. -->
+    <div class="card line-send-card hidden" id="op-line-card" onclick="handleOpLineAction()" style="cursor:pointer">
+      <div class="line-send-row">
+        <div class="line-send-icon">
+          <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24C70.56,24,24,65.72,24,117A96.64,96.64,0,0,0,53,185a94,94,0,0,0,20.74,18.37,3.78,3.78,0,0,1,1.62,3.21L72,236a4,4,0,0,0,6.23,3.59l34.65-24.84a3.84,3.84,0,0,1,2.6-.75A118.16,118.16,0,0,0,128,214c57.44,0,104-41.72,104-93S185.44,24,128,24Z"/></svg>
+        </div>
+        <div class="line-send-body">
+          <div class="line-send-title" data-i18n="job.opLine.label">OP LINE</div>
+          <div class="line-send-sub" id="op-line-name">—</div>
+        </div>
+        <span class="op-line-arrow hidden" id="op-line-arrow" aria-hidden="true" style="font-size:16px;color:var(--dim)">&#8599;</span>
+      </div>
+    </div>
     <div class="sec-label" data-i18n="job.resultSection">ผลการตรวจ</div>
     <div class="card line-send-card">
       <div class="line-send-row">
