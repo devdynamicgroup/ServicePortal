@@ -235,6 +235,20 @@ function writeField(id, value) {
   el.value = empty ? '' : value;
 }
 
+// Pre-assessment Form's ci-line field now always shows the actual saved
+// raw LINE ID (services/notion/mapper.js no longer shadows it with the
+// verified display name -- see notionPageToJob). This surfaces the
+// verified identity separately, as a label, instead of by overwriting the
+// field's own value (2026-10-05).
+function updateLineVerifiedBadge(job) {
+  const badge = document.getElementById('line-verified-badge');
+  if (!badge) return;
+  const linked = Boolean(job?.line?.linked);
+  const displayName = String(job?.line?.displayName || '').trim();
+  badge.classList.toggle('hidden', !linked);
+  badge.textContent = linked ? `✓ ${t('preassess.lineVerifiedAs')} ${displayName}`.trim() : '';
+}
+
 function readMsValues(wrapId) {
   const wrap = document.getElementById(wrapId);
   if (!wrap) return [];
@@ -661,6 +675,7 @@ function loadJobState(job) {
   }
 
   JOB_FIELD_IDS.forEach(id => writeField(id, draft.fields[id]));
+  updateLineVerifiedBadge(job);
   // Hydration baseline only -- must never stamp contactFieldsDirtyAt. Records
   // what each contact field holds right after being populated FROM data, so
   // a later genuine keystroke (markContactFieldDirtyIfChanged) can tell

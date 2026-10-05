@@ -277,6 +277,15 @@ function notionPageToJob(page, index) {
   const lineDisplayName = getPropertyValue(properties, FIELD_ALIASES.lineDisplayName)
     || getPropertyValue(properties, FIELD_ALIASES.lineId);
   const lineUserId = getPropertyValue(properties, FIELD_ALIASES.lineUserId);
+  // The raw "LINE ID" property -- what the Pre-assessment Form's ci-line
+  // field actually edits/saves, and the OP LINE destination id. ci-line
+  // below used to reuse lineDisplayName (verified identity) once linked,
+  // silently showing that instead of whatever was actually saved here, so
+  // an edit to the form field appeared to do nothing (or "revert") the next
+  // time the Case was opened. job.line.displayName (below) keeps its own
+  // existing lineDisplayName fallback semantics unchanged; only ci-line's
+  // source changes (2026-10-05 root-cause fix).
+  const linePublicId = getPropertyValue(properties, FIELD_ALIASES.lineId) || '';
   const workflowStatus = getPropertyValue(properties, FIELD_ALIASES.caseWorkflowStatus) || status;
   // Appointment cancel is stored on Case Workflow Status; surface it as job.status
   // so the dashboard can hide cancelled cases after Notion refresh.
@@ -325,7 +334,8 @@ function notionPageToJob(page, index) {
       userId: lineUserId || '',
       linked: asBoolean(getPropertyValue(properties, FIELD_ALIASES.lineLinked)) || Boolean(lineUserId),
       linkedAt: getPropertyValue(properties, FIELD_ALIASES.lineLinkedAt) || null,
-      pushReady: Boolean(lineUserId)
+      pushReady: Boolean(lineUserId),
+      publicId: linePublicId
     },
     workflow: {
       status: workflowStatus,
@@ -376,7 +386,7 @@ function notionPageToJob(page, index) {
     'ci-fname': fname,
     'ci-lname': lname,
     'ci-phone': String(getPropertyValue(properties, FIELD_ALIASES.phone) || ''),
-    'ci-line': lineDisplayName,
+    'ci-line': linePublicId,
     'ci-email': getPropertyValue(properties, FIELD_ALIASES.email),
     'ci-city': 'Bangkok',
     'ci-postal': '',
