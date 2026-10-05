@@ -828,26 +828,58 @@ async function persistActiveCaseScoreStandard(standardKey = S.scoreStandardKey) 
  */
 // goScreen('s-dash') awaits syncJobProfileToNotion() (which stamps
 // contactSyncedAt the instant the write POST returns 200) immediately
-// followed by loadJobsFromApi() (a fresh GET). Notion's read path is not
-// guaranteed to reflect a write that just landed, so that GET can still
-// return the pre-edit fields -- and since syncedAt already >= dirtyAt at
-// that point, preferContactFields would hand the stale remote copy back as
-// authoritative, undoing the edit it had just confirmed (reported: edit
-// saves, then reverts moments later). Give a just-synced edit a short grace
-// window during which local keeps winning even though it's technically
-// "synced", so the very next refresh in that same navigation can't race
-// Notion's own write-propagation delay (2026-10-05 root-cause trace).
-const CONTACT_SYNC_GRACE_MS = 8000;
+// followed by loadJobsFromApi() (a fresh GET backed by Notion's
+// dataSources.query -- a list/filter read, not a direct page retrieve).
+// That query index can lag a just-completed page write by much longer than
+// any fixed timeout reliably covers (an earlier attempt here used an 8s
+// grace window; still long enough to see the pre-edit fields come back and
+// -- since syncedAt already >= dirtyAt by then -- get treated as
+// authoritative, undoing the edit it had just confirmed). Trust remote once
+// it actually reflects what was written, never on elapsed time alone.
+function contactFieldsMatch(fieldsA, fieldsB) {
+  const a = fieldsA || {};
+  const b = fieldsB || {};
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const key of keys) {
+    if (String(a[key] ?? '') !== String(b[key] ?? '')) return false;
+  }
+  return true;
+}
 
 function preferContactFields(localDraft, remoteDraft) {
   const remoteFields = remoteDraft?.fields || {};
   const localFields = localDraft?.fields || {};
-  const dirtyAt = Date.parse(localDraft?.contactFieldsDirtyAt || 0) || 0;
+  // Date.parse(0) is not NaN (V8 leniently parses the string "0" as a real,
+  // bogus date) -- guard on the raw value's presence first, or an absent
+  // timestamp stops being falsy and the two branches below stop collapsing
+  // to the same "no genuine edit" outcome they used to.
+  const dirtyAt = localDraft?.contactFieldsDirtyAt ? (Date.parse(localDraft.contactFieldsDirtyAt) || 0) : 0;
   if (!dirtyAt) return remoteFields; // no genuine local edit ever recorded -- remote (always-live) wins
-  const syncedAt = Date.parse(localDraft?.contactSyncedAt || 0) || 0;
+  const syncedAt = localDraft?.contactSyncedAt ? (Date.parse(localDraft.contactSyncedAt) || 0) : 0;
   if (dirtyAt > syncedAt) return localFields; // a real edit postdates the last confirmed write -- keep it
-  if (Date.now() - syncedAt < CONTACT_SYNC_GRACE_MS) return localFields; // just synced -- Notion's read path may not have caught up yet
-  return remoteFields; // the edit has been confirmed synced for a while now -- remote reflects it too
+  if (!contactFieldsMatch(localFields, remoteFields)) return localFields; // "synced", but this read hasn't caught up to the write yet
+  return remoteFields; // the edit is synced AND this read already reflects it
+}
+
+// job.line.publicId (OP LINE destination, services/notion/mapper.js) is a
+// second, independent read of the very same raw "LINE ID" Notion property
+// that (via the lineDisplayName fallback) also feeds draft.fields['ci-line']
+// -- but unlike draft.fields, it was never routed through
+// preferContactFields, so editing that field and saving left job.line
+// looking untouched by the fix above: draft.fields['ci-line'] correctly kept
+// the new value, while the OP LINE card (which reads job.line.publicId, not
+// draft.fields) still rendered from whatever the same lagging refresh
+// returned. Reuses ci-line's own contactFieldsDirtyAt/contactSyncedAt --
+// editing the raw LINE ID is what stamps it in the first place (2026-10-05).
+function preferLinePublicId(localDraft, localLine, remoteLine) {
+  const remotePublicId = String(remoteLine?.publicId ?? '');
+  const localPublicId = String(localLine?.publicId ?? '');
+  const dirtyAt = localDraft?.contactFieldsDirtyAt ? (Date.parse(localDraft.contactFieldsDirtyAt) || 0) : 0;
+  if (!dirtyAt) return remotePublicId;
+  const syncedAt = localDraft?.contactSyncedAt ? (Date.parse(localDraft.contactSyncedAt) || 0) : 0;
+  if (dirtyAt > syncedAt) return localPublicId;
+  if (remotePublicId !== localPublicId) return localPublicId;
+  return remotePublicId;
 }
 
 function mergeApiCaseIntoJob(localJob, apiCase) {
@@ -875,11 +907,16 @@ function mergeApiCaseIntoJob(localJob, apiCase) {
     contactSyncedAt: preservedDraft?.contactSyncedAt
   };
   const keepInProgress = localJob.status === 'in_progress';
+  const preservedLine = localJob.line;
   Object.assign(localJob, apiCase, {
     draft: mergedDraft,
     status: keepInProgress ? 'in_progress' : (apiCase.status || localJob.status),
     manual: localJob.manual,
-    startedAt: localJob.startedAt || apiCase.workflow?.serviceStartedAt || null
+    startedAt: localJob.startedAt || apiCase.workflow?.serviceStartedAt || null,
+    line: {
+      ...apiCase.line,
+      publicId: preferLinePublicId(preservedDraft, preservedLine, apiCase.line)
+    }
   });
   if (apiCase.notionId) {
     localJob.notionId = apiCase.notionId;
@@ -1468,6 +1505,18 @@ async function loadJobsFromApi() {
     // photos, readings, steps, preassess name) must survive refresh.
     // Manual Create cases live only in the portal until synced elsewhere.
     const preservedDrafts = collectLocalJobDrafts();
+    // job.line (not just job.draft) needs the same "don't let a lagging
+    // refresh clobber what we just saved" protection -- see
+    // preferLinePublicId(). Keyed the same way as preservedDrafts, but only
+    // from the live in-memory JOBS (not localStorage): job.line is rebuilt
+    // fresh from Notion on every load and was never a persisted draft field.
+    const preservedLines = new Map();
+    JOBS.forEach(job => {
+      if (!job?.line) return;
+      jobDraftLookupKeys(job).forEach(key => {
+        if (!preservedLines.has(key)) preservedLines.set(key, job.line);
+      });
+    });
     const preservedManualJobs = JOBS.filter(job =>
       job.manual
       && !isJobCancelled(job)
@@ -1523,6 +1572,13 @@ async function loadJobsFromApi() {
           next.draft = draft;
           syncJobMetaFromDraft(next, draft);
         }
+      }
+      const localLine = findPreservedDraft(job, preservedLines);
+      if (localLine || job.line) {
+        next.line = {
+          ...job.line,
+          publicId: preferLinePublicId(next.draft || localDraft, localLine, job.line)
+        };
       }
       return next;
     });
