@@ -544,7 +544,8 @@ async function handleLineEvent(event) {
     const linked = await linkLineUser(
       token,
       lineUserId,
-      await fetchLineDisplayName(lineUserId)
+      await fetchLineDisplayName(lineUserId),
+      { source: 'chat', correlationId }
     );
     let reusableResultMessage = null;
     if (linked.alreadyLinked && linked.resultAvailable) {
@@ -560,15 +561,28 @@ async function handleLineEvent(event) {
         waterScore: latest.case?.result?.waterScore
       }, resultType);
     }
-    const replyText = linked.alreadyLinked
+    const replyText = linked.reason === 'rate_limited'
+      // Phase 2C (D13): generic, reveals nothing about whether the token
+      // exists/expired/is claimed -- checked before every other branch so
+      // it can never fall through to a more specific, enumeration-leaking
+      // message.
+      ? 'พยายามเชื่อมต่อถี่เกินไป กรุณาลองใหม่อีกครั้งในอีกสักครู่'
+      : linked.alreadyLinked
       ? 'บัญชี LINE นี้เชื่อมกับข้อมูลการรับบริการเรียบร้อยแล้ว'
       : linked.reason === 'linked_to_another_user'
         ? 'รหัสนี้ถูกเชื่อมกับบัญชี LINE อื่นแล้ว กรุณาติดต่อ Water Motion'
-        : linked.linked && linked.pendingAutoSend
-          ? 'เชื่อมต่อ LINE เรียบร้อยแล้วครับ\nกำลังเตรียมผลตรวจให้...'
-          : linked.linked
-            ? 'เชื่อมต่อ LINE เรียบร้อยแล้ว\nเมื่อผลตรวจพร้อม ระบบจะส่งให้ทาง LINE อัตโนมัติ'
-            : 'ไม่พบรหัส fb-xxxx นี้ กรุณาตรวจสอบและลองอีกครั้ง';
+        // Phase 2B: distinct copy for expired/cancelled, same reasoning as
+        // api/liff-routes.js -- "code not found" would be misleading for a
+        // code that was found but is no longer redeemable.
+        : linked.reason === 'token_expired'
+          ? 'รหัสนี้หมดอายุแล้ว กรุณาติดต่อ Water Motion'
+          : linked.reason === 'case_cancelled'
+            ? 'ไม่สามารถเชื่อมต่อได้เนื่องจากงานนี้ถูกยกเลิก กรุณาติดต่อ Water Motion'
+            : linked.linked && linked.pendingAutoSend
+              ? 'เชื่อมต่อ LINE เรียบร้อยแล้วครับ\nกำลังเตรียมผลตรวจให้...'
+              : linked.linked
+                ? 'เชื่อมต่อ LINE เรียบร้อยแล้ว\nเมื่อผลตรวจพร้อม ระบบจะส่งให้ทาง LINE อัตโนมัติ'
+                : 'ไม่พบรหัส fb-xxxx นี้ กรุณาตรวจสอบและลองอีกครั้ง';
     const replyStartedMs = Date.now();
     const replyStartedAt = new Date(replyStartedMs).toISOString();
     const replyMessages = reusableResultMessage

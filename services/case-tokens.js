@@ -38,9 +38,9 @@ async function reportTokenExists(token) {
   return Boolean(match?.clientPageId);
 }
 
-async function generateUniqueToken(prefix, existsFn) {
+async function generateUniqueToken(prefix, existsFn, suffixLength = 4) {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-    const token = `${prefix}-${randomTokenSuffix(4)}`;
+    const token = `${prefix}-${randomTokenSuffix(suffixLength)}`;
     if (!isValidTokenFormat(prefix, token)) continue;
     if (!(await existsFn(token))) return token;
   }
@@ -49,8 +49,18 @@ async function generateUniqueToken(prefix, existsFn) {
   throw error;
 }
 
+// Phase 2C (D1): new feedback tokens use a 24-char base36 suffix (~124 bits
+// of entropy, 36^24) instead of the previous 4-char suffix (~20.7 bits,
+// 36^4) -- the production entropy a brute-force/first-redeemer attack
+// relied on. generateReportToken() below is intentionally left at the
+// default 4-char suffix: it is out of Phase 2C's approved scope (D1 only
+// covers the feedback/linking token) and changing it was not requested.
+// isValidTokenFormat()'s existing 4-32 char range already accepts a 24-char
+// suffix, so no validator change was needed for this length to pass.
+const FEEDBACK_TOKEN_SUFFIX_LENGTH = 24;
+
 async function generateFeedbackToken() {
-  return generateUniqueToken('fb', feedbackTokenExists);
+  return generateUniqueToken('fb', feedbackTokenExists, FEEDBACK_TOKEN_SUFFIX_LENGTH);
 }
 
 async function generateReportToken() {

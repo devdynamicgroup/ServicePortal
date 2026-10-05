@@ -9,7 +9,7 @@ const { sendCaseResultNotification } = require('./line-notifications');
 const { publicBaseUrl, buildReportUrl, buildFeedbackUrl, buildLiffBindUrl, resolveReviewUrl: resolveDefaultReviewUrl, DEFAULT_REVIEW_URL } = require('./url-builder');
 const QRCode = require('qrcode');
 const { isCancelledJob } = require('./water-check-offer-service');
-const { newCorrelationId, logEvent } = require('./observability');
+const { newCorrelationId, logEvent, logLineLifecycle } = require('./observability');
 const { dualWriteAfterCaseSuccess } = require('./migration/dual-write');
 const {
   resolveNotifyLineDestination,
@@ -186,19 +186,251 @@ async function resolveJob(caseId) {
   return null;
 }
 
-async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
+// Phase 2A (LINE linking audit) -- non-reversible correlation handle for a
+// token in logs; sha256 so it can't be reversed back to the raw fb-xxxx
+// (unlike e.g. its last 4 raw chars, which would leak part of the actual
+// bearer secret). Deterministic: same token always hashes the same way, so
+// repeated redemptions of one token correlate in logs.
+function tokenFingerprint(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex').slice(0, 12);
+}
+
+// Phase 2A: audit emission must never alter linkLineUser()'s outcome.
+// logLineLifecycle() has no internal try/catch, so an unexpected throw here
+// (e.g. a future non-serializable field) must not surface as a linking
+// failure to the customer -- isolate it at the one call site that uses it.
+function safeLogLinkAudit(level, eventType, fields) {
+  try {
+    logLineLifecycle(level, eventType, fields);
+  } catch (auditError) {
+    console.warn('[line_link_audit_failed]', eventType, auditError.message);
+  }
+}
+
+// Phase 2C (D7-D13): per-process, fixed-window, in-memory rate limiter for
+// fb-xxxx redemption attempts. Checked BEFORE the Notion lookup (D7/D9) so
+// throttled traffic never pays that cost and never learns whether the
+// token it guessed actually exists (D13 -- see linkLineUser's early return
+// below, which carries no information beyond "try again later").
+//
+// LOCAL ABUSE PROTECTION ONLY, same documented limitation as withCaseLock()
+// above: this Map lives in one process's heap. If production ever runs more
+// than one instance, each instance enforces this independently -- it is NOT
+// a distributed/global guarantee. render.yaml sets no instanceCount for
+// water-motion-service-portal (only `plan: free`), and the repo alone cannot
+// confirm actual runtime instance count, so this must not be described as
+// closing the brute-force gap by itself; it is the local shield D10 asks
+// for, not a substitute for one. No Redis/shared store exists in this repo
+// and D10 explicitly forbids adding one just for this.
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes, per the approved D11 baseline
+const RATE_LIMIT_THRESHOLDS = Object.freeze({
+  tokenFingerprint: 10,
+  lineIdentity: 20,
+  ip: 20
+});
+// Deterministic, call-count-based sweep (not a wall-clock timer) so stale
+// keys don't grow the Map forever under attacker-controlled cardinality
+// (many distinct fake tokens/identities/IPs), without needing setInterval
+// (which would otherwise keep a handle alive in tests and dev processes).
+const RATE_LIMIT_SWEEP_EVERY_CALLS = 1000;
+const rateLimitCounters = new Map();
+let rateLimitCallsSinceSweep = 0;
+
+function rateLimitSweep(now) {
+  for (const [key, entry] of rateLimitCounters) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) rateLimitCounters.delete(key);
+  }
+}
+
+// One dimension's check-and-increment. A throttled attempt still counts
+// (D12: it reached the point where a supplied token could be tested), so
+// the increment happens unconditionally before the threshold comparison.
+function checkAndCountDimension(dimension, key, threshold, now) {
+  if (!key) return { allowed: true };
+  const mapKey = `${dimension}:${key}`;
+  let entry = rateLimitCounters.get(mapKey);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    entry = { count: 0, windowStart: now };
+  }
+  entry.count += 1;
+  rateLimitCounters.set(mapKey, entry);
+  if (entry.count > threshold) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((entry.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000));
+    return { allowed: false, dimension, retryAfterSeconds };
+  }
+  return { allowed: true };
+}
+
+// D8/D11: only checks the dimensions actually available at the calling
+// path. `ip` is populated only by the LIFF HTTP path -- the LINE OA webhook
+// has no meaningful end-user IP (every chat event arrives from LINE's own
+// infrastructure, not the attacker's device), so an IP bucket on the chat
+// path would throttle ALL chat users sharing LINE's infra IP rather than
+// the actual abuser. Each dimension is bucketed per `source` (D11:
+// "separate accounting for chat vs liff") so the two channels never share a
+// counter. Checked most-specific-first (token, then identity, then IP) so a
+// single-token brute force is reported as a token-level block.
+function checkLinkRateLimit({ source, fingerprint, lineUserId, ip, now }) {
+  rateLimitCallsSinceSweep += 1;
+  if (rateLimitCallsSinceSweep >= RATE_LIMIT_SWEEP_EVERY_CALLS) {
+    rateLimitCallsSinceSweep = 0;
+    rateLimitSweep(now);
+  }
+  const bucket = source || 'unknown';
+  const checks = [
+    () => checkAndCountDimension('tokenFingerprint', fingerprint ? `${bucket}:${fingerprint}` : null, RATE_LIMIT_THRESHOLDS.tokenFingerprint, now),
+    () => checkAndCountDimension('lineIdentity', lineUserId ? `${bucket}:${lineUserId}` : null, RATE_LIMIT_THRESHOLDS.lineIdentity, now),
+    () => checkAndCountDimension('ip', ip ? `${bucket}:${ip}` : null, RATE_LIMIT_THRESHOLDS.ip, now)
+  ];
+  for (const check of checks) {
+    const result = check();
+    if (!result.allowed) return result;
+  }
+  return { allowed: true };
+}
+
+// Phase 2B (fb-xxxx lifecycle, approved policy A3+B2+C1) -- the instant this
+// policy actually goes live in production. No new Notion field was added
+// purely to mark "legacy vs new" Cases (per the approved
+// no-new-field-for-migration-marker-alone constraint); job.createdTime
+// (Notion's own created_time, already present on every Case --
+// services/notion/mapper.js:311) already distinguishes them. Any Case
+// created strictly before this instant is grandfathered per C1: its token
+// must never be retroactively expired, no matter how old
+// notification.resultSentAt later turns out to be. A Case created AT
+// exactly this instant is NOT grandfathered (strict `<` below) -- it is
+// treated as the first Case the new policy governs.
+//
+// Read once from env, same pattern as every other deployment-time constant
+// in this file's require tree (e.g. DEFAULT_LAUNCH_CAMPAIGN_OFFER in
+// services/case-creation-service.js) -- NOT derived from Date.now() or
+// process-startup time, so it stays identical across restarts and
+// processes. Ops must set PHASE_2B_ROLLOUT_AT in the real deployment
+// environment to the actual go-live instant before this code ships; the
+// fallback below only prevents a crash on an unset env var in dev/test and
+// must not be mistaken for an approved production value.
+const PHASE_2B_ROLLOUT_AT = new Date(process.env.PHASE_2B_ROLLOUT_AT || '2026-10-05T00:00:00.000Z');
+
+// 30-day grace period after result delivery -- approved value, not tunable here.
+const TOKEN_EXPIRY_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
+
+function isGrandfatheredCase(job) {
+  const createdTime = job?.createdTime ? new Date(job.createdTime) : null;
+  // No creation timestamp at all is not expected for a real Notion page, but
+  // if it ever happens, fail toward "never expire" rather than guessing an
+  // age -- consistent with C1's "don't invalidate existing links" intent.
+  if (!createdTime || Number.isNaN(createdTime.getTime())) return true;
+  return createdTime.getTime() < PHASE_2B_ROLLOUT_AT.getTime();
+}
+
+// Expiry anchor is notification.resultSentAt (services/workflow-service.js's
+// own executeSendCaseResult() writes this -- the exact moment the LINE push
+// carrying the report/feedback link actually reaches the customer; see
+// FIELD_ALIASES.resultSentAt / job.notification.resultSentAt). Before that
+// timestamp exists, the Case is still in its active lifecycle (on-site visit,
+// scoring, etc.) and the token must stay valid regardless of job.createdTime
+// age -- this is what makes it Case-lifecycle-bound (A3) rather than a fixed
+// TTL from creation (A2), which would risk expiring before the customer is
+// ever told to use the link.
+function computeTokenExpiry(job) {
+  if (isGrandfatheredCase(job)) return null;
+  const resultSentAt = job?.notification?.resultSentAt ? new Date(job.notification.resultSentAt) : null;
+  if (!resultSentAt || Number.isNaN(resultSentAt.getTime())) return null;
+  return new Date(resultSentAt.getTime() + TOKEN_EXPIRY_GRACE_MS);
+}
+
+// `now` is injectable (ISO string or Date) so tests can hit the exact
+// boundary deterministically instead of sleeping real time.
+function isTokenExpired(job, now = new Date()) {
+  const expiry = computeTokenExpiry(job);
+  if (!expiry) return false;
+  const nowDate = now instanceof Date ? now : new Date(now);
+  return nowDate.getTime() > expiry.getTime();
+}
+
+async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '', context = {}) {
   const token = String(feedbackToken || '').trim().toLowerCase();
   const userId = String(lineUserId || '').trim();
   const displayName = String(lineDisplayName || '').trim();
+  const correlationId = context.correlationId || newCorrelationId('line');
+  const source = context.source || null;
+  const fingerprint = tokenFingerprint(token);
+  const nowMs = context.now ? new Date(context.now).getTime() : Date.now();
+
+  const rateLimit = checkLinkRateLimit({ source, fingerprint, lineUserId: userId || null, ip: context.ip || null, now: nowMs });
+  if (!rateLimit.allowed) {
+    safeLogLinkAudit('warn', 'RATE_LIMITED', {
+      correlationId,
+      caseId: null,
+      lineUserId: userId || null,
+      action: 'link_line_user',
+      success: false,
+      failureReason: 'rate_limited',
+      extra: { source, tokenFingerprint: fingerprint, rateLimitDimension: rateLimit.dimension }
+    });
+    return { linked: false, reason: 'rate_limited', retryAfterSeconds: rateLimit.retryAfterSeconds };
+  }
+
   const feedback = await getFeedbackByToken(token);
-  if (!feedback?.clientPageId) return { linked: false, reason: 'feedback_not_found' };
+  if (!feedback?.clientPageId) {
+    safeLogLinkAudit('warn', 'TOKEN_NOT_FOUND', {
+      correlationId,
+      caseId: null,
+      lineUserId: userId || null,
+      action: 'link_line_user',
+      success: false,
+      failureReason: 'feedback_not_found',
+      extra: { source, tokenFingerprint: fingerprint }
+    });
+    return { linked: false, reason: 'feedback_not_found' };
+  }
   if (!userId) return { linked: false, reason: 'missing_line_user_id' };
 
   return withCaseLock(feedback.clientPageId, async () => {
     const job = await getClient(feedback.clientPageId);
+
+    // Phase 2B lifecycle gate -- runs before any identity/idempotency check
+    // and before any mutation, per the approved validation order (lookup ->
+    // lifecycle -> identity -> mutate). Idempotency must never bypass this:
+    // an expired/cancelled token is rejected even for the Case's own owner
+    // retrying with their own already-linked lineUserId.
+    if (isTerminalCaseStatus(job)) {
+      safeLogLinkAudit('warn', 'TOKEN_CANCELLED', {
+        correlationId,
+        caseId: feedback.clientPageId,
+        lineUserId: userId,
+        action: 'link_line_user',
+        success: false,
+        failureReason: 'case_cancelled',
+        extra: { source, tokenFingerprint: fingerprint }
+      });
+      return { linked: false, reason: 'case_cancelled', clientPageId: feedback.clientPageId };
+    }
+    if (isTokenExpired(job, context.now)) {
+      safeLogLinkAudit('warn', 'TOKEN_EXPIRED', {
+        correlationId,
+        caseId: feedback.clientPageId,
+        lineUserId: userId,
+        action: 'link_line_user',
+        success: false,
+        failureReason: 'token_expired',
+        extra: { source, tokenFingerprint: fingerprint }
+      });
+      return { linked: false, reason: 'token_expired', clientPageId: feedback.clientPageId };
+    }
+
     const currentUserId = String(job?.line?.userId || '').trim();
     if (job?.line?.linked || currentUserId) {
       if (currentUserId !== userId) {
+        safeLogLinkAudit('warn', 'LINK_REJECTED_IDENTITY', {
+          correlationId,
+          caseId: feedback.clientPageId,
+          lineUserId: userId,
+          action: 'link_line_user',
+          success: false,
+          failureReason: 'linked_to_another_user',
+          extra: { source, tokenFingerprint: fingerprint, existingLineUserId: currentUserId }
+        });
         return { linked: false, reason: 'linked_to_another_user', clientPageId: feedback.clientPageId };
       }
       // Idempotent LINE link: still attempt dual-write sync when flags on
@@ -211,6 +443,14 @@ async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
           lineLinked: true,
           lineLinkedAt: job?.line?.linkedAt || new Date().toISOString()
         }
+      });
+      safeLogLinkAudit('info', 'LINK_IDEMPOTENT', {
+        correlationId,
+        caseId: feedback.clientPageId,
+        lineUserId: userId,
+        action: 'link_line_user',
+        success: true,
+        extra: { source, tokenFingerprint: fingerprint }
       });
       return {
         linked: true,
@@ -248,6 +488,15 @@ async function linkLineUser(feedbackToken, lineUserId, lineDisplayName = '') {
 
     const pendingAutoSend = stateAtLeast(freshJob.workflow?.status, 'completed')
       && notificationState(freshJob) !== 'sent';
+
+    safeLogLinkAudit('info', 'LINK_SUCCESS', {
+      correlationId,
+      caseId: freshJob.id,
+      lineUserId: userId,
+      action: 'link_line_user',
+      success: true,
+      extra: { source, tokenFingerprint: fingerprint }
+    });
 
     return {
       linked: true,

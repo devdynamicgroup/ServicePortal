@@ -20,14 +20,16 @@ const {
   sendCaseResult,
   markCaseResultNotificationFailed
 } = require('../services/workflow-service');
+const { newCorrelationId } = require('../services/observability');
 
 const LIFF_ID = String(process.env.LIFF_ID || '2011272555-MAtmaEy4').trim();
 const LIFF_LOGIN_CHANNEL_ID = String(process.env.LIFF_LOGIN_CHANNEL_ID || '2011272555').trim();
 
-function sendJson(res, status, payload) {
+function sendJson(res, status, payload, headers = {}) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store'
+    'Cache-Control': 'no-store',
+    ...headers
   });
   res.end(JSON.stringify(payload, null, 2));
 }
@@ -233,16 +235,52 @@ async function handleLiffRoute(req, res, urlPath) {
     try {
       const payload = await readJson(req);
       const { userId, displayName } = await verifyLiffIdToken(payload.idToken);
-      const linked = await linkLineUser(token, userId, displayName);
+      // Phase 2C (D8): real client IP is only available on this HTTP path --
+      // the LINE OA webhook has none worth rate-limiting on (see
+      // checkLinkRateLimit's comment in workflow-service.js). Same extraction
+      // convention already used by api/google-drive-routes.js -- not a new
+      // x-forwarded-for-aware parser, just the existing one-precedent pattern.
+      const clientIp = req.socket && req.socket.remoteAddress ? req.socket.remoteAddress : null;
+      const linked = await linkLineUser(token, userId, displayName, {
+        source: 'liff',
+        correlationId: newCorrelationId('liff'),
+        ip: clientIp
+      });
 
       if (!linked.linked) {
-        const statusByReason = { feedback_not_found: 404, missing_line_user_id: 400, linked_to_another_user: 409 };
+        // Phase 2C (D13): rate_limited must not leak whether the token
+        // exists/is expired/is already claimed -- a flat 429 with a generic
+        // message, handled before the per-reason map below so it can never
+        // accidentally pick up a more specific message.
+        if (linked.reason === 'rate_limited') {
+          const retryAfterSeconds = Number.isFinite(linked.retryAfterSeconds) ? linked.retryAfterSeconds : 60;
+          sendJson(res, 429, {
+            ok: false,
+            reason: 'rate_limited',
+            message: 'พยายามเชื่อมต่อถี่เกินไป กรุณาลองใหม่อีกครั้งในอีกสักครู่'
+          }, { 'Retry-After': String(retryAfterSeconds) });
+          return true;
+        }
+        // Phase 2B: token_expired/case_cancelled get their own status/message
+        // so the bind page doesn't tell a customer "code not found" when the
+        // code was actually found but no longer redeemable -- a real
+        // correctness issue, not new UX scope.
+        const statusByReason = {
+          feedback_not_found: 404,
+          missing_line_user_id: 400,
+          linked_to_another_user: 409,
+          token_expired: 410,
+          case_cancelled: 403
+        };
+        const messageByReason = {
+          linked_to_another_user: 'รหัสนี้ถูกเชื่อมกับบัญชี LINE อื่นแล้ว กรุณาติดต่อ Water Motion',
+          token_expired: 'รหัสนี้หมดอายุแล้ว กรุณาติดต่อ Water Motion',
+          case_cancelled: 'ไม่สามารถเชื่อมต่อได้เนื่องจากงานนี้ถูกยกเลิก กรุณาติดต่อ Water Motion'
+        };
         sendJson(res, statusByReason[linked.reason] || 400, {
           ok: false,
           reason: linked.reason,
-          message: linked.reason === 'linked_to_another_user'
-            ? 'รหัสนี้ถูกเชื่อมกับบัญชี LINE อื่นแล้ว กรุณาติดต่อ Water Motion'
-            : 'ไม่พบรหัสนี้ กรุณาตรวจสอบและลองอีกครั้ง'
+          message: messageByReason[linked.reason] || 'ไม่พบรหัสนี้ กรุณาตรวจสอบและลองอีกครั้ง'
         });
         return true;
       }
