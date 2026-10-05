@@ -1339,6 +1339,17 @@ function stageMeterSessionPhoto(photoSrc) {
 async function processMeterSessionOcr(entryId) {
   const tapIndex = S.activeTap;
   const tap = getActiveTapRecord();
+  // Stale-context guard (2026-10-05): captured BEFORE the OCR await below so
+  // the continuation can tell, once the response lands, whether this is
+  // still the Case/Tap actually on screen. Without this, switching Case or
+  // Tap while an OCR request is in flight let a previous Case's detected
+  // readings land on whatever Case is open when the response arrives --
+  // writeMeterReadingFields() writes to the global, shared meter-field DOM
+  // inputs regardless of which Case they currently represent, and
+  // saveActiveJobState() right after it commits those fields into whatever
+  // S.activeJob is AT THAT MOMENT, not the Case the photo was actually
+  // taken for.
+  const originatingJob = S.activeJob;
   const images = ensureMeterImages(tap);
   const entry = images.find(img => img && img.id === entryId);
   if (!entry) {
@@ -1414,6 +1425,10 @@ async function processMeterSessionOcr(entryId) {
   entry.detected = detected;
   entry.metadata = { ...(entry.metadata || {}), ...ocrMetadata };
   entry.ocrStatus = ocrUnavailable ? 'unavailable' : 'done';
+  // These three calls only ever mutate `tap` (the originating Case's own
+  // in-memory object) or `entry` -- never global DOM/state -- so they stay
+  // unconditional: the OCR result still belongs to its own Case/Tap even
+  // if the operator has since navigated away.
   tap.meterReadings = mergeMeterReadings(tap.meterReadings, detected);
   storeRawAndStandardMeasurements(tap, {
     rawMeasurement: ocrRawMeasurement,
@@ -1422,30 +1437,43 @@ async function processMeterSessionOcr(entryId) {
   });
   if (Object.keys(detected).length) tap.meterSource = 'ocr';
   syncMeterThumbFromSession(tap);
-  writeMeterReadingFields(tap.meterReadings);
-  S.scoreBaseReadings = null;
-  S.scoreVal = null;
-  if (S.activeJob?.draft) {
-    S.activeJob.draft.scoreBaseReadings = null;
-    S.activeJob.draft.scoreVal = null;
-  }
-  saveActiveJobState?.();
-  renderAssessList();
-  renderMeterThumbnailRow();
 
-  const fieldsUpdated = Object.keys(detected).some(
-    key => String(detected[key]) !== '' && String(readingsBefore[key] ?? '') !== String(tap.meterReadings[key] ?? '')
-  );
-  if (ocrUnavailable) {
-    showToast(typeof t === 'function' ? t('meter.toastOcrUnavailable') : 'OCR is not ready. Enter readings manually.');
-  } else if (fieldsUpdated) {
-    showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
+  // Stale-context guard: only write into the shared global meter-field DOM
+  // inputs, the active job's score cache, and trigger a save/re-render if
+  // this is STILL the Case/Tap actually on screen. If the operator switched
+  // Case or Tap while the OCR request was in flight, the result above has
+  // already been safely stored on its own `tap` object (picked up next time
+  // that Case/Tap is reopened) -- it must never be written on top of
+  // whatever different Case is currently displayed.
+  const stillCurrentContext = S.activeJob === originatingJob && S.tapData[S.activeTap] === tap;
+  if (!stillCurrentContext) {
+    console.warn('[OCR FLOW] stale context -- result kept on its own Case/Tap only, not applied to the current screen', { entryId: entry.id });
   } else {
-    showToast(typeof t === 'function' ? t('meter.toastNoValues') : 'No values detected. Enter readings manually.');
-  }
+    writeMeterReadingFields(tap.meterReadings);
+    S.scoreBaseReadings = null;
+    S.scoreVal = null;
+    if (S.activeJob?.draft) {
+      S.activeJob.draft.scoreBaseReadings = null;
+      S.activeJob.draft.scoreVal = null;
+    }
+    saveActiveJobState?.();
+    renderAssessList();
+    renderMeterThumbnailRow();
 
-  if (S.screen === 's-score' && typeof calcAndShowScore === 'function') {
-    calcAndShowScore();
+    const fieldsUpdated = Object.keys(detected).some(
+      key => String(detected[key]) !== '' && String(readingsBefore[key] ?? '') !== String(tap.meterReadings[key] ?? '')
+    );
+    if (ocrUnavailable) {
+      showToast(typeof t === 'function' ? t('meter.toastOcrUnavailable') : 'OCR is not ready. Enter readings manually.');
+    } else if (fieldsUpdated) {
+      showToast(typeof t === 'function' ? t('meter.toastFilled') : 'Readings filled');
+    } else {
+      showToast(typeof t === 'function' ? t('meter.toastNoValues') : 'No values detected. Enter readings manually.');
+    }
+
+    if (S.screen === 's-score' && typeof calcAndShowScore === 'function') {
+      calcAndShowScore();
+    }
   }
 
   // OCR always runs when imageSrc exists, independently of the Drive upload
