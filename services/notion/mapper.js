@@ -318,6 +318,7 @@ function notionPageToJob(page, index) {
     day: schedule.day,
     date: schedule.date || null,
     createdTime: page.created_time || '',
+    lastEditedTime: page.last_edited_time || null,
     pkg,
     status,
     rawStatus: rawStatus || '',

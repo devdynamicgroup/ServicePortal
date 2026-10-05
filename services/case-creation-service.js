@@ -1,4 +1,4 @@
-const { createClient, updateClient, getAllClients } = require('./notion/clients');
+const { createClient, updateClient, getAllClients, getClient } = require('./notion/clients');
 const { packageOptionName } = require('./notion/mapper');
 const { generateFeedbackToken, generateReportToken } = require('./case-tokens');
 const { isCancelledJob, invalidateOfferCache } = require('./water-check-offer-service');
@@ -264,7 +264,7 @@ async function submitCustomerPreassessment(caseId, customerPayload = {}) {
     ...customer,
     consentSigned: customer.consentSigned
   });
-  const resolved = await resolveCreatedJob(updated.notionId) || updated;
+  const resolved = await getClient(updated.notionId) || updated;
 
   return {
     ok: true,

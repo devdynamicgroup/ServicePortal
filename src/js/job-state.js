@@ -49,6 +49,39 @@ function markContactFieldDirtyIfChanged(id, newValue) {
   const draft = getJobDraft(S.activeJob);
   if (!draft) return;
   draft.contactFieldsDirtyAt = new Date().toISOString();
+  if (id === 'ci-line' && typeof draft.lineIdServerValue === 'string') {
+    draft.lineIdDiffersFromServer = newValue !== draft.lineIdServerValue;
+  }
+}
+
+// Reconciles the Public LINE ID with the last authoritative server value.
+// Only an explicit operator change (lineIdDiffersFromServer) lets a local
+// value override the server; otherwise the server value is authoritative.
+// Mutates the draft it is given; the caller passes the previously persisted
+// local draft so the flag survives reload and is never inferred from values.
+// Server freshness is Notion's last_edited_time. A response is accepted as the
+// baseline only if it is not older than the stored baseline's freshness; an
+// older (stale) response leaves the confirmed baseline in place.
+function serverFreshnessMs(value) {
+  const ms = Date.parse(value || '');
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function applyLineIdServerState(draft, localDraft, remoteLineId, remoteEditedTime) {
+  const incomingMs = serverFreshnessMs(remoteEditedTime);
+  const storedMs = serverFreshnessMs(localDraft?.lineIdServerEditedTime);
+  const accept = incomingMs !== null
+    ? (storedMs === null || incomingMs >= storedMs)
+    : storedMs === null;
+  const serverValue = accept || localDraft?.lineIdServerValue === undefined
+    ? String(remoteLineId ?? '')
+    : String(localDraft.lineIdServerValue);
+  draft.lineIdServerValue = serverValue;
+  draft.lineIdServerEditedTime = accept ? (remoteEditedTime || null) : (localDraft?.lineIdServerEditedTime || null);
+  const localLine = String(localDraft?.fields?.['ci-line'] ?? '');
+  const overriding = localDraft?.lineIdDiffersFromServer === true && localLine !== serverValue;
+  draft.lineIdDiffersFromServer = overriding;
+  draft.fields = { ...(draft.fields || {}), 'ci-line': overriding ? localLine : serverValue };
 }
 
 // A new Case starts with exactly one tap -- staff add more with the "+"
@@ -920,14 +953,9 @@ function preferContactFields(localDraft, remoteDraft) {
 // returned. Reuses ci-line's own contactFieldsDirtyAt/contactSyncedAt --
 // editing the raw LINE ID is what stamps it in the first place (2026-10-05).
 function preferLinePublicId(localDraft, localLine, remoteLine) {
-  const remotePublicId = String(remoteLine?.publicId ?? '');
-  const localPublicId = String(localLine?.publicId ?? '');
-  const dirtyAt = localDraft?.contactFieldsDirtyAt ? (Date.parse(localDraft.contactFieldsDirtyAt) || 0) : 0;
-  if (!dirtyAt) return remotePublicId;
-  const syncedAt = localDraft?.contactSyncedAt ? (Date.parse(localDraft.contactSyncedAt) || 0) : 0;
-  if (dirtyAt > syncedAt) return localPublicId;
-  if (remotePublicId !== localPublicId) return localPublicId;
-  return remotePublicId;
+  if (localDraft?.lineIdDiffersFromServer === true) return String(localDraft.fields?.['ci-line'] ?? '');
+  if (localDraft?.lineIdServerValue !== undefined) return String(localDraft.lineIdServerValue);
+  return String(remoteLine?.publicId ?? '');
 }
 
 function mergeApiCaseIntoJob(localJob, apiCase) {
@@ -954,6 +982,7 @@ function mergeApiCaseIntoJob(localJob, apiCase) {
     contactFieldsDirtyAt: preservedDraft?.contactFieldsDirtyAt,
     contactSyncedAt: preservedDraft?.contactSyncedAt
   };
+  if (apiCase.draft?.fields) applyLineIdServerState(mergedDraft, preservedDraft, apiCase.draft.fields['ci-line'], apiCase.lastEditedTime);
   const keepInProgress = localJob.status === 'in_progress';
   const preservedLine = localJob.line;
   Object.assign(localJob, apiCase, {
@@ -963,7 +992,7 @@ function mergeApiCaseIntoJob(localJob, apiCase) {
     startedAt: localJob.startedAt || apiCase.workflow?.serviceStartedAt || null,
     line: {
       ...apiCase.line,
-      publicId: preferLinePublicId(preservedDraft, preservedLine, apiCase.line)
+      publicId: preferLinePublicId(mergedDraft, preservedLine, apiCase.line)
     }
   });
   if (apiCase.notionId) {
@@ -1617,6 +1646,7 @@ async function loadJobsFromApi() {
             contactFieldsDirtyAt: localDraft?.contactFieldsDirtyAt,
             contactSyncedAt: localDraft?.contactSyncedAt
           };
+          if (job.draft?.fields) applyLineIdServerState(draft, localDraft, job.draft.fields['ci-line'], job.lastEditedTime);
           next.draft = draft;
           syncJobMetaFromDraft(next, draft);
         }

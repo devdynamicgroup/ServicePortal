@@ -134,15 +134,25 @@ check(() => {
 console.log('\n=== preferLinePublicId: OP LINE destination gets the same protection as draft.fields ===');
 
 check(() => {
-  const draftState = {
-    contactFieldsDirtyAt: new Date(Date.now() - 2000).toISOString(),
-    contactSyncedAt: new Date().toISOString()
-  };
-  const localLine = { publicId: 'newlineid', linked: false };
-  const remoteLine = { publicId: 'oldlineid', linked: false }; // lagging list-query read
-  const result = sb.preferLinePublicId(draftState, localLine, remoteLine);
-  assert.strictEqual(result, 'newlineid', 'OP LINE destination keeps the just-saved public id instead of the stale remote one');
-}, 'Test 6: just-synced publicId survives an immediate stale re-read');
+  // Baseline model: a successful authoritative sync makes NEW the server baseline.
+  const T1 = '2026-10-05T17:00:00.000Z';
+  const T2 = '2026-10-05T18:00:00.000Z';
+  const job = { draft: { fields: { 'ci-line': 'oldlineid' }, lineIdServerValue: 'oldlineid', lineIdServerEditedTime: T1, lineIdDiffersFromServer: false } };
+  sb.contactFieldsBaseline['ci-line'] = 'oldlineid';
+  sb.S.activeJob = job;
+  job.draft.fields['ci-line'] = 'newlineid';
+  sb.markContactFieldDirtyIfChanged('ci-line', 'newlineid');
+  assert.strictEqual(job.draft.lineIdServerValue, 'oldlineid', 'typing leaves the server baseline at OLD');
+  assert.strictEqual(job.draft.lineIdDiffersFromServer, true, 'typing NEW flags a real difference');
+  sb.applyLineIdServerState(job.draft, job.draft, 'newlineid', T2);
+  assert.strictEqual(job.draft.lineIdServerValue, 'newlineid', 'successful sync: NEW becomes the server baseline');
+  assert.strictEqual(job.draft.fields['ci-line'], 'newlineid');
+  assert.strictEqual(job.draft.lineIdDiffersFromServer, false, 'successful sync clears the override');
+  assert.strictEqual(sb.preferLinePublicId(job.draft, null, { publicId: 'newlineid' }), 'newlineid', 'publicId === NEW after sync');
+  const staleRead = JSON.parse(JSON.stringify(job.draft));
+  sb.applyLineIdServerState(staleRead, job.draft, 'oldlineid', T1);
+  assert.strictEqual(sb.preferLinePublicId(staleRead, null, { publicId: 'oldlineid' }), 'newlineid', 'stale OLD response must NOT resurrect OLD over the authoritative NEW');
+}, 'Test 6: successful sync makes NEW the baseline; a stale re-read does not resurrect OLD');
 
 check(() => {
   const draftState = {
@@ -163,11 +173,18 @@ check(() => {
 }, 'Test 8: no dirty signal at all -> remote still wins for publicId too');
 
 check(() => {
-  const draftState = { contactFieldsDirtyAt: new Date().toISOString() }; // edited, never synced
-  const localLine = { publicId: 'newlineid' };
-  const remoteLine = { publicId: 'oldlineid' };
-  const result = sb.preferLinePublicId(draftState, localLine, remoteLine);
-  assert.strictEqual(result, 'newlineid', 'an unsynced edit to the raw LINE ID wins outright, same as draft.fields');
-}, 'Test 9: unsynced edit wins outright for publicId too');
+  // Field-level override, independent of the global dirty timestamp.
+  const job = { draft: { fields: { 'ci-line': 'oldlineid' }, lineIdServerValue: 'oldlineid', lineIdDiffersFromServer: false } };
+  sb.contactFieldsBaseline['ci-line'] = 'oldlineid';
+  sb.S.activeJob = job;
+  job.draft.fields['ci-line'] = 'newlineid';
+  sb.markContactFieldDirtyIfChanged('ci-line', 'newlineid');
+  assert.strictEqual(job.draft.lineIdServerValue, 'oldlineid');
+  assert.strictEqual(job.draft.fields['ci-line'], 'newlineid');
+  assert.strictEqual(job.draft.lineIdDiffersFromServer, true);
+  const staleServer = JSON.parse(JSON.stringify(job.draft));
+  sb.applyLineIdServerState(staleServer, job.draft, 'oldlineid');
+  assert.strictEqual(sb.preferLinePublicId(staleServer, null, { publicId: 'oldlineid' }), 'newlineid', 'stale server re-read OLD: unsynced field-level override keeps NEW');
+}, 'Test 9: unsynced LINE edit wins via the field-level baseline flag, not the global dirty timestamp');
 
 console.log(`\n${passed} passed, ${process.exitCode ? 'some failed' : '0 failed'}`);
