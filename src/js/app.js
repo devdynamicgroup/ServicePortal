@@ -112,6 +112,7 @@ window.goScreen = function(id) {
   try {
     if (id === 's-assess') renderAssessList();
     if (typeof restoreCurrentPhotoScreen === 'function') restoreCurrentPhotoScreen(id);
+    if (id === 's-visual' && typeof restoreVisualCheckScreen === 'function') restoreVisualCheckScreen();
     if (id === 's-meter' && window.MeterReadingCapture) MeterReadingCapture.init();
     if (id === 's-chlorine' && typeof initChlorineReadingFields === 'function') initChlorineReadingFields();
     if (id === 's-feedback' && typeof initFeedbackScreen === 'function') initFeedbackScreen();

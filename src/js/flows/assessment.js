@@ -425,9 +425,52 @@ async function viewWaterScore() {
 }
 viewWaterScore._inFlight = false;
 
+// Visual Check's segmented controls (water colour / smell) used to be
+// DOM-only: selSeg() toggled the `.sel` class with no write into tap state
+// and nothing restored it on screen entry. Because #s-visual is a single
+// shared screen (not duplicated per tap), that left whichever tap was last
+// viewed still showing its selection when a different tap opened the same
+// screen -- the reported "Tab A's value appears in Tab B" bug. Persisting
+// the selected index per tap (selSeg) and re-applying it whenever the
+// screen opens (restoreVisualCheckScreen, called from app.js's goScreen
+// wrapper like the existing per-tap photo restore) closes that gap for
+// every tap generically, since both read/write through S.tapData[S.activeTap].
 function selSeg(el, group) {
-  el.closest('.seg').querySelectorAll('.seg-opt').forEach(o => o.classList.remove('sel'));
+  const opts = Array.from(el.closest('.seg').querySelectorAll('.seg-opt'));
+  opts.forEach(o => o.classList.remove('sel'));
   el.classList.add('sel');
+  ensureTapData();
+  const tap = S.tapData[S.activeTap];
+  tap.visual = tap.visual || {};
+  tap.visual[group] = opts.indexOf(el);
+  saveActiveJobState?.();
+}
+
+function applySegIndex(segId, index) {
+  const seg = document.getElementById(segId);
+  if (!seg) return;
+  const opts = Array.from(seg.querySelectorAll('.seg-opt'));
+  opts.forEach(o => o.classList.remove('sel'));
+  (opts[Number.isInteger(index) ? index : 0] || opts[0])?.classList.add('sel');
+}
+
+function restoreVisualCheckScreen() {
+  ensureTapData();
+  const visual = S.tapData[S.activeTap].visual || {};
+  applySegIndex('seg-colour', visual.colour);
+  applySegIndex('seg-smell', visual.smell);
+  const noteEl = document.getElementById('visual-note');
+  if (noteEl) noteEl.value = visual.note || '';
+}
+
+function liveUpdateVisualNote() {
+  const el = document.getElementById('visual-note');
+  if (!el) return;
+  ensureTapData();
+  const tap = S.tapData[S.activeTap];
+  tap.visual = tap.visual || {};
+  tap.visual.note = el.value;
+  saveActiveJobState?.();
 }
 
 const METER_READING_FIELDS = {
