@@ -280,6 +280,16 @@ function updateLineVerifiedBadge(job) {
   const displayName = String(job?.line?.displayName || '').trim();
   badge.classList.toggle('hidden', !linked);
   badge.textContent = linked ? `✓ ${t('preassess.lineVerifiedAs')} ${displayName}`.trim() : '';
+
+  // The link uses only the persisted, server-confirmed ID (draft.lineIdServerValue),
+  // never the unsaved input, and only the existing validated destination resolver.
+  const opLink = document.getElementById('line-op-link');
+  if (opLink) {
+    const destination = resolveLinePersonalUrl(job?.draft?.lineIdServerValue);
+    opLink.classList.toggle('hidden', !destination);
+    opLink.textContent = destination ? t('preassess.opLineOpen') : '';
+    if (destination) opLink.href = destination; else opLink.removeAttribute('href');
+  }
 }
 
 function readMsValues(wrapId) {
@@ -1509,6 +1519,7 @@ async function syncJobProfileToNotion(job = S.activeJob) {
     // superseded; an edit stamped AFTER (typed during/after this request)
     // still correctly looks unsynced.
     getJobDraft(job).contactSyncedAt = new Date().toISOString();
+    if (job === S.activeJob) updateLineVerifiedBadge(job);
     persistJobs();
     return { ok: true, case: job };
   } catch (error) {
@@ -1685,6 +1696,7 @@ async function loadJobsFromApi() {
       if (refreshed) {
         S.activeJob = refreshed;
         persistActiveCaseRef(refreshed);
+        updateLineVerifiedBadge(refreshed);
       } else if (S.activeJob && isJobCancelled(S.activeJob)) {
         S.activeJob = null;
         clearActiveCaseRef();
