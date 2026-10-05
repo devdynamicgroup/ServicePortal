@@ -1,3 +1,36 @@
+// Reported 2026-10-06: a Case with a real notionId (so Notion unambiguously
+// has its contact fields -- confirmed by a direct server-side check) opened
+// with every Pre-assessment field showing blank. Root cause not pinned down
+// -- the in-memory JOBS entry's draft.fields was empty despite the API that
+// built it returning full data -- so this is a self-healing guard, not a
+// targeted fix: if a synced Case's fields look implausibly empty (no name
+// AND no phone), re-fetch from the server once and recover from that,
+// instead of leaving the operator staring at a blank form with no recourse.
+function draftFieldsLookImplausiblyEmpty(job) {
+  if (!job?.notionId) return false; // never-synced Cases are legitimately blank
+  const fields = job.draft?.fields || {};
+  return !fields['ci-fname'] && !fields['ci-lname'] && !fields['ci-phone'] && !fields['ci-email'];
+}
+
+async function recoverJobDraftFromServer(job) {
+  try {
+    const response = await fetch('/api/clients', { cache: 'no-store', credentials: 'same-origin' });
+    const payload = await response.json().catch(() => ({}));
+    const jobs = Array.isArray(payload) ? payload : payload.jobs;
+    if (!response.ok || !Array.isArray(jobs)) return false;
+    const fresh = jobs.find(j => String(j.notionId || '') === String(job.notionId || ''));
+    if (!fresh?.draft?.fields) return false;
+    if (draftFieldsLookImplausiblyEmpty(fresh)) return false; // server agrees it's empty -- not a client bug, leave as-is
+    job.draft = job.draft || {};
+    job.draft.fields = { ...fresh.draft.fields };
+    console.warn('[openJob] recovered implausibly empty draft.fields from server', { notionId: job.notionId });
+    return true;
+  } catch (error) {
+    console.warn('[openJob] draft recovery fetch failed', error);
+    return false;
+  }
+}
+
 function openJob(id) {
   if (S.activeJob && String(S.activeJob.id) !== String(id)) saveActiveJobState();
   JOBS.forEach(job => {
@@ -15,6 +48,15 @@ function openJob(id) {
   updateAssessScreen();
   renderCalendar();
   goScreen('s-job');
+  if (draftFieldsLookImplausiblyEmpty(S.activeJob)) {
+    const openedJob = S.activeJob;
+    recoverJobDraftFromServer(openedJob).then(recovered => {
+      if (!recovered || S.activeJob !== openedJob) return;
+      loadJobState(openedJob);
+      updateJobHeader(openedJob);
+      showToast(S.lang === 'th' ? 'โหลดข้อมูลลูกค้าใหม่' : 'Reloaded client details');
+    });
+  }
   if (typeof maybeAutoPromptLineConnect === 'function') maybeAutoPromptLineConnect(S.activeJob);
   pushCaseOpenToNotion(S.activeJob).then(result => {
     if (!result?.ok) return;
