@@ -799,22 +799,6 @@ function updateJobHeader(job) {
     if (lineSendSub) lineSendSub.textContent = t(subKey);
     if (lineSendLabel) lineSendLabel.textContent = t(linked ? 'job.sendLine.cta' : 'job.sendLine.ctaConnect');
   }
-
-  // OP LINE destination: built only from the validated Public LINE ID
-  // (job.line.publicId). Never from lineUserId, displayName or linked state.
-  const opLineCard = document.getElementById('op-line-card');
-  const opLineName = document.getElementById('op-line-name');
-  const opLineArrow = document.getElementById('op-line-arrow');
-  if (opLineCard) {
-    const verifiedName = String(job?.line?.linked && job?.line?.displayName || '').trim();
-    const publicId = String(job?.line?.publicId || '').trim();
-    const destination = resolveLinePersonalUrl(publicId);
-    const label = verifiedName || publicId;
-    opLineCard.classList.toggle('hidden', !label);
-    opLineCard.dataset.destination = destination || '';
-    if (opLineName) opLineName.textContent = label;
-    if (opLineArrow) opLineArrow.classList.toggle('hidden', !destination);
-  }
 }
 
 const LINE_PUBLIC_ID_PATTERN = /^[A-Za-z0-9._-]{4,30}$/;
@@ -822,16 +806,6 @@ function resolveLinePersonalUrl(publicId) {
   const trimmed = String(publicId || '').trim();
   if (!LINE_PUBLIC_ID_PATTERN.test(trimmed)) return null;
   return `https://line.me/ti/p/~${encodeURIComponent(trimmed)}`;
-}
-
-function handleOpLineAction() {
-  const card = document.getElementById('op-line-card');
-  const destination = card?.dataset?.destination || '';
-  if (destination) {
-    window.open(destination, '_blank', 'noopener');
-    return;
-  }
-  if (typeof chatActiveJobClient === 'function') chatActiveJobClient();
 }
 
 function openJobMapsLink() {
