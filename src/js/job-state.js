@@ -887,6 +887,19 @@ async function persistActiveCaseScoreStandard(standardKey = S.scoreStandardKey) 
  * that was the original bug (a stale-but-complete local draft could beat a
  * fresher, equally-complete remote one on a tie).
  */
+// goScreen('s-dash') awaits syncJobProfileToNotion() (which stamps
+// contactSyncedAt the instant the write POST returns 200) immediately
+// followed by loadJobsFromApi() (a fresh GET). Notion's read path is not
+// guaranteed to reflect a write that just landed, so that GET can still
+// return the pre-edit fields -- and since syncedAt already >= dirtyAt at
+// that point, preferContactFields would hand the stale remote copy back as
+// authoritative, undoing the edit it had just confirmed (reported: edit
+// saves, then reverts moments later). Give a just-synced edit a short grace
+// window during which local keeps winning even though it's technically
+// "synced", so the very next refresh in that same navigation can't race
+// Notion's own write-propagation delay (2026-10-05 root-cause trace).
+const CONTACT_SYNC_GRACE_MS = 8000;
+
 function preferContactFields(localDraft, remoteDraft) {
   const remoteFields = remoteDraft?.fields || {};
   const localFields = localDraft?.fields || {};
@@ -894,7 +907,8 @@ function preferContactFields(localDraft, remoteDraft) {
   if (!dirtyAt) return remoteFields; // no genuine local edit ever recorded -- remote (always-live) wins
   const syncedAt = Date.parse(localDraft?.contactSyncedAt || 0) || 0;
   if (dirtyAt > syncedAt) return localFields; // a real edit postdates the last confirmed write -- keep it
-  return remoteFields; // the edit has already been confirmed synced -- remote reflects it too
+  if (Date.now() - syncedAt < CONTACT_SYNC_GRACE_MS) return localFields; // just synced -- Notion's read path may not have caught up yet
+  return remoteFields; // the edit has been confirmed synced for a while now -- remote reflects it too
 }
 
 function mergeApiCaseIntoJob(localJob, apiCase) {
