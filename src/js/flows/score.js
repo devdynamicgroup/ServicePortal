@@ -384,9 +384,9 @@ function renderScoreStatusBar(wq, { loading = false, incomplete = false, verdict
   const bar = document.getElementById('score-status-bar');
   const knob = document.getElementById('score-progress-knob');
   const segments = [
-    { from: 0, to: 50, tier: 'low', el: document.getElementById('score-seg-fill-0') },
-    { from: 50, to: 80, tier: 'mid', el: document.getElementById('score-seg-fill-1') },
-    { from: 80, to: 100, tier: 'high', el: document.getElementById('score-seg-fill-2') }
+    { from: 0, to: 50, el: document.getElementById('score-seg-fill-0') },
+    { from: 50, to: 80, el: document.getElementById('score-seg-fill-1') },
+    { from: 80, to: 100, el: document.getElementById('score-seg-fill-2') }
   ];
   // Fill amount follows the numeric score; fill color follows the 3-tier verdict.
   const fillColor = scoreBarColorForScore(wq, verdict);
@@ -410,9 +410,9 @@ function renderScoreStatusBar(wq, { loading = false, incomplete = false, verdict
     return;
   }
   const score = Math.max(0, Math.min(100, Number(wq) || 0));
-  // Three colour bands on one continuous fill that runs across the segment gaps.
+  // One verdict colour for the whole filled portion, drawn as a single continuous fill.
   if (overlay) {
-    overlay.style.background = `linear-gradient(to right, ${SCORE_BAR_COLORS.low} 0 50%, ${SCORE_BAR_COLORS.mid} 50% 80%, ${SCORE_BAR_COLORS.high} 80% 100%)`;
+    overlay.style.background = fillColor;
     overlay.style.clipPath = `inset(0 ${100 - score}% 0 0)`;
   }
   segments.forEach(seg => {
@@ -420,8 +420,7 @@ function renderScoreStatusBar(wq, { loading = false, incomplete = false, verdict
     const span = seg.to - seg.from;
     const filled = Math.max(0, Math.min(span, score - seg.from));
     seg.el.style.width = `${(filled / span) * 100}%`;
-    // Each range keeps its own colour, so the bar reads as three bands in one line.
-    seg.el.style.background = SCORE_BAR_COLORS[seg.tier] || fillColor;
+    seg.el.style.background = fillColor;
   });
   if (knob) knob.style.left = `${score}%`;
 }
