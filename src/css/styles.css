@@ -862,8 +862,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   background:#e8e8e8;
   overflow:hidden;
 }
-.score-seg:first-child{border-radius:999px 0 0 999px}
-.score-seg:last-child{border-radius:0 999px 999px 0}
+.score-seg:first-child{border-radius:999px}
+.score-seg:last-child{border-radius:999px}
 .score-seg-fill{
   display:block;
   position:absolute;
@@ -871,11 +871,22 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   top:0;
   bottom:0;
   width:0;
-  border-radius:0;
+  border-radius:999px;
   background:var(--score-bar-fill, #22c55e);
   transition:width 1s cubic-bezier(.22,1,.36,1), background .35s ease;
 }
-.score-seg:first-child .score-seg-fill{border-radius:999px 0 0 999px}
+.score-seg:first-child .score-seg-fill{border-radius:999px}
+/* One continuous fill over the whole track: hard colour stops at 50 and 80, revealed up to the score. */
+.score-bar-overlay{
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  background:#22c55e;
+  clip-path:inset(0 100% 0 0);
+  transition:clip-path 1s cubic-bezier(.22,1,.36,1);
+  pointer-events:none;
+  z-index:1;
+}
 .score-progress-ticks .tick-50{display:block}
 .score-progress-knob{
   position:absolute;
@@ -1231,7 +1242,7 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-hero-source,
 .score-compliance-line{display:none!important}
 .score-progress{height:7px;border-radius:999px}
-.score-progress-segments{gap:0}
+.score-progress-segments{gap:3px}
 .score-progress-knob{width:14px;height:14px;margin-left:-7px}
 .score-progress-ticks{height:14px;margin:7px 0 10px;font-size:11px}
 .score-summary-note{

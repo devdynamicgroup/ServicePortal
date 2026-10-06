@@ -402,12 +402,19 @@ function renderScoreStatusBar(wq, { loading = false, incomplete = false, verdict
         : `Water Score ${Math.round(Math.max(0, Math.min(100, Number(wq) || 0)))} of 100`
     );
   }
+  const overlay = document.getElementById('score-bar-overlay');
   if (loading) {
     segments.forEach(seg => { if (seg.el) seg.el.style.width = '0%'; });
+    if (overlay) overlay.style.clipPath = 'inset(0 100% 0 0)';
     if (knob) knob.style.left = '0%';
     return;
   }
   const score = Math.max(0, Math.min(100, Number(wq) || 0));
+  // Three colour bands on one continuous fill that runs across the segment gaps.
+  if (overlay) {
+    overlay.style.background = `linear-gradient(to right, ${SCORE_BAR_COLORS.low} 0 50%, ${SCORE_BAR_COLORS.mid} 50% 80%, ${SCORE_BAR_COLORS.high} 80% 100%)`;
+    overlay.style.clipPath = `inset(0 ${100 - score}% 0 0)`;
+  }
   segments.forEach(seg => {
     if (!seg.el) return;
     const span = seg.to - seg.from;
