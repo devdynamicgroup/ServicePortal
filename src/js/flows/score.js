@@ -384,9 +384,9 @@ function renderScoreStatusBar(wq, { loading = false, incomplete = false, verdict
   const bar = document.getElementById('score-status-bar');
   const knob = document.getElementById('score-progress-knob');
   const segments = [
-    { from: 0, to: 50, el: document.getElementById('score-seg-fill-0') },
-    { from: 50, to: 80, el: document.getElementById('score-seg-fill-1') },
-    { from: 80, to: 100, el: document.getElementById('score-seg-fill-2') }
+    { from: 0, to: 50, tier: 'low', el: document.getElementById('score-seg-fill-0') },
+    { from: 50, to: 80, tier: 'mid', el: document.getElementById('score-seg-fill-1') },
+    { from: 80, to: 100, tier: 'high', el: document.getElementById('score-seg-fill-2') }
   ];
   // Fill amount follows the numeric score; fill color follows the 3-tier verdict.
   const fillColor = scoreBarColorForScore(wq, verdict);
@@ -413,7 +413,8 @@ function renderScoreStatusBar(wq, { loading = false, incomplete = false, verdict
     const span = seg.to - seg.from;
     const filled = Math.max(0, Math.min(span, score - seg.from));
     seg.el.style.width = `${(filled / span) * 100}%`;
-    seg.el.style.background = fillColor;
+    // Each range keeps its own colour, so the bar reads as three bands in one line.
+    seg.el.style.background = SCORE_BAR_COLORS[seg.tier] || fillColor;
   });
   if (knob) knob.style.left = `${score}%`;
 }
