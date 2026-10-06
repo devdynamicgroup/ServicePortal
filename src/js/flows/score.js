@@ -1655,8 +1655,9 @@ function updateShareScoreAvailability({ eligibility, alreadyPublished, showScore
  * share the PNG as a file, else share the link, else copy it to clipboard.
  * Keeping this in one place is what stops the two callers from drifting.
  */
-async function shareScoreResult({ reportToken, reportUrl, title, text }) {
-  const file = await shareScoreCardImage({ reportToken, title, text });
+async function shareScoreResult({ reportToken, reportUrl, title, text, wholePage = false }) {
+  // Full package shares the whole Water Score page link; free shares the score card.
+  const file = wholePage ? null : await shareScoreCardImage({ reportToken, title, text });
   if (file && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title, text });
@@ -1747,7 +1748,8 @@ async function shareScore() {
       reportToken: result.reportToken,
       reportUrl: result.reportUrl,
       title: 'Water Motion - Water Score',
-      text: `ผล Water Score ของคุณ: ${result.score}/100`
+      text: `ผล Water Score ของคุณ: ${result.score}/100`,
+      wholePage: (job.draft?.pkg || job.pkg || 'essential') === 'full'
     });
     showToast(outcome === 'clipboard' ? 'Score link copied - share with client' : 'Score shared');
   } catch (error) {
