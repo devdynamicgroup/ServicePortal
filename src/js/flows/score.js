@@ -1246,7 +1246,7 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   return [
     buildRow('ph', 'pH', ph, (n) => fmt(n, 1), stdLabel(display.ph), evaluateParamStatus('ph', ph, standardKey)),
     buildRow('tds', 'TDS', tds, (n) => fmtInt(n, ' mg/L'), stdLabel(display.tds), evaluateParamStatus('tds', tds, standardKey)),
-    buildRow('chlorine', 'Chlorine', chlorine, (n) => fmt(n, 1, ' mg/L'), stdLabel(display.chlorine), evaluateParamStatus('chlorine', chlorine, standardKey)),
+    buildRow('chlorine', 'Chlorine', chlorine, (n) => fmt(n, 2, ' mg/L'), stdLabel(display.chlorine), evaluateParamStatus('chlorine', chlorine, standardKey)),
     buildRow('turbidity', 'Turbidity', turbidity, (n) => fmt(n, 1, ' NTU'), stdLabel(display.turbidity), evaluateParamStatus('turbidity', turbidity, standardKey)),
     buildRow('orp', 'ORP', orp, (n) => fmtInt(n, ' mV'), stdLabel(display.orp), evaluateParamStatus('orp', orp, standardKey)),
     buildRow('do', 'DO', doVal, (n) => fmt(n, 1, ' mg/L'), stdLabel(display.do), evaluateParamStatus('do', doVal, standardKey)),
