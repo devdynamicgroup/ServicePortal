@@ -1220,7 +1220,10 @@ function getRoomReadings(tapKey, context = getScoreEvalContext()) {
 function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   const standardKey = context.selectedStandard || DEFAULT_SCORE_STANDARD_KEY;
   const display = context.display || getWaterQualityStandard(standardKey).display;
-  const stdLabel = (text) => (text === 'Not specified' ? t('score.std.notSpecified') : text);
+  // Display only: the limits files keep their ASCII "<=" / ">=" text.
+  const stdLabel = (text) => (text === 'Not specified'
+    ? t('score.std.notSpecified')
+    : String(text ?? '').replace(/<=/g, '≤').replace(/>=/g, '≥'));
   const fmt = (n, digits, suffix = '') => (Number.isFinite(n) ? n.toFixed(digits) + suffix : '—');
   const fmtInt = (n, suffix = '') => (Number.isFinite(n) ? Math.round(n) + suffix : '—');
   const toFin = typeof toFiniteReading === 'function'

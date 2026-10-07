@@ -1428,6 +1428,34 @@ button.score-metric-row:active{background:#faf9f8}
   .score-metric-row.is-pending{grid-template-columns:minmax(0,1fr) minmax(0,.8fr) auto auto}
   .score-metric-name,.score-metric-value{font-size:12px}
 }
+/* Every parameter row shares one set of column tracks, so the standard range
+   and the measured value line up down the list instead of each row sizing its
+   own columns. Browsers without subgrid keep the per-row grid above. */
+@supports (grid-template-columns:subgrid){
+  .score-metric-list{
+    display:grid;
+    /* Edge tracks carry the row padding + item border, which a subgrid takes out of them. */
+    grid-template-columns:minmax(calc(3.75rem + 7px),1fr) minmax(0,auto) auto fit-content(5.25rem) 27px;
+    column-gap:8px;
+    row-gap:8px;
+  }
+  .score-metric-item,
+  .score-metric-row,
+  .score-metric-row.is-pending{
+    display:grid;
+    grid-column:1 / -1;
+    grid-template-columns:subgrid;
+  }
+  .score-metric-detail{grid-column:1 / -1}
+  .score-metric-status{justify-content:flex-start;white-space:normal;line-height:1.25}
+  .score-metric-status .score-dot{flex:0 0 auto}
+  @media (max-width:414px){
+    .score-metric-list{grid-template-columns:minmax(calc(3.75rem + 13px),1fr) minmax(0,auto) auto fit-content(5.25rem) 27px}
+  }
+  @media (max-width:340px){
+    .score-metric-list{grid-template-columns:minmax(calc(3.6rem + 11px),1fr) minmax(0,auto) auto fit-content(5.25rem) 23px;column-gap:6px}
+  }
+}
 .score-readings-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-size:14px}
 .score-readings-hdr a{color:var(--blue);font-weight:600;text-decoration:none;font-size:14px}
 .readings-card{background:var(--surface);border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border)}
