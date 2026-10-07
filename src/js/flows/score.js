@@ -1699,8 +1699,15 @@ async function shareScoreResult({ reportToken, reportUrl, title, text, wholePage
   }
 
   if (navigator.share) {
-    await navigator.share({ title, text, url: reportUrl });
-    return 'url';
+    try {
+      await navigator.share({ title, text, url: reportUrl });
+      return 'url';
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error;
+      // The browser refuses to open its share sheet once the click is too old
+      // (e.g. publishing took several seconds). Copy the link instead of failing.
+      console.warn('URL share failed, copying the link instead', error);
+    }
   }
 
   await navigator.clipboard.writeText(reportUrl);

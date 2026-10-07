@@ -124,6 +124,23 @@ const PUBLISHED = { score: 84, reportUrl: 'https://portal.example/r/tok-1', repo
     assert(calls.clipboard[0] === 'https://portal.example/r/tok-full', 'Water Score link is copied');
   }
 
+  console.log('\n=== Slow publish — browser refuses the share sheet, link is copied instead ===');
+  {
+    const refuse = async () => { const e = new Error('Must be handling a user gesture'); e.name = 'NotAllowedError'; throw e; };
+    const full = { id: 'c1', notionId: 'n1', pkg: 'full', result: { waterScore: 84 } };
+    const a = makeSandbox({ job: full, scorePublishResult: PUBLISHED });
+    a.sandbox.navigator.share = refuse;
+    await a.sandbox.shareScore();
+    assert(a.calls.clipboard[0] === PUBLISHED.reportUrl, 'Full: Water Score link is copied');
+    assert(a.calls.toast.some(m => /copied/i.test(m)) && !a.calls.toast.some(m => /Could not/i.test(m)), 'Full: staff sees "link copied", not a failure');
+
+    const cancel = async () => { const e = new Error('cancelled'); e.name = 'AbortError'; throw e; };
+    const b = makeSandbox({ job: full, scorePublishResult: PUBLISHED });
+    b.sandbox.navigator.share = cancel;
+    await b.sandbox.shareScore();
+    assert(b.calls.clipboard.length === 0 && b.calls.toast.length === 0, 'cancelling the share sheet still does nothing');
+  }
+
   console.log('\n=== Essential + Backend Share → Postcard (unchanged) ===');
   for (const job of [
     { id: 'c2', notionId: 'n2', pkg: 'essential', result: { waterScore: 84 } },
