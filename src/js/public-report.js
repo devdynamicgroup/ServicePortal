@@ -55,7 +55,10 @@ async function sharePublicReport() {
       reportToken: window.__WM_PUBLIC_REPORT__?.token,
       reportUrl: window.location.href,
       title,
-      text
+      text,
+      // This page is only ever served for a Full Assessment (the server sends
+      // Essential Cases the poster instead), so Share passes on this page's link.
+      wholePage: true
     });
     showToast(outcome === 'clipboard' ? 'Score link copied' : 'Score shared');
   } catch (error) {

@@ -331,7 +331,26 @@ function paramStatusUiKey(status) {
   if (status === 'pending') return 'pending';
   if (status === 'implausible') return 'implausible';
   if (status === 'excluded') return 'excluded';
+  if (status === 'fair') return 'fair';
   return status === 'good' ? 'good' : 'attn';
+}
+
+/**
+ * Customer-facing parameter status (presentation only): the engine's internal
+ * PASS / WARNING / FAIL / CRITICAL classification is read here, never changed,
+ * and never shown as a label. Only three states reach the UI.
+ */
+const PARAM_CLASSIFICATION_UI_STATUS = Object.freeze({
+  PASS: 'good',
+  WARNING: 'fair',
+  FAIL: 'attn',
+  CRITICAL: 'attn'
+});
+
+/** Rows the engine did not classify (not measured / not evaluated / incomplete) keep their existing status. */
+function paramStatusFromClassification(status, classification) {
+  if (status !== 'good' && status !== 'attn') return status;
+  return PARAM_CLASSIFICATION_UI_STATUS[classification] || status;
 }
 
 function paramKey(paramName) {
@@ -1225,6 +1244,12 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   // (2026-08-17 fix). Row-level fallback only; scoring math is unaffected.
   const rawReadings = context.rawReadings || {};
   const validationFields = context.validationFields || null;
+  // Read-only: the selected engine's own per-parameter classification for
+  // these readings, used solely to present Good / Fair / Attention.
+  const reg = benchmarkRegistry();
+  const classifications = reg?.calculate
+    ? (reg.calculate(reg.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY, readings || {}).classifications || null)
+    : null;
   const buildRow = (key, label, computedVal, fmtFn, std, status) => {
     if (!Number.isFinite(computedVal) && validationFields?.[key]?.state === 'IMPLAUSIBLE') {
       const rawVal = toFin(rawReadings[key]);
@@ -1240,7 +1265,7 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
     if (status === 'pending' && Number.isFinite(computedVal)) {
       return { p: label, r: fmtFn(computedVal), std, st: 'excluded' };
     }
-    return { p: label, r: fmtFn(computedVal), std, st: status };
+    return { p: label, r: fmtFn(computedVal), std, st: paramStatusFromClassification(status, classifications?.[key]) };
   };
 
   return [
@@ -1277,6 +1302,7 @@ function renderScoreReadings(context = getScoreEvalContext()) {
   const rows = scoreTapRows(S.scoreTapFilter, context);
   const statusLabels = {
     good: t('score.status.good'),
+    fair: t('score.status.fair'),
     attn: t('score.status.attn'),
     pending: t('score.status.pending'),
     implausible: t('score.status.implausible'),
@@ -1342,7 +1368,8 @@ function renderScoreImprove(context = getScoreEvalContext()) {
   if (!section || !listEl) return;
 
   const allRows = scoreTapRows(S.scoreTapFilter || 'all', context);
-  const rows = allRows.filter(r => paramStatusUiKey(r.st) === 'attn');
+  // Fair rows were listed here as Attention before the Fair state existed — keep them listed.
+  const rows = allRows.filter(r => ['attn', 'fair'].includes(paramStatusUiKey(r.st)));
   const displayed = resolveDisplayedScore({
     publicView: Boolean(S.publicScoreView),
     publishedScore: S.currentScoreResult?.score,
