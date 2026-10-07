@@ -81,6 +81,8 @@ function makeSandbox({ job = null, publicView = false, scorePublishResult = null
 
 const cardFetches = (calls) => calls.fetch.filter(c => c.url.includes('/api/public/score-card/'));
 const PUBLISHED = { score: 84, reportUrl: 'https://portal.example/r/tok-1', reportToken: 'tok-1' };
+const FULL_LINK = 'https://portal.example/score/tok-1';
+const CARD_LINK = 'https://portal.example/card/tok-1';
 
 (async () => {
   // The staff portal has exactly one Share control: the Score page button
@@ -100,7 +102,7 @@ const PUBLISHED = { score: 84, reportUrl: 'https://portal.example/r/tok-1', repo
     const { sandbox, calls } = makeSandbox({ job, scorePublishResult: PUBLISHED });
     await sandbox.shareScore();
     assert(cardFetches(calls).length === 0, 'poster image is never fetched');
-    assert(calls.share.length === 1 && calls.share[0].url === PUBLISHED.reportUrl, `shares the /r/{token} Water Score link (got ${JSON.stringify(calls.share[0])})`);
+    assert(calls.share.length === 1 && calls.share[0].url === FULL_LINK, `shares the /score/{token} Water Score link (got ${JSON.stringify(calls.share[0])})`);
     assert(calls.share[0] && !calls.share[0].files, 'no image file is attached');
   }
 
@@ -131,7 +133,7 @@ const PUBLISHED = { score: 84, reportUrl: 'https://portal.example/r/tok-1', repo
     const a = makeSandbox({ job: full, scorePublishResult: PUBLISHED });
     a.sandbox.navigator.share = refuse;
     await a.sandbox.shareScore();
-    assert(a.calls.clipboard[0] === PUBLISHED.reportUrl, 'Full: Water Score link is copied');
+    assert(a.calls.clipboard[0] === FULL_LINK, 'Full: /score/{token} Water Score link is copied');
     assert(a.calls.toast.some(m => /copied/i.test(m)) && !a.calls.toast.some(m => /Could not/i.test(m)), 'Full: staff sees "link copied", not a failure');
 
     const cancel = async () => { const e = new Error('cancelled'); e.name = 'AbortError'; throw e; };
@@ -139,6 +141,22 @@ const PUBLISHED = { score: 84, reportUrl: 'https://portal.example/r/tok-1', repo
     b.sandbox.navigator.share = cancel;
     await b.sandbox.shareScore();
     assert(b.calls.clipboard.length === 0 && b.calls.toast.length === 0, 'cancelling the share sheet still does nothing');
+
+    const essential = { id: 'c2', notionId: 'n2', pkg: 'essential', result: { waterScore: 84 } };
+    const c = makeSandbox({ job: essential, scorePublishResult: PUBLISHED });
+    c.sandbox.navigator.share = refuse;
+    await c.sandbox.shareScore();
+    assert(c.calls.clipboard[0] === CARD_LINK, 'Essential: the copied fallback link is the /card/{token} Postcard link');
+  }
+
+  console.log('\n=== Share button stops "Preparing" once the link is ready ===');
+  {
+    const full = { id: 'c1', notionId: 'n1', pkg: 'full', result: { waterScore: 84 } };
+    const { sandbox } = makeSandbox({ job: full, scorePublishResult: PUBLISHED });
+    let lockedWhileSheetOpen = null;
+    sandbox.navigator.share = async () => { lockedWhileSheetOpen = vm.runInContext('sharingScore', sandbox); };
+    await sandbox.shareScore();
+    assert(lockedWhileSheetOpen === false, 'share lock is released before the share sheet opens');
   }
 
   console.log('\n=== Essential + Backend Share → Postcard (unchanged) ===');
@@ -154,9 +172,10 @@ const PUBLISHED = { score: 84, reportUrl: 'https://portal.example/r/tok-1', repo
     assert(calls.share[0] && calls.share[0].url === undefined, `${label}: not a link share`);
   }
 
-  // What the shared /r/{token} link opens — the real server route, with only
-  // the Case lookup mocked. Backend and customer share both hand out this link.
-  console.log('\n=== Shared link target — /r/{token} by package ===');
+  // What each report link opens — the real server route, with only the Case
+  // lookup mocked. /score/{token} is Full, /card/{token} is Essential; the
+  // older /r/{token} form and a wrong-package link redirect to the right one.
+  console.log('\n=== Report link by package — /score, /card and the old /r ===');
   {
     process.env.AUTH_ALLOW_DEV_USERS = 'true';
     process.env.NODE_ENV = 'test';
@@ -168,22 +187,41 @@ const PUBLISHED = { score: 84, reportUrl: 'https://portal.example/r/tok-1', repo
     const originalGetReport = caseFlow.getReportByToken;
     caseFlow.getReportByToken = async (token) => FIXTURES[token] || null;
     const { handleCaseFlowRoute } = require(path.join(ROOT, 'api/case-flow-routes'));
-    const fetchPage = async (token) => {
-      let body = '';
-      const res = { writeHead() {}, end(chunk) { if (chunk) body += chunk; } };
-      await handleCaseFlowRoute({ method: 'GET', url: `/r/${token}`, headers: {} }, res, `/r/${token}`);
-      return body;
+    const get = async (urlPath) => {
+      const out = { status: 0, location: null, body: '' };
+      const res = {
+        writeHead(code, headers) { out.status = code; out.location = (headers && headers.Location) || null; },
+        end(chunk) { if (chunk) out.body += chunk; }
+      };
+      await handleCaseFlowRoute({ method: 'GET', url: urlPath, headers: {} }, res, urlPath);
+      return out;
     };
     try {
-      const full = await fetchPage('tok-1');
-      assert(full.includes('score-readings-rows') && full.includes('public-report.js'), 'Full: the link shared from the backend (/r/tok-1) opens the Water Score page');
-      assert(full.includes('"token":"tok-1"'), 'Full: it is the Water Score of the same Case');
-      assert(!full.includes('/api/public/score-card/'), 'Full: the page is not the poster');
-      assert(full.includes('onclick="sharePublicReport()"'), 'Full: the customer page Share is wired to sharePublicReport()');
+      const full = await get('/score/tok-1');
+      assert(full.status === 200 && full.body.includes('score-readings-rows') && full.body.includes('public-report.js'), 'Full: /score/tok-1 is the Water Score page');
+      assert(full.body.includes('"token":"tok-1"'), 'Full: it is the Water Score of the same Case');
+      assert(!full.body.includes('/api/public/score-card/'), 'Full: the page is not the poster');
+      assert(full.body.includes('onclick="sharePublicReport()"'), 'Full: the customer page Share is wired to sharePublicReport()');
 
-      const essential = await fetchPage('tok-2');
-      assert(essential.includes('/api/public/score-card/tok-2'), 'Essential + Customer: /r/tok-2 is the Postcard');
-      assert(!essential.includes('score-readings-rows') && !essential.includes('public-report.js'), 'Essential + Customer: no Water Score page, so sharing that page passes on the Postcard');
+      const card = await get('/card/tok-2');
+      assert(card.status === 200 && card.body.includes('/api/public/score-card/tok-2'), 'Essential: /card/tok-2 is the Postcard');
+      assert(!card.body.includes('score-readings-rows') && !card.body.includes('public-report.js'), 'Essential: no Water Score page');
+
+      const oldFull = await get('/r/tok-1');
+      assert(oldFull.status === 302 && oldFull.location === '/score/tok-1', 'old /r link of a Full Case redirects to /score/tok-1');
+      const oldCard = await get('/r/tok-2');
+      assert(oldCard.status === 302 && oldCard.location === '/card/tok-2', 'old /r link of an Essential Case redirects to /card/tok-2');
+
+      const wrongForFull = await get('/card/tok-1');
+      assert(wrongForFull.status === 302 && wrongForFull.location === '/score/tok-1', 'a /card link for a Full Case redirects to its Water Score');
+      const wrongForEssential = await get('/score/tok-2');
+      assert(wrongForEssential.status === 302 && wrongForEssential.location === '/card/tok-2', 'a /score link for an Essential Case redirects to the Postcard');
+      assert(!wrongForEssential.body.includes('score-readings-rows'), 'no Water Score content is served to an Essential Case');
+
+      for (const prefix of ['r', 'score', 'card']) {
+        const missing = await get(`/${prefix}/no-such-token`);
+        assert(missing.status === 404 && missing.body.includes('Report not found'), `/${prefix}/ with an unknown token is 404`);
+      }
     } finally {
       caseFlow.getReportByToken = originalGetReport;
     }

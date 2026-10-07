@@ -1681,13 +1681,25 @@ function updateShareScoreAvailability({ eligibility, alreadyPublished, showScore
 }
 
 /**
+ * A report link in its package-specific form: /score/{token} for a Full
+ * Assessment, /card/{token} for Essential. The server also accepts the older
+ * /r/{token} form and redirects it, so this only changes what is passed on.
+ */
+function reportLinkForPackage(reportUrl, isFull) {
+  return String(reportUrl || '').replace(/\/r\/([^/?#]+)/, `/${isFull ? 'score' : 'card'}/$1`);
+}
+
+/**
  * Shared fallback cascade used by both shareScore() and sharePublicReport():
  * share the PNG as a file, else share the link, else copy it to clipboard.
  * Keeping this in one place is what stops the two callers from drifting.
+ * onReady fires once the link / image is in hand, just before the share sheet
+ * opens, so the caller can stop showing a "preparing" state while it is open.
  */
-async function shareScoreResult({ reportToken, reportUrl, title, text, wholePage = false }) {
+async function shareScoreResult({ reportToken, reportUrl, title, text, wholePage = false, onReady }) {
   // Full package shares the whole Water Score page link; free shares the score card.
   const file = wholePage ? null : await shareScoreCardImage({ reportToken, title, text });
+  if (typeof onReady === 'function') onReady();
   if (file && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title, text });
@@ -1781,12 +1793,15 @@ async function shareScore() {
       publicReportToken: result.reportToken
     };
 
+    const isFull = (job.draft?.pkg || job.pkg || 'essential') === 'full';
     const outcome = await shareScoreResult({
       reportToken: result.reportToken,
-      reportUrl: result.reportUrl,
+      reportUrl: reportLinkForPackage(result.reportUrl, isFull),
       title: 'Water Motion - Water Score',
       text: `ผล Water Score ของคุณ: ${result.score}/100`,
-      wholePage: (job.draft?.pkg || job.pkg || 'essential') === 'full'
+      wholePage: isFull,
+      // The link is ready: stop "Preparing…" before the share sheet opens.
+      onReady: () => { sharingScore = false; setShareButtonLoading(false); }
     });
     showToast(outcome === 'clipboard' ? 'Score link copied - share with client' : 'Score shared');
   } catch (error) {

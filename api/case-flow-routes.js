@@ -183,6 +183,11 @@ function isFreeInspectionJob(job) {
   return String(job?.pkg || 'essential').trim() !== 'full';
 }
 
+/** Path segment of a Case's report link: 'card' (Essential poster) or 'score' (Full Water Score page). */
+function reportLinkKind(job) {
+  return isFreeInspectionJob(job) ? 'card' : 'score';
+}
+
 /**
  * Free-campaign customers get the approved share-card design.
  * Mobile = vertical story plate (photo + CTA + score) matching the mock.
@@ -860,10 +865,21 @@ async function handleCaseFlowRoute(req, res, urlPath) {
     return true;
   }
 
-  const reportPageMatch = urlPath.match(/^\/r\/([^/]+)$/);
+  // Report links differ by package: /score/{token} is the Full Assessment
+  // Water Score page, /card/{token} is the Essential poster. /r/{token} (every
+  // link issued before this split) and a link for the wrong package both
+  // redirect to the Case's current one, so old links keep working and a
+  // package change is followed automatically.
+  const reportPageMatch = urlPath.match(/^\/(r|score|card)\/([^/]+)$/);
   if (reportPageMatch && req.method === 'GET') {
     try {
-      const report = await getReportByToken(decodeURIComponent(reportPageMatch[1]));
+      const token = decodeURIComponent(reportPageMatch[2]);
+      const report = await getReportByToken(token);
+      const kind = report ? reportLinkKind(report) : null;
+      if (kind && reportPageMatch[1] !== kind) {
+        sendRedirect(res, `/${kind}/${encodeURIComponent(token)}`);
+        return true;
+      }
       sendHtml(res, report ? 200 : 404, await reportHtml(report));
     } catch (error) {
       sendHtml(res, error.statusCode || 502, `<p>${escapeHtml(error.message || 'Report unavailable')}</p>`);
