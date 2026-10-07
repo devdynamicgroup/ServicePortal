@@ -1447,6 +1447,7 @@ button.score-metric-row:active{background:#faf9f8}
     grid-template-columns:subgrid;
   }
   .score-metric-detail{grid-column:1 / -1}
+  .score-metric-range{text-align:right}
   .score-metric-status{justify-content:flex-start;white-space:normal;line-height:1.25}
   .score-metric-status .score-dot{flex:0 0 auto}
   @media (max-width:414px){
