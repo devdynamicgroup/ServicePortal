@@ -1801,7 +1801,11 @@ async function shareScore() {
       text: `ผล Water Score ของคุณ: ${result.score}/100`,
       wholePage: isFull,
       // The link is ready: stop "Preparing…" before the share sheet opens.
-      onReady: () => { sharingScore = false; setShareButtonLoading(false); }
+      onReady: () => {
+        sharingScore = false;
+        setShareButtonLoading(false);
+        showToast(t('score.toast.linkReady'));
+      }
     });
     showToast(outcome === 'clipboard' ? 'Score link copied - share with client' : 'Score shared');
   } catch (error) {

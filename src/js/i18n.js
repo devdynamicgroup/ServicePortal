@@ -283,6 +283,7 @@ const I18N = {
 
     'score.title': 'Water Score',
     'score.share': 'Share Score',
+    'score.toast.linkReady': 'Share link is ready',
     'score.prelabel': 'Preliminary Score',
     'score.prelabelSub': 'Based on 8 on-site readings',
     'score.mainConcern': 'Main concern',
@@ -747,6 +748,7 @@ const I18N = {
 
     'score.title': 'คะแนนน้ำ',
     'score.share': 'แชร์คะแนน',
+    'score.toast.linkReady': 'ลิงก์พร้อมแชร์แล้ว',
     'score.prelabel': 'คะแนนเบื้องต้น',
     'score.prelabelSub': 'จากการอ่านค่า 8 รายการหน้างาน',
     'score.mainConcern': 'ประเด็นหลัก',

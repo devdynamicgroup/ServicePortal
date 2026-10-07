@@ -140,7 +140,8 @@ const CARD_LINK = 'https://portal.example/card/tok-1';
     const b = makeSandbox({ job: full, scorePublishResult: PUBLISHED });
     b.sandbox.navigator.share = cancel;
     await b.sandbox.shareScore();
-    assert(b.calls.clipboard.length === 0 && b.calls.toast.length === 0, 'cancelling the share sheet still does nothing');
+    assert(b.calls.clipboard.length === 0 && b.calls.toast.join('|') === 'score.toast.linkReady',
+      'cancelling the share sheet copies nothing and shows no "shared" / "copied" / failure message');
 
     const essential = { id: 'c2', notionId: 'n2', pkg: 'essential', result: { waterScore: 84 } };
     const c = makeSandbox({ job: essential, scorePublishResult: PUBLISHED });
@@ -157,6 +158,14 @@ const CARD_LINK = 'https://portal.example/card/tok-1';
     sandbox.navigator.share = async () => { lockedWhileSheetOpen = vm.runInContext('sharingScore', sandbox); };
     await sandbox.shareScore();
     assert(lockedWhileSheetOpen === false, 'share lock is released before the share sheet opens');
+
+    const ready = makeSandbox({ job: full, scorePublishResult: PUBLISHED });
+    let toastsWhenSheetOpens = null;
+    ready.sandbox.navigator.share = async () => { toastsWhenSheetOpens = ready.calls.toast.slice(); };
+    await ready.sandbox.shareScore();
+    assert(toastsWhenSheetOpens && toastsWhenSheetOpens[0] === 'score.toast.linkReady', 'staff are told the link is ready before the share sheet opens');
+    const i18n = read('src/js/i18n.js');
+    assert(i18n.includes("'score.toast.linkReady': 'Share link is ready'") && i18n.includes("'score.toast.linkReady': 'ลิงก์พร้อมแชร์แล้ว'"), 'link-ready message exists in EN and TH');
   }
 
   console.log('\n=== Essential + Backend Share → Postcard (unchanged) ===');
