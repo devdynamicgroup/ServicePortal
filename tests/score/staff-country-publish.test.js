@@ -143,7 +143,6 @@ function openStaffSession(caseId, { readings = READINGS, standardKey = 'thailand
   sandbox.renderWaterScore(job, { publicView: false });
   return {
     sandbox, job, calls,
-    line: () => node('score-customer-line'),
     shown: () => sandbox.S.displayedScore.score,
     select: (key) => sandbox.setScoreReferenceStandard(key),
     scoreCalls: () => calls.filter((call) => call.route === 'score'),
@@ -191,7 +190,6 @@ function openCustomerReport(report) {
     sandbox,
     shown: () => sandbox.S.displayedScore.score,
     select: () => node('score-standard-select-top'),
-    line: () => node('score-customer-line'),
     note: () => node('score-summary-note')
   };
 }
@@ -268,8 +266,8 @@ async function main() {
     assert((await resolveReportByToken(tokens[1])).result.waterScore === EXPECTED.thailand, `the Thailand link still shows ${EXPECTED.thailand}`);
 
     staff.select('japan');
-    assert(staff.shown() === EXPECTED.japan && staff.line().textContent === `Customer Water Score: ${EXPECTED.usEpa}`,
-      `after switching back without publishing, the line shows what the customer last got ("${staff.line().textContent}")`);
+    assert(staff.shown() === EXPECTED.japan && staff.job.result.waterScore === EXPECTED.usEpa && staff.job.result.standardKey === 'usEpa',
+      'switching back without publishing changes the screen only; the Case still records the last publication (US)');
   }
 
   console.log('\n4. Complete');
@@ -310,16 +308,6 @@ async function main() {
     assert(store._rows.length === 2 && latestRow().snapshot.standardKey === 'thailand', 'as a new publication');
   }
 
-  console.log('\nPublished-score line');
-  resetServer();
-  {
-    const staff = openStaffSession('case-line', { standardKey: 'japan' });
-    assert(staff.line().hidden === true && staff.line().textContent === '', 'no line before anything is published');
-    await staff.sandbox.shareScore();
-    staff.select('japan');
-    assert(staff.line().textContent === `Customer Water Score: ${EXPECTED.japan}`, `after publishing: "${staff.line().textContent}"`);
-  }
-
   console.log('\nAvailability follows the selected engine; the server decides');
   resetServer();
   {
@@ -345,7 +333,6 @@ async function main() {
     const old = await createOrReusePublication({ job: clone(serverCases.get('case-legacy')), caseId: 'case-legacy', payload: { score: EXPECTED.quality, intent: 'publish' } });
     staff.job.result = { waterScore: old.score, publicReportToken: old.reportToken, reportUrl: old.reportUrl };
     staff.select('japan');
-    assert(staff.line().textContent === `Customer Water Score: ${EXPECTED.quality}`, `the line shows the existing Quality V3 publication ("${staff.line().textContent}")`);
     await staff.sandbox.shareScore();
     assert(store._rows.length === 2 && latestRow().snapshot.scoreType === 'country-benchmark' && latestRow().publishedScore === EXPECTED.japan, 'Share creates a separate Japan publication');
     assert(store._rows[0].snapshot.scoreType === 'quality-v3' && (await resolveReportByToken(old.reportToken)).result.waterScore === EXPECTED.quality, `the old Quality V3 link still shows ${EXPECTED.quality}`);
@@ -382,11 +369,16 @@ async function main() {
     assert(japanStaff === EXPECTED.japan && japan.shown() === EXPECTED.japan, `Japan: staff ${japanStaff} === customer ${japan.shown()}`);
     assert(japan.sandbox.S.displayedScore.source === 'published', 'customer number is the published score, not a live calculation');
     assert(japan.sandbox.S.scoreStandardKey === 'japan', 'customer report is on the Japan standard');
-    assert(japan.select().disabled === true && /value="japan" selected/.test(japan.select().innerHTML), 'the Benchmark control shows Japan and is locked');
+    assert(japan.select().disabled === true && /value="japan" selected/.test(japan.select().innerHTML), 'the Benchmark control is locked on Japan');
     assert(japan.sandbox.resolveScoreReadings(japan.sandbox.S.activeJob).chlorine === READINGS.chlorine, 'rows use the readings frozen at publish, not the later edit');
-    for (const key of ENGINE_KEYS) japan.sandbox.setScoreReferenceStandard(key);
-    assert(japan.shown() === EXPECTED.japan && japan.sandbox.S.scoreStandardKey === 'japan', `trying to switch standard changes nothing (still Japan ${japan.shown()})`);
-    assert(japan.line().hidden === true, 'no staff-only line on the customer report');
+    for (const key of ['usEpa', 'thailand', 'japan']) {
+      japan.sandbox.setScoreReferenceStandard(key);
+      assert(japan.shown() === EXPECTED.japan && japan.sandbox.S.scoreStandardKey === 'japan' && japan.sandbox.S.displayedScore.source === 'published', `customer selects ${key}: published Japan score stays ${japan.shown()}`);
+      assert(japan.select().disabled === true && /value="japan" selected/.test(japan.select().innerHTML), `${key}: selector stays locked on Japan`);
+      assert(japan.sandbox.resolveScoreReadings(japan.sandbox.S.activeJob).chlorine === READINGS.chlorine, `${key}: still the frozen readings`);
+    }
+    assert(japan.sandbox.S.currentScoreResult.complianceStatus === 'CRITICAL', 'with its published compliance');
+    assert(store._rows.length === 2 && latestRow().publicReportToken === thaiToken, 'browsing published nothing and wrote nothing');
 
     const thai = openCustomerReport(await resolveReportByToken(thaiToken));
     assert(thaiStaff === EXPECTED.thailand && thai.shown() === EXPECTED.thailand && thai.sandbox.S.scoreStandardKey === 'thailand', `Thailand: staff ${thaiStaff} === customer ${thai.shown()} on the Thailand standard`);

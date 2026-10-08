@@ -264,7 +264,9 @@ function getCountryBenchmarkScore(readings, standardKey = DEFAULT_SCORE_STANDARD
  * Live Score screen: selected country engine (thailand|japan|eu|who|usEpa).
  *   The Quality V3 score the customer sees is shown beside it on a secondary
  *   line (renderCustomerScoreLine) -- it is never the live Hero number.
- * Public /r/{token} report: persisted published Quality Water Score.
+ * Public /r/{token} report: the persisted published Water Score.
+ * A country-benchmark publication stays on publication.standardKey.
+ * A Quality V3 publication keeps its existing published-score display.
  *
  * Quality V3 remains on currentScoreResult / S.scoreVal for publish+share and
  * does not change with the selected country.
@@ -275,7 +277,11 @@ function resolveDisplayedScore({
   readings = {},
   standardKey = DEFAULT_SCORE_STANDARD_KEY
 } = {}) {
-  if (publicView && Number.isFinite(Number(publishedScore))) {
+  // A country-benchmark report shows its published score under the standard
+  // it was published with. Quality V3 has no published country key, so it
+  // keeps the published number.
+  const publishedKey = publicView ? publishedReportStandardKey() : null;
+  if (publicView && Number.isFinite(Number(publishedScore)) && (!publishedKey || publishedKey === standardKey)) {
     const score = Math.max(0, Math.min(100, Math.round(Number(publishedScore))));
     return {
       score,
@@ -542,8 +548,8 @@ function orderedStandardsForSelect() {
 /** Spec shows the same Benchmark filter twice (hero + content) -- keep both in sync. */
 /**
  * On the customer report of a country-benchmark publication, the standard the
- * score was published under. The report stays on it: the published number
- * belongs to that standard alone. Null everywhere else.
+ * score was published under -- the one the report opens on, and the only one
+ * the published number belongs to. Null everywhere else.
  */
 function publishedReportStandardKey(job = S.activeJob) {
   if (!S.publicScoreView || job?.result?.scoreType !== 'country-benchmark') return null;
@@ -552,7 +558,8 @@ function publishedReportStandardKey(job = S.activeJob) {
 }
 
 function renderStandardSelect(context = getScoreEvalContext()) {
-  const selected = context.selectedStandard;
+  const lockedKey = publishedReportStandardKey();
+  const selected = lockedKey || context.selectedStandard;
   const order = orderedStandardsForSelect();
   const optionsHtml = order.map(key => {
     const standard = getWaterQualityStandard(key);
@@ -562,9 +569,8 @@ function renderStandardSelect(context = getScoreEvalContext()) {
     const selectEl = document.getElementById(id);
     if (!selectEl) return;
     selectEl.innerHTML = optionsHtml;
-    selectEl.onchange = () => setScoreReferenceStandard(selectEl.value);
-    // Shows which standard the published score is for; not switchable there.
-    selectEl.disabled = Boolean(publishedReportStandardKey());
+    selectEl.disabled = Boolean(lockedKey);
+    selectEl.onchange = () => setScoreReferenceStandard(lockedKey || selectEl.value);
   });
 }
 
@@ -752,8 +758,11 @@ function renderScoreDisplay() {
 
 /** Switch comparison standard — recalculates statuses from the same resolved readings. */
 function setScoreReferenceStandard(standardKey) {
-  // A published country-benchmark report cannot be re-scored under another standard.
-  if (publishedReportStandardKey()) return;
+  const lockedKey = publishedReportStandardKey();
+  if (lockedKey && standardKey !== lockedKey) {
+    renderStandardSelect();
+    return;
+  }
   const key = benchmarkRegistry()?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const readings = resolveScoreReadings(S.activeJob);
   const computedScore = computeScoreFromReadings(readings);
@@ -763,18 +772,22 @@ function setScoreReferenceStandard(standardKey) {
 
   S.scoreStandardKey = key;
   S.scoreBaseReadings = readings;
+  // Customer report of a country-benchmark publication: the published score and
+  // compliance stay on the published standard. The selector cannot leave it.
+  const publishedReport = publishedReportStandardKey() ? S.activeJob.result : null;
+  const publishedReportScore = publishedReport ? Math.max(0, Math.min(100, Math.round(Number(publishedReport.waterScore)))) : null;
   // Publish/share channel stays Quality V3. Live Hero uses country engine.
-  S.scoreVal = computedScore;
+  S.scoreVal = publishedReport ? publishedReportScore : computedScore;
   S.currentScoreResult = {
     ...(S.currentScoreResult || {}),
-    score: computedScore,
+    score: publishedReport ? publishedReportScore : computedScore,
     computedScore,
     readings: { ...readings },
     source: 'computed',
     standardKey: 'quality-v3',
     engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v3'),
     paramScores: detail?.params || null,
-    complianceStatus: detail?.compliance?.status || null,
+    complianceStatus: publishedReport ? (publishedReport.complianceStatus || null) : (detail?.compliance?.status || null),
     compliance: detail?.compliance || null,
     validation: S.lastReadingsValidation || null
   };
@@ -786,7 +799,8 @@ function setScoreReferenceStandard(standardKey) {
     standardKey: key
   });
   S.scoreParamOpen = null;
-  if (typeof persistActiveCaseScoreStandard === 'function') {
+  // The customer report never writes its locked standard back onto the Case.
+  if (!S.publicScoreView && typeof persistActiveCaseScoreStandard === 'function') {
     persistActiveCaseScoreStandard(key);
   }
   console.log('STANDARD SWITCH', {
