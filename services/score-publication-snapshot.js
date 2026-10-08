@@ -8,6 +8,12 @@ const SNAPSHOT_SCHEMA_VERSION = 1;
 const UNKNOWN = 'UNKNOWN';
 const SCORE_TYPES = Object.freeze(['quality-v3', 'legacy-publication']);
 const READING_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp']);
+const SCORED_READING_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do']);
+// Every draft.fields key the report's reading resolver falls back to.
+const DRAFT_READING_FIELD_KEYS = Object.freeze([
+  'm-ph', 'ph', 'm-tds', 'tds', 'm-free-cl', 'freeChlorine', 'chlorine',
+  'm-turb', 'turbidity', 'm-orp', 'orp', 'm-do', 'do', 'm-temp', 'temp'
+]);
 const NOTION_RICH_TEXT_CHUNK = 1900;
 const MAX_SNAPSHOT_CHARS = 1900 * 8;
 
@@ -100,6 +106,43 @@ function joinRichTextSegments(segments) {
 }
 
 /**
+ * Frozen readings are only applied when all six scored parameters are present.
+ * Older publications (no readings, or an incomplete set) return null and keep
+ * rendering from the Case as before -- nothing is reconstructed for them.
+ * Only a quality-v3 publication qualifies: its readings are the set its score
+ * was verified against. A legacy-publication score was never checked against
+ * any readings, so readings stored beside it are not its history.
+ */
+function completeFrozenReadings(snapshot) {
+  if (snapshot?.scoreType !== 'quality-v3') return null;
+  const readings = compactReadings(snapshot?.readings);
+  if (!readings) return null;
+  return SCORED_READING_KEYS.every((key) => Number.isFinite(readings[key])) ? readings : null;
+}
+
+/**
+ * Put the frozen whole-house readings on the first tap and drop the live
+ * measurement layers from every tap. Room names, photos, and every other tap
+ * field are kept. Rooms other than the first carry no readings of their own,
+ * so the report shows the whole-house values for them (per-room history is
+ * not stored in the snapshot).
+ */
+function frozenTapData(tapData, readings) {
+  const taps = Array.isArray(tapData) && tapData.length ? tapData : [{}];
+  return taps.map((tap, index) => {
+    const { standardMeasurement, meterReadings, chlorineReadings, ...rest } = tap || {};
+    return index === 0 ? { ...rest, standardMeasurement: { ...readings } } : rest;
+  });
+}
+
+/** Live draft fields must not refill a reading the frozen set does not have. */
+function withoutReadingFields(fields) {
+  const next = { ...(fields || {}) };
+  DRAFT_READING_FIELD_KEYS.forEach((key) => { delete next[key]; });
+  return next;
+}
+
+/**
  * Overlay frozen publication score onto a Case job for public render.
  * Never uses mutable Latest Water Score for a ledger token.
  */
@@ -126,6 +169,11 @@ function applyPublicationToJob(job, publication) {
   next.result.publicationSource = 'ledger';
   if (snapshot.readings) {
     next.draft.scoreBaseReadings = { ...snapshot.readings };
+  }
+  const frozen = completeFrozenReadings(snapshot);
+  if (frozen) {
+    next.draft.tapData = frozenTapData(next.draft.tapData, frozen);
+    next.draft.fields = withoutReadingFields(next.draft.fields);
   }
   return next;
 }

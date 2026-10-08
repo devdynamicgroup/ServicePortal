@@ -16,7 +16,6 @@ const { buildReportUrl } = require('./url-builder');
 const { computeCanonicalScore } = require('./canonical-score');
 const {
   UNKNOWN,
-  compactReadings,
   buildSnapshot,
   applyPublicationToJob,
   minimalJobFromSnapshot
@@ -80,14 +79,6 @@ function normalizeIntent(value) {
 
 function normalizeCompliance(value) {
   return VALID_COMPLIANCE_STATUSES.includes(value) ? value : undefined;
-}
-
-function readingsFromJob(job) {
-  return compactReadings(
-    job?.draft?.scoreBaseReadings
-    || job?.result?.readings
-    || {}
-  );
 }
 
 function responseFromPublication(publication, extras = {}) {
@@ -200,7 +191,8 @@ async function freezeLegacyPointer(store, job, extras = {}) {
     reportUrl: job.result?.reportUrl || buildReportUrl(token),
     complianceStatus: job.result?.complianceStatus || null,
     resultSummary: job.result?.summary || `Water score ${Math.round(score)}/100`,
-    readings: readingsFromJob(job),
+    // No readings: a legacy score was never verified against any measurements,
+    // so the Case's current readings must not be stored as its history.
     idempotencyKey: `legacy-freeze:${job.notionId}:${token}`
   });
 }
@@ -335,7 +327,9 @@ async function createOrReusePublication({ job, payload = {}, caseId } = {}) {
     reportUrl: buildReportUrl(publicReportToken),
     complianceStatus: complianceStatus || null,
     resultSummary: payload.resultSummary || `Water score ${Math.round(score)}/100`,
-    readings: readingsFromJob(job),
+    // Freeze the exact readings the canonical score above was computed from,
+    // so the published score and the report's measurements stay one set.
+    readings: canonical.readings,
     idempotencyKey: idempotencyKey || `minted:${publicationId}`
   });
 
