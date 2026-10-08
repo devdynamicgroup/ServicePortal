@@ -534,6 +534,8 @@ async function closeCase(caseId, payload = {}) {
           score: closeScore,
           resultSummary: payload.resultSummary,
           complianceStatus: payload.complianceStatus,
+          scoreType: payload.scoreType,
+          standardKey: payload.standardKey,
           intent: 'publish',
           idempotencyKey: payload.idempotencyKey || payload.scoreIdempotencyKey
         },

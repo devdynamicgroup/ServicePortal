@@ -13,7 +13,7 @@ const { getClient, updateClient, findClientByReportToken } = require('./notion/c
 const { createNotionPublicationStore, isScorePublicationsConfigured } = require('./notion/score-publications');
 const { withPublicationStoreContract } = require('./publication-store');
 const { buildReportUrl } = require('./url-builder');
-const { computeCanonicalScore } = require('./canonical-score');
+const { computeCanonicalScore, computeCanonicalCountryScore, isCountryStandard } = require('./canonical-score');
 const {
   UNKNOWN,
   buildSnapshot,
@@ -24,6 +24,7 @@ const {
 const KNOWN_Q_V3_MODEL_VERSION = 'quality-v3.0';
 const VALID_COMPLIANCE_STATUSES = ['PASS', 'WARNING', 'FAIL'];
 const VALID_INTENTS = new Set(['publish', 'republish']);
+const COUNTRY_BENCHMARK = 'country-benchmark';
 
 let injectedStore = null;
 let caseAdapter = {
@@ -81,6 +82,37 @@ function normalizeCompliance(value) {
   return VALID_COMPLIANCE_STATUSES.includes(value) ? value : undefined;
 }
 
+/**
+ * What kind of score the caller wants published. Anything other than an
+ * explicit country-benchmark request is the existing Quality V3 publication,
+ * so older clients and payloads keep working unchanged.
+ */
+function resolveScoreRequest(payload = {}) {
+  if (String(payload.scoreType || '').trim() !== COUNTRY_BENCHMARK) {
+    return { country: false, standardKey: null };
+  }
+  const standardKey = String(payload.standardKey || '').trim();
+  if (!isCountryStandard(standardKey)) {
+    const error = new Error('Unknown benchmark standard');
+    error.statusCode = 400;
+    error.code = 'INVALID_STANDARD';
+    throw error;
+  }
+  return { country: true, standardKey };
+}
+
+/**
+ * An existing publication can stand in for a request only when it is the same
+ * kind of score. A country request is never answered with a Quality V3 or
+ * legacy publication, nor with another country's -- that needs a new record.
+ * Quality V3 requests keep the existing reuse semantics exactly.
+ */
+function publicationMatchesRequest(publication, request) {
+  if (!request.country) return true;
+  const snapshot = publication.snapshot || publication;
+  return snapshot.scoreType === COUNTRY_BENCHMARK && snapshot.standardKey === request.standardKey;
+}
+
 function responseFromPublication(publication, extras = {}) {
   const snapshot = publication.snapshot || publication;
   return {
@@ -92,6 +124,7 @@ function responseFromPublication(publication, extras = {}) {
     reportUrl: snapshot.reportUrl || buildReportUrl(snapshot.publicReportToken),
     publicationId: snapshot.publicationId,
     scoreType: snapshot.scoreType,
+    standardKey: snapshot.standardKey || null,
     modelVersion: snapshot.modelVersion,
     benchmarkVersion: snapshot.benchmarkVersion,
     publishedAt: snapshot.publishedAt,
@@ -207,9 +240,15 @@ async function createOrReusePublication({ job, payload = {}, caseId } = {}) {
     error.statusCode = 400;
     throw error;
   }
+  const request = resolveScoreRequest(payload);
   const intent = normalizeIntent(payload.intent);
-  const complianceStatus = normalizeCompliance(payload.complianceStatus);
-  const idempotencyKey = String(payload.idempotencyKey || '').trim();
+  // A country publication's compliance comes from the same engine run as its
+  // score (below), never from the client.
+  const complianceStatus = request.country ? undefined : normalizeCompliance(payload.complianceStatus);
+  // The standard is part of a country publication's identity: the same client
+  // key used for another standard is a different operation, not a replay.
+  const clientKey = String(payload.idempotencyKey || '').trim();
+  const idempotencyKey = request.country && clientKey ? `${clientKey}::${request.standardKey}` : clientKey;
   const store = getPublicationStore();
   const hasLedger = ledgerAvailable();
 
@@ -248,7 +287,7 @@ async function createOrReusePublication({ job, payload = {}, caseId } = {}) {
     && Number.isFinite(Number(rawWaterScore))
     && String(job.result?.publicReportToken || '').trim();
 
-  if (intent === 'publish' && latestLedger) {
+  if (intent === 'publish' && latestLedger && publicationMatchesRequest(latestLedger, request)) {
     if (casePointerMatchesPublication(job, latestLedger)) {
       return responseFromPublication(latestLedger, { caseId, reused: true, complianceStatus });
     }
@@ -271,7 +310,7 @@ async function createOrReusePublication({ job, payload = {}, caseId } = {}) {
   await store.ensureSchema();
   if (hasPointer && !latestLedger) {
     const legacyPublication = await freezeLegacyPointer(store, job, { caseId });
-    if (intent === 'publish' && legacyPublication) {
+    if (intent === 'publish' && legacyPublication && publicationMatchesRequest(legacyPublication, request)) {
       return responseFromPublication(legacyPublication, { caseId, reused: true, complianceStatus });
     }
   }
@@ -290,7 +329,12 @@ async function createOrReusePublication({ job, payload = {}, caseId } = {}) {
   // check -- skipping would let a client score publish unverified. A ready
   // client always has a non-null canonical score (readiness and Quality V3 use
   // the same six parameters), so this only rejects stale or forged submissions.
-  const canonical = computeCanonicalScore(job);
+  // A country-benchmark request is checked the same way against the selected
+  // country engine instead: its own availability (the engine's required
+  // parameters, not the Quality V3 six) and its own score.
+  const canonical = request.country
+    ? computeCanonicalCountryScore(job, request.standardKey)
+    : computeCanonicalScore(job);
   if (canonical.score === null) {
     const unavailableError = new Error(
       'Water score is unavailable for the current assessment. Refresh the score and try again.'
@@ -311,21 +355,28 @@ async function createOrReusePublication({ job, payload = {}, caseId } = {}) {
   const publicReportToken = await mintUniqueToken(store);
   const publicationId = newPublicationId();
   const publishedAt = new Date().toISOString();
-  const scoreType = 'quality-v3';
-  const modelVersion = String(payload.modelVersion || KNOWN_Q_V3_MODEL_VERSION).trim() || KNOWN_Q_V3_MODEL_VERSION;
-  const benchmarkVersion = String(payload.benchmarkVersion || '').trim() || UNKNOWN;
+  const scoreType = request.country ? COUNTRY_BENCHMARK : 'quality-v3';
+  const modelVersion = request.country
+    ? canonical.benchmarkVersion
+    : (String(payload.modelVersion || KNOWN_Q_V3_MODEL_VERSION).trim() || KNOWN_Q_V3_MODEL_VERSION);
+  const benchmarkVersion = request.country
+    ? canonical.benchmarkVersion
+    : (String(payload.benchmarkVersion || '').trim() || UNKNOWN);
+  const publishedCompliance = request.country ? canonical.complianceStatus : (complianceStatus || null);
   const created = await createLedgerRecord(store, {
     publicationId,
     clientPageId: job.notionId,
     caseId: caseId || job.id,
     publishedScore: Math.round(score),
     scoreType,
+    standardKey: request.standardKey,
+    scorePayload: request.country ? { standardKey: request.standardKey, classifications: canonical.classifications } : undefined,
     modelVersion,
     benchmarkVersion,
     publishedAt,
     publicReportToken,
     reportUrl: buildReportUrl(publicReportToken),
-    complianceStatus: complianceStatus || null,
+    complianceStatus: publishedCompliance,
     resultSummary: payload.resultSummary || `Water score ${Math.round(score)}/100`,
     // Freeze the exact readings the canonical score above was computed from,
     // so the published score and the report's measurements stay one set.

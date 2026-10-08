@@ -6,9 +6,16 @@ const { buildReportUrl } = require('./url-builder');
 
 const SNAPSHOT_SCHEMA_VERSION = 1;
 const UNKNOWN = 'UNKNOWN';
-const SCORE_TYPES = Object.freeze(['quality-v3', 'legacy-publication']);
+const SCORE_TYPES = Object.freeze(['quality-v3', 'legacy-publication', 'country-benchmark']);
 const READING_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp']);
 const SCORED_READING_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do']);
+// A frozen set is usable when it holds every reading its score needed: all six
+// for Quality V3; for a country benchmark, the four every engine requires
+// (chlorine and DO are optional there, exactly as the engines treat them).
+const FROZEN_REQUIRED_KEYS = Object.freeze({
+  'quality-v3': SCORED_READING_KEYS,
+  'country-benchmark': Object.freeze(['ph', 'tds', 'turbidity', 'orp'])
+});
 // Every draft.fields key the report's reading resolver falls back to.
 const DRAFT_READING_FIELD_KEYS = Object.freeze([
   'm-ph', 'ph', 'm-tds', 'tds', 'm-free-cl', 'freeChlorine', 'chlorine',
@@ -63,6 +70,13 @@ function buildSnapshot(input = {}) {
     readings: compactReadings(input.readings)
   };
   if (snapshot.readings === undefined) delete snapshot.readings;
+  if (scoreType === 'country-benchmark') {
+    const standardKey = String(input.standardKey || '').trim();
+    if (!standardKey) {
+      throw new Error('Country benchmark publication snapshot requires standardKey');
+    }
+    snapshot.standardKey = standardKey;
+  }
   if (input.scorePayload && typeof input.scorePayload === 'object') {
     snapshot.scorePayload = input.scorePayload;
   }
@@ -109,15 +123,16 @@ function joinRichTextSegments(segments) {
  * Frozen readings are only applied when all six scored parameters are present.
  * Older publications (no readings, or an incomplete set) return null and keep
  * rendering from the Case as before -- nothing is reconstructed for them.
- * Only a quality-v3 publication qualifies: its readings are the set its score
- * was verified against. A legacy-publication score was never checked against
- * any readings, so readings stored beside it are not its history.
+ * Only publications whose score was verified against their readings qualify
+ * (quality-v3, country-benchmark). A legacy-publication score was never checked
+ * against any readings, so readings stored beside it are not its history.
  */
 function completeFrozenReadings(snapshot) {
-  if (snapshot?.scoreType !== 'quality-v3') return null;
+  const required = FROZEN_REQUIRED_KEYS[snapshot?.scoreType];
+  if (!required) return null;
   const readings = compactReadings(snapshot?.readings);
   if (!readings) return null;
-  return SCORED_READING_KEYS.every((key) => Number.isFinite(readings[key])) ? readings : null;
+  return required.every((key) => Number.isFinite(readings[key])) ? readings : null;
 }
 
 /**
@@ -163,6 +178,7 @@ function applyPublicationToJob(job, publication) {
   next.result.reportUrl = snapshot.reportUrl || buildReportUrl(snapshot.publicReportToken);
   next.result.publicationId = snapshot.publicationId;
   next.result.scoreType = snapshot.scoreType;
+  if (snapshot.standardKey) next.result.standardKey = snapshot.standardKey;
   next.result.modelVersion = snapshot.modelVersion;
   next.result.benchmarkVersion = snapshot.benchmarkVersion;
   next.result.publishedAt = snapshot.publishedAt;

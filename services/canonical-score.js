@@ -34,6 +34,11 @@ const SOURCE_FILES = [
   'src/js/score/production/computeProductionScore.js',
   'src/js/score/production/computeQualityScoreV2.js',
   'src/js/score/validation/measurementValidator.js',
+  // Country benchmark engines: the same registry and engine files the browser
+  // loads, so a country score is verified by the engine that produced it.
+  'src/js/score/benchmark/registry.js',
+  ...['thailand', 'who', 'eu', 'japan', 'usEpa'].flatMap((key) =>
+    ['limits', 'weights', 'score'].map((file) => `src/js/score/benchmark/${key}/${file}.js`)),
   'src/js/flows/score.js'
 ];
 
@@ -85,4 +90,38 @@ function computeCanonicalScore(job) {
   };
 }
 
-module.exports = { computeCanonicalScore };
+/** True when `standardKey` names a registered country benchmark engine. */
+function isCountryStandard(standardKey) {
+  if (typeof standardKey !== 'string' || !standardKey) return false;
+  return Boolean(getSandbox().WaterScoreBenchmarkRegistry?.has?.(standardKey));
+}
+
+/**
+ * Canonical country benchmark score for a Case's CURRENT persisted readings,
+ * computed by the registered engine for `standardKey` (the browser's own
+ * WaterScoreBenchmarkRegistry -- no formula lives here). Returns null for an
+ * unknown standard. `score` is null when the engine cannot score the readings
+ * (its own required parameters are missing).
+ *
+ * `complianceStatus` is that same engine's worst parameter classification
+ * (PASS / WARNING / FAIL / CRITICAL), so the score and its compliance always
+ * come from one engine run.
+ */
+function computeCanonicalCountryScore(job, standardKey) {
+  if (!isCountryStandard(standardKey)) return null;
+  const sandbox = getSandbox();
+  const readings = sandbox.resolveScoreReadings(job);
+  const result = sandbox.WaterScoreBenchmarkRegistry.calculate(standardKey, readings);
+  const score = Number.isFinite(result?.score) ? result.score : null;
+  const classifications = JSON.parse(JSON.stringify(result?.classifications || {}));
+  return {
+    standardKey,
+    score,
+    readings,
+    classifications,
+    complianceStatus: score === null ? null : sandbox.worstBenchmarkClassification(classifications),
+    benchmarkVersion: result?.modelVersion || `${standardKey}-${result?.engineVersion || 'unknown'}`
+  };
+}
+
+module.exports = { computeCanonicalScore, computeCanonicalCountryScore, isCountryStandard };

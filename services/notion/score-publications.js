@@ -37,7 +37,7 @@ const SCHEMA = [
   {
     key: 'scoreType',
     name: 'Score Type',
-    schema: { select: { options: [{ name: 'quality-v3' }, { name: 'legacy-publication' }] } },
+    schema: { select: { options: [{ name: 'quality-v3' }, { name: 'legacy-publication' }, { name: 'country-benchmark' }] } },
     required: true
   },
   { key: 'modelVersion', name: 'Model Version', schema: { rich_text: {} }, required: false },
