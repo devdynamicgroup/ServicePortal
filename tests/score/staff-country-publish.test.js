@@ -151,6 +151,51 @@ function openStaffSession(caseId, { readings = READINGS, standardKey = 'thailand
   };
 }
 
+/** The customer's browser opening a report the server resolved for a token. */
+function openCustomerReport(report) {
+  const nodes = {};
+  const node = (id) => {
+    if (id && nodes[id]) return nodes[id];
+    const el = {
+      id, hidden: true, textContent: '', innerHTML: '', className: '', dataset: {}, disabled: false,
+      style: { setProperty() {} },
+      classList: { toggle() {}, add() {}, remove() {}, contains() { return false; } },
+      setAttribute() {}, removeAttribute() {}, querySelector() { return null; }, querySelectorAll() { return []; },
+      replaceChildren() {}, appendChild() {}, addEventListener() {}, children: [], childNodes: []
+    };
+    if (id) nodes[id] = el;
+    return el;
+  };
+  const sandbox = {
+    console: { log() {}, warn() {}, error() {}, info() {} },
+    setTimeout, clearTimeout,
+    performance: { now: () => 0 },
+    requestAnimationFrame: () => 0,
+    localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+    navigator: { userAgent: 'node' },
+    document: { readyState: 'loading', addEventListener() {}, getElementById: (id) => node(id), querySelector: () => node(), querySelectorAll: () => [], createElement: () => node(), body: { appendChild() {}, classList: { add() {} } } },
+    S: {
+      lang: 'en', screen: 's-score', scoreStandardKey: 'thailand', activeJob: report, scoreBaseReadings: null, scoreVal: null,
+      currentScoreResult: null, comparisonScoreResult: null, displayedScore: null, scoreParamOpen: null,
+      publicScoreView: true, taps: report.draft.taps || ['Tap 1'], tapData: [], scoreTapFilter: 'all', lastReadingsValidation: null
+    }
+  };
+  sandbox.window = sandbox;
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  FILES.filter((rel) => rel !== 'src/js/common.js').forEach((rel) => vm.runInContext(fs.readFileSync(path.join(root, rel), 'utf8'), sandbox, { filename: rel }));
+  // Same order as src/js/public-report.js: default standard first, then render.
+  sandbox.S.scoreStandardKey = 'thailand';
+  sandbox.renderWaterScore(report, { publicView: true });
+  return {
+    sandbox,
+    shown: () => sandbox.S.displayedScore.score,
+    select: () => node('score-standard-select-top'),
+    line: () => node('score-customer-line'),
+    note: () => node('score-summary-note')
+  };
+}
+
 function resetServer() {
   serverCases.clear();
   store = createMemoryPublicationStore();
@@ -315,6 +360,52 @@ async function main() {
     assert(request.standardKey === 'usEpa' && request.score === EXPECTED.usEpa, 'another Case uses its own saved standard, not the active screen selection');
     const unknown = staff.sandbox.resolvePublishScoreRequest({ id: 'x', notionId: 'x', draft: { scoreStandardKey: 'Japan', fields: {}, tapData: [{ standardMeasurement: { ...READINGS } }] }, result: {} });
     assert(unknown.standardKey === 'thailand', 'a display label is never sent as a key (falls back to the default standard)');
+  }
+
+  console.log('\nCustomer: the published score, under the published standard');
+  resetServer();
+  {
+    const staff = openStaffSession('case-customer', { standardKey: 'japan' });
+    await staff.sandbox.shareScore();
+    const japanToken = latestRow().publicReportToken;
+    const japanStaff = staff.shown();
+
+    // The Case is edited and re-published under Thailand afterwards.
+    staff.select('thailand');
+    await staff.sandbox.shareScore();
+    const thaiToken = latestRow().publicReportToken;
+    const thaiStaff = staff.shown();
+    staff.job.draft.tapData[0].standardMeasurement.chlorine = 0.35;
+    serverCases.get('case-customer').draft = clone(staff.job.draft);
+
+    const japan = openCustomerReport(await resolveReportByToken(japanToken));
+    assert(japanStaff === EXPECTED.japan && japan.shown() === EXPECTED.japan, `Japan: staff ${japanStaff} === customer ${japan.shown()}`);
+    assert(japan.sandbox.S.displayedScore.source === 'published', 'customer number is the published score, not a live calculation');
+    assert(japan.sandbox.S.scoreStandardKey === 'japan', 'customer report is on the Japan standard');
+    assert(japan.select().disabled === true && /value="japan" selected/.test(japan.select().innerHTML), 'the Benchmark control shows Japan and is locked');
+    assert(japan.sandbox.resolveScoreReadings(japan.sandbox.S.activeJob).chlorine === READINGS.chlorine, 'rows use the readings frozen at publish, not the later edit');
+    for (const key of ENGINE_KEYS) japan.sandbox.setScoreReferenceStandard(key);
+    assert(japan.shown() === EXPECTED.japan && japan.sandbox.S.scoreStandardKey === 'japan', `trying to switch standard changes nothing (still Japan ${japan.shown()})`);
+    assert(japan.line().hidden === true, 'no staff-only line on the customer report');
+
+    const thai = openCustomerReport(await resolveReportByToken(thaiToken));
+    assert(thaiStaff === EXPECTED.thailand && thai.shown() === EXPECTED.thailand && thai.sandbox.S.scoreStandardKey === 'thailand', `Thailand: staff ${thaiStaff} === customer ${thai.shown()} on the Thailand standard`);
+    const japanAgain = openCustomerReport(await resolveReportByToken(japanToken));
+    assert(japanAgain.shown() === EXPECTED.japan && japanAgain.sandbox.S.scoreStandardKey === 'japan', `the old Japan link is still Japan ${japanAgain.shown()}`);
+
+    const band = (page) => page.note().textContent;
+    assert(japan.sandbox.S.currentScoreResult.complianceStatus === 'CRITICAL', "compliance on the report is the Japan engine's (CRITICAL)");
+    assert(band(japan) === 'Quality index is not a safety clearance — one or more compliance checks failed.', `CRITICAL shows the existing failed-compliance note ("${band(japan)}")`);
+  }
+
+  console.log('\nCustomer: an existing Quality V3 publication is unchanged');
+  resetServer();
+  {
+    serverCases.set('case-old', { id: 'case-old', notionId: 'case-old', pkg: 'full', draft: { taps: ['Tap 1'], fields: {}, tapData: [{ standardMeasurement: { ...READINGS } }] }, result: {} });
+    const old = await createOrReusePublication({ job: clone(serverCases.get('case-old')), caseId: 'case-old', payload: { score: EXPECTED.quality, intent: 'publish', complianceStatus: 'FAIL' } });
+    const page = openCustomerReport(await resolveReportByToken(old.reportToken));
+    assert(page.shown() === EXPECTED.quality && page.sandbox.S.displayedScore.source === 'published', `shows the published Quality V3 ${page.shown()}`);
+    assert(page.select().disabled === false && page.sandbox.S.scoreStandardKey === 'thailand', 'its Benchmark control behaves as before');
   }
 
   resetPublicationDependencies();

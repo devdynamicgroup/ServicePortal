@@ -68,8 +68,11 @@ function customerVerdictForEngine(wq, engineKey) {
  */
 function qualityPublishPresentation(wq, complianceStatus) {
   const status = String(complianceStatus || '').toUpperCase();
-  const complianceOverride = status === 'FAIL' || status === 'WARNING';
-  const complianceOverrideKind = status === 'FAIL' ? 'FAIL' : (status === 'WARNING' ? 'WARNING' : null);
+  // A country publication's compliance can be CRITICAL; it is the same customer
+  // bucket as FAIL (Attention), so it takes the same failed-compliance note.
+  const failed = status === 'FAIL' || status === 'CRITICAL';
+  const complianceOverride = failed || status === 'WARNING';
+  const complianceOverrideKind = failed ? 'FAIL' : (status === 'WARNING' ? 'WARNING' : null);
   return { ...customerVerdict(wq), complianceOverride, complianceOverrideKind };
 }
 
@@ -537,6 +540,17 @@ function orderedStandardsForSelect() {
 }
 
 /** Spec shows the same Benchmark filter twice (hero + content) -- keep both in sync. */
+/**
+ * On the customer report of a country-benchmark publication, the standard the
+ * score was published under. The report stays on it: the published number
+ * belongs to that standard alone. Null everywhere else.
+ */
+function publishedReportStandardKey(job = S.activeJob) {
+  if (!S.publicScoreView || job?.result?.scoreType !== 'country-benchmark') return null;
+  const key = job.result.standardKey;
+  return benchmarkRegistry()?.has?.(key) ? key : null;
+}
+
 function renderStandardSelect(context = getScoreEvalContext()) {
   const selected = context.selectedStandard;
   const order = orderedStandardsForSelect();
@@ -549,6 +563,8 @@ function renderStandardSelect(context = getScoreEvalContext()) {
     if (!selectEl) return;
     selectEl.innerHTML = optionsHtml;
     selectEl.onchange = () => setScoreReferenceStandard(selectEl.value);
+    // Shows which standard the published score is for; not switchable there.
+    selectEl.disabled = Boolean(publishedReportStandardKey());
   });
 }
 
@@ -736,6 +752,8 @@ function renderScoreDisplay() {
 
 /** Switch comparison standard — recalculates statuses from the same resolved readings. */
 function setScoreReferenceStandard(standardKey) {
+  // A published country-benchmark report cannot be re-scored under another standard.
+  if (publishedReportStandardKey()) return;
   const key = benchmarkRegistry()?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const readings = resolveScoreReadings(S.activeJob);
   const computedScore = computeScoreFromReadings(readings);
@@ -1062,6 +1080,11 @@ function renderWaterScore(job, options = {}) {
   const draft = job?.draft || {};
   if (!publicView && benchmarkRegistry()?.has?.(draft.scoreStandardKey)) {
     S.scoreStandardKey = draft.scoreStandardKey;
+  }
+  // Customer report of a country-benchmark publication: its rows and standard
+  // name follow the standard the score was published under.
+  if (publicView && job?.result?.scoreType === 'country-benchmark' && benchmarkRegistry()?.has?.(job.result.standardKey)) {
+    S.scoreStandardKey = job.result.standardKey;
   }
   // Always resolve from tapData / fields / DOM — do not trust stale score-only cache.
   const readings = resolveScoreReadings(job);
