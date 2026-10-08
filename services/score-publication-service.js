@@ -293,10 +293,21 @@ async function createOrReusePublication({ job, payload = {}, caseId } = {}) {
   // than silently correcting -- a mismatch means the client submitted a
   // stale or otherwise wrong value, and the caller must refresh and retry
   // rather than have a different number silently published on their
-  // behalf. canonical.score === null (incomplete readings) is not treated
-  // as a mismatch -- that case is already blocked upstream by eligibility.
+  // behalf. D2 (2026-10-06): a null canonical score means the Case has no
+  // complete six-parameter reading set, so it must REJECT rather than skip the
+  // check -- skipping would let a client score publish unverified. A ready
+  // client always has a non-null canonical score (readiness and Quality V3 use
+  // the same six parameters), so this only rejects stale or forged submissions.
   const canonical = computeCanonicalScore(job);
-  if (canonical.score !== null && Math.round(canonical.score) !== Math.round(score)) {
+  if (canonical.score === null) {
+    const unavailableError = new Error(
+      'Water score is unavailable for the current assessment. Refresh the score and try again.'
+    );
+    unavailableError.statusCode = 409;
+    unavailableError.code = 'SCORE_UNAVAILABLE';
+    throw unavailableError;
+  }
+  if (Math.round(canonical.score) !== Math.round(score)) {
     const mismatchError = new Error(
       'Submitted score no longer matches the current assessment. Refresh the score and try again.'
     );
