@@ -314,6 +314,26 @@ function resolveDisplayedScore({
   };
 }
 
+/**
+ * Staff-only secondary line under the primary Quality number: the selected
+ * country engine's own score ("Japan Benchmark 51"). Never shown on the
+ * customer report, never the primary number.
+ */
+function renderBenchmarkLine(comparison) {
+  const line = document.getElementById('score-benchmark-line');
+  if (!line) return;
+  const score = comparison ? comparison.score : null;
+  if (S.publicScoreView || score === null || score === undefined || !Number.isFinite(Number(score))) {
+    line.hidden = true;
+    line.textContent = '';
+    return;
+  }
+  // Same short standard name the Benchmark selector shows.
+  const name = comparison.standard?.shortKey ? t(comparison.standard.shortKey) : (comparison.engine || '');
+  line.textContent = t('score.benchmark.row').replace('{name}', name).replace('{score}', String(score));
+  line.hidden = false;
+}
+
 function scoreBarColorForScore(wq, verdict = null) {
   if (verdict?.color) return verdict.color;
   if (verdict?.tier && SCORE_BAR_COLORS[verdict.tier]) return SCORE_BAR_COLORS[verdict.tier];
@@ -613,6 +633,7 @@ function renderScoreDisplay() {
     complianceEl.hidden = true;
     delete complianceEl.dataset.status;
   }
+  renderBenchmarkLine(displayed.comparison);
 
   // "Incomplete" (static, no shimmer) vs "loading" (spinner, actively
   // capturing) — genuinely distinct states (2026-08-17 fix). ocrBusy means a
