@@ -1435,7 +1435,7 @@ button.score-metric-row:active{background:#faf9f8}
   .score-metric-list{
     display:grid;
     /* Edge tracks carry the row padding + item border, which a subgrid takes out of them. */
-    grid-template-columns:minmax(calc(3.75rem + 7px),1fr) minmax(0,auto) auto fit-content(5.25rem) 27px;
+    grid-template-columns:minmax(calc(3.75rem + 7px),1fr) minmax(0,auto) auto fit-content(5.75rem) 27px;
     column-gap:8px;
     row-gap:8px;
   }
@@ -1448,13 +1448,15 @@ button.score-metric-row:active{background:#faf9f8}
   }
   .score-metric-detail{grid-column:1 / -1}
   .score-metric-range{text-align:right}
-  .score-metric-status{justify-content:flex-start;white-space:normal;line-height:1.25}
-  .score-metric-status .score-dot{flex:0 0 auto}
+  /* The status sits a little clear of the value; the track is 8px wider to pay for it.
+     Dot and label start on the first line, so a wrapped label lines up with the rest. */
+  .score-metric-status{justify-content:flex-start;align-items:flex-start;white-space:normal;line-height:1.25;margin-left:8px}
+  .score-metric-status .score-dot{flex:0 0 auto;margin-top:calc((1.25em - 6px) / 2)}
   @media (max-width:414px){
-    .score-metric-list{grid-template-columns:minmax(calc(3.75rem + 13px),1fr) minmax(0,auto) auto fit-content(5.25rem) 27px}
+    .score-metric-list{grid-template-columns:minmax(calc(3.75rem + 13px),1fr) minmax(0,auto) auto fit-content(5.75rem) 27px}
   }
   @media (max-width:340px){
-    .score-metric-list{grid-template-columns:minmax(calc(3.6rem + 11px),1fr) minmax(0,auto) auto fit-content(5.25rem) 23px;column-gap:6px}
+    .score-metric-list{grid-template-columns:minmax(calc(3.6rem + 11px),1fr) minmax(0,auto) auto fit-content(5.75rem) 23px;column-gap:6px}
   }
 }
 .score-readings-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-size:14px}
