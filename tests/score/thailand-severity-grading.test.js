@@ -93,7 +93,7 @@ const KEYS = ['thailand', 'japan', 'who', 'eu', 'usEpa'];
 
 function th(r) { return sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', r); }
 function displayed(r, key) {
-  return sandbox.resolveDisplayedScore({ readings: r, standardKey: key, publicView: false, publishedScore: sandbox.computeQualityScoreDetail(r).score });
+  return sandbox.resolveDisplayedScore({ readings: r, standardKey: key, publicView: false });
 }
 
 function trace(raw, country) {
@@ -112,7 +112,7 @@ function trace(raw, country) {
   return {
     raw, mapped, after, validation: validation.status,
     grades: eng.params, postRound: eng.score,
-    displayed: disp.comparison.score, engineKey: disp.comparison.engineKey, source: disp.source,
+    displayed: disp.score, engineKey: disp.engineKey, source: disp.source,
     doClass: eng.classifications?.do
   };
 }
@@ -175,7 +175,7 @@ console.log('\nDIFF pipeline retrace (RAW === engine input)');
   // classification CRITICAL applies its cap (60, no-op here since raw 61 is
   // already below it) and its guaranteed minimum deduction (10): 61-10=51.
   assert(t.postRound === 51, `DIFF TH score 51 (got ${t.postRound})`);
-  assert(t.displayed === 51 && t.engineKey === 'thailand' && t.source === 'quality-v3',
+  assert(t.displayed === 51 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
     'DIFF Hero = Thailand 51');
   const jp = trace(DIFF, 'japan');
   // Raw base for DIFF is 61, already below Japan's 60 CRITICAL ceiling, so

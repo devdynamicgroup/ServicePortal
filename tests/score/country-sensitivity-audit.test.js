@@ -98,7 +98,7 @@ function grade(key, param, value) {
   return bench(key, { ...IDEAL, [param]: value }).params?.[param];
 }
 function displayed(r, key) {
-  return sandbox.resolveDisplayedScore({ readings: r, standardKey: key, publicView: false, publishedScore: sandbox.computeQualityScoreDetail(r).score });
+  return sandbox.resolveDisplayedScore({ readings: r, standardKey: key, publicView: false });
 }
 function byId(id) {
   return registry.constants.find((c) => c.id === id);
@@ -288,14 +288,14 @@ console.log('\nRAW vs engine input + Hero path (DIFF)');
   // now exceed Thailand's own corrected bounds (DOH 2020 TDS≤500 / MWA
   // turbidity≤1.0) too — CRITICAL classification + guaranteed deduction
   // takes shared raw base 61 down to 51 for Thailand's own Hero path.
-  assert(th.score === 51 && cmp.score === 51 && disp.comparison.score === 51,
+  assert(th.score === 51 && cmp.score === 51 && disp.score === 51,
     'engine === comparison === displayed = 51');
-  assert(disp.comparison.engineKey === 'thailand' && disp.source === 'quality-v3', 'Hero country-benchmark');
+  assert(disp.engineKey === 'thailand' && disp.source === 'country-benchmark', 'Hero country-benchmark');
   const q = sandbox.computeQualityScoreDetail(v.measurements).score;
   // Quality V3 (61) now diverges from Thailand's Hero score (51) — Quality
   // V3 has no country-specific severity cap, so this is a clean isolation
   // proof: the two are computed via genuinely separate functions/paths.
-  assert(q === 61 && q !== disp.comparison.score, `Q-V3 ${q} diverges from Hero ${disp.comparison.score} (Thailand's own severity cap now binds)`);
+  assert(q === 61 && q !== disp.score, `Q-V3 ${q} diverges from Hero ${disp.score} (Thailand's own severity cap now binds)`);
 }
 
 console.log('\nCountry switch TH→JP→EU→WHO→EPA→TH (no stale cache)');
@@ -325,12 +325,12 @@ console.log('\nCountry switch TH→JP→EU→WHO→EPA→TH (no stale cache)');
     sandbox.setScoreReferenceStandard(key);
     const out = sandbox.S.displayedScore;
     const eng = bench(key, DIFF);
-    assert(out.comparison.engineKey === key, `switch ${key} engineKey`);
-    assert(out.comparison.score === eng.score, `switch ${key} Hero ${out.comparison.score} === engine ${eng.score}`);
+    assert(out.engineKey === key, `switch ${key} engineKey`);
+    assert(out.score === eng.score, `switch ${key} Hero ${out.score} === engine ${eng.score}`);
     assert(sandbox.S.scoreVal === 61, `switch ${key} S.scoreVal stays Q-V3 61`);
     assert(sandbox.S.currentScoreResult?.standardKey === 'quality-v3',
       `switch ${key} publish channel stays quality-v3`);
-    hero.push(out.comparison.score);
+    hero.push(out.score);
   }
   assert(hero[0] === hero[5], `first TH ${hero[0]} === last TH ${hero[5]}`);
   console.log('  hero sequence', hero);
@@ -432,8 +432,8 @@ console.log('\nDIFF live path TH — RAW→grade→round→Hero (no Q-V3 overwri
     'DIFF TH TDS/turb/Cl grades leave 100');
   // 2026-08-19 (PO-approved, evidence-based): Thailand's own CRITICAL cap
   // now binds DIFF too (raw 61 - guaranteed deduction 10 = 51).
-  assert(p.eng.score === 51 && p.disp.comparison.score === 51 && p.disp.comparison.engineKey === 'thailand',
-    `DIFF Hero ${p.disp.comparison.score} === engine 51`);
+  assert(p.eng.score === 51 && p.disp.score === 51 && p.disp.engineKey === 'thailand',
+    `DIFF Hero ${p.disp.score} === engine 51`);
   assert(p.q.score === 61, `DIFF Q-V3 isolated 61 (got ${p.q.score})`);
 }
 

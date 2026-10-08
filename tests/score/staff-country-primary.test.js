@@ -1,13 +1,13 @@
 /**
  * Staff Score screen shows two separate values:
- *   primary   -> Quality V3 (never changes with the selected country)
- *   secondary -> the selected country engine's own benchmark score
- * The customer report never shows the benchmark line.
+ *   primary   -> the selected country engine's benchmark score (changes with the country)
+ *   secondary -> the Water Score the customer sees (Quality V3 / published; never changes with the country)
+ * The customer report shows the published score only, with no secondary line.
  *
  * Loads the real i18n, engine files, and src/js/flows/score.js into one vm
  * sandbox and drives the real render entry points.
  *
- * Run: node tests/score/staff-benchmark-line.test.js
+ * Run: node tests/score/staff-country-primary.test.js
  */
 const fs = require('fs');
 const path = require('path');
@@ -64,7 +64,7 @@ function openScreen(lang = 'en') {
   sandbox.window = sandbox;
   vm.createContext(sandbox);
   FILES.forEach((rel) => vm.runInContext(fs.readFileSync(path.join(root, rel), 'utf8'), sandbox, { filename: rel }));
-  sandbox.line = () => node('score-benchmark-line');
+  sandbox.line = () => node('score-customer-line');
   return sandbox;
 }
 
@@ -75,9 +75,9 @@ const makeCase = (readings, standardKey, result = {}) => ({
   result
 });
 
-function staffScreen(readings, standardKey, lang) {
+function staffScreen(readings, standardKey, { lang, result } = {}) {
   const page = openScreen(lang);
-  const job = makeCase(readings, standardKey);
+  const job = makeCase(readings, standardKey, result);
   page.S.activeJob = job;
   page.renderWaterScore(job, { publicView: false });
   return page;
@@ -86,7 +86,6 @@ function staffScreen(readings, standardKey, lang) {
 // Known input: readings where the five engines disagree (Japan strictest).
 const READINGS = { ph: 7.6, tds: 102, chlorine: 0.02, turbidity: 0.7, orp: 174, do: 5.7, temp: 27.3 };
 const EXPECTED = { quality: 64, thailand: 54, japan: 51, who: 54, eu: 54, usEpa: 57 };
-const SHORT_EN = { thailand: 'Thai', japan: 'Japan', who: 'WHO', eu: 'EU', usEpa: 'US' };
 
 const reference = openScreen();
 const engineScore = (key) => reference.WaterScoreBenchmarkRegistry.calculate(key, READINGS).score;
@@ -96,27 +95,40 @@ assert(reference.computeQualityScoreDetail(READINGS).score === EXPECTED.quality,
 ENGINE_KEYS.forEach((key) => assert(engineScore(key) === EXPECTED[key], `${key} engine scores ${EXPECTED[key]} (got ${engineScore(key)})`));
 assert(ENGINE_KEYS.every((key) => EXPECTED.japan <= EXPECTED[key]) && EXPECTED.japan < EXPECTED.usEpa, 'Japan is the lowest benchmark for this water');
 
-console.log('\n1 + 2. Primary Quality V3 is stable; the benchmark line follows the selected engine');
+console.log('\n1. Staff primary is the selected country engine; the customer line stays on Quality V3');
 ENGINE_KEYS.forEach((key) => {
   const page = staffScreen(READINGS, key);
-  assert(page.S.displayedScore.score === EXPECTED.quality && page.S.displayedScore.source === 'quality-v3', `${key}: primary is Quality V3 ${EXPECTED.quality}`);
-  assert(page.line().hidden === false, `${key}: benchmark line is visible on the staff screen`);
-  assert(page.line().textContent === `${SHORT_EN[key]} Benchmark: ${engineScore(key)}`, `${key}: line reads "${page.line().textContent}"`);
-  assert(page.S.displayedScore.comparison.engineKey === key, `${key}: the number comes from the ${key} engine`);
+  assert(page.S.displayedScore.source === 'country-benchmark' && page.S.displayedScore.engineKey === key, `${key}: primary comes from the ${key} engine`);
+  assert(page.S.displayedScore.score === engineScore(key), `${key}: primary is ${engineScore(key)}`);
+  assert(page.line().hidden === false && page.line().textContent === `Customer Water Score: ${EXPECTED.quality}`, `${key}: line reads "${page.line().textContent}"`);
+  assert(page.S.scoreVal === EXPECTED.quality, `${key}: the score sent on publish/share is still Quality V3 ${EXPECTED.quality}`);
 });
 
-console.log('\n3. Switching Japan -> US -> Thailand never overwrites the primary');
+console.log('\n2. Switching Japan -> US -> Thailand changes the primary, never the customer score');
 {
   const page = staffScreen(READINGS, 'japan');
-  const seen = [];
+  const primaries = [];
   ['japan', 'usEpa', 'thailand'].forEach((key) => {
     page.setScoreReferenceStandard(key);
-    seen.push(page.line().textContent);
-    assert(page.S.displayedScore.score === EXPECTED.quality, `after selecting ${key}: primary still ${EXPECTED.quality}`);
-    assert(page.S.scoreVal === EXPECTED.quality, `after selecting ${key}: score used for publish/share still ${EXPECTED.quality}`);
-    assert(page.line().textContent === `${SHORT_EN[key]} Benchmark: ${EXPECTED[key]}`, `after selecting ${key}: line reads "${page.line().textContent}"`);
+    primaries.push(page.S.displayedScore.score);
+    assert(page.S.displayedScore.score === EXPECTED[key], `after selecting ${key}: primary is ${EXPECTED[key]}`);
+    assert(page.line().textContent === `Customer Water Score: ${EXPECTED.quality}`, `after selecting ${key}: customer line still ${EXPECTED.quality}`);
+    assert(page.S.scoreVal === EXPECTED.quality && page.S.currentScoreResult.score === EXPECTED.quality, `after selecting ${key}: publish score still ${EXPECTED.quality}`);
   });
-  assert(new Set(seen).size === 3, `the line changed on every switch (${seen.join(' | ')})`);
+  assert(new Set(primaries).size === 3, `the primary changed on every switch (${primaries.join(', ')})`);
+}
+
+console.log('\n3. Once published, the line shows what the customer actually has');
+{
+  const page = staffScreen(READINGS, 'japan', { result: { waterScore: 91, publicReportToken: 'rpt' } });
+  assert(page.S.currentScoreResult.score === EXPECTED.quality, `live Quality V3 is ${EXPECTED.quality}`);
+  assert(page.line().textContent === 'Customer Water Score: 91', `line shows the published 91, not the live ${EXPECTED.quality} ("${page.line().textContent}")`);
+  page.setScoreReferenceStandard('usEpa');
+  assert(page.line().textContent === 'Customer Water Score: 91', 'switching country does not change the published number');
+  const zero = staffScreen(READINGS, 'japan', { result: { waterScore: 0, publicReportToken: 'rpt' } });
+  assert(zero.line().textContent === 'Customer Water Score: 0', 'a published score of 0 is shown as 0');
+  const unpublished = staffScreen(READINGS, 'japan', { result: { waterScore: null, publicReportToken: 'rpt' } });
+  assert(unpublished.line().textContent === `Customer Water Score: ${EXPECTED.quality}`, 'a null pointer is not read as a published 0');
 }
 
 console.log('\n4. Customer report is unaffected');
@@ -127,31 +139,28 @@ console.log('\n4. Customer report is unaffected');
   page.S.activeJob = report;
   page.renderWaterScore(report, { publicView: true });
   assert(page.S.displayedScore.source === 'published' && page.S.displayedScore.score === 64, 'customer primary is the published score');
-  assert(page.line().hidden === true && page.line().textContent === '', 'no benchmark line on first load');
-  ENGINE_KEYS.forEach((key) => {
-    page.setScoreReferenceStandard(key);
-    assert(page.line().hidden === true && page.line().textContent === '', `no benchmark line after the customer selects ${key}`);
-  });
-  assert(page.S.displayedScore.score === 64 && page.S.displayedScore.source === 'published', 'published score unchanged after switching');
+  assert(page.line().hidden === true && page.line().textContent === '', 'no secondary line on the customer report');
 }
 
-console.log('\nLabel comes from the existing standard names, in both languages');
+console.log('\n5. No customer score yet -> no line; the country primary still shows');
 {
-  const th = staffScreen(READINGS, 'japan', 'th');
-  assert(th.line().textContent === `มาตรฐานญี่ปุ่น: ${EXPECTED.japan}`, `Thai line reads "${th.line().textContent}"`);
+  const noDo = { ...READINGS };
+  delete noDo.do;
+  const page = staffScreen(noDo, 'japan');
+  assert(page.S.currentScoreResult.score === null, 'Quality V3 is unavailable without DO');
+  assert(Number.isFinite(page.S.displayedScore.score), `Japan benchmark is still the primary (${page.S.displayedScore.score})`);
+  assert(page.line().hidden === true && page.line().textContent === '', 'customer line stays hidden');
+}
+
+console.log('\nLabel and markup');
+{
+  const th = staffScreen(READINGS, 'japan', { lang: 'th' });
+  assert(th.line().textContent === `Water Score ที่ลูกค้าเห็น: ${EXPECTED.quality}`, `Thai line reads "${th.line().textContent}"`);
   const i18n = fs.readFileSync(path.join(root, 'src/js/i18n.js'), 'utf8');
-  assert((i18n.match(/'score\.benchmark\.row':/g) || []).length === 2, 'label template exists once per language');
+  assert((i18n.match(/'score\.customerScore\.row':/g) || []).length === 2, 'label template exists once per language');
   const html = fs.readFileSync(path.join(root, 'src/pages/score.html'), 'utf8');
-  assert((html.match(/id="score-benchmark-line"/g) || []).length === 1 && /id="score-benchmark-line" hidden/.test(html), 'one benchmark line element, hidden until rendered');
-}
-
-console.log('\nNo benchmark score -> no line');
-{
-  const noPh = { ...READINGS };
-  delete noPh.ph;
-  const page = staffScreen(noPh, 'japan');
-  assert(page.S.displayedScore.comparison.score === null, 'the engine has no score without pH');
-  assert(page.line().hidden === true && page.line().textContent === '', 'line stays hidden');
+  assert((html.match(/id="score-customer-line"/g) || []).length === 1 && /id="score-customer-line" hidden/.test(html), 'one line element, hidden until rendered');
+  assert(!html.includes('score-benchmark-line'), 'the earlier benchmark line element is gone');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

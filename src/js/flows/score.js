@@ -95,9 +95,9 @@ function comparisonPresentationVerdict(wq, classifications, engineKey) {
 
 /** True when the hero/summary number is the selected Country Benchmark comparison score. */
 function isShowingCountryBenchmarkComparison() {
-  // The live primary number is Quality V3 (see resolveDisplayedScore) and the
-  // public one is the published score, so the hero is never a country score.
-  return false;
+  if (S.publicScoreView) return false;
+  const comparisonScore = activeComparisonResult()?.score;
+  return Number.isFinite(Number(comparisonScore));
 }
 
 function scoreSummaryNote(wq, findings) {
@@ -258,14 +258,13 @@ function getCountryBenchmarkScore(readings, standardKey = DEFAULT_SCORE_STANDARD
 /**
  * Score the user actually sees in #gauge-val.
  *
- * The primary number is always the Quality V3 Water Score:
- *   Live Score screen: the Quality V3 score of the current assessment, passed
- *     in by the caller as `publishedScore` (currentScoreResult.score). When it
- *     is unavailable the primary stays unavailable -- never a country score.
- *   Public /r/{token} report: persisted published Quality Water Score.
+ * Live Score screen: selected country engine (thailand|japan|eu|who|usEpa).
+ *   The Quality V3 score the customer sees is shown beside it on a secondary
+ *   line (renderCustomerScoreLine) -- it is never the live Hero number.
+ * Public /r/{token} report: persisted published Quality Water Score.
  *
- * The selected country engine (thailand|japan|eu|who|usEpa) is comparison data
- * only, returned on `comparison`. It never becomes the live primary number.
+ * Quality V3 remains on currentScoreResult / S.scoreVal for publish+share and
+ * does not change with the selected country.
  */
 function resolveDisplayedScore({
   publicView = false,
@@ -286,51 +285,46 @@ function resolveDisplayedScore({
     };
   }
   const comparison = getCountryBenchmarkScore(readings, standardKey);
-  if (publicView) {
-    // Customer path is unchanged.
-    const score = Number.isFinite(Number(comparison.score)) ? comparison.score : null;
-    return {
-      score,
-      source: 'country-benchmark',
-      standardKey: comparison.standardKey,
-      engineKey: comparison.engineKey,
-      showScore: score != null,
-      comparison,
-      classifications: comparison.classifications || null
-    };
-  }
-  // Strict presence: Number(null) is 0, which would show an unavailable score as 0.
-  const hasQuality = publishedScore !== null && publishedScore !== undefined && publishedScore !== ''
-    && Number.isFinite(Number(publishedScore));
-  const score = hasQuality ? Math.max(0, Math.min(100, Math.round(Number(publishedScore)))) : null;
+  const score = Number.isFinite(Number(comparison.score)) ? comparison.score : null;
   return {
     score,
-    source: 'quality-v3',
-    standardKey: 'quality-v3',
-    engineKey: 'quality-v3',
+    source: 'country-benchmark',
+    standardKey: comparison.standardKey,
+    engineKey: comparison.engineKey,
     showScore: score != null,
     comparison,
-    classifications: null
+    classifications: comparison.classifications || null
   };
 }
 
 /**
- * Staff-only secondary line under the primary Quality number: the selected
- * country engine's own score ("Japan Benchmark 51"). Never shown on the
- * customer report, never the primary number.
+ * The Water Score the customer sees, for the staff secondary line: the score
+ * already published for this Case, or -- before any publication -- the Quality
+ * V3 score that would be published now. Null when neither exists.
  */
-function renderBenchmarkLine(comparison) {
-  const line = document.getElementById('score-benchmark-line');
+function customerFacingWaterScore(job = S.activeJob) {
+  const present = (value) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+  const published = job?.result?.waterScore;
+  if (present(published)) return Math.max(0, Math.min(100, Math.round(Number(published))));
+  const quality = S.currentScoreResult?.score;
+  return present(quality) ? Math.max(0, Math.min(100, Math.round(Number(quality)))) : null;
+}
+
+/**
+ * Staff-only secondary line under the primary country score: the Water Score
+ * the customer sees, which does not change with the selected country. Never
+ * shown on the customer report.
+ */
+function renderCustomerScoreLine() {
+  const line = document.getElementById('score-customer-line');
   if (!line) return;
-  const score = comparison ? comparison.score : null;
-  if (S.publicScoreView || score === null || score === undefined || !Number.isFinite(Number(score))) {
+  const score = S.publicScoreView ? null : customerFacingWaterScore();
+  if (score === null) {
     line.hidden = true;
     line.textContent = '';
     return;
   }
-  // Same short standard name the Benchmark selector shows.
-  const name = comparison.standard?.shortKey ? t(comparison.standard.shortKey) : (comparison.engine || '');
-  line.textContent = t('score.benchmark.row').replace('{name}', name).replace('{score}', String(score));
+  line.textContent = t('score.customerScore.row').replace('{score}', String(score));
   line.hidden = false;
 }
 
@@ -561,8 +555,8 @@ function renderScoreDisplay() {
   const context = getScoreEvalContext(result);
   const readiness = getScoreDataReadiness(S.activeJob);
   // Eligibility still describes missing production inputs (publish/share).
-  // Live Hero visibility follows Quality V3 availability (all six scored
-  // parameters), independent of which country engine is selected.
+  // Live Hero visibility follows the selected country engine, not the
+  // production 6-key list (which requires DO even when Japan excludes DO).
   const eligibility = isPublishedScoreView(S.activeJob)
     ? (typeof EligibilityContract !== 'undefined' ? EligibilityContract.buildLegacy() : null)
     : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(S.activeJob) : null);
@@ -633,7 +627,7 @@ function renderScoreDisplay() {
     complianceEl.hidden = true;
     delete complianceEl.dataset.status;
   }
-  renderBenchmarkLine(displayed.comparison);
+  renderCustomerScoreLine();
 
   // "Incomplete" (static, no shimmer) vs "loading" (spinner, actively
   // capturing) — genuinely distinct states (2026-08-17 fix). ocrBusy means a

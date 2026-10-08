@@ -195,10 +195,10 @@ function openAndScore(job) {
     comparisonReadings: { ...(sandbox.S.comparisonScoreResult?.readings || {}) },
     engineKey: sandbox.S.comparisonScoreResult?.engineKey,
     engineScore: sandbox.S.comparisonScoreResult?.score,
-    displayedScore: sandbox.S.displayedScore?.comparison.score,
+    displayedScore: sandbox.S.displayedScore?.score,
     displayedSource: sandbox.S.displayedScore?.source,
     showScore: sandbox.S.displayedScore?.showScore,
-    hero: sandbox.S.displayedScore?.showScore ? sandbox.S.displayedScore.comparison.score : null
+    hero: sandbox.S.displayedScore?.showScore ? sandbox.S.displayedScore.score : null
   };
 }
 
@@ -238,7 +238,7 @@ console.log('\nTest B — Switching A → B does not reuse A readings');
   assert(bEngineFp === fingerprint(SINK), `B engine input is sink (${bEngineFp})`);
   assert(bFp !== a.fp, 'B readings != prior A readings');
   assert(sandbox.S.activeJob.id === 'case-sink', 'activeJob is B');
-  assert(sandbox.S.displayedScore.source === 'quality-v3', 'live Hero remains country-benchmark');
+  assert(sandbox.S.displayedScore.source === 'country-benchmark', 'live Hero remains country-benchmark');
 }
 
 console.log('\nTest C — Switching B → A does not reuse B readings');
@@ -268,14 +268,14 @@ console.log('\nTest D — Missing Case readings never fall back to previous Case
   sandbox.S.activeJob = caseEmpty;
   sandbox.S.currentScoreResult = { score: a.hero, source: 'stale' };
   sandbox.S.comparisonScoreResult = { score: a.hero, readings: { ...FAUCET } };
-  sandbox.S.displayedScore = { score: a.hero, source: 'quality-v3', showScore: true };
+  sandbox.S.displayedScore = { score: a.hero, source: 'country-benchmark', showScore: true };
   sandbox.renderWaterScore(caseEmpty, { publicView: false });
 
   const emptyFp = fingerprint(sandbox.S.scoreBaseReadings);
   assert(Object.keys(sandbox.S.scoreBaseReadings || {}).length === 0, `empty readings object (got ${emptyFp})`);
   assert(sandbox.S.displayedScore.showScore === false, 'empty Case showScore false');
-  assert(sandbox.S.displayedScore.comparison.score == null, 'empty Case displayedScore null');
-  assert(sandbox.S.displayedScore.comparison.score !== a.hero, 'empty Case does not show A hero');
+  assert(sandbox.S.displayedScore.score == null, 'empty Case displayedScore null');
+  assert(sandbox.S.displayedScore.score !== a.hero, 'empty Case does not show A hero');
   assert(sandbox.S.comparisonScoreResult?.score == null, 'empty Case comparison score null');
 }
 
@@ -288,9 +288,9 @@ console.log('\nTest E — Country perturbation remains valid (Layer 4)');
     sandbox.setScoreReferenceStandard(key);
     const displayed = sandbox.S.displayedScore;
     const engine = sandbox.WaterScoreBenchmarkRegistry.calculate(key, CASE_1328);
-    assert(displayed.source === 'quality-v3', `${key}: source country-benchmark`);
-    assert(displayed.comparison.engineKey === key, `${key}: engineKey`);
-    assert(displayed.comparison.score === engine.score, `${key}: displayed ${displayed.comparison.score} === engine ${engine.score}`);
+    assert(displayed.source === 'country-benchmark', `${key}: source country-benchmark`);
+    assert(displayed.engineKey === key, `${key}: engineKey`);
+    assert(displayed.score === engine.score, `${key}: displayed ${displayed.score} === engine ${engine.score}`);
     assert(fingerprint(sandbox.S.comparisonScoreResult.readings) === fingerprint(CASE_1328),
       `${key}: engine still uses Case C readings`);
   }
@@ -305,7 +305,7 @@ console.log('\nTest F — activeJob.id owns score input (lineage assertion)');
     assert(out.activeJobId === job.id, `owner ${job.id}`);
     assert(fingerprint(out.comparisonReadings) === out.fp,
       `${job.name}: comparison.readings === scoreBaseReadings`);
-    assert(out.displayedSource === 'quality-v3', `${job.name}: displayed from country`);
+    assert(out.displayedSource === 'country-benchmark', `${job.name}: displayed from country`);
   }
 }
 

@@ -948,8 +948,8 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-compliance-line[data-status="WARNING"]{color:#c48a3a}
 .score-compliance-line[data-status="FAIL"]{color:#f07b7b}
 .score-compliance-line[hidden]{display:none!important}
-.score-benchmark-line{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-.score-benchmark-line[hidden]{display:none!important}
+.score-customer-line{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.score-customer-line[hidden]{display:none!important}
 .score-benchmark-row{
   display:flex;
   align-items:center;
