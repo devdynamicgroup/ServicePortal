@@ -241,8 +241,8 @@ console.log('\nHero data source contract — live display is country engine; Qua
   const detail = sandbox.computeQualityScoreDetail(readings);
   const th = compare('thailand', readings);
   const jp = compare('japan', readings);
-  const displayedTh = sandbox.resolveDisplayedScore({ readings, standardKey: 'thailand' });
-  const displayedJp = sandbox.resolveDisplayedScore({ readings, standardKey: 'japan' });
+  const displayedTh = sandbox.resolveDisplayedScore({ readings, standardKey: 'thailand', publishedScore: sandbox.computeQualityScoreDetail(readings).score });
+  const displayedJp = sandbox.resolveDisplayedScore({ readings, standardKey: 'japan', publishedScore: sandbox.computeQualityScoreDetail(readings).score });
   const currentScoreResult = {
     score: quality,
     computedScore: quality,
@@ -251,18 +251,18 @@ console.log('\nHero data source contract — live display is country engine; Qua
   };
   assert(currentScoreResult.standardKey === 'quality-v3', 'publish result tagged quality-v3');
   assert(currentScoreResult.computedScore === quality, 'publish/share source remains Quality V3');
-  assert(displayedTh.source === 'country-benchmark' && displayedTh.engineKey === 'thailand',
+  assert(displayedTh.source === 'quality-v3' && displayedTh.comparison.engineKey === 'thailand',
     'live displayed score uses Thailand engine');
-  assert(displayedJp.source === 'country-benchmark' && displayedJp.engineKey === 'japan',
+  assert(displayedJp.source === 'quality-v3' && displayedJp.comparison.engineKey === 'japan',
     'live displayed score uses Japan engine');
-  assert(displayedTh.score === th.score && displayedJp.score === jp.score,
+  assert(displayedTh.comparison.score === th.score && displayedJp.comparison.score === jp.score,
     'displayed scores match country engines, not Quality');
   // 2026-08-18 (PO-approved): displayed score is still SOURCED from the
   // country engine, not the Quality publish path (source/engineKey checked
   // above) — but since the country engine's raw base now reuses the same
   // shared formula as Quality V3, the NUMBER can legitimately coincide with
   // Quality's when no country-specific cap binds. Source, not value, is the contract.
-  assert(displayedTh.score !== quality, `displayed TH ${displayedTh.score} !== Quality ${quality} (weighted profile, no cap binds)`);
+  assert(displayedTh.comparison.score !== quality, `displayed TH ${displayedTh.comparison.score} !== Quality ${quality} (weighted profile, no cap binds)`);
   assert(th.standardKey === 'thailand' && jp.standardKey === 'japan', 'comparison carries country keys');
   assert(quality === 92, `Case A Quality locked evidence = 92 (got ${quality})`);
   assert(th.score === 95 && jp.score === 85, 'TH=95 (uncapped) JP=85 (Japan\'s own tighter pH target caps it) while Quality 92');

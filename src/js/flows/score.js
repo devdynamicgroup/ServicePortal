@@ -95,9 +95,9 @@ function comparisonPresentationVerdict(wq, classifications, engineKey) {
 
 /** True when the hero/summary number is the selected Country Benchmark comparison score. */
 function isShowingCountryBenchmarkComparison() {
-  if (S.publicScoreView) return false;
-  const comparisonScore = activeComparisonResult()?.score;
-  return Number.isFinite(Number(comparisonScore));
+  // The live primary number is Quality V3 (see resolveDisplayedScore) and the
+  // public one is the published score, so the hero is never a country score.
+  return false;
 }
 
 function scoreSummaryNote(wq, findings) {
@@ -258,12 +258,14 @@ function getCountryBenchmarkScore(readings, standardKey = DEFAULT_SCORE_STANDARD
 /**
  * Score the user actually sees in #gauge-val.
  *
- * Live Score screen: selected country engine (thailand|japan|eu|who|usEpa).
- * Public /r/{token} report: persisted published Quality Water Score.
+ * The primary number is always the Quality V3 Water Score:
+ *   Live Score screen: the Quality V3 score of the current assessment, passed
+ *     in by the caller as `publishedScore` (currentScoreResult.score). When it
+ *     is unavailable the primary stays unavailable -- never a country score.
+ *   Public /r/{token} report: persisted published Quality Water Score.
  *
- * Quality V3 remains on currentScoreResult / S.scoreVal for publish+share.
- * It is not the live Hero number and is not used as a fallback when a
- * country is selected.
+ * The selected country engine (thailand|japan|eu|who|usEpa) is comparison data
+ * only, returned on `comparison`. It never becomes the live primary number.
  */
 function resolveDisplayedScore({
   publicView = false,
@@ -284,15 +286,31 @@ function resolveDisplayedScore({
     };
   }
   const comparison = getCountryBenchmarkScore(readings, standardKey);
-  const score = Number.isFinite(Number(comparison.score)) ? comparison.score : null;
+  if (publicView) {
+    // Customer path is unchanged.
+    const score = Number.isFinite(Number(comparison.score)) ? comparison.score : null;
+    return {
+      score,
+      source: 'country-benchmark',
+      standardKey: comparison.standardKey,
+      engineKey: comparison.engineKey,
+      showScore: score != null,
+      comparison,
+      classifications: comparison.classifications || null
+    };
+  }
+  // Strict presence: Number(null) is 0, which would show an unavailable score as 0.
+  const hasQuality = publishedScore !== null && publishedScore !== undefined && publishedScore !== ''
+    && Number.isFinite(Number(publishedScore));
+  const score = hasQuality ? Math.max(0, Math.min(100, Math.round(Number(publishedScore)))) : null;
   return {
     score,
-    source: 'country-benchmark',
-    standardKey: comparison.standardKey,
-    engineKey: comparison.engineKey,
+    source: 'quality-v3',
+    standardKey: 'quality-v3',
+    engineKey: 'quality-v3',
     showScore: score != null,
     comparison,
-    classifications: comparison.classifications || null
+    classifications: null
   };
 }
 
@@ -523,8 +541,8 @@ function renderScoreDisplay() {
   const context = getScoreEvalContext(result);
   const readiness = getScoreDataReadiness(S.activeJob);
   // Eligibility still describes missing production inputs (publish/share).
-  // Live Hero visibility follows the selected country engine, not the
-  // production 6-key list (which requires DO even when Japan excludes DO).
+  // Live Hero visibility follows Quality V3 availability (all six scored
+  // parameters), independent of which country engine is selected.
   const eligibility = isPublishedScoreView(S.activeJob)
     ? (typeof EligibilityContract !== 'undefined' ? EligibilityContract.buildLegacy() : null)
     : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(S.activeJob) : null);

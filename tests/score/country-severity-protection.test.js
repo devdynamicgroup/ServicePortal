@@ -349,7 +349,8 @@ console.log('\nF. Presentation — classification-aware, in-scope engines only')
     sandbox.S.publicScoreView = false;
     sandbox.S.activeJob = jobFromReadings(readings);
     sandbox.setScoreReferenceStandard(key);
-    return sandbox.S.displayedScore;
+    // The selected country benchmark (comparison data beside the Quality primary).
+    return sandbox.S.displayedScore.comparison;
   }
   const critical = switchAndRead('japan', { ...IDEAL, ph: 4.5 });
   assert(critical.score === 60, `Japan CRITICAL displayed score is capped (got ${critical.score})`);
@@ -368,9 +369,9 @@ console.log('\nF2. Presentation — EU/Thailand never activate the new country p
   sandbox.S.activeJob = jobFromReadings({ ...IDEAL, chlorine: 0 });
   sandbox.setScoreReferenceStandard('eu');
   const euDisplayed = sandbox.S.displayedScore;
-  assert(euDisplayed.engineKey === 'eu', 'EU engine correctly selected');
+  assert(euDisplayed.comparison.engineKey === 'eu', 'EU engine correctly selected');
   // 2026-08-18 (PO-approved): shared grading base — the PD-002 gate binds normally (see section K.A above).
-  assert(euDisplayed.score === 65, 'EU chlorine=0 capped at 65 by the PD-002 gate');
+  assert(euDisplayed.comparison.score === 65, 'EU chlorine=0 capped at 65 by the PD-002 gate');
 }
 
 console.log('\nG. Ceiling interaction — 99 ceiling still fires for uncapped PASS readings');
@@ -409,7 +410,8 @@ console.log('\nJ. Presentation label/color always numeric (2026-08-18, PO-approv
     sandbox.S.publicScoreView = false;
     sandbox.S.activeJob = jobFromReadings(readings);
     sandbox.setScoreReferenceStandard(key);
-    return sandbox.S.displayedScore;
+    // The selected country benchmark (comparison data beside the Quality primary).
+    return sandbox.S.displayedScore.comparison;
   }
   const newc811 = { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7 };
   const c1328 = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3 };

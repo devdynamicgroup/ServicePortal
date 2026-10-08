@@ -150,7 +150,7 @@ console.log('\nB. Select EU, save, reload (new S, same job object), reopen, navi
   sb.S.activeJob = job;
   sb.loadJobState(job);
   sb.setScoreReferenceStandard('eu');
-  assert(sb.S.displayedScore.engineKey === 'eu' && sb.S.displayedScore.score === 65, 'EU selected, Hero=65');
+  assert(sb.S.displayedScore.comparison.engineKey === 'eu' && sb.S.displayedScore.comparison.score === 65, 'EU selected, Hero=65');
   sb.saveActiveJobState();
   assert(job.draft.scoreStandardKey === 'eu', 'draft.scoreStandardKey persisted as eu on the job object');
 
@@ -160,7 +160,7 @@ console.log('\nB. Select EU, save, reload (new S, same job object), reopen, navi
   assert(sb.S.scoreStandardKey === 'eu', 'EU restored automatically on reopen, no manual re-click needed');
   sb.goScreen('s-score');
   assert(sb.S.scoreStandardKey === 'eu', 'Score navigation does not overwrite restored EU');
-  assert(sb.S.displayedScore.engineKey === 'eu' && sb.S.displayedScore.score === 65, 'Hero recomputes to EU=65 immediately after reload and Score navigation');
+  assert(sb.S.displayedScore.comparison.engineKey === 'eu' && sb.S.displayedScore.comparison.score === 65, 'Hero recomputes to EU=65 immediately after reload and Score navigation');
 }
 
 console.log('\nC. Switch to Thailand, save, reload, reopen — Thailand restored; switch back to EU — 65 again');
@@ -179,7 +179,7 @@ console.log('\nC. Switch to Thailand, save, reload, reopen — Thailand restored
   assert(sb.S.scoreStandardKey === 'thailand', 'thailand restored after reload');
 
   sb.setScoreReferenceStandard('eu');
-  assert(sb.S.displayedScore.score === 65, 'switching back to EU is still 65');
+  assert(sb.S.displayedScore.comparison.score === 65, 'switching back to EU is still 65');
 }
 
 console.log('\nD. Case identity and readings are never altered by this fix');
@@ -205,7 +205,7 @@ console.log('\nE. Second, independent real Case proves Japan persists through Sc
   // 2026-08-18 (PO-approved): shared grading base for newc810 = 82; Japan
   // has no severity cap binding here.
   // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising newc810's raw base to clear the 85 ceiling untouched.
-  assert(sb.S.displayedScore.engineKey === 'japan' && sb.S.displayedScore.score === 85, 'Case 2 selects Japan, Hero=85');
+  assert(sb.S.displayedScore.comparison.engineKey === 'japan' && sb.S.displayedScore.comparison.score === 85, 'Case 2 selects Japan, Hero=85');
   sb.saveActiveJobState();
 
   sb = makeSandbox();
@@ -214,7 +214,7 @@ console.log('\nE. Second, independent real Case proves Japan persists through Sc
   assert(sb.S.scoreStandardKey === 'japan', 'Case 2 Japan selection restored after reload — proves generality, not a New-C-8/11-specific fix');
   sb.goScreen('s-score');
   assert(sb.S.scoreStandardKey === 'japan', 'Score navigation does not overwrite restored Japan');
-  assert(sb.S.displayedScore.engineKey === 'japan' && sb.S.displayedScore.score === 85, 'Japan Hero remains selected after Score navigation (85)');
+  assert(sb.S.displayedScore.comparison.engineKey === 'japan' && sb.S.displayedScore.comparison.score === 85, 'Japan Hero remains selected after Score navigation (85)');
 }
 
 console.log('\nF. Case A/B selection remains isolated through Score navigation');
@@ -239,7 +239,7 @@ console.log('\nF. Case A/B selection remains isolated through Score navigation')
   sb.loadJobState(caseA);
   sb.goScreen('s-score');
   assert(sb.S.scoreStandardKey === 'eu', 'Case A restores EU instead of inheriting Case B Japan');
-  assert(sb.S.displayedScore.engineKey === 'eu' && sb.S.displayedScore.score === 65, 'Case A Hero remains EU=65 after Case switch');
+  assert(sb.S.displayedScore.comparison.engineKey === 'eu' && sb.S.displayedScore.comparison.score === 65, 'Case A Hero remains EU=65 after Case switch');
 }
 
 console.log('\nG. New Cases default exactly like existing ones (defaultJobDraft carries the same default)');
@@ -271,7 +271,7 @@ console.log('\nG. New Cases default exactly like existing ones (defaultJobDraft 
   sb.S.activeJob = refreshed;
   sb.loadJobState(refreshed);
   sb.goScreen('s-score');
-  assert(sb.S.displayedScore?.engineKey === 'eu' && sb.S.displayedScore.score === 65, 'fresh API-loaded Case reaches Score with EU Hero=65');
+  assert(sb.S.displayedScore?.comparison.engineKey === 'eu' && sb.S.displayedScore.comparison.score === 65, 'fresh API-loaded Case reaches Score with EU Hero=65');
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
