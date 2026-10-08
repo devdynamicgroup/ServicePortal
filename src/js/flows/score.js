@@ -526,8 +526,21 @@ function publishedReportStandardKey(job = S.activeJob) {
   return benchmarkRegistry()?.has?.(key) ? key : null;
 }
 
+function isFullAssessmentCase(job = S.activeJob) {
+  return String(job?.pkg || job?.draft?.pkg || '').trim() === 'full';
+}
+
+/**
+ * The existing Benchmark control stays locked on other public reports.
+ * A Full Assessment share uses that same control to look at other country scores.
+ */
+function lockedPublishedStandardKey(job = S.activeJob) {
+  if (isFullAssessmentCase(job)) return null;
+  return publishedReportStandardKey(job);
+}
+
 function renderStandardSelect(context = getScoreEvalContext()) {
-  const lockedKey = publishedReportStandardKey();
+  const lockedKey = lockedPublishedStandardKey();
   const selected = lockedKey || context.selectedStandard;
   const order = orderedStandardsForSelect();
   const optionsHtml = order.map(key => {
@@ -726,7 +739,7 @@ function renderScoreDisplay() {
 
 /** Switch comparison standard — recalculates statuses from the same resolved readings. */
 function setScoreReferenceStandard(standardKey) {
-  const lockedKey = publishedReportStandardKey();
+  const lockedKey = lockedPublishedStandardKey();
   if (lockedKey && standardKey !== lockedKey) {
     renderStandardSelect();
     return;
@@ -740,8 +753,8 @@ function setScoreReferenceStandard(standardKey) {
 
   S.scoreStandardKey = key;
   S.scoreBaseReadings = readings;
-  // Customer report of a country-benchmark publication: the published score and
-  // compliance stay on the published standard. The selector cannot leave it.
+  // A country-benchmark publication keeps its published score and compliance.
+  // Full Assessment may still select another country and see that score.
   const publishedReport = publishedReportStandardKey() ? S.activeJob.result : null;
   const publishedReportScore = publishedReport ? Math.max(0, Math.min(100, Math.round(Number(publishedReport.waterScore)))) : null;
   // Publish/share channel stays Quality V3. Live Hero uses country engine.

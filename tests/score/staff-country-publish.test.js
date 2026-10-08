@@ -369,12 +369,14 @@ async function main() {
     assert(japanStaff === EXPECTED.japan && japan.shown() === EXPECTED.japan, `Japan: staff ${japanStaff} === customer ${japan.shown()}`);
     assert(japan.sandbox.S.displayedScore.source === 'published', 'customer number is the published score, not a live calculation');
     assert(japan.sandbox.S.scoreStandardKey === 'japan', 'customer report is on the Japan standard');
-    assert(japan.select().disabled === true && /value="japan" selected/.test(japan.select().innerHTML), 'the Benchmark control is locked on Japan');
+    assert(japan.select().disabled === false && /value="japan" selected/.test(japan.select().innerHTML), 'a Full Assessment share can use the Benchmark control');
     assert(japan.sandbox.resolveScoreReadings(japan.sandbox.S.activeJob).chlorine === READINGS.chlorine, 'rows use the readings frozen at publish, not the later edit');
     for (const key of ['usEpa', 'thailand', 'japan']) {
       japan.sandbox.setScoreReferenceStandard(key);
-      assert(japan.shown() === EXPECTED.japan && japan.sandbox.S.scoreStandardKey === 'japan' && japan.sandbox.S.displayedScore.source === 'published', `customer selects ${key}: published Japan score stays ${japan.shown()}`);
-      assert(japan.select().disabled === true && /value="japan" selected/.test(japan.select().innerHTML), `${key}: selector stays locked on Japan`);
+      const publishedStandard = key === 'japan';
+      assert(japan.shown() === EXPECTED[key] && japan.sandbox.S.scoreStandardKey === key, `Full Assessment selects ${key}: sees ${EXPECTED[key]}`);
+      assert(japan.sandbox.S.displayedScore.source === (publishedStandard ? 'published' : 'country-benchmark'), `${key}: source is ${japan.sandbox.S.displayedScore.source}`);
+      assert(japan.select().disabled === false && new RegExp(`value="${key}" selected`).test(japan.select().innerHTML), `${key}: selector stays enabled`);
       assert(japan.sandbox.resolveScoreReadings(japan.sandbox.S.activeJob).chlorine === READINGS.chlorine, `${key}: still the frozen readings`);
     }
     assert(japan.sandbox.S.currentScoreResult.complianceStatus === 'CRITICAL', 'with its published compliance');
