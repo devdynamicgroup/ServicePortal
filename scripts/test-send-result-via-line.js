@@ -350,6 +350,11 @@ function buildClientSandbox({ fetchImpl, eligibility } = {}) {
     saveActiveJobState: () => {},
     persistJobs: () => {},
     resolveReportEligibility: (job) => eligibility,
+    resolvePublishScoreRequest: () => ({
+      scoreType: 'country-benchmark',
+      standardKey: 'thailand',
+      score: Number.isFinite(Number(sandbox.S.scoreVal)) ? Number(sandbox.S.scoreVal) : null
+    }),
     isSessionExpiredResponse: () => false,
     handleSessionExpired: () => {},
     fetch: fetchImpl || (async () => { throw new Error('fetch should not be called'); })

@@ -74,6 +74,15 @@ function makeSandbox({ job = null, publicView = false, scorePublishResult = null
   sandbox.location = { href: 'https://portal.example/r/tok-full' };
   sandbox.__WM_PUBLIC_REPORT__ = { token: 'tok-full', report: job };
   vm.createContext(sandbox);
+  // Staff Share publishes the selected country benchmark, computed by the real
+  // engines from the Case's own readings.
+  ['src/js/score/util/clamp.js', 'src/js/score/util/benchmarkMetadata.js', 'src/js/score/validation/measurementValidator.js',
+    'src/js/score/production/computeProductionScore.js', 'src/js/score/production/computeQualityScoreV2.js', 'src/js/score/benchmark/registry.js',
+    ...['thailand', 'who', 'eu', 'japan', 'usEpa'].flatMap(key => ['limits', 'weights', 'score'].map(file => `src/js/score/benchmark/${key}/${file}.js`))
+  ].forEach(rel => vm.runInContext(read(rel), sandbox, { filename: rel }));
+  if (job && !job.draft) {
+    job.draft = { taps: ['Tap 1'], fields: {}, tapData: [{ standardMeasurement: { ph: 7.2, tds: 80, chlorine: 0.35, turbidity: 0.1, orp: 400, do: 8 } }] };
+  }
   vm.runInContext(read('src/js/flows/score.js'), sandbox, { filename: 'score.js' });
   vm.runInContext(read('src/js/public-report.js'), sandbox, { filename: 'public-report.js' });
   return { sandbox, calls };

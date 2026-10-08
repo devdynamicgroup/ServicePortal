@@ -127,7 +127,9 @@ async function publishScoreBeforeClose(job) {
     error.eligibility = eligibility;
     throw error;
   }
-  const score = Number(S.scoreVal ?? job?.result?.waterScore ?? job?.draft?.scoreVal);
+  // Publish the selected country benchmark -- the number the Score screen shows.
+  const publishRequest = resolvePublishScoreRequest(job);
+  const score = publishRequest.score === null ? NaN : publishRequest.score;
   if (!Number.isFinite(score)) {
     // Retained as a defensive fallback only — Eligibility above is the real
     // gate now. This still catches a score that is somehow non-finite even
@@ -153,15 +155,11 @@ async function publishScoreBeforeClose(job) {
     },
     credentials: 'same-origin',
     body: JSON.stringify({
-      score,
+      ...publishRequest,
       resultSummary: `Water score ${Math.round(score)}/100`,
       eligibilityVersion: eligibility?.calculationMetadata?.eligibilityVersion || 'unknown',
-      complianceStatus: S.currentScoreResult?.complianceStatus || null,
       intent,
-      idempotencyKey,
-      modelVersion: (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' && !alreadyPublished)
-        ? QUALITY_SCORE_ENGINE_VERSION
-        : undefined
+      idempotencyKey
     })
   });
   const payload = await response.json().catch(() => ({}));
@@ -181,6 +179,8 @@ async function publishScoreBeforeClose(job) {
   job.result = {
     ...(job.result || {}),
     waterScore: payload.score != null ? payload.score : score,
+    scoreType: payload.scoreType || job.result?.scoreType,
+    standardKey: payload.standardKey || job.result?.standardKey,
     reportUrl: payload.reportUrl || job.result?.reportUrl || '',
     publicReportToken: payload.reportToken || job.result?.publicReportToken || '',
     eligibilityVersion: eligibility?.calculationMetadata?.eligibilityVersion || job.result?.eligibilityVersion || 'unknown'
@@ -225,6 +225,8 @@ async function finalizeCaseCompletion(job, options = {}) {
       credentials: 'same-origin',
       body: JSON.stringify({
         score: Number.isFinite(Number(score)) ? Number(score) : null,
+        scoreType: job.result?.scoreType,
+        standardKey: job.result?.standardKey,
         completedBy: 'Water Motion Specialist'
       })
     });
@@ -418,18 +420,14 @@ async function sendResultToLineNow() {
     // value only if the fresh computation genuinely can't run (functions
     // undefined) or reports incomplete, matching this function's existing
     // eligibility gate above.
-    const freshReadings = typeof resolveScoreReadings === 'function' ? resolveScoreReadings(job) : null;
-    const freshScore = freshReadings && typeof computeScoreFromReadings === 'function'
-      ? computeScoreFromReadings(freshReadings)
-      : null;
-    const score = Number.isFinite(freshScore)
-      ? freshScore
-      : Number(S.scoreVal ?? job?.result?.waterScore ?? job?.draft?.scoreVal);
-    if (!Number.isFinite(score)) {
+    // The result that is sent is the selected country benchmark -- the number
+    // the Score screen shows -- recomputed here from the same readings.
+    const publishRequest = resolvePublishScoreRequest(job);
+    const score = publishRequest.score;
+    if (score === null) {
       showToast(S.lang === 'th' ? 'ยังไม่มีคะแนนน้ำ' : 'Water Score is missing');
       return;
     }
-    S.scoreVal = score;
 
     const caseRef = job.notionId || job.id;
     if (!caseRef || !(job.notionId || job.notionSource)) {
@@ -446,9 +444,8 @@ async function sendResultToLineNow() {
       headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
       credentials: 'same-origin',
       body: JSON.stringify({
-        score,
+        ...publishRequest,
         resultSummary: `Water score ${Math.round(score)}/100`,
-        complianceStatus: S.currentScoreResult?.complianceStatus || null,
         intent,
         idempotencyKey
       })

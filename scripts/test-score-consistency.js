@@ -213,8 +213,11 @@ async function main() {
     const fnMatch = src.match(/async function sendResultToLineNow\(\)[\s\S]*?\n}\r?\n/);
     assert(!!fnMatch, 'sendResultToLineNow() found in source (test is in sync with real source)');
     const fnBody = fnMatch ? fnMatch[0] : '';
-    assert(/resolveScoreReadings\(job\)/.test(fnBody), 'sendResultToLineNow() recomputes readings fresh from the job (resolveScoreReadings(job))');
-    assert(/computeScoreFromReadings\(freshReadings\)/.test(fnBody), 'sendResultToLineNow() recomputes the score fresh (computeScoreFromReadings(freshReadings)) instead of trusting a cache alone');
+    assert(/resolvePublishScoreRequest\(job\)/.test(fnBody), 'sendResultToLineNow() recomputes the score fresh from the job (resolvePublishScoreRequest(job))');
+    const scoreSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'js', 'flows', 'score.js'), 'utf8');
+    const requestBody = (scoreSrc.match(/function resolvePublishScoreRequest\([\s\S]*?\n}\r?\n/) || [''])[0];
+    assert(/resolveScoreReadings\(job\)/.test(requestBody), 'resolvePublishScoreRequest() recomputes readings fresh from the job (resolveScoreReadings(job))');
+    assert(/getCountryBenchmarkScore\(resolveScoreReadings\(job\), standardKey\)/.test(requestBody) && !/S\.scoreVal/.test(requestBody), 'resolvePublishScoreRequest() scores those fresh readings with the selected country engine instead of trusting a cache');
     assert(
       !/const score = Number\(S\.scoreVal \?\? job\?\.result\?\.waterScore \?\? job\?\.draft\?\.scoreVal\);/.test(fnBody),
       'the OLD stale-only read (Number(S.scoreVal ?? ...) with no fresh recomputation) is gone'

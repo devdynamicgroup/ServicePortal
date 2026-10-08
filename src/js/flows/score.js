@@ -298,16 +298,36 @@ function resolveDisplayedScore({
 }
 
 /**
- * The Water Score the customer sees, for the staff secondary line: the score
- * already published for this Case, or -- before any publication -- the Quality
- * V3 score that would be published now. Null when neither exists.
+ * The Water Score the customer currently has, for the staff secondary line:
+ * the score already published for this Case. Null before any publication --
+ * what will be published is the primary number itself (resolvePublishScoreRequest).
  */
 function customerFacingWaterScore(job = S.activeJob) {
-  const present = (value) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
   const published = job?.result?.waterScore;
-  if (present(published)) return Math.max(0, Math.min(100, Math.round(Number(published))));
-  const quality = S.currentScoreResult?.score;
-  return present(quality) ? Math.max(0, Math.min(100, Math.round(Number(quality)))) : null;
+  if (published === null || published === undefined || published === '' || !Number.isFinite(Number(published))) return null;
+  return Math.max(0, Math.min(100, Math.round(Number(published))));
+}
+
+/**
+ * What Share / Complete / Send Result publish: the selected country benchmark,
+ * i.e. the staff primary number, from the same engine call and readings the
+ * Score screen uses. `standardKey` is the internal registry key, never a label.
+ * `score` is null when that engine cannot score the readings; the server
+ * recomputes and is the final authority either way.
+ */
+function resolvePublishScoreRequest(job = S.activeJob) {
+  const registry = benchmarkRegistry();
+  // The active Case's selection lives on S (restored from its draft on open and
+  // written back on every switch); any other Case only has its saved draft.
+  const candidates = isActiveScoreJob(job)
+    ? [S.scoreStandardKey, job?.draft?.scoreStandardKey]
+    : [job?.draft?.scoreStandardKey];
+  const standardKey = candidates.find(key => key && registry?.has?.(key)) || DEFAULT_SCORE_STANDARD_KEY;
+  const comparison = getCountryBenchmarkScore(resolveScoreReadings(job), standardKey);
+  // Strict presence: Number(null) is 0, which would publish "no score" as 0.
+  const raw = comparison?.score;
+  const score = raw !== null && raw !== undefined && Number.isFinite(Number(raw)) ? Number(raw) : null;
+  return { scoreType: 'country-benchmark', standardKey: comparison.standardKey, score };
 }
 
 /**
@@ -1784,7 +1804,8 @@ async function shareScore() {
       return;
     }
   }
-  if (!Number.isFinite(Number(S.scoreVal))) {
+  const publishRequest = resolvePublishScoreRequest(job);
+  if (publishRequest.score === null) {
     showToast('Please calculate the Water Score first');
     return;
   }
@@ -1805,13 +1826,9 @@ async function shareScore() {
       },
       credentials: 'same-origin',
       body: JSON.stringify({
-        score: Number(S.scoreVal),
-        complianceStatus: S.currentScoreResult?.complianceStatus || null,
+        ...publishRequest,
         intent,
-        idempotencyKey,
-        modelVersion: (!alreadyPublished && typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined')
-          ? QUALITY_SCORE_ENGINE_VERSION
-          : undefined
+        idempotencyKey
       })
     });
     const result = await response.json();
@@ -1821,7 +1838,9 @@ async function shareScore() {
     job.result = {
       ...(job.result || {}),
       waterScore: result.score,
-      complianceStatus: S.currentScoreResult?.complianceStatus || job.result?.complianceStatus || null,
+      scoreType: result.scoreType || job.result?.scoreType,
+      standardKey: result.standardKey || job.result?.standardKey,
+      complianceStatus: result.complianceStatus || job.result?.complianceStatus || null,
       reportUrl: result.reportUrl,
       publicReportToken: result.reportToken
     };
