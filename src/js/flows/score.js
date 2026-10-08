@@ -262,8 +262,6 @@ function getCountryBenchmarkScore(readings, standardKey = DEFAULT_SCORE_STANDARD
  * Score the user actually sees in #gauge-val.
  *
  * Live Score screen: selected country engine (thailand|japan|eu|who|usEpa).
- *   The Quality V3 score the customer sees is shown beside it on a secondary
- *   line (renderCustomerScoreLine) -- it is never the live Hero number.
  * Public /r/{token} report: the persisted published Water Score.
  * A country-benchmark publication stays on publication.standardKey.
  * A Quality V3 publication keeps its existing published-score display.
@@ -307,17 +305,6 @@ function resolveDisplayedScore({
 }
 
 /**
- * The Water Score the customer currently has, for the staff secondary line:
- * the score already published for this Case. Null before any publication --
- * what will be published is the primary number itself (resolvePublishScoreRequest).
- */
-function customerFacingWaterScore(job = S.activeJob) {
-  const published = job?.result?.waterScore;
-  if (published === null || published === undefined || published === '' || !Number.isFinite(Number(published))) return null;
-  return Math.max(0, Math.min(100, Math.round(Number(published))));
-}
-
-/**
  * What Share / Complete / Send Result publish: the selected country benchmark,
  * i.e. the staff primary number, from the same engine call and readings the
  * Score screen uses. `standardKey` is the internal registry key, never a label.
@@ -337,24 +324,6 @@ function resolvePublishScoreRequest(job = S.activeJob) {
   const raw = comparison?.score;
   const score = raw !== null && raw !== undefined && Number.isFinite(Number(raw)) ? Number(raw) : null;
   return { scoreType: 'country-benchmark', standardKey: comparison.standardKey, score };
-}
-
-/**
- * Staff-only secondary line under the primary country score: the Water Score
- * the customer sees, which does not change with the selected country. Never
- * shown on the customer report.
- */
-function renderCustomerScoreLine() {
-  const line = document.getElementById('score-customer-line');
-  if (!line) return;
-  const score = S.publicScoreView ? null : customerFacingWaterScore();
-  if (score === null) {
-    line.hidden = true;
-    line.textContent = '';
-    return;
-  }
-  line.textContent = t('score.customerScore.row').replace('{score}', String(score));
-  line.hidden = false;
 }
 
 function scoreBarColorForScore(wq, verdict = null) {
@@ -669,7 +638,6 @@ function renderScoreDisplay() {
     complianceEl.hidden = true;
     delete complianceEl.dataset.status;
   }
-  renderCustomerScoreLine();
 
   // "Incomplete" (static, no shimmer) vs "loading" (spinner, actively
   // capturing) — genuinely distinct states (2026-08-17 fix). ocrBusy means a
