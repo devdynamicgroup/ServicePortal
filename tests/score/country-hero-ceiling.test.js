@@ -83,7 +83,7 @@ console.log('\nCase A — country raw composite 100 -> Hero 99');
     // classifies WARNING on Japan alone and its 85 severity cap binds
     // before the 99 Hero ceiling would ever apply.
     if (key === 'japan') {
-      assert(r.score === 85, `japan raw-100 fixture (IDEAL) WARNING-capped at 85, not the 99 ceiling (got ${r.score})`);
+      assert(r.score === 99 && r.rawAggregate === 100 && r.severityProtection.score === 85, `japan IDEAL customer is the 99 ceiling; WARNING severity stays 85 (got ${r.score})`);
     } else {
       assert(r.score === 99, `${key} raw-100 fixture (IDEAL) capped to 99 (got ${r.score})`);
     }
@@ -99,12 +99,12 @@ console.log('\nCase B — country raw composite below ceiling stays unaffected B
   // is what actually moves it: 76 - 6 = 70. EU's PD-002 chlorine gate binds
   // regardless. What this case still proves is that values already below
   // 99 pass through the (unrelated, unmodified) ceiling untouched.
-  assert(bench('who', BASE).score === 70, 'WHO BASE 70 (FAIL cap + guaranteed deduction; still < 99, ceiling no-op)');
-  assert(bench('eu', BASE).score === 65, 'EU BASE 65 unaffected (chlorine gate dominates; ceiling no-op)');
-  // DIFF's tds/turbidity classify CRITICAL on US EPA; raw base (61) is
-  // already below the 60 CRITICAL ceiling, so the guaranteed minimum
-  // deduction (CRITICAL=10) is what actually moves it: 61 - 10 = 51.
-  assert(bench('usEpa', DIFF).score === 45, 'EPA DIFF 45 (CRITICAL cap + guaranteed deduction; still < 99, ceiling no-op)');
+  assert(bench('who', BASE).score === 76 && bench('who', BASE).severityProtection.score === 70, 'WHO BASE customer 76, FAIL severity 70; ceiling no-op');
+  {
+    const euBase = bench('eu', BASE);
+    assert(euBase.score === 77 && euBase.countryGate.cap === 65 && euBase.score < 99, 'EU BASE customer 77, chlorine gate cap 65; ceiling no-op');
+  }
+  assert(bench('usEpa', DIFF).score === 55 && bench('usEpa', DIFF).severityProtection.score === 45, 'EPA DIFF customer 55, CRITICAL severity 45; ceiling no-op');
 }
 
 console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / published Q-V3');
@@ -112,13 +112,7 @@ console.log('\nCase C — Q-V3 independence: ceiling never mutates S.scoreVal / 
   const quality = sandbox.computeQualityScoreDetail(BASE).score;
   assert(quality === 76, `Q-V3 BASE stays 76, unrounded by Country ceiling (got ${quality})`);
   const jp = bench('japan', BASE).score;
-  // 2026-08-19 (bug fix): japan/weights.js no longer carries a `do` key —
-  // BASE's raw base rose from 74 to 76 and now numerically coincides with
-  // Q-V3's own flat-mean 76. That's expected, not a leak: same-score is an
-  // explicitly acceptable outcome for this architecture; independence is
-  // structural (grep check below), and the COINCIDE fixture right after
-  // this one gives the actual numeric divergence proof instead.
-  assert(jp === 76 && jp === quality, `Country Hero (${jp}) coincides with Q-V3 (${quality}) here — not a leak, structural proof below`);
+  assert(jp === 79 && quality === 76 && jp !== quality, `Country customer score (${jp}) diverges from Q-V3 (${quality})`);
   // COINCIDE (ph=7.5, otherwise identical to BASE) keeps pH inside Japan's
   // own band (no severity cap binds), yet Japan's own weighted profile
   // (turbidity/chlorine emphasized) still genuinely diverges from Q-V3's
@@ -152,8 +146,9 @@ console.log('\nCase D — country switching routes to the selected engine, never
   // for the full UI-routing path with S state) — routing itself is proven here directly.
   const th = bench('thailand', DIFF_TH_SAFE);
   const jp = bench('japan', DIFF_TH_SAFE);
-  assert(th.engineKey === 'thailand' && jp.engineKey === 'japan' && th.score !== jp.score,
-    'switching engines returns genuinely different, correctly-routed results');
+  assert(th.engineKey === 'thailand' && jp.engineKey === 'japan', 'switching engines returns the selected engine');
+  assert(th.score === 83 && jp.score === 83 && th.severityProtection.score === 83 && jp.severityProtection.score === 75,
+    'customer scores can match while Japan severity stays 75');
 }
 
 console.log('\nCase E — TH severity preservation: DIFF_TH_SAFE stays well below the ceiling, not further reduced by it');
@@ -177,8 +172,9 @@ console.log('\nCase F — existing near-ideal fixture: raw 92 (below ceiling), u
   // stay PASS, so their raw composite (92, not 100) never reaches the ceiling.
   for (const key of KEYS) {
     const r = bench(key, CASE_1328);
-    const expected = { thailand: 95, japan: 85, who: 92, eu: 94, usEpa: 94 }[key];
-    assert(r.score === expected, `${key} Case 1328 (pre-existing near-ideal fixture) = ${expected} (got ${r.score})`);
+    const expected = { thailand: 95, japan: 96, who: 92, eu: 94, usEpa: 94 }[key];
+    assert(r.score === expected, `${key} Case 1328 customer score = ${expected} (got ${r.score})`);
+    if (key === 'japan') assert(r.severityProtection.score === 85, 'Case 1328 Japan WARNING severity stays 85');
   }
 }
 

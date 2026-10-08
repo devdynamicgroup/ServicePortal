@@ -87,8 +87,9 @@ console.log('\nExisting Cases — natural ordering + no 97–99 ordinary cluster
   assert(a === 79, `New C 8/11 TH=79 (got ${a})`);
   assert(b === 85, `New C 8/10 TH=85 (got ${b})`);
   assert(c === 95, `13.28 TH=95 (got ${c})`);
-  assert(f === 60, `faucet TH=60 (CRITICAL cap, chlorine=0) (got ${f})`);
-  assert(f < a && a < b && b < c, 'ordering faucet < 8/11 < 8/10 < 13.28');
+  const faucet = th(FAUCET);
+  assert(faucet.score === 70 && faucet.severityProtection.score === 60, `faucet TH customer 70, severity 60 (got ${faucet.score})`);
+  assert(faucet.score < a && a < b && b < c, 'ordering faucet < 8/11 < 8/10 < 13.28');
   assert(!(a >= 97 && b >= 97 && c >= 97 && a <= 99 && b <= 99 && c <= 99 && a === 97 && b === 98),
     'ordinary trio no longer the pre-PD-015 97/98/99 cluster');
 }
@@ -131,13 +132,14 @@ console.log('\nOther engines unchanged on baseline New C readings');
   // WARNING; the guaranteed minimum deduction
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it to 73.
   // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 74 -> 76.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 76, 'JP 76 (WARNING guaranteed deduction)');
-  // WHO/EPA both classify chlorine/do as FAIL; raw 76 is already below the
-  // 75 FAIL ceiling, so the guaranteed minimum deduction (FAIL=6) is what
-  // actually moves it: 76 - 6 = 70.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', r).score === 70, 'WHO 70 (FAIL guaranteed deduction)');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', r).score === 65, 'EU unchanged 65');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 71, 'EPA 71 (FAIL guaranteed deduction)');
+  const jp = sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r);
+  const who = sandbox.WaterScoreBenchmarkRegistry.calculate('who', r);
+  const eu = sandbox.WaterScoreBenchmarkRegistry.calculate('eu', r);
+  const epa = sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r);
+  assert(jp.score === 79 && jp.severityProtection.score === 76, 'JP customer 79, severity 76');
+  assert(who.score === 76 && who.severityProtection.score === 70, 'WHO customer 76, severity 70');
+  assert(eu.score === 77 && eu.countryGate.applied === true && eu.countryGate.cap === 65, 'EU customer 77, chlorine gate cap 65');
+  assert(epa.score === 77 && epa.severityProtection.score === 71, 'EPA customer 77, severity 71');
   assert(sandbox.computeQualityScoreDetail(r).score === 76, 'Q-V3 unchanged 76');
 }
 

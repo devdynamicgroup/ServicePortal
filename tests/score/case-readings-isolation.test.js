@@ -238,7 +238,7 @@ console.log('\nTest B — Switching A → B does not reuse A readings');
   assert(bEngineFp === fingerprint(SINK), `B engine input is sink (${bEngineFp})`);
   assert(bFp !== a.fp, 'B readings != prior A readings');
   assert(sandbox.S.activeJob.id === 'case-sink', 'activeJob is B');
-  assert(sandbox.S.displayedScore.source === 'country-benchmark', 'live Hero remains country-benchmark');
+  assert(sandbox.S.displayedScore.source === 'quality-v3', 'live hero stays Quality for a one-location case');
 }
 
 console.log('\nTest C — Switching B → A does not reuse B readings');
@@ -288,9 +288,10 @@ console.log('\nTest E — Country perturbation remains valid (Layer 4)');
     sandbox.setScoreReferenceStandard(key);
     const displayed = sandbox.S.displayedScore;
     const engine = sandbox.WaterScoreBenchmarkRegistry.calculate(key, CASE_1328);
-    assert(displayed.source === 'country-benchmark', `${key}: source country-benchmark`);
-    assert(displayed.engineKey === key, `${key}: engineKey`);
-    assert(displayed.score === engine.score, `${key}: displayed ${displayed.score} === engine ${engine.score}`);
+    assert(displayed.source === 'quality-v3', `${key}: staff hero source is Quality`);
+    assert(displayed.score === sandbox.S.currentScoreResult.computedScore, `${key}: staff hero stays Quality`);
+    assert(sandbox.S.comparisonScoreResult.engineKey === key, `${key}: comparison engine`);
+    assert(sandbox.S.comparisonScoreResult.score === engine.score, `${key}: comparison ${sandbox.S.comparisonScoreResult.score} === engine ${engine.score}`);
     assert(fingerprint(sandbox.S.comparisonScoreResult.readings) === fingerprint(CASE_1328),
       `${key}: engine still uses Case C readings`);
   }
@@ -305,7 +306,7 @@ console.log('\nTest F — activeJob.id owns score input (lineage assertion)');
     assert(out.activeJobId === job.id, `owner ${job.id}`);
     assert(fingerprint(out.comparisonReadings) === out.fp,
       `${job.name}: comparison.readings === scoreBaseReadings`);
-    assert(out.displayedSource === 'country-benchmark', `${job.name}: displayed from country`);
+    assert(out.displayedSource === 'quality-v3', `${job.name}: one-location hero is Quality`);
   }
 }
 

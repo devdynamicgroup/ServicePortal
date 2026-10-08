@@ -67,10 +67,10 @@ const BASELINE = Object.freeze({
   readings: { ph: 7.85, tds: 175, turbidity: 0.42, orp: 515, do: 5.3, chlorine: 0.7, temp: 25 },
   quality: 76,
   thailand: 79,
-  japan: 76,
-  who: 70,
-  eu: 65,
-  usEpa: 71
+  japan: 79,
+  who: 76,
+  eu: 77,
+  usEpa: 77
 });
 
 const KEYS = ['thailand', 'japan', 'who', 'eu', 'usEpa'];
@@ -164,10 +164,10 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   // at the shared raw base (92) — a second, independent way scores can
   // genuinely differ, not a ranking signal either.
   const overlap = { ph: 7.79, tds: 92, turbidity: 0.12, orp: 434.1, do: 6.34, chlorine: 0.3, temp: 28.06 };
-  const thOverlap = bench('thailand', overlap).score;
-  const jpOverlap = bench('japan', overlap).score;
-  assert(thOverlap === 95 && jpOverlap === 85 && thOverlap !== jpOverlap,
-    'TH 95 !== JP 85 — Japan\'s own tighter pH target caps it (not Thailand\'s)');
+  const thOverlap = bench('thailand', overlap);
+  const jpOverlap = bench('japan', overlap);
+  assert(thOverlap.score === 95 && jpOverlap.score === 96 && jpOverlap.severityProtection.score === 85,
+    'TH customer 95, JP customer 96, JP WARNING severity stays 85');
   // BASELINE itself (ph=7.85) is now OUTSIDE Japan's 7.3-7.7 comfortable
   // band too, so it no longer coincides either: Japan classifies ph
   // WARNING and the 2026-08-18 guaranteed minimum deduction
@@ -181,8 +181,8 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   // raw base (74 -> 76).
   const thBaseline = bench('thailand', BASELINE.readings);
   const jpBaseline = bench('japan', BASELINE.readings);
-  assert(thBaseline.score === 79 && jpBaseline.score === 76 && thBaseline.score !== jpBaseline.score,
-    'BASELINE TH 79 !== JP 76 — Japan\'s own pH WARNING + guaranteed deduction, not Thailand\'s');
+  assert(thBaseline.score === 79 && jpBaseline.score === 79 && thBaseline.severityProtection.score === 79 && jpBaseline.severityProtection.score === 76,
+    'BASELINE customer scores are both 79; Japan WARNING severity stays 76');
   const coincide = { ...BASELINE.readings, ph: 7.5 };
   const thCoincide = bench('thailand', coincide).score;
   const jpCoincide = bench('japan', coincide).score;
@@ -194,10 +194,10 @@ console.log('\nPD-005 — no ranking semantics / equal scores valid');
   // Thailand's now-tighter bounds while still failing Japan's own stricter
   // comfort-target thresholds (pH ideal 7.3-7.7 / TDS ideal ≤200).
   const diverge = { ph: 8.0, tds: 350, turbidity: 0.5, orp: 400, do: 6, chlorine: 0.5, temp: 26 };
-  const thDiverge = bench('thailand', diverge).score;
-  const jpDiverge = bench('japan', diverge).score;
-  assert(thDiverge === 83 && jpDiverge === 75 && thDiverge !== jpDiverge,
-    'TH/JP scores genuinely differ on a fixture where Japan\'s own FAIL classification + severity cap caps it (81 vs 75)');
+  const thDiverge = bench('thailand', diverge);
+  const jpDiverge = bench('japan', diverge);
+  assert(thDiverge.score === 83 && jpDiverge.score === 83 && thDiverge.severityProtection.score === 83 && jpDiverge.severityProtection.score === 75,
+    'TH/JP customer scores are both 83; Japan FAIL severity stays 75');
   assert(thBaseline.params.chlorine < 100, 'TH chlorine grade already below 100 pre-ceiling (in-band severity)');
   assert(jpBaseline.params.orp < 100, 'JP orp grade now below 100 for orp=515 (PD-014 D1 inner decline)');
   assert(!scoreFlowSrc.includes('strictest cleanliness expectations'),

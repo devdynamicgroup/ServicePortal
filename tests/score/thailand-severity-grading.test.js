@@ -111,7 +111,7 @@ function trace(raw, country) {
   const disp = displayed(after, country);
   return {
     raw, mapped, after, validation: validation.status,
-    grades: eng.params, postRound: eng.score,
+    grades: eng.params, postRound: eng.score, engSeverity: eng.severityProtection && eng.severityProtection.score,
     displayed: disp.score, engineKey: disp.engineKey, source: disp.source,
     doClass: eng.classifications?.do
   };
@@ -174,15 +174,11 @@ console.log('\nDIFF pipeline retrace (RAW === engine input)');
   // CRITICAL under Thailand's own corrected PASS thresholds — worst
   // classification CRITICAL applies its cap (60, no-op here since raw 61 is
   // already below it) and its guaranteed minimum deduction (10): 61-10=51.
-  assert(t.postRound === 51, `DIFF TH score 51 (got ${t.postRound})`);
-  assert(t.displayed === 51 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
-    'DIFF Hero = Thailand 51');
+  assert(t.postRound === 61 && t.engSeverity === 51, `DIFF TH customer 61, severity 51 (got ${t.postRound}/${t.engSeverity})`);
+  assert(t.displayed === 61 && t.engineKey === 'thailand' && t.source === 'country-benchmark',
+    'DIFF direct display is the Thailand raw aggregate 61');
   const jp = trace(DIFF, 'japan');
-  // Raw base for DIFF is 61, already below Japan's 60 CRITICAL ceiling, so
-  // the 2026-08-18 guaranteed minimum deduction
-  // (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) is what actually moves it:
-  // 61 - 10 = 51.
-  assert(jp.postRound === 47 && jp.displayed === 47, `DIFF JP 47 (got ${jp.postRound})`);
+  assert(jp.postRound === 57 && jp.engSeverity === 47, `DIFF JP customer 57, severity 47 (got ${jp.postRound}/${jp.engSeverity})`);
   const q = sandbox.computeQualityScoreDetail(DIFF).score;
   assert(q === 61, 'DIFF Q-V3 unchanged 61');
 }
@@ -202,8 +198,8 @@ console.log('\nBASE / one-bad pipeline');
   // spec passMax (1.0) with a grade low enough to classify CRITICAL →
   // severity cap 60 applies. Chlorine's compliance band is unchanged, so it
   // still stays PASS and uncapped.
-  assert(tds.postRound === 75 && tds.grades.tds < 100, `oneBad TDS TH 75 (FAIL cap) (got ${tds.postRound})`);
-  assert(turb.postRound === 60 && turb.grades.turbidity < 100, `oneBad turb TH 60 (CRITICAL cap) (got ${turb.postRound})`);
+  assert(tds.postRound === 88 && tds.engSeverity === 75 && tds.grades.tds < 100, `oneBad TDS TH customer 88, severity 75 (got ${tds.postRound})`);
+  assert(turb.postRound === 87 && turb.engSeverity === 60 && turb.grades.turbidity < 100, `oneBad turb TH customer 87, severity 60 (got ${turb.postRound})`);
   assert(cl.postRound === 87 && cl.grades.chlorine < 100, `oneBad Cl TH 87 (got ${cl.postRound})`);
 }
 
@@ -218,13 +214,13 @@ console.log('\nCross-engine isolation');
   // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3)
   // takes raw 76 to 73.
   // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 74 -> 76.
-  assert(jp.score === 76 && jp.classifications.do === 'NOT_EVALUATED', `JP BASE 76 / DO NE (got ${jp.score})`);
-  // WHO/EPA classify chlorine/do FAIL; raw 76 is already below the 75 FAIL
-  // ceiling, so the guaranteed minimum deduction (FAIL=6) is what actually
-  // moves it: 76 - 6 = 70.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', BASE).score === 70, 'WHO 70 (FAIL guaranteed deduction)');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', BASE).score === 65, 'EU 65');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', BASE).score === 71, 'EPA 71 (FAIL guaranteed deduction — DO=5.3 below EPA\'s own floor)');
+  assert(jp.score === 79 && jp.severityProtection.score === 76 && jp.classifications.do === 'NOT_EVALUATED', `JP BASE customer 79, severity 76, DO not evaluated (got ${jp.score})`);
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', BASE).score === 76, 'WHO customer 76');
+  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', BASE).severityProtection.score === 70, 'WHO severity stays 70');
+  const euBase = sandbox.WaterScoreBenchmarkRegistry.calculate('eu', BASE);
+  assert(euBase.score === 77 && euBase.countryGate.applied === true && euBase.countryGate.cap === 65, 'EU customer 77, chlorine gate cap 65');
+  const epaBase = sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', BASE);
+  assert(epaBase.score === 77 && epaBase.severityProtection.score === 71, 'EPA customer 77, severity 71');
 }
 
 console.log('\nCatastrophic dilution (aggregation now a plain equal-weight mean — severity caps do the heavy lifting)');
@@ -233,18 +229,10 @@ console.log('\nCatastrophic dilution (aggregation now a plain equal-weight mean 
   const two = th({ ...IDEAL, tds: 5000, turbidity: 50 });
   const three = th({ ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 });
   const all = th({ ph: 3, tds: 5000, turbidity: 50, orp: -100, chlorine: 10, do: 0, temp: 80 });
-  assert(one.score === 60, `1 catastrophic → 60 (CRITICAL cap) (got ${one.score})`);
-  // 2 and 3 catastrophic: raw average already below 60, so the ceiling
-  // itself is a no-op, but the 2026-08-18 guaranteed minimum deduction
-  // (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) still always comes off:
-  // raw 68 -> 58 (2 params), raw 53 -> 43 (3 params).
-  assert(two.score === 52, `2 catastrophic → 52 (weighted TH profile, cap no-op, guaranteed deduction) (got ${two.score})`);
-  assert(three.score === 34, `3 catastrophic → 34 (weighted TH profile, cap no-op, guaranteed deduction) (got ${three.score})`);
-  // 2026-08-18 (PO-approved fix): raw average is 7, and the unconditional
-  // guaranteed minimum deduction (score - 10) would go negative — a water
-  // quality score below 0 is meaningless, so applyCountrySeverityProtection
-  // floors the final score at 0.
-  assert(all.score === 0, `all catastrophic → 0 (raw 7, CRITICAL deduction floored at 0, not negative) (got ${all.score})`);
+  assert(one.score === 81 && one.severityProtection.score === 60, `1 catastrophic customer 81, severity 60 (got ${one.score})`);
+  assert(two.score === 62 && two.severityProtection.score === 52, `2 catastrophic customer 62, severity 52 (got ${two.score})`);
+  assert(three.score === 44 && three.severityProtection.score === 34, `3 catastrophic customer 44, severity 34 (got ${three.score})`);
+  assert(all.score === 7 && all.severityProtection.score === 0, `all catastrophic customer 7, severity floored at 0 (got ${all.score})`);
 }
 
 console.log('\nCross-country matrix (recomputed against the shared-formula rebuild)');
@@ -272,26 +260,40 @@ console.log('\nCross-country matrix (recomputed against the shared-formula rebui
     // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights — jp
     // cells shift wherever the fixture's do differed from what Japan's own
     // weighted composite now (correctly) ignores. Recomputed directly.
-    ['BASE', BASE, { th: 79, jp: 76, eu: 65, who: 70, epa: 71, q: 76 }],
-    ['DIFF', DIFF, { th: 51, jp: 47, eu: 49, who: 51, epa: 45, q: 61 }],
-    ['LOCKED', LOCKED, { th: 66, jp: 63, eu: 63, who: 60, epa: 57, q: 73 }],
-    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 75, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
-    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 60, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
-    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 87, jp: 60, eu: 65, who: 60, epa: 91, q: 90 }],
-    ['twoBad', twoBad, { th: 60, jp: 60, eu: 69, who: 60, epa: 59, q: 80 }],
-    ['threeBad', threeBad, { th: 53, jp: 48, eu: 54, who: 59, epa: 50, q: 69 }]
+    ['BASE', BASE, { th: 79, jp: 79, eu: 77, who: 76, epa: 77, q: 76 }, { th: 79, jp: 76, eu: 71, who: 70, epa: 71 }],
+    ['DIFF', DIFF, { th: 61, jp: 57, eu: 55, who: 61, epa: 55, q: 61 }, { th: 51, jp: 47, eu: 49, who: 51, epa: 45 }],
+    ['LOCKED', LOCKED, { th: 72, jp: 69, eu: 69, who: 73, epa: 67, q: 73 }, { th: 66, jp: 63, eu: 63, who: 60, epa: 57 }],
+    ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 88, jp: 89, eu: 91, who: 90, epa: 88, q: 90 }, { th: 75, jp: 60, eu: 75, who: 60, epa: 60 }],
+    ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 87, jp: 84, eu: 84, who: 90, epa: 81, q: 90 }, { th: 60, jp: 60, eu: 75, who: 60, epa: 60 }],
+    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 87, jp: 84, eu: 84, who: 90, epa: 91, q: 90 }, { th: 87, jp: 60, eu: 65, who: 60, epa: 91 }],
+    ['twoBad', twoBad, { th: 76, jp: 74, eu: 75, who: 80, epa: 69, q: 80 }, { th: 60, jp: 60, eu: 69, who: 60, epa: 59 }],
+    ['threeBad', threeBad, { th: 63, jp: 58, eu: 60, who: 69, epa: 60, q: 69 }, { th: 53, jp: 48, eu: 54, who: 59, epa: 50 }]
   ];
-  for (const [label, readings, exp] of rows) {
+  for (const [label, readings, exp, severity] of rows) {
+    const results = {
+      th: sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', readings),
+      jp: sandbox.WaterScoreBenchmarkRegistry.calculate('japan', readings),
+      eu: sandbox.WaterScoreBenchmarkRegistry.calculate('eu', readings),
+      who: sandbox.WaterScoreBenchmarkRegistry.calculate('who', readings),
+      epa: sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', readings)
+    };
     const got = {
-      th: sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', readings).score,
-      jp: sandbox.WaterScoreBenchmarkRegistry.calculate('japan', readings).score,
-      eu: sandbox.WaterScoreBenchmarkRegistry.calculate('eu', readings).score,
-      who: sandbox.WaterScoreBenchmarkRegistry.calculate('who', readings).score,
-      epa: sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', readings).score,
+      th: results.th.score, jp: results.jp.score, eu: results.eu.score,
+      who: results.who.score, epa: results.epa.score,
       q: sandbox.computeQualityScoreDetail(readings).score
     };
     for (const k of Object.keys(exp)) {
       assert(got[k] === exp[k], `${label} ${k}=${exp[k]} (got ${got[k]})`);
+    }
+    for (const k of Object.keys(severity)) {
+      const result = results[k === 'epa' ? 'epa' : k];
+      if (k === 'eu' && (label === 'BASE' || label === 'oneBadCl')) {
+        assert(result.countryGate && result.countryGate.applied === true && result.countryGate.cap === 65,
+          `${label} EU chlorine gate cap stays 65`);
+      } else {
+        assert(result.severityProtection.score === severity[k],
+          `${label} ${k} severity ${severity[k]} (got ${result.severityProtection.score})`);
+      }
     }
   }
 }
@@ -305,7 +307,7 @@ console.log('\nPhysical / impossible');
   const extreme = th({ ph: 3, tds: 5000, turbidity: 50, orp: -100, do: 0, chlorine: 10, temp: 80 });
   // 2026-08-18 (PO-approved): CRITICAL's guaranteed deduction floors at 0
   // rather than going negative (raw 7 - 10 would be -3).
-  assert(extreme.score === 0, `extreme-valid TH 0 (floored, not negative) (got ${extreme.score})`);
+  assert(extreme.score === 7 && extreme.severityProtection.score === 0, `extreme-valid TH customer 7, severity floored at 0 (got ${extreme.score})`);
   const notPerfect = th({ ph: 0.1, tds: 0, turbidity: 0, orp: -1999, chlorine: 0, do: 0, temp: 0 });
   assert(notPerfect.score < 100, `extreme-but-valid cannot be perfect (got ${notPerfect.score})`);
 }

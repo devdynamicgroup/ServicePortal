@@ -125,11 +125,17 @@ console.log('\nD. Aggregation dilution matrix — one catastrophic parameter, fi
   // WARNING (raw 84, no cap needed, but 84-3=81); eu's orp=-100 leaves orp
   // itself WARNING (raw 85, gate does not apply since chlorine is fine, but
   // 85-3=82).
-  // 2026-08-19: weighted profiles restored — Thailand excludes DO from
-  // aggregation (do=0 no longer drags TH composite); Japan/EU use their
-  // own weight profiles + severity. Every value recomputed directly.
-  const expected = {
-    thailand: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 99 },
+  // Customer score is the weighted base. The previous protected number stays
+  // on severityProtection (or the EU chlorine gate cap).
+  const customer = {
+    thailand: { ph: 82, tds: 81, turbidity: 81, orp: 82, chlorine: 82, do: 99 },
+    japan: { ph: 83, tds: 83, turbidity: 76, orp: 87, chlorine: 77, do: 99 },
+    who: { ph: 85, tds: 84, turbidity: 84, orp: 85, chlorine: 85, do: 84 },
+    eu: { ph: 86, tds: 86, turbidity: 76, orp: 91, chlorine: 77, do: 91 },
+    usEpa: { ph: 86, tds: 81, turbidity: 72, orp: 91, chlorine: 86, do: 91 }
+  };
+  const protectedScore = {
+    thailand: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 100 },
     japan: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 85 },
     who: { ph: 60, tds: 60, turbidity: 60, orp: 60, chlorine: 60, do: 60 },
     eu: { ph: 75, tds: 75, turbidity: 60, orp: 85, chlorine: 65, do: 75 },
@@ -139,16 +145,21 @@ console.log('\nD. Aggregation dilution matrix — one catastrophic parameter, fi
     for (const param of Object.keys(CATASTROPHIC)) {
       const readings = { ...EXCELLENT, [param]: CATASTROPHIC[param] };
       const r = bench(key, readings);
-      const exp = expected[key][param];
-      assert(r.score === exp, `${key} 1-catastrophic(${param}=${CATASTROPHIC[param]}): final=${exp} (got ${r.score})`);
-      // The core dilution-safety property: whenever a parameter classifies
-      // CRITICAL, the FINAL score must never exceed the CRITICAL ceiling (60),
-      // regardless of how high the raw weighted-mean aggregate is diluted to
-      // by the other five excellent parameters. Now enforced by BOTH the
-      // weakest-link aggregation (Japan/WHO/EU/EPA, this round) AND the
-      // classification-based severity cap as a backstop.
+      const exp = customer[key][param];
+      const guard = protectedScore[key][param];
+      assert(r.score === exp, `${key} 1-catastrophic(${param}=${CATASTROPHIC[param]}): customer=${exp} (got ${r.score})`);
+      assert(r.score === (r.rawAggregate > 99 ? 99 : r.rawAggregate),
+        `${key} ${param}: customer score is the ceiling-limited raw aggregate`);
+      if (key === 'eu' && param === 'chlorine') {
+        assert(r.countryGate && r.countryGate.applied === true && r.countryGate.cap === guard,
+          `${key} ${param}: chlorine gate cap stays ${guard}`);
+      } else {
+        assert(r.severityProtection && r.severityProtection.score === guard,
+          `${key} ${param}: severityProtection.score stays ${guard} (got ${r.severityProtection && r.severityProtection.score})`);
+      }
       if (r.classifications && r.classifications[param] === 'CRITICAL' && key !== 'eu') {
-        assert(r.score <= 60, `${key} ${param} CRITICAL: final score ${r.score} <= 60 despite raw dilution (rawAggregate=${r.rawAggregate})`);
+        assert(r.severityProtection.score <= 60 && r.score === r.rawAggregate,
+          `${key} ${param} CRITICAL: severity ${r.severityProtection.score} <= 60 while customer score stays rawAggregate ${r.rawAggregate}`);
       }
     }
   }
@@ -167,11 +178,13 @@ console.log('\nE. EU countryGate — dedicated chlorine gate captured as an insp
   const r = bench('eu', { ...EXCELLENT, chlorine: 0.7 });
   assert(r.countryGate && r.countryGate.applied === true, 'EU chlorine=0.7: countryGate.applied=true');
   assert(r.countryGate.cap === 65, `EU chlorine=0.7: countryGate.cap=65 (got ${r.countryGate.cap})`);
-  assert(r.score === 65, `EU chlorine=0.7: final score is the gate value 65, not the generic CRITICAL=60 (got ${r.score})`);
+  assert(r.score === 95 && r.score === (r.rawAggregate > 99 ? 99 : r.rawAggregate), `EU chlorine=0.7: customer score is rawAggregate 95 (got ${r.score})`);
+  assert(Math.min(r.rawAggregate, r.countryGate.cap) === 65, 'EU chlorine=0.7: gate metadata still resolves to 65');
 
   const extreme = bench('eu', { ...EXCELLENT, chlorine: 15 });
   assert(extreme.countryGate && extreme.countryGate.applied === true, 'EU chlorine=15: countryGate.applied=true (raw aggregate still above cap)');
-  assert(extreme.score === 65, `EU chlorine=15: final score is the gate value 65 (got ${extreme.score})`);
+  assert(extreme.score === 77 && extreme.score === (extreme.rawAggregate > 99 ? 99 : extreme.rawAggregate), `EU chlorine=15: customer score is rawAggregate 77 (got ${extreme.score})`);
+  assert(extreme.countryGate.cap === 65, 'EU chlorine=15: gate cap stays 65');
 }
 
 console.log('\nF. modelVersion is stable across repeated calls with the same readings (determinism)');

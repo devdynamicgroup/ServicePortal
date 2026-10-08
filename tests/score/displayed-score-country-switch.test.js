@@ -157,16 +157,10 @@ console.log('\n1–5. Same Case + each country → displayed Score uses that eng
     assert(viaHelper.showScore === true, `${key}: showScore true`);
   }
   const quality = sandbox.computeQualityScoreDetail(DIFF).score;
-  // 2026-08-19 (PO-approved, evidence-based): Thailand's own TDS/turbidity
-  // passMax were corrected to real cited Thai standards (DOH 2020 ≤500 /
-  // MWA spec ≤1.0) — DIFF's TDS=800/turbidity=3.5 now exceed Thailand's own
-  // bounds too, so its own severity cap now binds and Thailand's displayed
-  // score (51) diverges from Quality V3 (61, no country cap). Independence
-  // is proven structurally: they're computed via genuinely separate
-  // functions (resolveDisplayedScore/registry.calculate vs
-  // computeQualityScoreDetail), verified in country-hero-ceiling.test.js.
-  assert(displayed(DIFF, 'thailand').score !== quality,
-    `displayed TH ${displayed(DIFF, 'thailand').score} diverges from Quality V3 ${quality} (Thailand's own severity cap now binds)`);
+  const thDirect = displayed(DIFF, 'thailand');
+  assert(quality === 61, 'DIFF Quality stays 61');
+  assert(thDirect.score === 61 && thDirect.comparison.metadata.severityProtection.score === 51,
+    `DIFF Thailand customer 61, severity 51 (got ${thDirect.score})`);
 }
 
 console.log('\n6–7. Thailand → Japan → Thailand via setScoreReferenceStandard');
@@ -177,35 +171,38 @@ console.log('\n6–7. Thailand → Japan → Thailand via setScoreReferenceStand
 
   const th = switchCountry('thailand');
   const thEngine = sandbox.WaterScoreBenchmarkRegistry.calculate('thailand', DIFF_TH_SAFE);
-  assert(th.engineKey === 'thailand', 'TH switch engineKey=thailand');
-  assert(th.score === thEngine.score, `TH displayed ${th.score} === Thailand engine`);
+  assert(th.source === 'quality-v3' && th.score === sandbox.S.currentScoreResult.computedScore, 'TH switch hero is Quality');
+  assert(sandbox.S.comparisonScoreResult.engineKey === 'thailand' && sandbox.S.comparisonScoreResult.score === thEngine.score,
+    `TH comparison ${sandbox.S.comparisonScoreResult.score} follows the Thailand engine`);
   assert(sandbox.S.currentScoreResult.standardKey === 'quality-v3', 'publish channel remains quality-v3 after TH');
 
   const jp = switchCountry('japan');
   const jpEngine = sandbox.WaterScoreBenchmarkRegistry.calculate('japan', DIFF_TH_SAFE);
-  assert(jp.engineKey === 'japan', 'JP switch engineKey=japan');
-  assert(jp.score === jpEngine.score, `JP displayed ${jp.score} === Japan engine`);
-  assert(jp.score !== th.score, `DIFF_TH_SAFE: displayed JP ${jp.score} !== displayed TH ${th.score}`);
-  assert(sandbox.S.comparisonScoreResult.engineKey === 'japan', 'comparisonScoreResult follows Japan');
+  assert(jp.source === 'quality-v3' && jp.score === th.score, 'JP switch keeps the same Quality hero');
+  assert(sandbox.S.comparisonScoreResult.engineKey === 'japan' && sandbox.S.comparisonScoreResult.score === jpEngine.score,
+    `JP comparison ${sandbox.S.comparisonScoreResult.score} follows the Japan engine`);
   assert(sandbox.S.currentScoreResult.standardKey === 'quality-v3', 'Quality publish tag unchanged after JP');
 
   const back = switchCountry('thailand');
-  assert(back.engineKey === 'thailand', 'switch back engineKey=thailand');
-  assert(back.score === th.score, `switch back displayed ${back.score} restores Thailand`);
+  assert(back.source === 'quality-v3' && back.score === th.score, 'switch back keeps the Quality hero');
+  assert(sandbox.S.comparisonScoreResult.engineKey === 'thailand' && sandbox.S.comparisonScoreResult.score === thEngine.score,
+    'switch back restores the Thailand comparison');
 
   const sequence = ['thailand', 'japan', 'eu', 'who', 'usEpa', 'thailand'];
   const hero = [];
   for (const key of sequence) {
     const out = switchCountry(key);
     const engine = sandbox.WaterScoreBenchmarkRegistry.calculate(key, DIFF_TH_SAFE);
-    assert(out.engineKey === key, `sequence ${key}: engineKey=${out.engineKey}`);
-    assert(out.score === engine.score, `sequence ${key}: Hero ${out.score} === engine ${engine.score}`);
+    assert(out.source === 'quality-v3' && out.score === sandbox.S.scoreVal,
+      `sequence ${key}: staff hero stays Quality`);
+    assert(sandbox.S.comparisonScoreResult.engineKey === key && sandbox.S.comparisonScoreResult.score === engine.score,
+      `sequence ${key}: comparison ${sandbox.S.comparisonScoreResult.score} === engine ${engine.score}`);
     assert(sandbox.S.scoreVal === sandbox.computeQualityScoreDetail(DIFF_TH_SAFE).score,
       `sequence ${key}: S.scoreVal stays Quality V3`);
-    hero.push({ key, score: out.score, engineKey: out.engineKey });
+    hero.push({ key, score: sandbox.S.comparisonScoreResult.score, engineKey: key });
   }
   assert(hero[0].score === hero[5].score && hero[0].engineKey === 'thailand',
-    'TH→…→TH restores Thailand Hero without stale cache');
+    'TH→…→TH restores the Thailand comparison without a stale cache');
   console.log('  country-switch Hero', hero);
 }
 
@@ -234,11 +231,10 @@ console.log('\nBaseline displayed vs Quality V3 (76/99/100/95/65/99)');
   // minimum deduction (FAIL=6) takes raw 76 down to 70. EU's PD-002
   // chlorine gate is unaffected, still 65.
   assert(th.score === 79 && th.engineKey === 'thailand', 'baseline displayed TH=79 from thailand engine');
-  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 74 -> 76.
-  assert(jp.score === 76 && jp.engineKey === 'japan', 'baseline displayed JP=76 from japan engine');
-  assert(who.score === 70 && who.engineKey === 'who', 'baseline displayed WHO=70 from who engine');
-  assert(eu.score === 65 && eu.engineKey === 'eu', 'baseline displayed EU=65 from eu engine');
-  assert(epa.score === 71 && epa.engineKey === 'usEpa', 'baseline displayed EPA=71 from usEpa engine');
+  assert(jp.score === 79 && jp.comparison.metadata.severityProtection.score === 76 && jp.engineKey === 'japan', 'baseline displayed JP customer 79, severity 76');
+  assert(who.score === 76 && who.comparison.metadata.severityProtection.score === 70 && who.engineKey === 'who', 'baseline displayed WHO customer 76, severity 70');
+  assert(eu.score === 77 && eu.comparison.metadata.countryGate.cap === 65 && eu.engineKey === 'eu', 'baseline displayed EU customer 77, gate cap 65');
+  assert(epa.score === 77 && epa.comparison.metadata.severityProtection.score === 71 && epa.engineKey === 'usEpa', 'baseline displayed EPA customer 77, severity 71');
   // Thailand's Hero coincides numerically with Quality V3 here (both 76,
   // same shared base, no cap binds) — expected under the new architecture,
   // not a leak (independence is structural, proven elsewhere).
@@ -297,7 +293,9 @@ console.log('\n10. Quality V3 unchanged');
   // guaranteed minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3)
   // takes it to 73 — diverging from Quality V3 here; independence between
   // the two is structural, not numeric.
-  assert(sandbox.S.displayedScore.score === 76, 'displayed Japan score is 76 (Japan\'s own pH WARNING + guaranteed deduction)');
+  assert(sandbox.S.displayedScore.source === 'quality-v3' && sandbox.S.displayedScore.score === 76, 'staff hero stays Quality 76 after the Japan switch');
+  assert(sandbox.S.comparisonScoreResult.engineKey === 'japan' && sandbox.S.comparisonScoreResult.score === 79, 'Japan comparison is the raw aggregate 79');
+  assert(sandbox.S.comparisonScoreResult.metadata.severityProtection.score === 76, 'Japan severity metadata stays 76');
 }
 
 console.log('\nLive Hero must not fall back to Quality V3 when country score is incomplete');

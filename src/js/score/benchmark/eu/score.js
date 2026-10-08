@@ -118,9 +118,16 @@
     // 2026-08-18 (PO-approved): a score computed without chlorine must never
     // present as a pass/good verdict — cap below the pass-band threshold
     // regardless of how well the other params scored.
-    const score = (!Number.isFinite(cl) && Number.isFinite(cappedScore))
-      ? Math.min(cappedScore, 79)
-      : cappedScore;
+    const missing = (typeof missingWeightedParameters === 'function')
+      ? missingWeightedParameters(readings, W) : [];
+    const score = (typeof resolveCustomerBenchmarkScore === 'function')
+      ? resolveCustomerBenchmarkScore(rawScore, cappedScore, {
+        measurementIncomplete: missing.length > 0,
+        chlorineMissing: missing.indexOf('chlorine') !== -1
+      })
+      : ((!Number.isFinite(cl) && Number.isFinite(cappedScore))
+        ? Math.min(cappedScore, 79)
+        : cappedScore);
 
     const reasons = [];
     if (!Number.isFinite(cl)) {

@@ -76,10 +76,12 @@ console.log('\nLocked sample (legacy DWQI freeze)');
   // despite Japan classifying DO as NOT_EVALUATED (PD-012 B). Excluding it
   // raises Japan's raw base, shifting its FAIL-guaranteed-deduction result
   // from 64 to 63.
-  const expected = { thailand: 66, who: 60, eu: 63, japan: 63, usEpa: 57 };
+  const expected = { thailand: 72, who: 73, eu: 69, japan: 69, usEpa: 67 };
+  const severity = { thailand: 66, who: 60, eu: 63, japan: 63, usEpa: 57 };
   for (const [key, score] of Object.entries(expected)) {
-    assert(sandbox.WaterScoreBenchmarkRegistry.calculate(key, LOCKED).score === score,
-      `${key} locked = ${score}`);
+    const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, LOCKED);
+    assert(result.score === score, `${key} locked customer = ${score} (got ${result.score})`);
+    assert(result.severityProtection.score === severity[key], `${key} locked severity = ${severity[key]} (got ${result.severityProtection.score})`);
   }
 }
 
@@ -97,11 +99,13 @@ console.log('\nCase 13.28 — Quality V2 + benchmarks');
   // japan/limits.js) instead of the wider legal band — CASE_1328's
   // pH=7.79 misses Japan's tighter 7.3-7.7 target (still fine on every
   // other engine's wider band), classifying WARNING and capping at 85.
-  const expected = { thailand: 95, who: 92, eu: 94, japan: 85, usEpa: 94 };
+  const expected = { thailand: 95, who: 92, eu: 94, japan: 96, usEpa: 94 };
   for (const [key, score] of Object.entries(expected)) {
     const result = sandbox.WaterScoreBenchmarkRegistry.calculate(key, CASE_1328);
-    assert(result.score === score, `${key} Case 13.28 = ${score}`);
+    assert(result.score === score, `${key} Case 13.28 customer = ${score} (got ${result.score})`);
   }
+  const japan1328 = sandbox.WaterScoreBenchmarkRegistry.calculate('japan', CASE_1328);
+  assert(japan1328.severityProtection.score === 85, 'Case 13.28 Japan severity stays 85');
   assert(!('totalChlorine' in CASE_1328), 'Total Chlorine not invented in fixture');
 }
 

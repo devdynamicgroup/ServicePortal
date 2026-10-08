@@ -169,7 +169,7 @@ console.log('\nFIXED — Thailand TDS / turbidity / chlorine in-band severity (P
   // now exceed Thailand's own corrected bounds too (FAIL/CRITICAL), so its
   // own severity cap now binds here as well: raw 61 - CRITICAL guaranteed
   // deduction (10) = 51.
-  assert(bench('thailand', DIFF).score === 51, `DIFF TH 51 (CRITICAL cap + guaranteed deduction) (got ${bench('thailand', DIFF).score})`);
+  assert(bench('thailand', DIFF).score === 61 && bench('thailand', DIFF).severityProtection.score === 51, `DIFF TH customer 61, CRITICAL severity 51 (got ${bench('thailand', DIFF).score})`);
 }
 
 console.log('\n2026-08-18: per-country pH curves (TH edge=70, JP cited-target, WHO 8.0 ceiling, flat-compliance EU/EPA) were replaced by one shared formula (computeSharedBenchmarkBase) — this section now asserts the new invariant: identical pH grading across all 5 engines, plus the still-true generic decline-outside-preferred-band behavior.');
@@ -226,7 +226,8 @@ console.log('\n2026-08-18: chlorine/turbidity ideal plateaus now come from the o
   assert(grade('japan', 'chlorine', 1.5) < grade('japan', 'chlorine', 1.0), 'JP Cl 1.5 declines further than 1.0');
   assert(grade('eu', 'chlorine', 0.1) < 100 && grade('eu', 'chlorine', 0.5) === 100,
     'EU Cl 0.1 now declines under the shared curve (its own compliance band starts at 0.1, but the shared ideal plateau starts at 0.2); 0.5 stays 100');
-  assert(bench('eu', { ...IDEAL, chlorine: 0.7 }).score <= 65, 'EU Cl fail gated ≤65');
+  const euCl = bench('eu', { ...IDEAL, chlorine: 0.7 });
+  assert(euCl.score === 95 && euCl.countryGate.applied === true && euCl.countryGate.cap === 65, 'EU Cl 0.7 customer 95, gate cap stays 65');
   assert(grade('who', 'chlorine', 0.3) === 100 && grade('who', 'chlorine', 0.7) < 100,
     'WHO Cl ideal 0.2-0.5 (shared plateau) then declines');
   // Japan turbidity: shared curve's own ideal ceiling is <=0.1 NTU; every
@@ -264,12 +265,13 @@ console.log('\nAggregation dilution — documented limitation (no redesign)');
   // always comes off when CRITICAL is the worst classification: raw
   // 68 -> 58 (2 params), raw 53 -> 43 (3 params).
   const one = bench('thailand', { ...IDEAL, tds: 5000 });
-  assert(one.params.tds === 5 && one.score === 60, 'TH 1 catastrophic → 60 (CRITICAL cap)');
-  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 }).score === 52, 'TH 2 catastrophic → 52 (weighted TH profile)');
-  assert(bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 }).score === 34,
-    'TH 3 catastrophic → 34 (weighted TH profile)');
-  // Country severity protection: TDS=5000 is CRITICAL on EPA, capped at 60.
-  assert(bench('usEpa', { ...IDEAL, tds: 5000 }).score === 60, 'EPA 1 catastrophic → 60 (CRITICAL cap)');
+  assert(one.params.tds === 5 && one.score === 81 && one.severityProtection.score === 60, 'TH 1 catastrophic customer 81, severity 60');
+  const two = bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50 });
+  assert(two.score === 62 && two.severityProtection.score === 52, 'TH 2 catastrophic customer 62, severity 52');
+  const three = bench('thailand', { ...IDEAL, tds: 5000, turbidity: 50, chlorine: 10 });
+  assert(three.score === 44 && three.severityProtection.score === 34, 'TH 3 catastrophic customer 44, severity 34');
+  const epaOne = bench('usEpa', { ...IDEAL, tds: 5000 });
+  assert(epaOne.severityProtection.score === 60 && epaOne.score === (epaOne.rawAggregate > 99 ? 99 : epaOne.rawAggregate), 'EPA 1 catastrophic severity stays 60, customer stays raw');
 }
 
 console.log('\nRAW vs engine input + Hero path (DIFF)');
@@ -288,14 +290,11 @@ console.log('\nRAW vs engine input + Hero path (DIFF)');
   // now exceed Thailand's own corrected bounds (DOH 2020 TDS≤500 / MWA
   // turbidity≤1.0) too — CRITICAL classification + guaranteed deduction
   // takes shared raw base 61 down to 51 for Thailand's own Hero path.
-  assert(th.score === 51 && cmp.score === 51 && disp.score === 51,
-    'engine === comparison === displayed = 51');
-  assert(disp.engineKey === 'thailand' && disp.source === 'country-benchmark', 'Hero country-benchmark');
+  assert(th.score === 61 && th.severityProtection.score === 51 && cmp.score === 61 && disp.score === 61,
+    'engine customer === comparison === direct displayed = 61; severity stays 51');
+  assert(disp.engineKey === 'thailand' && disp.source === 'country-benchmark', 'direct displayed score stays country-benchmark');
   const q = sandbox.computeQualityScoreDetail(v.measurements).score;
-  // Quality V3 (61) now diverges from Thailand's Hero score (51) — Quality
-  // V3 has no country-specific severity cap, so this is a clean isolation
-  // proof: the two are computed via genuinely separate functions/paths.
-  assert(q === 61 && q !== disp.score, `Q-V3 ${q} diverges from Hero ${disp.score} (Thailand's own severity cap now binds)`);
+  assert(q === 61 && th.severityProtection.score !== q, `Q-V3 ${q} stays separate from Thailand severity ${th.severityProtection.score}`);
 }
 
 console.log('\nCountry switch TH→JP→EU→WHO→EPA→TH (no stale cache)');
@@ -324,9 +323,10 @@ console.log('\nCountry switch TH→JP→EU→WHO→EPA→TH (no stale cache)');
   for (const key of seq) {
     sandbox.setScoreReferenceStandard(key);
     const out = sandbox.S.displayedScore;
+    const cmp = sandbox.S.comparisonScoreResult;
     const eng = bench(key, DIFF);
-    assert(out.engineKey === key, `switch ${key} engineKey`);
-    assert(out.score === eng.score, `switch ${key} Hero ${out.score} === engine ${eng.score}`);
+    assert(out.source === 'quality-v3' && out.engineKey === 'quality-v3', `switch ${key} staff hero stays Quality`);
+    assert(cmp.engineKey === key && cmp.score === eng.score, `switch ${key} comparison ${cmp.score} === engine ${eng.score}`);
     assert(sandbox.S.scoreVal === 61, `switch ${key} S.scoreVal stays Q-V3 61`);
     assert(sandbox.S.currentScoreResult?.standardKey === 'quality-v3',
       `switch ${key} publish channel stays quality-v3`);
@@ -348,9 +348,10 @@ console.log('\nMissing-data country semantics');
   // Japan's own pH target (7.3-7.7) doesn't include IDEAL's pH=7.2, so it
   // classifies WARNING (85 cap) regardless of DO — same reasoning as
   // country-hero-ceiling.test.js's IDEAL fixture.
-  assert(bench('japan', { ...IDEAL, do: null }).score === 85
-    && bench('japan', { ...IDEAL, do: null }).classifications.do === 'NOT_EVALUATED',
-    'JP missing DO still scores (WARNING-capped at 85 by its own pH target) / NOT_EVALUATED');
+  const jpMissingDo = bench('japan', { ...IDEAL, do: null });
+  assert(jpMissingDo.score === 99 && jpMissingDo.severityProtection.score === 85
+    && jpMissingDo.classifications.do === 'NOT_EVALUATED',
+    'JP missing DO customer is the 99 ceiling, WARNING severity stays 85, DO stays NOT_EVALUATED');
   assert(bench('eu', { ...IDEAL, do: null }).score === 99
     && bench('eu', { ...IDEAL, do: null }).classifications.do === 'NOT_MEASURED',
     'EU missing DO still scores / NOT_MEASURED');
@@ -370,8 +371,9 @@ console.log('\nInvalid / extreme');
   // deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) is unconditional,
   // so applyCountrySeverityProtection floors the final score at 0 rather
   // than letting it go negative.
-  assert(bench('thailand', { ph: 3, tds: 5000, turbidity: 50, orp: -100, chlorine: 10, do: 0, temp: 80 }).score === 0,
-    'extreme-valid TH → 0 (CRITICAL guaranteed deduction floored at 0, not negative)');
+  const extreme = bench('thailand', { ph: 3, tds: 5000, turbidity: 50, orp: -100, chlorine: 10, do: 0, temp: 80 });
+  assert(extreme.score === 7 && extreme.severityProtection.score === 0,
+    'extreme-valid TH customer 7, severity floored at 0');
 }
 
 function jobFrom(r) {
@@ -432,8 +434,8 @@ console.log('\nDIFF live path TH — RAW→grade→round→Hero (no Q-V3 overwri
     'DIFF TH TDS/turb/Cl grades leave 100');
   // 2026-08-19 (PO-approved, evidence-based): Thailand's own CRITICAL cap
   // now binds DIFF too (raw 61 - guaranteed deduction 10 = 51).
-  assert(p.eng.score === 51 && p.disp.score === 51 && p.disp.engineKey === 'thailand',
-    `DIFF Hero ${p.disp.score} === engine 51`);
+  assert(p.eng.score === 61 && p.eng.severityProtection.score === 51 && p.disp.score === 61 && p.disp.engineKey === 'thailand',
+    `DIFF direct displayed ${p.disp.score} === engine customer 61, severity 51`);
   assert(p.q.score === 61, `DIFF Q-V3 isolated 61 (got ${p.q.score})`);
 }
 
@@ -510,10 +512,14 @@ console.log('\nCross-country BASE/DIFF/LOCKED (2026-08-18, PO-approved — share
   // unaffected.
   // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising
   // the raw base (74 -> 76) since BASE's below-ideal do=5.3 no longer drags it down.
-  assert(bench('japan', BASE).score === 76, 'JP BASE 76 (shared base, WARNING guaranteed deduction)');
-  assert(bench('who', BASE).score === 70, 'WHO BASE 70 (FAIL guaranteed deduction; do/chlorine classify FAIL)');
-  assert(bench('eu', BASE).score === 65, 'EU BASE 65 (unchanged — chlorine gate dominates composite)');
-  assert(bench('usEpa', BASE).score === 71, 'EPA BASE 71 (FAIL guaranteed deduction; do classifies FAIL)');
+  const jpBase = bench('japan', BASE);
+  const whoBase = bench('who', BASE);
+  const euBase = bench('eu', BASE);
+  const epaBase = bench('usEpa', BASE);
+  assert(jpBase.score === 79 && jpBase.severityProtection.score === 76, 'JP BASE customer 79, WARNING severity 76');
+  assert(whoBase.score === 76 && whoBase.severityProtection.score === 70, 'WHO BASE customer 76, FAIL severity 70');
+  assert(euBase.score === 77 && euBase.countryGate.applied === true && euBase.countryGate.cap === 65, 'EU BASE customer 77, chlorine gate cap 65');
+  assert(epaBase.score === 77 && epaBase.severityProtection.score === 71, 'EPA BASE customer 77, FAIL severity 71');
   assert(sandbox.computeQualityScoreDetail(BASE).score === 76, 'Q-V3 BASE 76 (unaffected by Country changes)');
   // Shared base for DIFF = 61. Japan/WHO/US EPA all classify tds/turbidity
   // as CRITICAL; raw 61 is already below the 60 CRITICAL ceiling, so the
@@ -523,19 +529,19 @@ console.log('\nCross-country BASE/DIFF/LOCKED (2026-08-18, PO-approved — share
   // own band, gate cap 65), but its generic (non-chlorine) severity worst
   // is FAIL, and 61 - 6 = 55 is now lower than the 65 gate cap, so the
   // generic guaranteed deduction — not the gate — ends up dominant: 55.
-  assert(bench('japan', DIFF).score === 47, 'JP DIFF 47 (tds/turbidity CRITICAL cap + guaranteed deduction)');
-  assert(bench('eu', DIFF).score === 49, 'EU DIFF 49 (non-chlorine FAIL guaranteed deduction now lower than the 65 chlorine gate)');
-  assert(bench('who', DIFF).score === 51, 'WHO DIFF 51 (tds/turbidity CRITICAL cap + guaranteed deduction)');
-  assert(bench('usEpa', DIFF).score === 45, 'EPA DIFF 45 (tds/turbidity CRITICAL cap + guaranteed deduction)');
+  assert(bench('japan', DIFF).score === 57 && bench('japan', DIFF).severityProtection.score === 47, 'JP DIFF customer 57, CRITICAL severity 47');
+  assert(bench('eu', DIFF).score === 55 && bench('eu', DIFF).severityProtection.score === 49, 'EU DIFF customer 55, non-chlorine severity 49');
+  assert(bench('who', DIFF).score === 61 && bench('who', DIFF).severityProtection.score === 51, 'WHO DIFF customer 61, CRITICAL severity 51');
+  assert(bench('usEpa', DIFF).score === 55 && bench('usEpa', DIFF).severityProtection.score === 45, 'EPA DIFF customer 55, CRITICAL severity 45');
   // Shared base for LOCKED = 73. Japan's own tighter thresholds classify
   // tds/turbidity FAIL; raw 73 is already below the 75 FAIL ceiling, so the
   // guaranteed minimum deduction (FAIL=6) takes it to 67.
   // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights (LOCKED's do=6.5 no longer weighted in).
-  assert(bench('japan', LOCKED).score === 63, 'JP LOCKED 63 (shared base, FAIL guaranteed deduction)');
+  assert(bench('japan', LOCKED).score === 69 && bench('japan', LOCKED).severityProtection.score === 63, 'JP LOCKED customer 69, FAIL severity 63');
   // 2026-08-19 (PO-approved, evidence-based): Thailand's own turbidity
   // passMax corrected 5→1.0 (MWA spec) — LOCKED's turbidity=2.5 now also
   // classifies FAIL for Thailand, same guaranteed deduction: 73 - 6 = 67.
-  assert(bench('thailand', LOCKED).score === 66, 'TH LOCKED 66 (turbidity FAIL cap + guaranteed deduction)');
+  assert(bench('thailand', LOCKED).score === 72 && bench('thailand', LOCKED).severityProtection.score === 66, 'TH LOCKED customer 72, FAIL severity 66');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

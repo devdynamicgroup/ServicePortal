@@ -20,6 +20,46 @@ function applyCountryBenchmarkHeroCeiling(score) {
 }
 
 /**
+ * Weighted parameters this country engine actually scores.
+ * A missing key here means the benchmark number is not a full measurement.
+ * Parameters omitted from the weight file (Thailand/Japan DO) are not missing.
+ */
+function missingWeightedParameters(readings, weights) {
+  const toFin = typeof toFiniteReading === 'function'
+    ? toFiniteReading
+    : (value) => {
+      if (value === null || value === undefined || value === '' || value === false) return NaN;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : NaN;
+    };
+  const missing = [];
+  Object.keys(weights || {}).forEach((key) => {
+    if (key === 'temp') return;
+    const weight = Number(weights[key]);
+    if (!Number.isFinite(weight) || weight <= 0) return;
+    if (!Number.isFinite(toFin(readings ? readings[key] : undefined))) missing.push(key);
+  });
+  return missing;
+}
+
+/**
+ * Customer-visible country number.
+ * Complete measurement: weighted base, before severity caps and numeric gates.
+ * Ceiling 99 is applied later by finalizeBenchmarkMetadata.
+ * Missing chlorine keeps the existing provisional 79 cap.
+ * Other incomplete cases keep the existing protected number.
+ * Severity and gate objects stay metadata; they do not replace a complete score.
+ */
+function resolveCustomerBenchmarkScore(rawScore, protectedScore, options) {
+  const opts = options || {};
+  if (!Number.isFinite(rawScore)) return rawScore;
+  if (!opts.measurementIncomplete) return rawScore;
+  const fallback = Number.isFinite(protectedScore) ? protectedScore : rawScore;
+  if (opts.chlorineMissing) return Math.min(fallback, 79);
+  return fallback;
+}
+
+/**
  * Country severity protection (product decision, 2026-08-14; WARNING tier
  * added 2026-08-14 per PO numeric approval, governance basis PD-014 D4=B
  * "general severity is now permitted in principle").

@@ -65,6 +65,7 @@ function q(r) { return sandbox.computeScoreFromReadings(r); }
 function legacy(r) { return sandbox.computeLegacyDwqiScore(r); }
 function detail(r) { return sandbox.computeQualityScoreDetail(r); }
 function bench(key, r) { return sandbox.WaterScoreBenchmarkRegistry.calculate(key, r).score; }
+function full(key, r) { return sandbox.WaterScoreBenchmarkRegistry.calculate(key, r); }
 
 console.log('\nEngine version');
 {
@@ -101,38 +102,26 @@ console.log('\nCase A / Case B — Quality V3 + country benchmarks');
   // minimum deduction (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) still
   // always comes off whenever WARNING is the worst classification: 78 - 3 = 75.
   assert(bench('thailand', CASE_A) === 95, 'TH Case A = 95 (weighted, DO excluded)');
-  assert(bench('japan', CASE_A) === 85, 'Japan Case A = 85 (WARNING-capped by its own tighter pH target)');
+  const jpA = full('japan', CASE_A);
+  assert(jpA.score === 96 && jpA.severityProtection.score === 85, 'Japan Case A customer 96, WARNING severity 85');
   assert(bench('thailand', CASE_B) === 83, 'TH Case B = 83');
-  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 77 -> 81.
-  assert(bench('japan', CASE_B) === 81, 'Japan Case B = 81 (WARNING classifies, guaranteed deduction)');
+  const jpB = full('japan', CASE_B);
+  assert(jpB.score === 84 && jpB.severityProtection.score === 81, 'Japan Case B customer 84, WARNING severity 81');
 }
 
 console.log('\nCountry differentiation on locked sample (standards differ)');
 {
   const LOCKED = { ph: 7.2, tds: 450, chlorine: 0.8, turbidity: 2.5, orp: 350, do: 6.5, temp: 28 };
-  const th = bench('thailand', LOCKED);
-  const jp = bench('japan', LOCKED);
-  const who = bench('who', LOCKED);
-  const eu = bench('eu', LOCKED);
-  console.log('  locked TH/JP/WHO/EU', th, jp, who, eu);
-  assert(th !== eu, 'Thailand ≠ EU on locked sample');
-  // 2026-08-19 (bug fix): japan/weights.js no longer carries a `do` key, so
-  // Japan's raw base rose (LOCKED's do=6.5 no longer weighted in) and now
-  // numerically coincides with EU's independently-computed 63 (Japan via its
-  // own FAIL guaranteed deduction, EU via its own chlorine gate — two
-  // genuinely different mechanisms landing on the same number). Per this
-  // project's own stated principle, a coincidental same score across
-  // countries is an acceptable outcome, not something to force apart.
-  assert(jp === 63 && eu === 63, 'Japan and EU coincide at 63 on locked sample (different mechanisms, same number)');
-  // 2026-08-18 (PO-approved): one shared grading formula (computeSharedBenchmarkBase)
-  // replaced each engine's own per-parameter curves — TH and JP share the same
-  // raw base (73); WHO's own chlorine threshold still classifies this reading
-  // FAIL, so WHO's severity cap (75, no-op here) plus guaranteed deduction
-  // still leaves it genuinely different from EU.
-  // 2026-08-19 (PO-approved, evidence-based): Thailand's own turbidity
-  // passMax corrected 5→1.0 (MWA spec) — turbidity=2.5 now also classifies
-  // FAIL for Thailand, applying the same guaranteed deduction: 73-6=67.
-  assert(th === 66 && who === 60, 'TH/WHO differentiation preserved (TH 66, WHO 60 CRITICAL cap)');
+  const th = full('thailand', LOCKED);
+  const jp = full('japan', LOCKED);
+  const who = full('who', LOCKED);
+  const eu = full('eu', LOCKED);
+  console.log('  locked TH/JP/WHO/EU', th.score, jp.score, who.score, eu.score);
+  assert(th.score !== eu.score, 'Thailand ≠ EU on locked sample');
+  assert(jp.score === 69 && eu.score === 69 && jp.severityProtection.score === 63 && eu.severityProtection.score === 63,
+    'Japan and EU customer scores coincide at 69; both severity numbers stay 63');
+  assert(th.score === 72 && th.severityProtection.score === 66 && who.score === 73 && who.severityProtection.score === 60,
+    'TH customer 72 severity 66, WHO customer 73 severity 60');
 }
 
 console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
@@ -146,20 +135,20 @@ console.log('\nTH vs JP — same-result (A/B) vs differentiation fixture');
   // and the guaranteed minimum deduction (WARNING=3) diverges it (75) from
   // Thailand's uncapped raw base (78) too — TH and JP genuinely differ here
   // as well (PD-005: neither coincidence nor divergence is a ranking signal).
-  assert(bench('thailand', CASE_A) === 95 && bench('japan', CASE_A) === 85, 'Case A TH=95 JP=85 (Japan\'s own tighter pH target caps it)');
-  // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising Japan Case B 77 -> 81.
-  assert(bench('thailand', CASE_B) === 83 && bench('japan', CASE_B) === 81 && bench('thailand', CASE_B) !== bench('japan', CASE_B),
-    'Case B TH=83 JP=81 (Japan\'s own pH WARNING + guaranteed deduction diverges it too)');
+  assert(full('thailand', CASE_A).score === 95 && full('japan', CASE_A).score === 96 && full('japan', CASE_A).severityProtection.score === 85,
+    'Case A TH customer 95, JP customer 96, JP WARNING severity 85');
+  assert(full('thailand', CASE_B).score === 83 && full('japan', CASE_B).score === 84 && full('japan', CASE_B).severityProtection.score === 81,
+    'Case B TH customer 83, JP customer 84, JP WARNING severity 81');
   // Differentiation: outside JP's stricter pH/TDS comfort-target thresholds,
   // still inside TH's own (2026-08-19, evidence-based) corrected bounds
   // (DOH 2020 TDS≤500 / MWA turbidity≤1.0) — this is where the two are
   // expected to genuinely diverge.
   const DIFF = { ph: 8.0, tds: 350, turbidity: 0.5, orp: 400, do: 6, chlorine: 0.5, temp: 26 };
-  const th = bench('thailand', DIFF);
-  const jp = bench('japan', DIFF);
-  console.log('  DIFF TH/JP', th, jp);
-  assert(th === 83, `DIFF Thailand = 83 (shared base, TH's own thresholds don't cap it) (got ${th})`);
-  assert(jp !== th, `DIFF Japan ${jp} !== Thailand ${th}`);
+  const th = full('thailand', DIFF);
+  const jp = full('japan', DIFF);
+  console.log('  DIFF TH/JP', th.score, jp.score);
+  assert(th.score === 83 && jp.score === 83 && th.severityProtection.score === 83 && jp.severityProtection.score === 75,
+    'DIFF customer scores are both 83; Japan FAIL severity stays 75');
 }
 
 console.log('\nSensitivity ordering (calibration fixtures)');

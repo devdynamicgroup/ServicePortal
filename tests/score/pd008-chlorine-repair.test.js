@@ -150,7 +150,8 @@ console.log('\nPD-008 — EU chlorine boundaries + gate 65');
     if (inBand) {
       assert(r.gated !== true, `EU Cl=${cl} not gated`);
     } else {
-      assert(r.score <= 65, `EU Cl=${cl} score capped ≤65 (got ${r.score})`);
+      assert(r.countryGate && r.countryGate.applied === true && r.countryGate.cap === 65, `EU Cl=${cl} gate cap stays 65`);
+      assert(r.score === (r.rawAggregate > 99 ? 99 : r.rawAggregate), `EU Cl=${cl} customer score stays the raw aggregate (got ${r.score})`);
       assert(r.gated === true, `EU Cl=${cl} gated`);
     }
   }
@@ -235,13 +236,14 @@ console.log('\nPD-008 — baseline + cross-engine isolation');
   // takes it to 73.
   assert(bench('thailand', BASE).score === 79, 'TH baseline 79 (shared base, no cap)');
   // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 74 -> 76.
-  assert(bench('japan', BASE).score === 76, 'JP baseline 76 (shared base, WARNING guaranteed deduction)');
-  // WHO classifies do=5.3/chlorine=0.7 as FAIL; raw 76 is already below the
-  // 75 FAIL ceiling, so the guaranteed minimum deduction (FAIL=6) is what
-  // actually moves it: 76 - 6 = 70.
-  assert(bench('who', BASE).score === 70, 'WHO baseline 70 (FAIL guaranteed deduction)');
-  assert(bench('eu', BASE).score === 65, 'EU baseline 65');
-  assert(bench('usEpa', BASE).score === 71, 'EPA baseline 71 (FAIL guaranteed deduction, do classifies FAIL)');
+  const jp = bench('japan', BASE);
+  assert(jp.score === 79 && jp.severityProtection.score === 76, 'JP customer 79, severity 76');
+  const who = bench('who', BASE);
+  assert(who.score === 76 && who.severityProtection.score === 70, 'WHO customer 76, severity 70');
+  const eu = bench('eu', BASE);
+  assert(eu.score === 77 && eu.countryGate.applied === true && eu.countryGate.cap === 65, 'EU customer 77, chlorine gate cap 65');
+  const epa = bench('usEpa', BASE);
+  assert(epa.score === 77 && epa.severityProtection.score === 71, 'EPA customer 77, severity 71');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

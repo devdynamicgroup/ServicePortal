@@ -270,14 +270,13 @@ function publishedComplianceStatus(job = S.activeJob) {
 }
 
 /**
- * Score the user actually sees in #gauge-val.
+ * Published report score, or the selected country score of the readings passed in.
  *
- * Live Score screen: selected country engine (thailand|japan|eu|who|usEpa).
- * Public /r/{token} report: persisted published Quality Water Score.
+ * Staff gauge selection is applied afterwards by staffHeroForPopulation:
+ * All and a one-location case show Whole House Quality; a named zone shows
+ * that zone's country score. S.scoreVal stays Whole House Quality for Share.
  *
- * Quality V3 remains on currentScoreResult / S.scoreVal for publish+share.
- * It is not the live Hero number and is not used as a fallback when a
- * country is selected.
+ * Public /r/{token} report: persisted published score. comparison stays null.
  */
 function resolveDisplayedScore({
   publicView = false,
@@ -310,6 +309,87 @@ function resolveDisplayedScore({
   };
 }
 
+function scoreTapList(job = S.activeJob) {
+  if (Array.isArray(S.taps) && S.taps.length) return S.taps;
+  return Array.isArray(job?.draft?.taps) ? job.draft.taps : [];
+}
+
+/** All, an unset filter, and a one-location case share the whole-house hero. */
+function isWholeHouseHeroFilter(job = S.activeJob) {
+  const filter = S.scoreTapFilter;
+  return !filter || filter === 'all' || scoreTapList(job).length <= 1;
+}
+
+/**
+ * Staff gauge for the current location filter.
+ * Public view is returned unchanged so a published integer stays on the gauge.
+ * All and one location use Quality. A named zone uses that zone's country score.
+ * An empty zone stays null and does not fall back to the house.
+ */
+function staffHeroForPopulation(displayed) {
+  if (!displayed || S.publicScoreView) return displayed;
+  if (isWholeHouseHeroFilter()) {
+    const quality = S.currentScoreResult?.computedScore;
+    const score = quality != null && quality !== '' && Number.isFinite(Number(quality))
+      ? Number(quality)
+      : null;
+    return {
+      ...displayed,
+      score,
+      source: 'quality-v3',
+      standardKey: 'quality-v3',
+      engineKey: 'quality-v3',
+      showScore: score != null
+    };
+  }
+  const zoneScore = displayed.comparison ? displayed.comparison.score : null;
+  const score = zoneScore != null && zoneScore !== '' && Number.isFinite(Number(zoneScore))
+    ? Number(zoneScore)
+    : null;
+  return {
+    ...displayed,
+    score,
+    source: 'country-benchmark',
+    standardKey: displayed.comparison?.standardKey || S.scoreStandardKey,
+    engineKey: displayed.comparison?.engineKey || S.scoreStandardKey,
+    showScore: score != null,
+    classifications: displayed.comparison?.classifications || displayed.classifications || null
+  };
+}
+
+/**
+ * Country Benchmark population for the current filter.
+ * All and one location use the existing whole-house readings.
+ * A named zone with no reading source is an empty population, not the house.
+ */
+function readingsForCountryBenchmark(job = S.activeJob) {
+  const filter = S.scoreTapFilter;
+  const taps = scoreTapList(job);
+  if (!filter || filter === 'all' || taps.length <= 1) return resolveScoreReadings(job);
+  const tapData = resolveJobTapDataForScore(job) || [];
+  const index = taps.indexOf(filter);
+  const tap = index >= 0 ? tapData[index] : null;
+  if (!tap || !hasTapReadingSource(tap)) return {};
+  return getRoomReadings(filter);
+}
+
+function applyCountryBenchmarkPopulation(job = S.activeJob) {
+  const standardKey = benchmarkRegistry()?.has?.(S.scoreStandardKey)
+    ? S.scoreStandardKey
+    : DEFAULT_SCORE_STANDARD_KEY;
+  const countryReadings = readingsForCountryBenchmark(job);
+  S.comparisonScoreResult = getCountryBenchmarkScore(countryReadings, standardKey);
+  const frozenScore = S.publicScoreView ? publishedWaterScore(job) : null;
+  const resolved = resolveDisplayedScore({
+    publicView: Boolean(S.publicScoreView),
+    publishedScore: frozenScore,
+    readings: countryReadings,
+    standardKey
+  });
+  S.displayedScore = S.publicScoreView ? resolved : staffHeroForPopulation(resolved);
+  return S.comparisonScoreResult;
+}
+
 function scoreBarColorForScore(wq, verdict = null) {
   if (verdict?.color) return verdict.color;
   if (verdict?.tier && SCORE_BAR_COLORS[verdict.tier]) return SCORE_BAR_COLORS[verdict.tier];
@@ -325,7 +405,10 @@ function getScoreEvalContext(result = activeComparisonResult()) {
   const standardKey = result?.standardKey
     || (benchmarkRegistry()?.has?.(S.scoreStandardKey) ? S.scoreStandardKey : DEFAULT_SCORE_STANDARD_KEY);
   const standard = result?.standard || getWaterQualityStandard(standardKey);
-  const readings = result?.readings || S.scoreBaseReadings || S.currentScoreResult?.readings || {};
+  const fromResult = result?.readings;
+  const readings = (fromResult && Object.keys(fromResult).length)
+    ? fromResult
+    : (S.scoreBaseReadings || S.currentScoreResult?.readings || {});
   return {
     selectedStandard: standardKey,
     standard,
@@ -516,12 +599,19 @@ function renderScoreDisplay() {
   const eligibility = isPublishedScoreView(S.activeJob)
     ? (typeof EligibilityContract !== 'undefined' ? EligibilityContract.buildLegacy() : null)
     : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(S.activeJob) : null);
-  const displayed = resolveDisplayedScore({
+  const namedZone = !isWholeHouseHeroFilter();
+  const countryReadings = namedZone
+    ? (result.readings && typeof result.readings === 'object' ? result.readings : {})
+    : ((result.readings && Object.keys(result.readings).length)
+      ? result.readings
+      : (S.scoreBaseReadings || {}));
+  const resolved = resolveDisplayedScore({
     publicView: Boolean(S.publicScoreView),
     publishedScore: S.publicScoreView ? publishedWaterScore(S.activeJob) : null,
-    readings: result.readings || S.scoreBaseReadings || {},
+    readings: countryReadings,
     standardKey: result.standardKey || S.scoreStandardKey
   });
+  const displayed = S.publicScoreView ? resolved : staffHeroForPopulation(resolved);
   S.displayedScore = displayed;
   const showScore = displayed.showScore;
   const wq = displayed.score;
@@ -540,10 +630,13 @@ function renderScoreDisplay() {
     showScore
   });
   // UJ-04: Share visibility must derive from eligibility/publish state — not CSS-only.
+  const shareShowScore = S.publicScoreView
+    ? showScore
+    : Number.isFinite(Number(S.currentScoreResult?.computedScore));
   updateShareScoreAvailability({
     eligibility,
     alreadyPublished: Number.isFinite(Number(S.activeJob?.result?.waterScore)),
-    showScore
+    showScore: shareShowScore
   });
   const findings = result.findings || [];
   // PD-001: Country Benchmark comparison uses pass-band presentation, not Excellent/Good.
@@ -733,8 +826,8 @@ function setScoreReferenceStandard(standardKey) {
 
   S.scoreStandardKey = key;
   S.scoreBaseReadings = readings;
-  // Publish/share channel stays Quality V3. Live Hero uses country engine.
-  // A customer publication keeps the frozen score and compliance.
+  // Publish/share channel stays Quality V3. A named zone keeps its own
+  // country population. A customer publication keeps the frozen score.
   const frozenScore = S.publicScoreView ? publishedWaterScore(S.activeJob) : null;
   const gaugeScore = frozenScore != null ? frozenScore : computedScore;
   S.scoreVal = gaugeScore;
@@ -751,13 +844,15 @@ function setScoreReferenceStandard(standardKey) {
     compliance: S.publicScoreView ? null : (detail?.compliance || null),
     validation: S.lastReadingsValidation || null
   };
-  S.comparisonScoreResult = getCountryBenchmarkScore(readings, key);
-  S.displayedScore = resolveDisplayedScore({
+  const countryReadings = readingsForCountryBenchmark(S.activeJob);
+  S.comparisonScoreResult = getCountryBenchmarkScore(countryReadings, key);
+  const resolvedDisplayed = resolveDisplayedScore({
     publicView: Boolean(S.publicScoreView),
     publishedScore: frozenScore,
-    readings,
+    readings: countryReadings,
     standardKey: key
   });
+  S.displayedScore = S.publicScoreView ? resolvedDisplayed : staffHeroForPopulation(resolvedDisplayed);
   S.scoreParamOpen = null;
   if (typeof persistActiveCaseScoreStandard === 'function') {
     persistActiveCaseScoreStandard(key);
@@ -1567,6 +1662,15 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
     syncedTap = tap;
     S.scoreTapFilter = tap;
     S._scorePhotoAutoSynced = true;
+    applyCountryBenchmarkPopulation();
+    const gaugeEl = document.getElementById('gauge-val');
+    if (gaugeEl) {
+      if (S.displayedScore?.showScore) animateScoreNumber(gaugeEl, S.displayedScore.score);
+      else {
+        _scoreAnimToken += 1;
+        gaugeEl.textContent = '—';
+      }
+    }
     const context = getScoreEvalContext();
     renderScoreReadings(context);
     renderScoreImprove(context);
@@ -1649,12 +1753,10 @@ function renderLocationSelect() {
 }
 
 function setScoreTapFilter(key) {
-  const context = getScoreEvalContext();
   S.scoreTapFilter = key;
   S._scorePhotoAutoSynced = false;
-  renderScoreReadings(context);
-  renderScoreImprove(context);
-  renderScorePhotos();
+  applyCountryBenchmarkPopulation();
+  renderScoreDisplay();
 }
 
 let sharingScore = false;

@@ -76,13 +76,14 @@ console.log('\nReal-case ordering');
   const a = th(NEW_C_811).score;
   const b = th(NEW_C_810).score;
   const c = th(C_1328).score;
-  const f = th(FAUCET).score;
-  const s = th(SINK).score;
+  const fRes = th(FAUCET);
+  const sRes = th(SINK);
+  const f = fRes.score;
+  const s = sRes.score;
   console.log(`  test1=${t1} 811=${a} 810=${b} 13.28=${c} faucet=${f} sink=${s}`);
-  // 2026-08-18 (PO-approved): shared grading base (computeSharedBenchmarkBase)
-  // replaced Thailand's own curves — 92, below the ceiling.
   assert(c === 95, 'near-ideal TH weighted 95 (shared base)');
-  assert(f < 70 && s < 70, 'degraded Cl=0 materially low');
+  assert(fRes.severityProtection.score === 60, `faucet Cl=0 severity stays 60 (got ${fRes.severityProtection.score})`);
+  assert(sRes.severityProtection.score === 59, `sink Cl=0 severity is the guaranteed deduction 59 (got ${sRes.severityProtection.score})`);
   assert(f < a && a <= b && b < c, 'faucet < 8/11 ≤ 8/10 < 13.28');
   assert(t1 < 90, 'test1 ordinary not trapped in 90+');
   assert(a < 90, 'New C 8/11 ordinary not trapped in 90+');
@@ -121,17 +122,17 @@ console.log('\nOther engines + Q-V3 unchanged on New C 8/11');
   // ph=7.85 WARNING; the guaranteed minimum deduction
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.WARNING=3) takes it to 73.
   // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 74 -> 76.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r).score === 76, 'JP 76 (shared base, WARNING guaranteed deduction)');
+  const jp = sandbox.WaterScoreBenchmarkRegistry.calculate('japan', r);
+  const who = sandbox.WaterScoreBenchmarkRegistry.calculate('who', r);
+  const eu = sandbox.WaterScoreBenchmarkRegistry.calculate('eu', r);
+  const epa = sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r);
+  assert(jp.score === 79 && jp.severityProtection.score === 76, 'JP customer 79, severity 76');
+  assert(who.score === 76 && who.severityProtection.score === 70, 'WHO customer 76, severity 70');
+  assert(eu.score === 77 && eu.countryGate.applied === true && eu.countryGate.cap === 65, 'EU customer 77, chlorine gate cap 65');
+  assert(epa.score === 77 && epa.severityProtection.score === 71, 'EPA customer 77, severity 71');
   // WHO classifies chlorine/do FAIL; raw 76 is already below the 75 FAIL
   // ceiling, so the guaranteed minimum deduction (FAIL=6) is what actually
   // moves it: 76 - 6 = 70.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('who', r).score === 70, 'WHO 70 (FAIL guaranteed deduction)');
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('eu', r).score === 65, 'EU 65');
-  // 2026-08-18 (PO-approved): DO=5.3 is below EPA's own DO floor (≥6), which
-  // EPA (unlike Thailand/Japan) does classify — FAIL. Raw 76 is already
-  // below the 75 FAIL ceiling, so the guaranteed minimum deduction (FAIL=6)
-  // is what actually moves it: 76 - 6 = 70.
-  assert(sandbox.WaterScoreBenchmarkRegistry.calculate('usEpa', r).score === 71, 'EPA 71 (FAIL guaranteed deduction)');
   assert(sandbox.computeQualityScoreDetail(r).score === 76, 'Q-V3 76');
 }
 

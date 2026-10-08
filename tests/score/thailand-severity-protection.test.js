@@ -91,15 +91,18 @@ console.log('\nB. CRITICAL classification never exceeds 60 (ceiling, not floor)'
   // (computeSharedBenchmarkBase) — recomputed directly against it below.
   const r1 = bench('thailand', { ...IDEAL, chlorine: 0 });
   assert(r1.classifications.chlorine === 'CRITICAL', 'chlorine=0 classifies CRITICAL on Thailand');
-  assert(r1.score <= 60 && r1.score === 60, `chlorine CRITICAL: capped at 60 (got ${r1.score})`);
+  assert(r1.score === 81 && r1.score === r1.rawAggregate, `chlorine CRITICAL customer score is rawAggregate 81 (got ${r1.score})`);
+  assert(r1.severityProtection.score === 60, `chlorine CRITICAL severity stays 60 (got ${r1.severityProtection.score})`);
 
   const r2 = bench('thailand', { ...IDEAL, tds: 5000 });
   assert(r2.classifications.tds === 'CRITICAL', 'tds=5000 classifies CRITICAL on Thailand');
-  assert(r2.score <= 60 && r2.score === 60, `tds CRITICAL: capped at 60 (got ${r2.score})`);
+  assert(r2.score === 81 && r2.score === r2.rawAggregate, `tds CRITICAL customer score is rawAggregate 81 (got ${r2.score})`);
+  assert(r2.severityProtection.score === 60, `tds CRITICAL severity stays 60 (got ${r2.severityProtection.score})`);
 
   const r3 = bench('thailand', { ...IDEAL, tds: 1020 });
   assert(r3.classifications.tds === 'CRITICAL', 'tds=1020 classifies CRITICAL on Thailand');
-  assert(r3.score === 60, `tds=1020: capped at 60 (got ${r3.score})`);
+  assert(r3.score === 87 && r3.score === r3.rawAggregate, `tds=1020 customer score is rawAggregate 87 (got ${r3.score})`);
+  assert(r3.severityProtection.score === 60, `tds=1020 severity stays 60 (got ${r3.severityProtection.score})`);
 }
 
 console.log('\nC. FAIL classification never exceeds 75 (ceiling, not floor)');
@@ -110,11 +113,13 @@ console.log('\nC. FAIL classification never exceeds 75 (ceiling, not floor)');
   // CRITICAL coverage; this section keeps a genuine FAIL-tier fixture (orp=199).
   const r = bench('thailand', { ...IDEAL, turbidity: 6 });
   assert(r.classifications.turbidity === 'CRITICAL', 'turbidity=6 now classifies CRITICAL on Thailand (shared curve)');
-  assert(r.score === 60, `turbidity=6 CRITICAL: capped at 60 (got ${r.score})`);
+  assert(r.score === 85 && r.score === r.rawAggregate, `turbidity=6 customer score is rawAggregate 85 (got ${r.score})`);
+  assert(r.severityProtection.score === 60, `turbidity=6 severity stays 60 (got ${r.severityProtection.score})`);
 
   const r2 = bench('thailand', { ...IDEAL, orp: 199 });
   assert(r2.classifications.orp === 'FAIL', 'orp=199 classifies FAIL on Thailand');
-  assert(r2.score === 75, `orp=199: cap genuinely binds, capped 75 (got ${r2.score})`);
+  assert(r2.score === 92 && r2.score === r2.rawAggregate, `orp=199 customer score is rawAggregate 92 (got ${r2.score})`);
+  assert(r2.severityProtection.score === 75, `orp=199 severity stays the FAIL cap 75 (got ${r2.severityProtection.score})`);
 }
 
 console.log('\nD. Real Cases: worst=PASS on Thailand (unaffected by this cap); numeric values are');
@@ -144,13 +149,10 @@ console.log('\nE. Catastrophic sweep — cap composes correctly with the weakest
   // 2 and 3 catastrophic: raw average already below 60, so the ceiling
   // itself is a no-op, but the guaranteed minimum deduction
   // (COUNTRY_SEVERITY_MIN_DEDUCTION.CRITICAL=10) still always comes off.
-  assert(one.score <= 60 && one.score === 60, `1 catastrophic -> capped 60 (got ${one.score})`);
-  assert(two.score <= 60 && two.score === 52, `2 catastrophic -> 52, cap no-op, guaranteed deduction (got ${two.score})`);
-  assert(three.score <= 60 && three.score === 34, `3 catastrophic -> 34, cap no-op, guaranteed deduction (got ${three.score})`);
-  // 2026-08-18 (PO-approved fix): raw average is below 10, so the
-  // unconditional guaranteed deduction (score - 10) would go negative —
-  // applyCountrySeverityProtection floors the final score at 0 instead.
-  assert(all.score === 0, `all catastrophic -> 0 (floored, not negative) (got ${all.score})`);
+  assert(one.score === 81 && one.severityProtection.score === 60, `1 catastrophic customer 81, severity 60 (got ${one.score}/${one.severityProtection.score})`);
+  assert(two.score === 62 && two.severityProtection.score === 52, `2 catastrophic customer 62, severity 52 (got ${two.score}/${two.severityProtection.score})`);
+  assert(three.score === 44 && three.severityProtection.score === 34, `3 catastrophic customer 44, severity 34 (got ${three.score}/${three.severityProtection.score})`);
+  assert(all.score === 7 && all.severityProtection.score === 0, `all catastrophic customer 7, severity floored at 0 (got ${all.score}/${all.severityProtection.score})`);
 }
 
 console.log('\nF. Cross-engine isolation — Japan/WHO/EU/US EPA scores byte-unchanged by this fix');
@@ -164,21 +166,27 @@ console.log('\nF. Cross-engine isolation — Japan/WHO/EU/US EPA scores byte-unc
   // deduction 76-3=73); WHO/US EPA classify chlorine/do FAIL (guaranteed
   // deduction 76-6=70).
   // 2026-08-19 (bug fix): do key removed from JapanBenchmarkWeights, raising 74 -> 76.
-  assert(bench('japan', r).score === 76, `Japan unaffected by the Thailand-only fixtures in this file (got ${bench('japan', r).score})`);
-  assert(bench('who', r).score === 70, `WHO unaffected (got ${bench('who', r).score})`);
-  assert(bench('eu', r).score === 65, `EU unaffected (got ${bench('eu', r).score})`);
-  assert(bench('usEpa', r).score === 71, `US EPA unaffected (got ${bench('usEpa', r).score})`);
+  const japan = bench('japan', r);
+  const who = bench('who', r);
+  const eu = bench('eu', r);
+  const epa = bench('usEpa', r);
+  assert(japan.score === 79 && japan.severityProtection.score === 76, `Japan customer 79, severity 76 (got ${japan.score}/${japan.severityProtection.score})`);
+  assert(who.score === 76 && who.severityProtection.score === 70, `WHO customer 76, severity 70 (got ${who.score}/${who.severityProtection.score})`);
+  assert(eu.score === 77 && eu.countryGate.applied === true && eu.countryGate.cap === 65, `EU customer 77, chlorine gate cap 65 (got ${eu.score})`);
+  assert(epa.score === 77 && epa.severityProtection.score === 71, `US EPA customer 77, severity 71 (got ${epa.score}/${epa.severityProtection.score})`);
 }
 
 console.log('\nG. Severity ordering holds: PASS > FAIL-cap-bound > CRITICAL-cap-bound for Thailand too');
 {
-  const pass = bench('thailand', IDEAL).score;
-  const failBound = bench('thailand', { ...IDEAL, orp: 199 }).score; // genuinely capped at 75
-  const criticalBound = bench('thailand', { ...IDEAL, tds: 1020 }).score; // genuinely capped at 60
-  assert(pass >= 96, 'PASS score is high (clean reading)');
-  assert(failBound === 75, 'FAIL-tier fixture is exactly the FAIL cap (75) when the cap binds');
-  assert(criticalBound === 60, 'CRITICAL-tier fixture is exactly the CRITICAL cap (60) when the cap binds');
-  assert(pass > failBound && failBound > criticalBound, 'PASS > FAIL(75) > CRITICAL(60), strictly ordered');
+  const pass = bench('thailand', IDEAL);
+  const failBound = bench('thailand', { ...IDEAL, orp: 199 });
+  const criticalBound = bench('thailand', { ...IDEAL, tds: 1020 });
+  assert(pass.score === 99 && pass.rawAggregate === 100, 'PASS customer score is the 99 ceiling of a raw 100');
+  assert(pass.severityProtection.worstClassification === 'PASS' && pass.severityProtection.score === 100, 'PASS severity does not lower the raw aggregate');
+  assert(failBound.severityProtection.score === 75, 'FAIL-tier severity is exactly the FAIL cap (75)');
+  assert(criticalBound.severityProtection.score === 60, 'CRITICAL-tier severity is exactly the CRITICAL cap (60)');
+  assert(pass.score > failBound.severityProtection.score && failBound.severityProtection.score > criticalBound.severityProtection.score,
+    'PASS customer score > FAIL severity 75 > CRITICAL severity 60');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

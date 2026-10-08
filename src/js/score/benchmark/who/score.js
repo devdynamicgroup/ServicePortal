@@ -129,9 +129,16 @@
     // 2026-08-18 (PO-approved): a score computed without chlorine must never
     // present as a pass/good verdict — cap below the pass-band threshold
     // regardless of how well the other params scored.
-    const finalScore = (!Number.isFinite(fcl) && Number.isFinite(severity.score))
-      ? Math.min(severity.score, 79)
-      : severity.score;
+    const missing = (typeof missingWeightedParameters === 'function')
+      ? missingWeightedParameters(readings, W) : [];
+    const finalScore = (typeof resolveCustomerBenchmarkScore === 'function')
+      ? resolveCustomerBenchmarkScore(rawScore, severity.score, {
+        measurementIncomplete: missing.length > 0,
+        chlorineMissing: missing.indexOf('chlorine') !== -1
+      })
+      : ((!Number.isFinite(fcl) && Number.isFinite(severity.score))
+        ? Math.min(severity.score, 79)
+        : severity.score);
 
     const verdict = verdictFrom(rawScore);
     let summary = 'Meets this project’s WHO-inspired guideline proximity targets for the scored indicators.';
