@@ -255,6 +255,20 @@ function getCountryBenchmarkScore(readings, standardKey = DEFAULT_SCORE_STANDARD
   return buildComparisonScoreResult(readings, standardKey);
 }
 
+/** Frozen publication integer. Null when this Case has no published score. */
+function publishedWaterScore(job = S.activeJob) {
+  const raw = job?.result?.waterScore;
+  if (raw == null || raw === '' || !Number.isFinite(Number(raw))) return null;
+  return Math.max(0, Math.min(100, Math.round(Number(raw))));
+}
+
+/** Frozen publication compliance. Null stays null — never filled from live readings. */
+function publishedComplianceStatus(job = S.activeJob) {
+  const raw = job?.result?.complianceStatus;
+  if (raw == null || String(raw).trim() === '') return null;
+  return String(raw);
+}
+
 /**
  * Score the user actually sees in #gauge-val.
  *
@@ -271,7 +285,7 @@ function resolveDisplayedScore({
   readings = {},
   standardKey = DEFAULT_SCORE_STANDARD_KEY
 } = {}) {
-  if (publicView && Number.isFinite(Number(publishedScore))) {
+  if (publicView && publishedScore != null && publishedScore !== '' && Number.isFinite(Number(publishedScore))) {
     const score = Math.max(0, Math.min(100, Math.round(Number(publishedScore))));
     return {
       score,
@@ -504,7 +518,7 @@ function renderScoreDisplay() {
     : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(S.activeJob) : null);
   const displayed = resolveDisplayedScore({
     publicView: Boolean(S.publicScoreView),
-    publishedScore: S.currentScoreResult?.score,
+    publishedScore: S.publicScoreView ? publishedWaterScore(S.activeJob) : null,
     readings: result.readings || S.scoreBaseReadings || {},
     standardKey: result.standardKey || S.scoreStandardKey
   });
@@ -558,17 +572,29 @@ function renderScoreDisplay() {
   if (standardEl) {
     standardEl.textContent = t(context.standard.labelKey);
   }
-  // Live report UI hides channel labels; Quality V3 publish path is unchanged.
   if (heroSourceEl) {
-    heroSourceEl.textContent = '';
-    heroSourceEl.hidden = true;
+    if (showScore && S.publicScoreView) {
+      heroSourceEl.textContent = t('score.hero.published');
+      heroSourceEl.hidden = false;
+    } else {
+      heroSourceEl.textContent = '';
+      heroSourceEl.hidden = true;
+    }
   }
   const complianceEl = document.getElementById('score-compliance-line');
   if (complianceEl) {
-    complianceEl.textContent = '';
-    complianceEl.hidden = true;
-    delete complianceEl.dataset.status;
+    const frozenPublicationCompliance = S.publicScoreView ? publishedComplianceStatus(S.activeJob) : null;
+    if (S.publicScoreView && showScore && frozenPublicationCompliance) {
+      complianceEl.hidden = false;
+      complianceEl.dataset.status = frozenPublicationCompliance;
+      complianceEl.textContent = t('score.compliance.label').replace('{status}', frozenPublicationCompliance);
+    } else {
+      complianceEl.textContent = '';
+      complianceEl.hidden = true;
+      delete complianceEl.dataset.status;
+    }
   }
+  placeScoreAssessmentSections();
 
   // "Incomplete" (static, no shimmer) vs "loading" (spinner, actively
   // capturing) — genuinely distinct states (2026-08-17 fix). ocrBusy means a
@@ -655,6 +681,47 @@ function renderScoreDisplay() {
   renderScorePhotos(readiness);
 }
 
+/**
+ * On the customer page, keep the frozen publication block together and place
+ * the live benchmark, rooms, and parameter rows under one current-assessment label.
+ * Staff order is unchanged. No second score is rendered.
+ */
+function placeScoreAssessmentSections() {
+  const benchmark = document.getElementById('score-benchmark-line');
+  const rooms = document.getElementById('score-room-status');
+  const separator = document.getElementById('score-current-assessment');
+  const publishedLine = document.getElementById('score-published-line');
+  const panel = document.querySelector('#s-score .score-content-panel');
+  const progress = document.getElementById('score-status-bar');
+  if (separator) {
+    if (S.publicScoreView) {
+      separator.hidden = false;
+      separator.textContent = t('score.currentAssessment');
+    } else {
+      separator.hidden = true;
+      separator.textContent = '';
+    }
+  }
+  if (S.publicScoreView && panel && separator && benchmark && rooms && typeof panel.insertBefore === 'function') {
+    panel.insertBefore(separator, panel.firstChild || null);
+    panel.insertBefore(benchmark, separator.nextSibling || null);
+    panel.insertBefore(rooms, benchmark.nextSibling || null);
+  } else if (!S.publicScoreView && progress && progress.parentNode && benchmark && rooms && typeof progress.parentNode.insertBefore === 'function') {
+    progress.parentNode.insertBefore(benchmark, progress);
+    progress.parentNode.insertBefore(rooms, progress);
+  }
+  if (publishedLine) {
+    const published = publishedWaterScore(S.activeJob);
+    const current = Number(S.scoreVal);
+    const show = !S.publicScoreView
+      && published != null
+      && Number.isFinite(current)
+      && Math.round(current) !== published;
+    publishedLine.hidden = !show;
+    publishedLine.textContent = show ? `${t('score.hero.published')}: ${published}` : '';
+  }
+}
+
 /** Switch comparison standard — recalculates statuses from the same resolved readings. */
 function setScoreReferenceStandard(standardKey) {
   const key = benchmarkRegistry()?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
@@ -667,24 +734,27 @@ function setScoreReferenceStandard(standardKey) {
   S.scoreStandardKey = key;
   S.scoreBaseReadings = readings;
   // Publish/share channel stays Quality V3. Live Hero uses country engine.
-  S.scoreVal = computedScore;
+  // A customer publication keeps the frozen score and compliance.
+  const frozenScore = S.publicScoreView ? publishedWaterScore(S.activeJob) : null;
+  const gaugeScore = frozenScore != null ? frozenScore : computedScore;
+  S.scoreVal = gaugeScore;
   S.currentScoreResult = {
     ...(S.currentScoreResult || {}),
-    score: computedScore,
+    score: gaugeScore,
     computedScore,
     readings: { ...readings },
-    source: 'computed',
+    source: frozenScore != null ? 'published' : 'computed',
     standardKey: 'quality-v3',
     engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v3'),
     paramScores: detail?.params || null,
-    complianceStatus: detail?.compliance?.status || null,
-    compliance: detail?.compliance || null,
+    complianceStatus: S.publicScoreView ? publishedComplianceStatus(S.activeJob) : (detail?.compliance?.status || null),
+    compliance: S.publicScoreView ? null : (detail?.compliance || null),
     validation: S.lastReadingsValidation || null
   };
   S.comparisonScoreResult = getCountryBenchmarkScore(readings, key);
   S.displayedScore = resolveDisplayedScore({
     publicView: Boolean(S.publicScoreView),
-    publishedScore: S.currentScoreResult.score,
+    publishedScore: frozenScore,
     readings,
     standardKey: key
   });
@@ -973,10 +1043,10 @@ function readingsFromJob(job) {
 
 /**
  * Single Water Score renderer used by both the field app and /r/{token}.
- * publicView only changes chrome (handled by caller); display path is identical.
  *
- * currentScoreResult  → Quality V3 (share + backend publish only)
- * comparisonScoreResult / displayedScore → selected country engine (live Hero)
+ * Customer public view: the gauge and compliance use the frozen publication score and compliance when available.
+ * Staff display remains live.
+ * Country benchmark, room status, and parameter rows stay on the current Case readings.
  */
 function renderWaterScore(job, options = {}) {
   const publicView = Boolean(options.publicView);
@@ -1015,7 +1085,7 @@ function renderWaterScore(job, options = {}) {
   // A published/shared report must not lose its safety channel: prefer the
   // persisted compliance status (set at publish time) over a recompute from
   // whatever readings happen to still be reconstructable on the public page.
-  const persistedCompliance = publicView ? (job?.result?.complianceStatus || null) : null;
+  const frozenCompliance = publicView ? publishedComplianceStatus(job) : null;
   S.currentScoreResult = {
     score: productionScore,
     standardKey: 'quality-v3',
@@ -1024,8 +1094,8 @@ function renderWaterScore(job, options = {}) {
     computedScore,
     engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v3'),
     paramScores: detail?.params || null,
-    complianceStatus: persistedCompliance || detail?.compliance?.status || null,
-    compliance: detail?.compliance || null,
+    complianceStatus: publicView ? frozenCompliance : (detail?.compliance?.status || null),
+    compliance: publicView ? null : (detail?.compliance || null),
     validation: S.lastReadingsValidation || null
   };
   if (!S.scoreStandardKey || !benchmarkRegistry()?.has?.(S.scoreStandardKey)) {
@@ -1034,7 +1104,7 @@ function renderWaterScore(job, options = {}) {
   S.comparisonScoreResult = getCountryBenchmarkScore(readings, S.scoreStandardKey);
   S.displayedScore = resolveDisplayedScore({
     publicView,
-    publishedScore: productionScore,
+    publishedScore: publicView ? productionScore : null,
     readings,
     standardKey: S.scoreStandardKey
   });
@@ -1338,7 +1408,7 @@ function renderScoreImprove(context = getScoreEvalContext()) {
   const rows = allRows.filter(r => paramStatusUiKey(r.st) === 'attn');
   const displayed = resolveDisplayedScore({
     publicView: Boolean(S.publicScoreView),
-    publishedScore: S.currentScoreResult?.score,
+    publishedScore: S.publicScoreView ? publishedWaterScore(S.activeJob) : null,
     readings: context.readings || S.scoreBaseReadings || {},
     standardKey: context.selectedStandard || S.scoreStandardKey
   });

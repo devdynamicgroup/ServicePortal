@@ -937,6 +937,21 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-compliance-line[data-status="WARNING"]{color:#c48a3a}
 .score-compliance-line[data-status="FAIL"]{color:#f07b7b}
 .score-compliance-line[hidden]{display:none!important}
+.score-published-line{
+  margin:4px 0 0;
+  font-size:12px;
+  font-weight:600;
+  color:var(--muted);
+}
+.score-published-line[hidden]{display:none!important}
+.score-current-assessment{
+  margin:8px 0 4px;
+  font-size:13px;
+  font-weight:600;
+  line-height:1.45;
+  color:var(--text);
+}
+.score-current-assessment[hidden]{display:none!important}
 .score-benchmark-row{
   display:flex;
   align-items:center;
@@ -1228,8 +1243,6 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .score-summary-meta{padding-top:6px;gap:2px}
 .score-summary-count{font-size:12px;font-weight:500;color:var(--dim)}
 .score-summary-badge{font-size:15px;font-weight:700}
-.score-hero-source,
-.score-compliance-line{display:none!important}
 .score-progress{height:7px;border-radius:999px}
 .score-progress-segments{gap:3px}
 .score-progress-knob{width:14px;height:14px;margin-left:-7px}
