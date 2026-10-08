@@ -8,6 +8,7 @@ const SNAPSHOT_SCHEMA_VERSION = 1;
 const UNKNOWN = 'UNKNOWN';
 const SCORE_TYPES = Object.freeze(['quality-v3', 'legacy-publication']);
 const READING_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp']);
+const PUBLICATION_SCORE_KEYS = Object.freeze(['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do']);
 const NOTION_RICH_TEXT_CHUNK = 1900;
 const MAX_SNAPSHOT_CHARS = 1900 * 8;
 
@@ -19,6 +20,11 @@ function compactReadings(source) {
     if (Number.isFinite(n)) out[key] = n;
   });
   return Object.keys(out).length ? out : undefined;
+}
+
+function completePublicationReadings(readings) {
+  if (!readings || typeof readings !== 'object' || Array.isArray(readings)) return false;
+  return PUBLICATION_SCORE_KEYS.every((key) => Number.isFinite(Number(readings[key])));
 }
 
 function provenance(value) {
@@ -124,8 +130,11 @@ function applyPublicationToJob(job, publication) {
   next.result.benchmarkVersion = snapshot.benchmarkVersion;
   next.result.publishedAt = snapshot.publishedAt;
   next.result.publicationSource = 'ledger';
-  if (snapshot.readings) {
+  if (snapshot.readings && typeof snapshot.readings === 'object') {
     next.draft.scoreBaseReadings = { ...snapshot.readings };
+    if (completePublicationReadings(snapshot.readings)) {
+      next.result.publicationReadingsSource = 'snapshot';
+    }
   }
   return next;
 }
@@ -148,6 +157,7 @@ module.exports = {
   READING_KEYS,
   MAX_SNAPSHOT_CHARS,
   compactReadings,
+  completePublicationReadings,
   provenance,
   buildSnapshot,
   serializeSnapshot,

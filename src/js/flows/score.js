@@ -1317,7 +1317,23 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   ];
 }
 
+function ledgerSnapshotReadings(job = S.activeJob) {
+  if (!S.publicScoreView) return null;
+  const result = job?.result;
+  if (result?.publicationSource !== 'ledger') return null;
+  if (result?.publicationReadingsSource !== 'snapshot') return null;
+  const readings = job?.draft?.scoreBaseReadings;
+  if (!readings || typeof readings !== 'object' || Array.isArray(readings)) return null;
+  if (!SCORE_READY_KEYS.every((key) => Number.isFinite(Number(readings[key])))) return null;
+  const frozen = {};
+  SCORE_READY_KEYS.forEach((key) => { frozen[key] = Number(readings[key]); });
+  if (Number.isFinite(Number(readings.temp))) frozen.temp = Number(readings.temp);
+  return frozen;
+}
+
 function scoreTapRows(key, context = getScoreEvalContext()) {
+  const frozen = ledgerSnapshotReadings();
+  if (frozen) return buildMetricRowsForReadings(frozen, context);
   return buildMetricRowsForReadings(getRoomReadings(key, context), context);
 }
 

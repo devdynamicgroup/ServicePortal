@@ -16,7 +16,6 @@ const { buildReportUrl } = require('./url-builder');
 const { computeCanonicalScore } = require('./canonical-score');
 const {
   UNKNOWN,
-  compactReadings,
   buildSnapshot,
   applyPublicationToJob,
   minimalJobFromSnapshot
@@ -82,12 +81,11 @@ function normalizeCompliance(value) {
   return VALID_COMPLIANCE_STATUSES.includes(value) ? value : undefined;
 }
 
-function readingsFromJob(job) {
-  return compactReadings(
-    job?.draft?.scoreBaseReadings
-    || job?.result?.readings
-    || {}
-  );
+function canonicalReadingsForScore(job, publishedScore) {
+  const canonical = computeCanonicalScore(job);
+  if (canonical.score === null) return undefined;
+  if (Math.round(canonical.score) !== Math.round(Number(publishedScore))) return undefined;
+  return canonical.readings;
 }
 
 function responseFromPublication(publication, extras = {}) {
@@ -200,7 +198,7 @@ async function freezeLegacyPointer(store, job, extras = {}) {
     reportUrl: job.result?.reportUrl || buildReportUrl(token),
     complianceStatus: job.result?.complianceStatus || null,
     resultSummary: job.result?.summary || `Water score ${Math.round(score)}/100`,
-    readings: readingsFromJob(job),
+    readings: canonicalReadingsForScore(job, score),
     idempotencyKey: `legacy-freeze:${job.notionId}:${token}`
   });
 }
@@ -324,7 +322,7 @@ async function createOrReusePublication({ job, payload = {}, caseId } = {}) {
     reportUrl: buildReportUrl(publicReportToken),
     complianceStatus: complianceStatus || null,
     resultSummary: payload.resultSummary || `Water score ${Math.round(score)}/100`,
-    readings: readingsFromJob(job),
+    readings: canonical.score !== null ? canonical.readings : undefined,
     idempotencyKey: idempotencyKey || `minted:${publicationId}`
   });
 
