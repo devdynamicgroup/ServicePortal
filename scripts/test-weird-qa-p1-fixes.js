@@ -146,7 +146,10 @@ async function main() {
     db.clear();
     updateCalls.length = 0;
     const id = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-    db.set(id, makeJob(id, { workflow: { status: 'in_progress' }, result: { waterScore: null, publicReportToken: 'rpt-active' } }));
+    // Complete publishes the score, which requires a complete canonical six-parameter
+    // reading set whose canonical Quality score is the submitted one (these score 80).
+    const draft = { fields: {}, taps: ['Tap 1'], tapData: [{ standardMeasurement: { ph: 7.2, tds: 200, turbidity: 0.5, orp: 400, do: 3, chlorine: 0.35 } }] };
+    db.set(id, makeJob(id, { workflow: { status: 'in_progress' }, result: { waterScore: null, publicReportToken: 'rpt-active' }, draft }));
 
     const result = await closeCase(id, { score: 80, completedBy: 'QA' });
     assert(result.ok === true && !result.idempotent, `active Case: closeCase proceeds normally, not treated as idempotent no-op (got ${JSON.stringify({ ok: result.ok, idempotent: result.idempotent })})`);

@@ -19,9 +19,14 @@ function assert(cond, msg) {
   else { failed += 1; console.error(`  FAIL  ${msg}`); }
 }
 
+// A new publication requires a complete canonical six-parameter reading set, and
+// the submitted score must be that set's canonical score.
+const completeDraft = (standardMeasurement) => ({ taps: ['Tap 1'], fields: {}, tapData: [{ standardMeasurement }] });
+const READINGS_64 = { ph: 7.2, tds: 300, turbidity: 3, orp: 400, do: 3, chlorine: 1 };
+
 async function main() {
   const store = createMemoryPublicationStore();
-  const job = { id: 'c1', notionId: 'n1', draft: {}, result: {} };
+  const job = { id: 'c1', notionId: 'n1', draft: completeDraft(READINGS_64), result: {} };
   let failPointer = true;
   const cases = {
     getClient: async () => JSON.parse(JSON.stringify(job)),

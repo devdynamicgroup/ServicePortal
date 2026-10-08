@@ -35,9 +35,15 @@ function createMemoryCaseAdapter(job) {
   };
 }
 
+// A new publication requires a complete canonical six-parameter reading set, and
+// the submitted score must be that set's canonical score.
+const completeDraft = (standardMeasurement) => ({ taps: ['Tap 1'], fields: {}, tapData: [{ standardMeasurement }] });
+const READINGS_91 = { ph: 7.2, tds: 200, turbidity: 0.2, orp: 400, do: 6.5, chlorine: 0.35 };
+const READINGS_77 = { ph: 7.2, tds: 300, turbidity: 3, orp: 400, do: 5, chlorine: 0.35 };
+
 async function main() {
   const store = createMemoryPublicationStore();
-  const job = { id: 'c1', notionId: 'n1', draft: {}, result: {} };
+  const job = { id: 'c1', notionId: 'n1', draft: completeDraft(READINGS_91), result: {} };
   setPublicationStore(store);
   setPublicationCaseAdapter(createMemoryCaseAdapter(job));
 
@@ -67,7 +73,7 @@ async function main() {
 
   console.log('\nExplicit republish uses a new key');
   const d = await createOrReusePublication({
-    job: { id: 'c1', notionId: 'n1', result: { waterScore: 91, publicReportToken: a.reportToken } },
+    job: { id: 'c1', notionId: 'n1', draft: completeDraft(READINGS_77), result: { waterScore: 91, publicReportToken: a.reportToken } },
     payload: { score: 77, intent: 'republish', idempotencyKey: 'republish-op' },
     caseId: 'c1'
   });

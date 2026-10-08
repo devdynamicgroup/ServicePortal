@@ -126,7 +126,13 @@ async function main() {
     // Fresh Case: publicReportToken already minted at creation (real product
     // behavior), waterScore still null. This is the exact shape that
     // triggered the real bug.
-    const job = makeJob({ waterScore: null, publicReportToken: 'rpt-fresh' });
+    // A new publication also requires a complete canonical reading set whose
+    // score is the submitted one (these readings score 80); the null-coercion
+    // subject of this test is unchanged: waterScore is still null on the Case.
+    const job = {
+      ...makeJob({ waterScore: null, publicReportToken: 'rpt-fresh' }),
+      draft: { taps: ['Tap 1'], fields: {}, tapData: [{ standardMeasurement: { ph: 7.2, tds: 200, turbidity: 0.5, orp: 400, do: 3, chlorine: 0.35 } }] }
+    };
     const published = await createOrReusePublication({ job, payload: { score: 80, intent: 'publish' }, caseId: 'case-1' });
     assert(published.score === 80, `a fresh Case (waterScore=null) publishes the REAL submitted score, not 0 (got ${published.score})`);
     assert(published.scoreType !== 'legacy-publication', `does NOT take the legacy-freeze path for a fresh Case (got scoreType=${published.scoreType})`);

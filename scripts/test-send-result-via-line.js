@@ -46,6 +46,20 @@ const updateCalls = [];
 let lineSendMode = 'success'; // 'success' | 'failure'
 const lineSendCalls = [];
 
+// A new publication requires a complete canonical six-parameter reading set whose
+// canonical Quality score is the submitted score. Each entry scores exactly its key.
+const READINGS_SCORING = {
+  60: { ph: 7.2, tds: 350, turbidity: 3, orp: 400, do: 3, chlorine: 2 },
+  70: { ph: 7.2, tds: 500, turbidity: 3, orp: 400, do: 3, chlorine: 0.35 },
+  80: { ph: 7.2, tds: 200, turbidity: 0.5, orp: 400, do: 3, chlorine: 0.35 },
+  88: { ph: 7.2, tds: 80, turbidity: 0.1, orp: 400, do: 3, chlorine: 0.35 },
+  92: { ph: 7.2, tds: 80, turbidity: 0.1, orp: 400, do: 5, chlorine: 0.35 },
+  95: { ph: 7.2, tds: 120, turbidity: 0.1, orp: 400, do: 6.5, chlorine: 0.35 },
+  97: { ph: 7.2, tds: 120, turbidity: 0.1, orp: 400, do: 7.2, chlorine: 0.35 },
+  98: { ph: 7.2, tds: 80, turbidity: 0.1, orp: 400, do: 7.2, chlorine: 0.35 }
+};
+const draftScoring = (score) => ({ fields: {}, taps: ['Tap 1'], tapData: [{ standardMeasurement: { ...READINGS_SCORING[score] } }] });
+
 function makeJob(id, overrides = {}) {
   return {
     id,
@@ -142,7 +156,7 @@ async function main() {
   {
     resetAll();
     const id = 'a'.repeat(32);
-    db.set(id, makeJob(id, { notification: { status: 'not_sent' } }));
+    db.set(id, makeJob(id, { notification: { status: 'not_sent' }, draft: draftScoring(92) }));
 
     const published = await publishCaseScore(id, { score: 92, intent: 'publish', idempotencyKey: 'idem-first' });
     assert(published.ok === true, 'publish (first) succeeds', published);
@@ -163,7 +177,7 @@ async function main() {
   {
     resetAll();
     const id = 'b'.repeat(32);
-    db.set(id, makeJob(id, { notification: { status: 'not_sent' } }));
+    db.set(id, makeJob(id, { notification: { status: 'not_sent' }, draft: draftScoring(97) }));
 
     const firstPublish = await publishCaseScore(id, { score: 97, intent: 'publish', idempotencyKey: 'idem-b-1' });
     const firstToken = firstPublish.reportToken;
@@ -173,6 +187,7 @@ async function main() {
     assert(job.result.waterScore === 97, 'setup: first published score is 97', job.result);
 
     // Assessment changed; live score is now 98. Explicit resend.
+    db.get(id).draft = draftScoring(98);
     const republish = await publishCaseScore(id, { score: 98, intent: 'republish', idempotencyKey: 'idem-b-2' });
     assert(republish.ok === true, 'republish succeeds', republish);
     const newToken = republish.reportToken;
@@ -201,9 +216,10 @@ async function main() {
   {
     resetAll();
     const id = 'c'.repeat(32);
-    db.set(id, makeJob(id, { notification: { status: 'not_sent' } }));
+    db.set(id, makeJob(id, { notification: { status: 'not_sent' }, draft: draftScoring(80) }));
     const first = await publishCaseScore(id, { score: 80, intent: 'publish', idempotencyKey: 'idem-d-1' });
     await sendCaseResult(id, {});
+    db.get(id).draft = draftScoring(95);
     const second = await publishCaseScore(id, { score: 95, intent: 'republish', idempotencyKey: 'idem-d-2' });
     await sendCaseResult(id, { force: true });
 
@@ -220,7 +236,7 @@ async function main() {
   {
     resetAll();
     const id = 'd'.repeat(32);
-    db.set(id, makeJob(id, { notification: { status: 'failed' } }));
+    db.set(id, makeJob(id, { notification: { status: 'failed' }, draft: draftScoring(70) }));
     await publishCaseScore(id, { score: 70, intent: 'publish', idempotencyKey: 'idem-f-1' });
 
     // repairCaseResultNotification (the function behind /api/cases/repair-notifications,
@@ -240,7 +256,7 @@ async function main() {
   {
     resetAll();
     const id = 'e'.repeat(32);
-    db.set(id, makeJob(id, { workflow: { status: 'in_progress' }, notification: { status: 'not_sent' }, result: { waterScore: null, publicReportToken: '' } }));
+    db.set(id, makeJob(id, { workflow: { status: 'in_progress' }, notification: { status: 'not_sent' }, result: { waterScore: null, publicReportToken: '' }, draft: draftScoring(88) }));
 
     const closed = await closeCase(id, { score: 88, completedBy: 'QA' });
     assert(closed.ok === true && closed.line?.ok === true, 'closeCase (Complete) still publishes+sends normally', closed);
@@ -256,7 +272,7 @@ async function main() {
   {
     resetAll();
     const id = 'f'.repeat(32);
-    db.set(id, makeJob(id, { notification: { status: 'not_sent' } }));
+    db.set(id, makeJob(id, { notification: { status: 'not_sent' }, draft: draftScoring(60) }));
     await publishCaseScore(id, { score: 60, intent: 'publish', idempotencyKey: 'idem-h-1' });
 
     lineSendMode = 'failure';

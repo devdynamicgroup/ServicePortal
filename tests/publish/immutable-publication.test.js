@@ -24,12 +24,22 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function seed(id) {
+// A new publication requires a complete canonical six-parameter reading set whose
+// canonical Quality score is the submitted score. Each entry scores exactly its key.
+const READINGS_SCORING = {
+  70: { ph: 7.2, tds: 500, turbidity: 3, orp: 400, do: 3, chlorine: 0.35 },
+  77: { ph: 7.2, tds: 300, turbidity: 3, orp: 400, do: 5, chlorine: 0.35 },
+  80: { ph: 7.2, tds: 200, turbidity: 0.5, orp: 400, do: 3, chlorine: 0.35 },
+  90: { ph: 7.2, tds: 80, turbidity: 0.2, orp: 400, do: 5, chlorine: 0.35 }
+};
+const draftScoring = (score) => ({ taps: ['Tap 1'], fields: {}, tapData: [{ standardMeasurement: { ...READINGS_SCORING[score] } }] });
+
+function seed(id, score) {
   const job = {
     id,
     notionId: id,
     name: `Case ${id}`,
-    draft: { scoreBaseReadings: { ph: 7.2, tds: 80, chlorine: 0.3, turbidity: 0.1, orp: 400, do: 8 } },
+    draft: draftScoring(score),
     result: {},
     drive: {}
   };
@@ -86,7 +96,7 @@ async function main() {
   setPublicationStore(store);
   setPublicationCaseAdapter({ getClient, updateClient, findClientByReportToken });
 
-  const job = seed('case-A');
+  const job = seed('case-A', 90);
 
   const publicationA = await publish(job, 90, 'publish', 'request-A');
   assert.equal(publicationA.score, 90);
@@ -98,6 +108,7 @@ async function main() {
   assert.equal(reused.score, 90);
   assert.equal(reused.reportToken, publicationA.reportToken);
 
+  cases.get('case-A').draft = draftScoring(80);
   const publicationB = await publish(cases.get('case-A'), 80, 'republish', 'request-B');
   assert.equal(publicationB.score, 80);
   assert.notEqual(publicationA.publicationId, publicationB.publicationId);
@@ -116,7 +127,7 @@ async function main() {
   assert.equal(replay.score, 80, 'retry cannot mutate the published score');
   assert.equal(store._rows.length, 2, 'retry created no extra publication');
 
-  const other = await publish(seed('case-B'), 70, 'publish', 'request-C');
+  const other = await publish(seed('case-B', 70), 70, 'publish', 'request-C');
   assert.equal(other.score, 70);
   assert.notEqual(other.reportToken, publicationA.reportToken);
   assert.equal((await resolveReportByToken(publicationA.reportToken)).result.waterScore, 90);
@@ -129,7 +140,7 @@ async function main() {
   store._rows.pop();
   assert.equal(await resolveReportByToken('rpt-missing'), null);
 
-  const pendingJob = seed('case-pending');
+  const pendingJob = seed('case-pending', 77);
   failNextPointerWrite = true;
   const pending = await publish(pendingJob, 77, 'publish', 'request-pending');
   assert.equal(pending.pointerPending, true, 'ledger record survives a pointer failure');
