@@ -1664,23 +1664,48 @@ function bindTouchedRequiredValidation(ids = []) {
 }
 
 /**
- * Manual edits invalidate any Layer 2 standardMeasurement value previously
- * derived from OCR for the same keys — otherwise the stale derived value
- * keeps outranking the user's correction (standardMeasurement is preferred
- * over meterReadings/chlorineReadings in the scoring/display precedence).
+ * Manual edits (or a later OCR pass) update any Layer 2 standardMeasurement
+ * value for the same key to the new value — never left merely deleted with
+ * nothing to replace it, which previously made a manually-corrected field
+ * (or any field a later partial OCR pass re-touched) invisible to scoring
+ * until an unrelated future full OCR capture happened to re-derive it.
+ * An explicit clear (null/empty) still removes the key, same as before.
+ *
+ * 2026-10-09 (measurement synchronization fix, reviewed/tested in isolation
+ * before integration): the only change from the prior delete-only version
+ * is that a valid finite new value is now WRITTEN into `standardMeasurement`
+ * instead of deleted. Nothing here invents a value for an invalid/non-
+ * numeric input -- those are still removed, exactly as before. No
+ * ConversionEngine/grade-curve/weight/threshold change.
  */
 function invalidateStaleStandardMeasurement(tap, before = {}, after = {}, keyMap) {
   if (!tap?.standardMeasurement) return;
   // tap.standardMeasurement is Object.freeze()'d by storeRawAndStandardMeasurements
-  // (PR2 Raw/Standard contract) — `delete` on it silently no-ops, so build a
-  // fresh plain object instead of mutating in place.
+  // (PR2 Raw/Standard contract) — `delete`/assignment on it silently no-ops,
+  // so build a fresh plain object instead of mutating in place.
   let next = null;
   Object.keys(after || {}).forEach(key => {
     if (after[key] === before[key]) return;
     const standardKey = keyMap ? keyMap[key] : key;
     if (!standardKey) return;
-    if (Object.prototype.hasOwnProperty.call(tap.standardMeasurement, standardKey)) {
-      if (!next) next = { ...tap.standardMeasurement };
+    if (!Object.prototype.hasOwnProperty.call(tap.standardMeasurement, standardKey)) return;
+    if (!next) next = { ...tap.standardMeasurement };
+    const newValue = after[key];
+    const isExplicitClear = newValue === null || newValue === undefined
+      || (typeof newValue === 'string' && newValue.trim() === '');
+    if (isExplicitClear) {
+      delete next[standardKey];
+      return;
+    }
+    // Normalize through the same numeric parsing ConversionEngine already
+    // uses (trims strings, rejects non-numeric) -- not a fresh ad hoc rule.
+    const n = typeof ConversionEngine !== 'undefined' && ConversionEngine?.toFiniteNumber
+      ? ConversionEngine.toFiniteNumber(newValue)
+      : (() => { const parsed = Number(newValue); return Number.isFinite(parsed) ? parsed : null; })();
+    if (n !== null && Number.isFinite(n)) {
+      next[standardKey] = n;
+    } else {
+      // Not a usable number -- do not invent a value, same as the prior behavior.
       delete next[standardKey];
     }
   });

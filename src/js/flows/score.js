@@ -840,50 +840,83 @@ function readingsFromDomFields() {
  * Explicit clears (`null`) on meter/chlorine/standard are treated as missing
  * for that tap and must not resurrect via sibling layers (UJ-05).
  */
+// 2026-10-09 (whole-house averaging fix, reviewed/tested in isolation before
+// integration): the previous implementation averaged `standardMeasurement`
+// and `meterReadings` as two separate row pools per key, falling back to the
+// legacy pool only when NO row in the whole set had the key in
+// `standardMeasurement`. That meant a tap whose `standardMeasurement`
+// happened to lack a key (e.g. because a manual edit elsewhere invalidated
+// it) was silently excluded from that key's whole-house average whenever ANY
+// other tap still had it in `standardMeasurement` -- even though the
+// excluded tap's own `meterReadings` had a perfectly good value and the
+// per-room read path (readingsFromSingleTap) would have used it. This
+// resolves each tap's own best-available value FIRST (same standardMeasurement-
+// then-meterReadings precedence already used per room), THEN averages across
+// taps -- so every tap's own data counts.
 function readingsFromTapData(tapData) {
   const taps = Array.isArray(tapData) ? tapData : [];
-  const standardRows = taps
-    .map(tap => tap?.standardMeasurement)
-    .filter(row => row && typeof row === 'object' && Object.keys(row).length);
-  const meterRows = taps.map(tap => tap?.meterReadings).filter(Boolean);
-  const chlorineRows = taps.map(tap => tap?.chlorineReadings).filter(Boolean);
-  if (!standardRows.length && !meterRows.length && !chlorineRows.length) return {};
+  if (!taps.length) return {};
+  const anyData = taps.some(tap => (
+    (tap?.standardMeasurement && typeof tap.standardMeasurement === 'object' && Object.keys(tap.standardMeasurement).length)
+    || tap?.meterReadings
+    || tap?.chlorineReadings
+  ));
+  if (!anyData) return {};
 
-  const avgKey = (rows, key) => {
-    const vals = rows.map(row => {
-      if (!row || !Object.prototype.hasOwnProperty.call(row, key)) return undefined;
-      if (row[key] === null) return undefined;
-      return numOrUndefined(row[key]);
-    }).filter(v => v !== undefined);
-    if (!vals.length) return undefined;
-    return vals.reduce((sum, n) => sum + n, 0) / vals.length;
+  /** One field, one tap: standardMeasurement wins, meterReadings is the fallback. */
+  function resolveTapField(tap, key) {
+    const std = tap?.standardMeasurement;
+    const stdHas = std && typeof std === 'object' && Object.prototype.hasOwnProperty.call(std, key);
+    const stdVal = stdHas ? std[key] : undefined;
+    const meter = tap?.meterReadings || {};
+    const meterHas = Object.prototype.hasOwnProperty.call(meter, key);
+    const meterVal = meterHas ? meter[key] : undefined;
+    // An explicit clear (null) on either layer means "missing for this tap" --
+    // never resurrect from the other layer (same UJ-05 rule as before).
+    if ((stdHas && stdVal === null) || (meterHas && meterVal === null)) {
+      return { owned: true, cleared: true, value: undefined };
+    }
+    const resolved = numOrUndefined(stdVal ?? meterVal);
+    return { owned: stdHas || meterHas, cleared: false, value: resolved };
+  }
+
+  function resolveTapChlorine(tap) {
+    const std = tap?.standardMeasurement;
+    const stdHas = std && typeof std === 'object' && Object.prototype.hasOwnProperty.call(std, 'chlorine');
+    if (stdHas && std.chlorine === null) return { owned: true, cleared: true, value: undefined };
+    const chlorine = tap?.chlorineReadings || {};
+    const freeHas = Object.prototype.hasOwnProperty.call(chlorine, 'freeChlorine');
+    const totalHas = Object.prototype.hasOwnProperty.call(chlorine, 'chlorine');
+    if (freeHas && chlorine.freeChlorine === null) return { owned: true, cleared: true, value: undefined };
+    if (totalHas && chlorine.chlorine === null) return { owned: true, cleared: true, value: undefined };
+    const resolved = numOrUndefined(stdHas ? std.chlorine : (chlorine.freeChlorine ?? chlorine.chlorine));
+    return { owned: stdHas || freeHas || totalHas, cleared: false, value: resolved };
+  }
+
+  const averageOwned = (perTap) => {
+    const vals = perTap.filter(r => r.value !== undefined).map(r => r.value);
+    return vals.length ? vals.reduce((sum, n) => sum + n, 0) / vals.length : undefined;
+  };
+  /** Explicitly cleared only when every tap that touched this key was cleared
+   * and none supplied a usable value -- same intent as the prior "owned.every
+   * row === null" check, now evaluated per-tap instead of per-row-pool. */
+  const clearedKey = (perTap) => {
+    const owned = perTap.filter(r => r.owned);
+    return owned.length > 0 && owned.every(r => r.cleared);
   };
 
-  /** Keys explicitly cleared on every tap that had that key — block field fallback. */
+  const KEYS = ['ph', 'tds', 'turbidity', 'orp', 'do', 'temp'];
   const explicitClears = new Set();
-  const trackClears = (rows, key, alias) => {
-    const target = alias || key;
-    const owned = rows.filter(row => row && Object.prototype.hasOwnProperty.call(row, key));
-    if (!owned.length) return;
-    if (owned.every(row => row[key] === null)) explicitClears.add(target);
-  };
-  ['ph', 'tds', 'turbidity', 'orp', 'do', 'temp'].forEach(key => {
-    trackClears(meterRows, key);
-    trackClears(standardRows, key);
+  const resolved = {};
+  KEYS.forEach(key => {
+    const perTap = taps.map(tap => resolveTapField(tap, key));
+    if (clearedKey(perTap)) explicitClears.add(key);
+    resolved[key] = averageOwned(perTap);
   });
-  trackClears(chlorineRows, 'freeChlorine', 'chlorine');
-  trackClears(chlorineRows, 'chlorine', 'chlorine');
-  trackClears(standardRows, 'chlorine', 'chlorine');
+  const clPerTap = taps.map(resolveTapChlorine);
+  if (clearedKey(clPerTap)) explicitClears.add('chlorine');
+  resolved.chlorine = averageOwned(clPerTap);
 
-  const resolved = {
-    ph: avgKey(standardRows, 'ph') ?? avgKey(meterRows, 'ph'),
-    tds: avgKey(standardRows, 'tds') ?? avgKey(meterRows, 'tds'),
-    turbidity: avgKey(standardRows, 'turbidity') ?? avgKey(meterRows, 'turbidity'),
-    orp: avgKey(standardRows, 'orp') ?? avgKey(meterRows, 'orp'),
-    do: avgKey(standardRows, 'do') ?? avgKey(meterRows, 'do'),
-    temp: avgKey(standardRows, 'temp') ?? avgKey(meterRows, 'temp'),
-    chlorine: avgKey(standardRows, 'chlorine') ?? avgKey(chlorineRows, 'freeChlorine') ?? avgKey(chlorineRows, 'chlorine')
-  };
   resolved.__explicitClears = explicitClears;
   return resolved;
 }
