@@ -67,7 +67,7 @@ console.log('\nWeakest-link + piecewise constants');
   // to match the real DOH 2020 legal limit.
   assert(L.tds.gradeExcellentMax === 80 && L.tds.passMax === 500, 'TDS excellent kept / passMax corrected to DOH 2020 (500)');
   assert(L.orp.excellentMin === 350 && L.orp.excellentMax === 450, 'ORP inner kept');
-  assert(L.chlorine.min === 0.2 && L.chlorine.max === 2.0, 'Cl compliance kept');
+  assert(L.chlorine.min === 0.2 && L.chlorine.max === 1.0, 'Cl compliance 0.2–1.0 (max corrected 2026-10-09)');
 }
 
 console.log('\nReal-case ordering');

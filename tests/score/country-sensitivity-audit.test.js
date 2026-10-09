@@ -157,14 +157,14 @@ console.log('\nFIXED — Thailand TDS / turbidity / chlorine in-band severity (P
   assert(grade('thailand', 'turbidity', 3.5) < 100, 'TH turb 3.5 < 100');
   assert(grade('thailand', 'chlorine', 0.3) === 100, 'TH Cl 0.3 = 100');
   assert(grade('thailand', 'chlorine', 1.5) < 100 && grade('thailand', 'chlorine', 1.5) > grade('thailand', 'chlorine', 2.0),
-    'TH Cl 1.5 severity inside 0.2–2.0');
+    'TH Cl 1.5 grades below 100 and above Cl 2.0');
   // 2026-08-19 (PO-approved, evidence-based): passMax corrected to real
   // cited Thai standards — TDS 1000→500 (DOH 2020), turbidity 5→1.0 (MWA spec).
   assert(sandbox.ThailandBenchmarkLimits.tds.passMax === 500, 'TH TDS passMax corrected to DOH 2020 (500)');
   assert(sandbox.ThailandBenchmarkLimits.turbidity.passMax === 1.0, 'TH turb passMax corrected to MWA spec (1.0)');
   assert(sandbox.ThailandBenchmarkLimits.chlorine.min === 0.2
-    && sandbox.ThailandBenchmarkLimits.chlorine.max === 2.0,
-    'TH Cl compliance band ceiling unchanged');
+    && sandbox.ThailandBenchmarkLimits.chlorine.max === 1.0,
+    'TH Cl compliance band ceiling corrected to 1.0 (2026-10-09)');
   // 2026-08-19 (PO-approved, evidence-based): DIFF's TDS=800/turbidity=3.5
   // now exceed Thailand's own corrected bounds too (FAIL/CRITICAL), so its
   // own severity cap now binds here as well: raw 61 - CRITICAL guaranteed

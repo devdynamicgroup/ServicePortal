@@ -61,9 +61,9 @@ function bench(key, readings) {
 console.log('\nPD-008 — provenance metadata');
 {
   const th = sandbox.ThailandBenchmarkLimits.chlorine;
-  assert(th.min === 0.2 && th.max === 2.0, 'TH band numbers unchanged 0.2–2.0');
+  assert(th.min === 0.2 && th.max === 1.0, 'TH band numbers 0.2–1.0 (max corrected 2026-10-09)');
   assert(th.minProvenance === 'project-defined' && th.maxProvenance === 'project-defined', 'TH provenance project-defined');
-  assert(th.maxCitationStatus === 'NO CITATION', 'TH upper 2.0 citation status NO CITATION');
+  assert(/CONTEXT-SPECIFIC, APPLIED AS PROJECT CEILING/.test(th.maxCitationStatus), 'TH upper 1.0 citation status marks the DOH figure as context-specific');
   assert(th.citedSurveillanceResidual.max === 0.5, 'TH cites DoH surveillance residual max 0.5 without adopting it');
   assert(th.citedSurveillanceResidual.evidenceClass === 'OPERATIONAL', 'TH cited residual classified OPERATIONAL');
 
@@ -84,26 +84,27 @@ console.log('\nPD-008 — provenance metadata');
 
 console.log('\nPD-008 — TH chlorine boundaries (numeric lock)');
 {
-  const pts = [0.19, 0.20, 0.49, 0.50, 0.51, 1.0, 2.0];
+  const pts = [0.01, 0.19, 0.20, 0.49, 0.50, 0.51, 1.0, 1.01, 2.0];
   for (const cl of pts) {
     const r = bench('thailand', withCl(cl));
-    const inCompliance = cl >= 0.2 && cl <= 2.0;
+    const inCompliance = cl >= 0.2 && cl <= 1.0;
     const inExcellent = cl >= 0.2 && cl <= 0.5;
     assert(r.statuses.chlorine === (inCompliance ? 'good' : 'attn'),
       `TH Cl=${cl} compliance status ${r.statuses.chlorine}`);
     if (inExcellent) assert(r.params.chlorine === 100, `TH Cl=${cl} inner residual → grade 100`);
     if (inCompliance && !inExcellent) {
       // Chlorine curve steepened (2026-08-17, PO-approved): grade now ranges
-      // down to 10 at cl=2.0 (was bounded at >=70) -- still classifies as
+      // down to 10 at cl=2.0 (was bounded at >=70). Since 2026-10-09 the band
+      // ends at 1.0, so only 0.5-1.0 is checked here -- still classifies as
       // in-compliance (status='good'), but the grade itself is far more
-      // severity-sensitive within the 0.5-2.0 band now.
+      // severity-sensitive within the 0.5-1.0 band now.
       assert(r.params.chlorine < 100 && r.params.chlorine >= 10,
-        `TH Cl=${cl} still in 0.2–2.0 band but severity-graded (${r.params.chlorine})`);
+        `TH Cl=${cl} still in 0.2–1.0 band but severity-graded (${r.params.chlorine})`);
     }
     if (!inCompliance) assert(r.params.chlorine < 100, `TH Cl=${cl} out-of-band → <100`);
   }
-  const above = bench('thailand', withCl(2.01));
-  assert(above.params.chlorine < 100, 'TH Cl=2.01 out of band');
+  const above = bench('thailand', withCl(1.01));
+  assert(above.params.chlorine < 100, 'TH Cl=1.01 out of band');
   const msg = JSON.stringify(above.reasons || []);
   assert(msg.includes('project compliance band'), 'TH over-max message is project-labeled');
   assert(!msg.includes('drinking-water residual guidance (0.2–2.0)'), 'TH no longer claims verified residual guidance for 0.2–2.0');

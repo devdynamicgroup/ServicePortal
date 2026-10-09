@@ -1,6 +1,6 @@
 /**
  * Thailand in-band severity grading — saturation repair.
- * Compliance passMax / Cl 0.2–2.0 unchanged; grade 100 uses existing inner plateaus.
+ * Compliance passMax unchanged; Cl band 0.2–1.0 since 2026-10-09; grade 100 uses existing inner plateaus.
  *
  * 2026-08-18 (PO-approved): Thailand's own per-parameter grade curves
  * (gradeTds/gradeTurbidity/gradeChlorine/gradePh/gradeOrp) were deleted —
@@ -125,7 +125,7 @@ console.log('\nCompliance ceilings (PD-008 unchanged; TDS/turbidity corrected 20
   // operating specification, stricter than DOH's 5 NTU legal minimum).
   assert(L.tds.passMax === 500, 'TDS passMax corrected to DOH 2020 (500)');
   assert(L.turbidity.passMax === 1.0, 'turbidity passMax corrected to MWA spec (1.0)');
-  assert(L.chlorine.min === 0.2 && L.chlorine.max === 2.0, 'Cl compliance band still 0.2–2.0');
+  assert(L.chlorine.min === 0.2 && L.chlorine.max === 1.0, 'Cl compliance band 0.2–1.0 (max corrected 2026-10-09)');
   assert(L.ph.min === 6.5 && L.ph.max === 8.5, 'pH compliance band unchanged');
   assert(L.orp.min === 200 && L.orp.max === 600, 'ORP shared band unchanged');
 }
@@ -200,11 +200,12 @@ console.log('\nBASE / one-bad pipeline');
   // corrected DOH 2020 passMax (500) → FAIL classification → severity cap
   // 75 applies to the raw 90. Turbidity 3.5 now exceeds the corrected MWA
   // spec passMax (1.0) with a grade low enough to classify CRITICAL →
-  // severity cap 60 applies. Chlorine's compliance band is unchanged, so it
-  // still stays PASS and uncapped.
+  // severity cap 60 applies. Chlorine 1.5 is above the 1.0 ceiling set on
+  // 2026-10-09 and its unchanged grade classifies CRITICAL, so cap 60 applies
+  // (it was 87 while the ceiling was 2.0).
   assert(tds.postRound === 75 && tds.grades.tds < 100, `oneBad TDS TH 75 (FAIL cap) (got ${tds.postRound})`);
   assert(turb.postRound === 60 && turb.grades.turbidity < 100, `oneBad turb TH 60 (CRITICAL cap) (got ${turb.postRound})`);
-  assert(cl.postRound === 87 && cl.grades.chlorine < 100, `oneBad Cl TH 87 (got ${cl.postRound})`);
+  assert(cl.postRound === 60 && cl.grades.chlorine < 100, `oneBad Cl TH 60 (CRITICAL cap) (got ${cl.postRound})`);
 }
 
 console.log('\nCross-engine isolation');
@@ -277,7 +278,7 @@ console.log('\nCross-country matrix (recomputed against the shared-formula rebui
     ['LOCKED', LOCKED, { th: 66, jp: 63, eu: 63, who: 60, epa: 57, q: 73 }],
     ['oneBadTDS', { ...IDEAL, tds: 800 }, { th: 75, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
     ['oneBadTurb', { ...IDEAL, turbidity: 3.5 }, { th: 60, jp: 60, eu: 75, who: 60, epa: 60, q: 90 }],
-    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 87, jp: 60, eu: 65, who: 60, epa: 91, q: 90 }],
+    ['oneBadCl', { ...IDEAL, chlorine: 1.5 }, { th: 60, jp: 60, eu: 65, who: 60, epa: 91, q: 90 }],
     ['twoBad', twoBad, { th: 60, jp: 60, eu: 69, who: 60, epa: 59, q: 80 }],
     ['threeBad', threeBad, { th: 53, jp: 48, eu: 54, who: 59, epa: 50, q: 69 }]
   ];

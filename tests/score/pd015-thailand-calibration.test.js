@@ -68,7 +68,7 @@ console.log('\nPD-015 limits locked');
   assert(L.turbidity.ordinaryMax === 1 && L.turbidity.ordinaryGrade === 70, 'turb ordinary 1 NTU → 70');
   assert(L.ph.preferredMin === 6.8 && L.ph.preferredMax === 7.8, 'pH preferred 6.8–7.8');
   assert(L.ph.edgeGrade === 70, 'pH edgeGrade 70');
-  assert(L.chlorine.min === 0.2 && L.chlorine.max === 2.0, 'Cl compliance unchanged');
+  assert(L.chlorine.min === 0.2 && L.chlorine.max === 1.0, 'Cl compliance 0.2–1.0 (max corrected 2026-10-09)');
   assert(L.orp.min === 200 && L.orp.max === 600, 'ORP outer unchanged');
   // 2026-08-17, PO-approved: raised from 0.25 to 0.5 (part of the same
   // Thailand severity-completion work as the chlorine curve steepening below).
