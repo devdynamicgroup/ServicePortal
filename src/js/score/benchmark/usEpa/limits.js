@@ -7,7 +7,7 @@ window.UsEpaBenchmarkLimits = Object.freeze({
   display: Object.freeze({
     ph: '6.5 - 8.5',
     tds: '<= 500 mg/L',
-    chlorine: '<= 4 mg/L MRDL; project floor >= 0.2',
+    chlorine: '0.2 - 4.0 mg/L (project floor; MRDL ceiling)',
     turbidity: '<= 1 NTU',
     orp: '200 - 600 mV',
     do: '>= 6 mg/L',
