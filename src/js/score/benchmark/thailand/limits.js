@@ -1,5 +1,7 @@
 ﻿/** Thailand benchmark — display ranges & compliance limits (local Pass/Fail).
- * PD-008: Cl compliance 0.2–2.0 unchanged.
+ * PD-008: Cl compliance band originally 0.2–2.0 (max NO CITATION); corrected
+ * 2026-10-09 to 0.2–1.0 — see chlorine.maxCitationStatus below for the source
+ * and its context-specific (outbreak-band) caveat.
  * PD-015: excellent inners (pH 6.8–7.8, TDS ≤80, turb ≤0.3) kept.
  * 2026-08-14 ordinary-band severity: piecewise in-pass curves + weakest-link
  * share so ordinary water is not averaged into 90–99. Outer pass ceilings
@@ -17,7 +19,7 @@ window.ThailandBenchmarkLimits = Object.freeze({
   display: Object.freeze({
     ph: '6.5 - 8.5',
     tds: '<= 500 mg/L',
-    chlorine: '0.2 - 2.0 mg/L (project band)',
+    chlorine: '0.2 - 1.0 mg/L (project band)',
     turbidity: '<= 1 NTU',
     orp: '200 - 600 mV',
     do: 'Not specified',
@@ -44,10 +46,17 @@ window.ThailandBenchmarkLimits = Object.freeze({
   }),
   chlorine: Object.freeze({
     min: 0.2,
-    max: 2.0,
+    max: 1.0,
     minProvenance: 'project-defined',
     maxProvenance: 'project-defined',
-    maxCitationStatus: 'NO CITATION',
+    // 2026-10-09 (requested correction, PO-pending-confirmation): max lowered
+    // from 2.0 (previously NO CITATION) to 1.0, citing Thailand DOH B.E. 2553
+    // (2010) outbreak/cloudy-water surveillance band (0.5-1.0 mg/L) -- the
+    // only verified DOH figure found for an upper residual bound. This is a
+    // context-specific (outbreak) figure applied as the project's general
+    // ceiling, not evidence that 1.0 is DOH's normal-condition ceiling (DOH's
+    // own normal-condition band is 0.2-0.5 -- see citedSurveillanceResidual).
+    maxCitationStatus: 'DOH B.E. 2553 OUTBREAK/CLOUDY-WATER BAND (CONTEXT-SPECIFIC, APPLIED AS PROJECT CEILING)',
     citedSurveillanceResidual: Object.freeze({
       min: 0.2,
       max: 0.5,

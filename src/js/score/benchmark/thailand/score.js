@@ -63,7 +63,7 @@
     // it may genuinely not be measured yet. The other four params are still
     // required; only chlorine's absence is tolerated here.
     if (![ph, tds, turb, orp].every(Number.isFinite)) {
-      return incomplete('Thailand', 'thailand', { readings, engineVersion: 'v3', standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–2.0 project-defined — PD-008)' });
+      return incomplete('Thailand', 'thailand', { readings, engineVersion: 'v3', standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–1.0 project-defined — PD-008)' });
     }
     // 2026-08-18 (PO-approved): one shared grading formula (Quality V3's
     // curves), computed once and reused as every country's base score.
@@ -123,7 +123,7 @@
     if (!Number.isFinite(cl)) {
       reasons.push({ parameter: 'chlorine', severity: 'warning', message: 'Free chlorine has not been measured yet — this score is provisional and excludes chlorine until it is captured.' });
     } else if (!pass.chlorine && cl > L.chlorine.max) {
-      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is above the Thailand project compliance band (0.2–2.0 mg/L; not a verified DoH Ideal — PD-008).' });
+      reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is above the Thailand project compliance band (0.2–1.0 mg/L; not a verified DoH Ideal — PD-008).' });
     } else if (!pass.chlorine && cl < L.chlorine.min) {
       reasons.push({ parameter: 'chlorine', severity: classifications.chlorine.toLowerCase(), message: 'Free chlorine is below the Thailand project compliance band (≥ 0.2 mg/L) — disinfection residual may be insufficient.' });
     }
@@ -167,7 +167,7 @@
     const topNegativeFactors = [];
     if (pass.ph) topPositiveFactors.push('pH is within Thailand recommended range (6.5–8.5)');
     if (pass.tds) topPositiveFactors.push('TDS is within Thailand local acceptability (≤ 500 mg/L)');
-    if (pass.chlorine) topPositiveFactors.push('Free chlorine residual is within the Thailand project compliance band (0.2–2.0 mg/L)');
+    if (pass.chlorine) topPositiveFactors.push('Free chlorine residual is within the Thailand project compliance band (0.2–1.0 mg/L)');
     if (pass.turbidity) topPositiveFactors.push('Turbidity meets Thailand local limit (≤ 1.0 NTU)');
     if (pass.orp) topPositiveFactors.push('ORP is inside the operational window used for Thailand comparison');
     topPositiveFactors.push('Dissolved oxygen is not scored under Thailand local comparison');
@@ -190,7 +190,7 @@
       findings,
       readings,
       engineVersion: 'v3',
-      standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–2.0 project-defined — PD-008)'
+      standardRevision: 'Thailand Compliance Index (project bands; Cl 0.2–1.0 project-defined — PD-008)'
     });
 
   }

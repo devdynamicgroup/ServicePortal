@@ -254,8 +254,16 @@ console.log('\n8. Gauge tiers and postcard bands stay on their own rules');
   assert(sandbox.customerVerdictForEngine(81, 'japan').tier === 'high', 'other countries stay Excellent from 81');
   const card = fs.readFileSync(path.join(root, 'services/score-share-card.js'), 'utf8');
   assert(card.includes('if (wq >= 80)') && card.includes('if (wq >= 60)') && card.includes("label: 'Acceptable'") && card.includes("const GOOD_GREEN = '#71D29C'"), 'postcard bands and green are unchanged');
-  const inBand = reg.calculate('thailand', { ...IDEAL, chlorine: 1.5 });
+  // 2026-10-09: Thailand chlorine max corrected 2.0 -> 1.0 (DOH B.E. 2553
+  // outbreak/cloudy-water band, see thailand/limits.js). 1.5 was in-band
+  // under the old 2.0 ceiling and is deliberately no longer used here -- it
+  // is now out-of-band and covered by the boundary assertions below instead.
+  const inBand = reg.calculate('thailand', { ...IDEAL, chlorine: 0.8 });
   assert(inBand.classifications.chlorine === 'PASS', 'in-band Thailand chlorine stays PASS');
+  const atMax = reg.calculate('thailand', { ...IDEAL, chlorine: 1.00 });
+  assert(atMax.classifications.chlorine === 'PASS', 'Thailand chlorine at the new max (1.00 mg/L, boundary inclusive) stays PASS');
+  const justOverMax = reg.calculate('thailand', { ...IDEAL, chlorine: 1.01 });
+  assert(justOverMax.classifications.chlorine !== 'PASS', 'Thailand chlorine just over the new max (1.01 mg/L) is no longer PASS');
   const eu = reg.calculate('eu', { ...IDEAL, chlorine: 0.09 });
   assert(eu.classifications.chlorine === 'CRITICAL', 'EU chlorine outside 0.1–0.5 stays CRITICAL');
   const euAgain = reg.calculate('eu', { ...IDEAL, chlorine: 0.09 });
