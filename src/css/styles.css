@@ -1434,8 +1434,11 @@ button.score-metric-row:active{background:#faf9f8}
 @supports (grid-template-columns:subgrid){
   .score-metric-list{
     display:grid;
-    /* Edge tracks carry the row padding + item border, which a subgrid takes out of them. */
-    grid-template-columns:minmax(calc(3.75rem + 7px),1fr) minmax(0,auto) auto fit-content(5.75rem) 27px;
+    /* Name, value and status have fixed widths, so nothing moves sideways when a
+       reading, a status or the benchmark changes; the standard range takes the
+       space that is left. Edge tracks carry the row padding + item border, which
+       a subgrid takes out of them. */
+    grid-template-columns:calc(3.3rem + 7px) minmax(0,1fr) 4rem 5.1rem 27px;
     column-gap:8px;
     row-gap:8px;
   }
@@ -1447,16 +1450,18 @@ button.score-metric-row:active{background:#faf9f8}
     grid-template-columns:subgrid;
   }
   .score-metric-detail{grid-column:1 / -1}
-  .score-metric-range{text-align:right}
+  /* Every column starts at the same left edge, so the eye runs straight down each one. */
+  .score-metric-range{text-align:left}
+  .score-metric-value{text-align:left}
   /* The status sits a little clear of the value; the track is 8px wider to pay for it.
      Dot and label start on the first line, so a wrapped label lines up with the rest. */
   .score-metric-status{justify-content:flex-start;align-items:flex-start;white-space:normal;line-height:1.25;margin-left:8px}
   .score-metric-status .score-dot{flex:0 0 auto;margin-top:calc((1.25em - 6px) / 2)}
   @media (max-width:414px){
-    .score-metric-list{grid-template-columns:minmax(calc(3.75rem + 13px),1fr) minmax(0,auto) auto fit-content(5.75rem) 27px}
+    .score-metric-list{grid-template-columns:calc(3.3rem + 13px) minmax(0,1fr) 4rem 5.1rem 27px}
   }
   @media (max-width:340px){
-    .score-metric-list{grid-template-columns:minmax(calc(3.6rem + 11px),1fr) minmax(0,auto) auto fit-content(5.75rem) 23px;column-gap:6px}
+    .score-metric-list{grid-template-columns:calc(3.1rem + 11px) minmax(0,1fr) 3.6rem 5.1rem 23px;column-gap:4px}
   }
 }
 .score-readings-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-size:14px}
