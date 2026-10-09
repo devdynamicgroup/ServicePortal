@@ -13,10 +13,16 @@ const { getClient, updateClient, findClientByReportToken } = require('./notion/c
 const { createNotionPublicationStore, isScorePublicationsConfigured } = require('./notion/score-publications');
 const { withPublicationStoreContract } = require('./publication-store');
 const { buildReportUrl } = require('./url-builder');
-const { computeCanonicalScore, computeCanonicalCountryScore, isCountryStandard } = require('./canonical-score');
+const {
+  computeCanonicalScore,
+  computeCanonicalCountryScore,
+  captureCanonicalPointReadings,
+  isCountryStandard
+} = require('./canonical-score');
 const {
   UNKNOWN,
   buildSnapshot,
+  serializeSnapshot,
   applyPublicationToJob,
   minimalJobFromSnapshot
 } = require('./score-publication-snapshot');
@@ -181,8 +187,30 @@ async function syncCasePointer(job, publication) {
   return updated;
 }
 
+/**
+ * Build a snapshot that fits the existing size cap.
+ * If supplemental point readings would exceed it, drop that field and keep
+ * the Whole House publication. Do not truncate the point list in place.
+ * If the Whole House snapshot itself exceeds the cap, fail as before.
+ */
+function snapshotWithinLimit(fields) {
+  const attempt = (next) => {
+    const snapshot = buildSnapshot(next);
+    serializeSnapshot(snapshot);
+    return snapshot;
+  };
+  try {
+    return attempt(fields);
+  } catch (error) {
+    if (error.code !== 'SNAPSHOT_TOO_LARGE' || !fields.pointReadings) throw error;
+    const withoutPoints = { ...fields };
+    delete withoutPoints.pointReadings;
+    return attempt(withoutPoints);
+  }
+}
+
 async function createLedgerRecord(store, fields) {
-  const snapshot = buildSnapshot(fields);
+  const snapshot = snapshotWithinLimit(fields);
   const record = {
     publicationId: snapshot.publicationId,
     clientPageId: snapshot.clientPageId,
@@ -381,6 +409,9 @@ async function createOrReusePublication({ job, payload = {}, caseId } = {}) {
     // Freeze the exact readings the canonical score above was computed from,
     // so the published score and the report's measurements stay one set.
     readings: canonical.readings,
+    // Supplemental. publishedScore and readings stay the Whole House pair.
+    // Captured from this same job after the canonical check, never from the client.
+    pointReadings: captureCanonicalPointReadings(job),
     idempotencyKey: idempotencyKey || `minted:${publicationId}`
   });
 

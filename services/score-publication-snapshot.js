@@ -39,6 +39,33 @@ function provenance(value) {
   return text || UNKNOWN;
 }
 
+/**
+ * Optional per-point readings. Omitted entirely when absent or empty.
+ * A null readings value means that point had no own measurements.
+ * Labels are display text. Identity is ordinal.
+ */
+function sanitizePointReadings(points) {
+  if (!Array.isArray(points) || !points.length) return undefined;
+  const out = [];
+  points.forEach((point) => {
+    if (!point || typeof point !== 'object') return;
+    const ordinal = Number(point.ordinal);
+    if (!Number.isInteger(ordinal) || ordinal < 0) return;
+    const rawLabel = point.label == null ? '' : String(point.label).trim();
+    const label = (rawLabel || `Tap ${ordinal + 1}`).slice(0, 80);
+    const readings = point.readings == null ? null : (compactReadings(point.readings) || null);
+    out.push({ ordinal, label, readings });
+  });
+  out.sort((left, right) => left.ordinal - right.ordinal);
+  const seen = new Set();
+  const unique = out.filter((point) => {
+    if (seen.has(point.ordinal)) return false;
+    seen.add(point.ordinal);
+    return true;
+  });
+  return unique.length ? unique : undefined;
+}
+
 function buildSnapshot(input = {}) {
   const publishedScore = Number(input.publishedScore);
   if (!Number.isFinite(publishedScore)) {
@@ -80,6 +107,8 @@ function buildSnapshot(input = {}) {
   if (input.scorePayload && typeof input.scorePayload === 'object') {
     snapshot.scorePayload = input.scorePayload;
   }
+  const pointReadings = sanitizePointReadings(input.pointReadings);
+  if (pointReadings) snapshot.pointReadings = pointReadings;
   return snapshot;
 }
 
@@ -179,6 +208,13 @@ function applyPublicationToJob(job, publication) {
   next.result.publicationId = snapshot.publicationId;
   next.result.scoreType = snapshot.scoreType;
   if (snapshot.standardKey) next.result.standardKey = snapshot.standardKey;
+  if (Array.isArray(snapshot.pointReadings)) {
+    next.result.pointReadings = snapshot.pointReadings.map((point) => ({
+      ordinal: Number(point.ordinal),
+      label: String(point.label || ''),
+      readings: point.readings == null ? null : { ...point.readings }
+    }));
+  }
   next.result.modelVersion = snapshot.modelVersion;
   next.result.benchmarkVersion = snapshot.benchmarkVersion;
   next.result.publishedAt = snapshot.publishedAt;
@@ -212,6 +248,7 @@ module.exports = {
   READING_KEYS,
   MAX_SNAPSHOT_CHARS,
   compactReadings,
+  sanitizePointReadings,
   provenance,
   buildSnapshot,
   serializeSnapshot,

@@ -124,4 +124,20 @@ function computeCanonicalCountryScore(job, standardKey) {
   };
 }
 
-module.exports = { computeCanonicalScore, computeCanonicalCountryScore, isCountryStandard };
+/**
+ * Per-point readings from the same Case object the Whole House canonical
+ * score uses. Supplemental only. Never replaces canonical.readings.
+ */
+function captureCanonicalPointReadings(job) {
+  const capture = getSandbox().capturePublicationPointReadings;
+  if (typeof capture !== 'function') return [];
+  const points = capture(job);
+  return Array.isArray(points) ? points : [];
+}
+
+module.exports = {
+  computeCanonicalScore,
+  computeCanonicalCountryScore,
+  captureCanonicalPointReadings,
+  isCountryStandard
+};

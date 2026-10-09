@@ -100,7 +100,8 @@ function comparisonPresentationVerdict(wq, classifications, engineKey) {
 function isShowingCountryBenchmarkComparison() {
   if (S.publicScoreView) return false;
   const comparisonScore = activeComparisonResult()?.score;
-  return Number.isFinite(Number(comparisonScore));
+  // Null is unavailable. Number(null) is 0 and must not count as a score.
+  return comparisonScore != null && Number.isFinite(Number(comparisonScore));
 }
 
 function scoreSummaryNote(wq, findings) {
@@ -572,7 +573,8 @@ function isPublishedScoreView(job = S.activeJob) {
   return Number.isFinite(published);
 }
 
-function renderScoreDisplay() {
+function renderScoreDisplay(options = {}) {
+  applyGaugePopulation(S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY);
   const result = activeComparisonResult();
   if (!result) return;
 
@@ -584,13 +586,12 @@ function renderScoreDisplay() {
   const eligibility = isPublishedScoreView(S.activeJob)
     ? (typeof EligibilityContract !== 'undefined' ? EligibilityContract.buildLegacy() : null)
     : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(S.activeJob) : null);
-  const displayed = resolveDisplayedScore({
-    publicView: Boolean(S.publicScoreView),
-    publishedScore: S.currentScoreResult?.score,
-    readings: result.readings || S.scoreBaseReadings || {},
-    standardKey: result.standardKey || S.scoreStandardKey
-  });
-  S.displayedScore = displayed;
+  const displayed = S.displayedScore || {
+    score: null,
+    showScore: false,
+    source: 'country-benchmark',
+    standardKey: S.scoreStandardKey
+  };
   const showScore = displayed.showScore;
   const wq = displayed.score;
   const computedWho = S.currentScoreResult?.computedScore;
@@ -710,6 +711,14 @@ function renderScoreDisplay() {
         .replace('{total}', String(readiness?.totalCount ?? 7));
     }
   }
+  if (S.scorePointNotice === 'history-unavailable' || S.scorePointNotice === 'point-unavailable') {
+    const history = S.scorePointNotice === 'history-unavailable';
+    if (bandEl) bandEl.textContent = t(history ? 'score.pointHistory.unavailableTitle' : 'score.point.unavailableTitle');
+    if (noteEl) {
+      noteEl.hidden = false;
+      noteEl.textContent = t(history ? 'score.pointHistory.unavailable' : 'score.point.unavailable');
+    }
+  }
 
   renderScoreStatusBar(showScore ? wq : 0, {
     loading: !showScore,
@@ -734,7 +743,7 @@ function renderScoreDisplay() {
   renderScoreReadings(context);
   // Always render improve / all-good from whatever readings are already available.
   renderScoreImprove(context);
-  renderScorePhotos(readiness);
+  if (!options.skipPhotos) renderScorePhotos(readiness);
 }
 
 /** Switch comparison standard — recalculates statuses from the same resolved readings. */
@@ -1148,6 +1157,10 @@ function renderWaterScore(job, options = {}) {
   });
   S.taps = taps;
   // Default Room Analysis = All when multiple taps are available.
+  // A full render starts at Whole House. Country and point switches use their
+  // own entry points and do not come back through here.
+  S.scorePointOrdinal = null;
+  S.scorePointNotice = null;
   S.scoreTapFilter = taps.length > 1 ? 'all' : taps[0];
   S.publicScoreView = publicView;
 
@@ -1368,12 +1381,14 @@ function renderScoreReadings(context = getScoreEvalContext()) {
   if (!listEl) return;
 
   if (scopeEl) {
-    scopeEl.textContent = S.scoreTapFilter === 'all'
+    const ordinal = selectedPointOrdinal();
+    const choice = ordinal == null ? null : pointChoices().find((item) => item.ordinal === ordinal);
+    scopeEl.textContent = ordinal == null
       ? t('score.paramsOverall')
-      : `${t('score.viewingRoom')}: ${S.scoreTapFilter}`;
+      : `${t('score.viewingRoom')}: ${choice ? choice.label : ''}`;
   }
 
-  const rows = scoreTapRows(S.scoreTapFilter, context);
+  const rows = rowsForScorePopulation(context);
   const statusLabels = {
     good: t('score.status.good'),
     fair: t('score.status.fair'),
@@ -1441,17 +1456,19 @@ function renderScoreImprove(context = getScoreEvalContext()) {
   const allGoodText = document.getElementById('score-all-good-text');
   if (!section || !listEl) return;
 
-  const allRows = scoreTapRows(S.scoreTapFilter || 'all', context);
+  const allRows = rowsForScorePopulation(context);
   // Fair rows were listed here as Attention before the Fair state existed — keep them listed.
   const rows = allRows.filter(r => ['attn', 'fair'].includes(paramStatusUiKey(r.st)));
-  const displayed = resolveDisplayedScore({
-    publicView: Boolean(S.publicScoreView),
-    publishedScore: S.currentScoreResult?.score,
-    readings: context.readings || S.scoreBaseReadings || {},
-    standardKey: context.selectedStandard || S.scoreStandardKey
-  });
+  const displayed = selectedPointOrdinal() != null && S.displayedScore
+    ? S.displayedScore
+    : resolveDisplayedScore({
+      publicView: Boolean(S.publicScoreView),
+      publishedScore: S.currentScoreResult?.score,
+      readings: context.readings || S.scoreBaseReadings || {},
+      standardKey: context.selectedStandard || S.scoreStandardKey
+    });
   const showScore = displayed.showScore;
-  const wq = Number.isFinite(displayed.score) ? displayed.score : 0;
+  const wq = displayed.score != null && Number.isFinite(Number(displayed.score)) ? Number(displayed.score) : 0;
   // PD-001: comparison uses pass-band tiers.
   // PD-007 D + PD-009 B: Quality path uses FAIL/WARNING presentation override.
   const verdict = isShowingCountryBenchmarkComparison()
@@ -1501,9 +1518,10 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
 
   const taps = S.taps?.length ? S.taps : [];
   const tapData = resolveJobTapDataForScore(S.activeJob) || [];
-  const indices = S.scoreTapFilter && S.scoreTapFilter !== 'all'
-    ? [taps.indexOf(S.scoreTapFilter)].filter(i => i >= 0)
-    : taps.map((_, i) => i);
+  const selectedOrdinal = selectedPointOrdinal();
+  const indices = selectedOrdinal == null
+    ? taps.map((_, i) => i)
+    : [selectedOrdinal].filter(i => i >= 0 && i < Math.max(taps.length, tapData.length));
 
   const photoSrc = photo => {
     if (!photo) return '';
@@ -1522,7 +1540,7 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
       const src = photoSrc(photo);
       if (!src || seen.has(src)) continue;
       seen.add(src);
-      images.push({ label, src, tap: taps[i] });
+      images.push({ label, src, tap: taps[i], ordinal: i });
       break;
     }
   });
@@ -1556,7 +1574,7 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
   // Drive link, etc.) must not sit in the carousel as a solid broken-image
   // box -- drop that one slide (and its dot) instead. If every slide fails,
   // fall back to the "no photo yet" placeholder like nothing was captured.
-  track.querySelectorAll('.score-photo-slide img').forEach(imgEl => {
+  track.querySelectorAll?.('.score-photo-slide img')?.forEach(imgEl => {
     imgEl.onerror = () => {
       const slide = imgEl.closest('.score-photo-slide');
       const idx = Number(slide?.dataset.slideIndex);
@@ -1583,18 +1601,17 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
     // Once a swipe has taken over the filter, keep following swipes even
     // though scoreTapFilter is no longer 'all' -- only a manual dropdown
     // pick (setScoreTapFilter, which clears this flag) should stop it.
-    if (S.scoreTapFilter !== 'all' && !S._scorePhotoAutoSynced) return;
-    const tap = images[idx]?.tap;
-    if (!tap || tap === syncedTap) return;
-    syncedTap = tap;
-    S.scoreTapFilter = tap;
+    if (selectedPointOrdinal() != null && !S._scorePhotoAutoSynced) return;
+    const ordinal = images[idx]?.ordinal;
+    if (!Number.isInteger(ordinal) || ordinal === syncedTap) return;
+    syncedTap = ordinal;
+    S.scorePointOrdinal = ordinal;
+    S.scoreTapFilter = images[idx]?.tap || 'all';
     S._scorePhotoAutoSynced = true;
-    const context = getScoreEvalContext();
-    renderScoreReadings(context);
-    renderScoreImprove(context);
+    renderScoreDisplay({ skipPhotos: true });
     ['score-room-select', 'score-room-select-top'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.value = tap;
+      if (el) el.value = String(ordinal);
     });
   };
 
@@ -1642,22 +1659,223 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
   });
 }
 
+function selectedPointOrdinal() {
+  return Number.isInteger(S.scorePointOrdinal) && S.scorePointOrdinal >= 0 ? S.scorePointOrdinal : null;
+}
+
+/**
+ * Point choices are ordinals. Labels are display text and may be duplicated.
+ * A published report with frozen pointReadings uses those ordinals and labels.
+ */
+function pointChoices(job = S.activeJob) {
+  if (S.publicScoreView && Array.isArray(job?.result?.pointReadings) && job.result.pointReadings.length) {
+    return job.result.pointReadings.map((point) => ({
+      ordinal: Number(point?.ordinal),
+      label: String(point?.label || `Tap ${Number(point?.ordinal) + 1}`)
+    })).filter((point) => Number.isInteger(point.ordinal) && point.ordinal >= 0);
+  }
+  const taps = S.taps?.length ? S.taps : (Array.isArray(job?.draft?.taps) ? job.draft.taps : []);
+  return taps.map((label, ordinal) => ({ ordinal, label: String(label) }));
+}
+
+function finiteReadingMap(source) {
+  const keys = ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp'];
+  const out = {};
+  keys.forEach((key) => {
+    const n = numOrUndefined(source?.[key]);
+    if (n !== undefined) out[key] = n;
+  });
+  return out;
+}
+
+/** Same validator strip resolveScoreReadings uses. Missing values stay absent, never 0. */
+function sanitizeOwnReadings(raw) {
+  const present = raw && typeof raw === 'object' ? { ...raw } : {};
+  const validation = (typeof MeasurementValidator !== 'undefined')
+    ? MeasurementValidator.validateMeasurements(present)
+    : null;
+  const readings = { ...present };
+  if (validation) {
+    MeasurementValidator.SCORED_KEYS.forEach((key) => {
+      const state = validation.fields[key]?.state;
+      if (state === MeasurementValidator.STATE.IMPLAUSIBLE || state === MeasurementValidator.STATE.INVALID_TYPE) {
+        delete readings[key];
+      }
+    });
+  }
+  return { readings: finiteReadingMap(readings), validation, present };
+}
+
+/**
+ * One tap's own measurements. draft.fields and other taps are not consulted.
+ * Returns null readings when the tap has no usable own source.
+ */
+function resolveOwnPointReadings(job, ordinal) {
+  const tapData = resolveJobTapDataForScore(job) || [];
+  const tap = tapData[ordinal];
+  if (!tap || !hasTapReadingSource(tap)) return { readings: null, validation: null, present: {} };
+  const sanitized = sanitizeOwnReadings(readingsFromSingleTap(tap, {}));
+  return {
+    readings: Object.keys(sanitized.readings).length ? sanitized.readings : null,
+    validation: sanitized.validation,
+    present: sanitized.present
+  };
+}
+
+/**
+ * Frozen point list captured with a new publication.
+ * Uses the Case draft only, so the server sandbox cannot see a browser session.
+ */
+function capturePublicationPointReadings(job) {
+  const draft = job?.draft || {};
+  const taps = Array.isArray(draft.taps) ? draft.taps : [];
+  const tapData = Array.isArray(draft.tapData) ? draft.tapData : [];
+  const count = Math.max(taps.length, tapData.length);
+  const points = [];
+  for (let ordinal = 0; ordinal < count; ordinal += 1) {
+    const rawLabel = taps[ordinal] == null ? '' : String(taps[ordinal]).trim();
+    const label = (rawLabel || `Tap ${ordinal + 1}`).slice(0, 80);
+    const tap = tapData[ordinal];
+    let readings = null;
+    if (tap && hasTapReadingSource(tap)) {
+      const sanitized = sanitizeOwnReadings(readingsFromSingleTap(tap, {}));
+      readings = Object.keys(sanitized.readings).length ? sanitized.readings : null;
+    }
+    points.push({ ordinal, label, readings });
+  }
+  return points;
+}
+
+function frozenPointEntry(job, ordinal) {
+  const points = job?.result?.pointReadings;
+  if (!Array.isArray(points)) return undefined;
+  return points.find((point) => Number(point?.ordinal) === ordinal);
+}
+
+/**
+ * Readings the gauge is allowed to score.
+ * All = resolveScoreReadings (Whole House).
+ * Named point = that point only, or an explicit unavailable result.
+ */
+function populationForGauge(job) {
+  const ordinal = selectedPointOrdinal();
+  if (ordinal == null) {
+    const readings = resolveScoreReadings(job);
+    return {
+      kind: 'whole-house',
+      readings,
+      notice: null,
+      validation: S.lastReadingsValidation || null,
+      rawReadings: { ...(S.lastReadingsPresent || {}) }
+    };
+  }
+  if (S.publicScoreView) {
+    if (!Array.isArray(job?.result?.pointReadings)) {
+      return { kind: 'history-unavailable', readings: {}, notice: 'history-unavailable', validation: null, rawReadings: {} };
+    }
+    const point = frozenPointEntry(job, ordinal);
+    if (!point || point.readings == null || typeof point.readings !== 'object') {
+      return { kind: 'point-unavailable', readings: {}, notice: 'point-unavailable', validation: null, rawReadings: {} };
+    }
+    const sanitized = sanitizeOwnReadings(point.readings);
+    const rawReadings = { ...(sanitized.present || {}) };
+    if (!Object.keys(sanitized.readings).length) {
+      return { kind: 'point-unavailable', readings: {}, notice: 'point-unavailable', validation: sanitized.validation, rawReadings };
+    }
+    return { kind: 'point', readings: sanitized.readings, notice: null, validation: sanitized.validation, rawReadings };
+  }
+  const own = resolveOwnPointReadings(job, ordinal);
+  const rawReadings = { ...(own.present || {}) };
+  if (!own.readings) {
+    return { kind: 'point-unavailable', readings: {}, notice: 'point-unavailable', validation: own.validation, rawReadings };
+  }
+  return { kind: 'point', readings: own.readings, notice: null, validation: own.validation, rawReadings };
+}
+
+function unavailableGauge(standardKey, source) {
+  return {
+    score: null,
+    source,
+    standardKey,
+    engineKey: standardKey,
+    showScore: false,
+    comparison: null,
+    classifications: null
+  };
+}
+
+function finiteCountryScore(comparison) {
+  const raw = comparison?.score;
+  return raw != null && Number.isFinite(Number(raw)) ? Number(raw) : null;
+}
+
+/** Staff and Full Assessment both land here for the selected point and country. */
+function applyGaugePopulation(standardKey) {
+  const registry = benchmarkRegistry();
+  const key = registry?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
+  const population = populationForGauge(S.activeJob);
+  S.scorePointNotice = population.notice;
+  // Always replace the display context. A missing validation object means this
+  // population has none; keeping the previous object's fields would paint
+  // another point's implausible raw value onto an empty point.
+  S.lastReadingsValidation = population.validation || null;
+  S.lastReadingsPresent = population.rawReadings || {};
+  if (population.kind === 'history-unavailable') {
+    S.comparisonScoreResult = getCountryBenchmarkScore({}, key);
+    S.displayedScore = unavailableGauge(key, 'point-history-unavailable');
+    return;
+  }
+  if (population.kind === 'whole-house') {
+    S.comparisonScoreResult = getCountryBenchmarkScore(population.readings, key);
+    S.displayedScore = resolveDisplayedScore({
+      publicView: Boolean(S.publicScoreView),
+      publishedScore: S.currentScoreResult?.score,
+      readings: population.readings,
+      standardKey: key
+    });
+    return;
+  }
+  const comparison = getCountryBenchmarkScore(population.readings, key);
+  const score = finiteCountryScore(comparison);
+  S.comparisonScoreResult = comparison;
+  S.displayedScore = {
+    score,
+    source: 'country-benchmark',
+    standardKey: comparison.standardKey,
+    engineKey: comparison.engineKey,
+    showScore: score != null,
+    comparison,
+    classifications: comparison.classifications || null
+  };
+  if (score == null) S.scorePointNotice = 'point-unavailable';
+}
+
+function rowsForScorePopulation(context = getScoreEvalContext()) {
+  if (selectedPointOrdinal() != null) {
+    const readings = S.scorePointNotice ? {} : (S.comparisonScoreResult?.readings || {});
+    return buildMetricRowsForReadings(readings, context);
+  }
+  const key = !S.scoreTapFilter || S.scoreTapFilter === 'all' ? 'all' : S.scoreTapFilter;
+  return scoreTapRows(key, context);
+}
+
 /** Location filter now lives only in the hero row (removed from the duplicate below). */
 function renderLocationSelect() {
-  const taps = S.taps?.length ? S.taps : [];
+  const choices = pointChoices();
   const pairs = [
     ['score-room-select-wrap-top', 'score-room-select-top']
   ];
 
-  if (taps.length <= 1) {
+  if (choices.length <= 1) {
     pairs.forEach(([wrapId]) => document.getElementById(wrapId)?.classList.add('hidden'));
     return;
   }
 
-  const allLabel = `${t('score.allLocations')} (${taps.length})`;
-  const options = [{ key: 'all', label: allLabel }, ...taps.map(tap => ({ key: tap, label: tap }))];
+  const allLabel = `${t('score.allLocations')} (${choices.length})`;
+  const selected = selectedPointOrdinal() == null ? 'all' : String(selectedPointOrdinal());
+  const options = [{ key: 'all', label: allLabel }, ...choices.map((choice) => ({ key: String(choice.ordinal), label: choice.label }))];
   const optionsHtml = options.map(opt =>
-    `<option value="${opt.key}"${S.scoreTapFilter === opt.key ? ' selected' : ''}>${opt.label}</option>`
+    `<option value="${opt.key}"${selected === opt.key ? ' selected' : ''}>${opt.label}</option>`
   ).join('');
 
   pairs.forEach(([wrapId, selectId]) => {
@@ -1666,17 +1884,28 @@ function renderLocationSelect() {
     if (!wrap || !selectEl) return;
     wrap.classList.remove('hidden');
     selectEl.innerHTML = optionsHtml;
-    selectEl.onchange = () => setScoreTapFilter(selectEl.value);
+    selectEl.value = selected;
+    selectEl.onchange = () => setScorePointOrdinal(selectEl.value === 'all' ? null : Number(selectEl.value));
   });
 }
 
-function setScoreTapFilter(key) {
-  const context = getScoreEvalContext();
-  S.scoreTapFilter = key;
+function setScorePointOrdinal(ordinal) {
+  S.scorePointOrdinal = Number.isInteger(ordinal) && ordinal >= 0 ? ordinal : null;
+  const choice = pointChoices().find((item) => item.ordinal === S.scorePointOrdinal);
+  S.scoreTapFilter = S.scorePointOrdinal == null ? 'all' : (choice ? choice.label : 'all');
   S._scorePhotoAutoSynced = false;
-  renderScoreReadings(context);
-  renderScoreImprove(context);
-  renderScorePhotos();
+  renderScoreDisplay();
+}
+
+function setScoreTapFilter(key) {
+  if (key === 'all' || key == null || key === '') {
+    setScorePointOrdinal(null);
+    return;
+  }
+  const ordinal = /^\d+$/.test(String(key)) ? Number(key) : NaN;
+  if (Number.isInteger(ordinal) && pointChoices().some((choice) => choice.ordinal === ordinal)) {
+    setScorePointOrdinal(ordinal);
+  }
 }
 
 let sharingScore = false;
