@@ -101,19 +101,33 @@ console.log('\n1. Mapping table');
   assert(sandbox.paramStatusFromClassification('good', undefined) === 'good', 'missing classification keeps existing status');
   assert(sandbox.paramStatusUiKey('fair') === 'fair', 'paramStatusUiKey passes Fair through');
   assert(sandbox.paramStatusUiKey('good') === 'good' && sandbox.paramStatusUiKey('attn') === 'attn', 'Good / Attention keys unchanged');
+  // 2026-10-09 (chlorine-only customer-status adjustment, display-only):
+  // a CRITICAL chlorine reading presents as Fair; every other parameter's
+  // CRITICAL is untouched. Internal classification/score are unaffected --
+  // only paramStatusFromClassification's 3rd (key) argument changes anything.
+  assert(sandbox.paramStatusFromClassification('attn', 'CRITICAL', 'chlorine') === 'fair', 'chlorine + CRITICAL presents as Fair');
+  assert(sandbox.paramStatusFromClassification('attn', 'CRITICAL', 'ph') === 'attn', 'pH + CRITICAL still presents as Attention');
+  assert(sandbox.paramStatusFromClassification('attn', 'CRITICAL', 'turbidity') === 'attn', 'Turbidity + CRITICAL still presents as Attention');
+  assert(sandbox.paramStatusFromClassification('attn', 'CRITICAL') === 'attn', 'CRITICAL with no key argument (non-chlorine call sites) is unaffected');
+  assert(sandbox.paramStatusFromClassification('attn', 'FAIL', 'chlorine') === 'fair', 'chlorine + FAIL is unaffected (already Fair, unchanged)');
+  assert(sandbox.paramStatusFromClassification('attn', 'WARNING', 'chlorine') === 'fair', 'chlorine + WARNING is unaffected (already Fair, unchanged)');
+  assert(sandbox.paramStatusFromClassification('good', 'PASS', 'chlorine') === 'good', 'chlorine + PASS is unaffected (still Good)');
 }
 
 console.log('\n2. Thailand chlorine — internal classification unchanged, UI maps to three states');
 {
+  // 2026-10-09: chlorine's CRITICAL tier now presents as Fair (chlorine-only
+  // display adjustment) -- every other tier/parameter keeps EXPECTED_UI as-is.
   const cases = [[0.4, 'PASS'], [0.16, 'WARNING'], [0.1, 'FAIL'], [0.03, 'CRITICAL']];
   for (const [cl, internal] of cases) {
     const readings = { ...IDEAL, chlorine: cl };
     const before = reg.calculate('thailand', readings);
     const row = rowFor('thailand', readings, 'Chlorine');
     const after = reg.calculate('thailand', readings);
+    const expectedUi = internal === 'CRITICAL' ? 'fair' : EXPECTED_UI[internal];
     assert(before.classifications.chlorine === internal, `Cl ${cl} internal classification is ${internal}`);
     assert(after.classifications.chlorine === internal, `Cl ${cl} internal classification still ${internal} after rows are built`);
-    assert(sandbox.paramStatusUiKey(row.st) === EXPECTED_UI[internal], `Cl ${cl} UI = ${EXPECTED_UI[internal]} (got ${row.st})`);
+    assert(sandbox.paramStatusUiKey(row.st) === expectedUi, `Cl ${cl} UI = ${expectedUi} (got ${row.st})`);
     assert(before.score === after.score && before.rawAggregate === after.rawAggregate, `Cl ${cl} benchmark score identical (${after.score})`);
   }
 }
@@ -135,7 +149,11 @@ console.log('\n3. Every engine × parameter sweep — UI status always follows t
         if (!INTERNAL.includes(internal)) continue;
         const ui = sandbox.paramStatusUiKey(rowFor(engine, readings, LABELS[param]).st);
         seen.add(ui);
-        if (ui !== EXPECTED_UI[internal]) mismatches += 1;
+        // 2026-10-09: chlorine's CRITICAL tier presents as Fair (chlorine-only
+        // display adjustment, every engine); every other parameter/tier keeps
+        // the original EXPECTED_UI mapping unchanged.
+        const expectedUi = (param === 'chlorine' && internal === 'CRITICAL') ? 'fair' : EXPECTED_UI[internal];
+        if (ui !== expectedUi) mismatches += 1;
       }
     }
     assert(mismatches === 0, `${engine}: UI status matches the mapping for every swept value`);
@@ -160,10 +178,17 @@ console.log('\n4. Rendered rows');
   const failHtml = render({ ...IDEAL, chlorine: 0.1 });
   assert(/score-metric-row is-fair"[^]*?Chlorine/.test(failHtml), 'FAIL chlorine (outside the preferred band) renders Fair');
   assert(failHtml.includes('score.status.fair') && !/score-metric-row is-attn"[^]*?Chlorine/.test(failHtml), 'FAIL chlorine is not Attention');
-  const attnHtml = render({ ...IDEAL, chlorine: 0.03 });
-  assert(attnHtml.includes('is-attn') && attnHtml.includes('score.status.attn'), 'CRITICAL chlorine still renders Attention');
-  assert(!/score-metric-row is-fair"[^]*?Chlorine/.test(attnHtml), 'CRITICAL chlorine is not relabeled Fair');
-  for (const html of [fairHtml, goodHtml, attnHtml]) {
+  // 2026-10-09 (chlorine-only customer-status adjustment, display-only):
+  // CRITICAL chlorine now renders Fair, not Attention -- internal
+  // classification (verified elsewhere in this file) stays CRITICAL.
+  const criticalClHtml = render({ ...IDEAL, chlorine: 0.03 });
+  assert(/score-metric-row is-fair"[^]*?Chlorine/.test(criticalClHtml), 'CRITICAL chlorine now renders Fair');
+  assert(criticalClHtml.includes('score.status.fair') && !/score-metric-row is-attn"[^]*?Chlorine/.test(criticalClHtml), 'CRITICAL chlorine is not Attention');
+  // A non-chlorine CRITICAL parameter must still render Attention.
+  const attnHtml = render({ ...IDEAL, turbidity: 11 });
+  assert(/score-metric-row is-attn"[^]*?Turbidity/.test(attnHtml), 'CRITICAL turbidity still renders Attention');
+  assert(!/score-metric-row is-fair"[^]*?Turbidity/.test(attnHtml), 'CRITICAL turbidity is not relabeled Fair');
+  for (const html of [fairHtml, goodHtml, criticalClHtml, attnHtml]) {
     assert(!/PASS|WARNING|FAIL|CRITICAL/.test(html), 'no internal classification word appears in the parameter rows');
   }
 }
@@ -209,9 +234,15 @@ console.log('\n6. Fair and Attention copy follow the UI status');
     return rowsEl.innerHTML;
   };
   const fairHtml = show({ ...IDEAL, chlorine: 0.1 }, 'chlorine');
-  const attnHtml = show({ ...IDEAL, chlorine: 0.03 }, 'chlorine');
+  const criticalClHtml = show({ ...IDEAL, chlorine: 0.03 }, 'chlorine');
   assert(fairHtml.includes('score.explain.fair') && !fairHtml.includes('score.explain.attention'), 'FAIL chlorine explains Fair, not Attention');
-  assert(attnHtml.includes('score.explain.attention') && !attnHtml.includes('score.explain.fair'), 'CRITICAL chlorine explains Attention, not Fair');
+  // 2026-10-09 (chlorine-only customer-status adjustment, display-only):
+  // CRITICAL chlorine now explains Fair -- same neutral wording as other
+  // Fair-tier parameters ("may need monitoring"), which does not claim the
+  // reading is safe, compliant, or passed.
+  assert(criticalClHtml.includes('score.explain.fair') && !criticalClHtml.includes('score.explain.attention'), 'CRITICAL chlorine now explains Fair, not Attention');
+  const attnTurbHtml = show({ ...IDEAL, turbidity: 11 }, 'turbidity');
+  assert(attnTurbHtml.includes('score.explain.attention') && !attnTurbHtml.includes('score.explain.fair'), 'CRITICAL turbidity still explains Attention, not Fair');
   const excluded = sandbox.buildMetricRowsForReadings({ ...IDEAL, do: 7 }, context('thailand', { ...IDEAL, do: 7 })).find(r => r.p === 'DO');
   assert(excluded && excluded.st === 'excluded', 'Thailand DO stays excluded');
   show({ ...IDEAL, do: 7 }, 'do');
@@ -238,9 +269,16 @@ console.log('\n7. Room to improve follows the parameter, not the gauge');
   const fairList = renderImprove({ ...IDEAL, chlorine: 0.1 }, 40);
   assert(fairList.includes('is-fair') && fairList.includes('score.status.fair'), 'FAIL chlorine is Fair in the improve list while the gauge is Needs attention');
   assert(!fairList.includes('is-attn'), 'a Fair improve row is not marked Attention');
-  const attnList = renderImprove({ ...IDEAL, chlorine: 0.03 }, 80);
-  assert(attnList.includes('is-attn') && attnList.includes('score.status.attn'), 'CRITICAL chlorine stays Attention while the gauge is Good');
-  assert(!/score-improve-row is-fair/.test(attnList), 'CRITICAL improve row is not Fair');
+  // 2026-10-09 (chlorine-only customer-status adjustment, display-only):
+  // CRITICAL chlorine now lists as Fair, not Attention, in "Room to improve"
+  // -- it still appears in the list (the filter already includes both
+  // attn and fair rows), it is just recategorized, never hidden.
+  const criticalClList = renderImprove({ ...IDEAL, chlorine: 0.03 }, 80);
+  assert(criticalClList.includes('is-fair') && criticalClList.includes('score.status.fair'), 'CRITICAL chlorine now lists as Fair');
+  assert(!/score-improve-row is-attn/.test(criticalClList), 'CRITICAL chlorine improve row is not Attention');
+  const attnList = renderImprove({ ...IDEAL, turbidity: 11 }, 80);
+  assert(attnList.includes('is-attn') && attnList.includes('score.status.attn'), 'CRITICAL turbidity stays Attention while the gauge is Good');
+  assert(!/score-improve-row is-fair/.test(attnList), 'CRITICAL turbidity improve row is not Fair');
 }
 
 console.log('\n8. Gauge tiers and postcard bands stay on their own rules');

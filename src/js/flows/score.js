@@ -374,8 +374,16 @@ const PARAM_CLASSIFICATION_UI_STATUS = Object.freeze({
 });
 
 /** Rows the engine did not classify (not measured / not evaluated / incomplete) keep their existing status. */
-function paramStatusFromClassification(status, classification) {
+// 2026-10-09 (chlorine-only customer-status adjustment, display-only): a
+// CRITICAL chlorine reading now shows as Fair to the customer, not
+// Attention -- every other parameter's CRITICAL still maps to Attention via
+// the unchanged PARAM_CLASSIFICATION_UI_STATUS table below. This does not
+// touch the engine's internal classification (still CRITICAL everywhere it
+// is read -- scoring, Severity Protection, findings/summary counts, country
+// compliance), grade curves, thresholds, or any other parameter's mapping.
+function paramStatusFromClassification(status, classification, key) {
   if (status !== 'good' && status !== 'attn') return status;
+  if (key === 'chlorine' && classification === 'CRITICAL') return 'fair';
   return PARAM_CLASSIFICATION_UI_STATUS[classification] || status;
 }
 
@@ -1382,7 +1390,7 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
     if (status === 'pending' && Number.isFinite(computedVal)) {
       return { p: label, r: fmtFn(computedVal), std, st: 'excluded' };
     }
-    return { p: label, r: fmtFn(computedVal), std, st: paramStatusFromClassification(status, classifications?.[key]) };
+    return { p: label, r: fmtFn(computedVal), std, st: paramStatusFromClassification(status, classifications?.[key], key) };
   };
 
   return [
