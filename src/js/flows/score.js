@@ -1,11 +1,3 @@
-function getScoreStyle(wq) {
-  if (wq >= 90) return { band: t('score.band.exceptional'), pill: '#5b8def', pillText: '#fff', arc: '#5b8def', glow: 'rgba(91,141,239,.35)' };
-  if (wq >= 80) return { band: t('score.band.international'), pill: '#2e9b6f', pillText: '#0c0a09', arc: '#2e9b6f', glow: 'rgba(46,155,111,.4)' };
-  if (wq >= 60) return { band: t('score.band.good'), pill: '#d9a441', pillText: '#0c0a09', arc: '#d9a441', glow: 'rgba(217,164,65,.35)' };
-  if (wq >= 50) return { band: t('score.band.fair'), pill: '#c48a3a', pillText: '#0c0a09', arc: '#c48a3a', glow: 'rgba(196,138,58,.35)' };
-  return { band: t('score.band.attention'), pill: '#f07b7b', pillText: '#0c0a09', arc: '#f07b7b', glow: 'rgba(240,123,123,.35)' };
-}
-
 /** Customer-facing verdict shown on the summary card (not the DWQI band legend).
  *  Three tiers only: Excellent (blue) · Good (green) · Needs attention (red).
  *  2026-08-18 (PO-approved): bands are 0-50 Needs attention, 51-80 Good,
@@ -370,11 +362,13 @@ function paramStatusUiKey(status) {
  * Customer-facing parameter status (presentation only): the engine's internal
  * PASS / WARNING / FAIL / CRITICAL classification is read here, never changed,
  * and never shown as a label. Only three states reach the UI.
+ * FAIL is outside a preferred band and is Fair (monitor). CRITICAL stays
+ * Attention. This map does not change the classification or the score.
  */
 const PARAM_CLASSIFICATION_UI_STATUS = Object.freeze({
   PASS: 'good',
   WARNING: 'fair',
-  FAIL: 'attn',
+  FAIL: 'fair',
   CRITICAL: 'attn'
 });
 
@@ -402,8 +396,10 @@ function paramCollapsedHint(paramName, status) {
   return t('score.impact.default');
 }
 
-/** Expanded “Meaning” line — calm wording for good rows, impact for attention. */
+/** Expanded “Meaning” line. Good keeps the parameter note. Fair and Attention use distinct status copy. */
 function paramMeaningText(paramName, status) {
+  if (status === 'fair') return t('score.explain.fair');
+  if (status === 'attn') return t('score.explain.attention');
   const key = paramKey(paramName);
   if (status === 'good') {
     if (key === 'ph') return t('score.meaning.ph');
@@ -1412,7 +1408,7 @@ function renderScoreReadings(context = getScoreEvalContext()) {
       return `<div class="score-metric-item">
   <div class="score-metric-row is-pending">
     <span class="score-metric-name">${r.p}</span>
-    <span class="score-metric-range">${r.std}</span>
+    <span class="score-metric-range">${String(r.std ?? '').replace(/\s*\([^)]*\)\s*$/, '')}</span>
     <span class="score-metric-value score-metric-skel">&nbsp;</span>
     <span class="score-metric-status score-metric-skel"><i class="score-dot" aria-hidden="true"></i>${statusLabels.pending}</span>
   </div>
@@ -1423,13 +1419,13 @@ function renderScoreReadings(context = getScoreEvalContext()) {
     return `<div class="score-metric-item${expanded ? ' is-open' : ''}">
   <button type="button" class="score-metric-row is-${statusKey}" aria-expanded="${expanded}" onclick="toggleScoreMetricDetail('${key}')">
     <span class="score-metric-name">${r.p}</span>
-    <span class="score-metric-range">${r.std}</span>
+    <span class="score-metric-range">${String(r.std ?? '').replace(/\s*\([^)]*\)\s*$/, '')}</span>
     <span class="score-metric-value">${r.r}</span>
     <span class="score-metric-status"><i class="score-dot" aria-hidden="true"></i>${statusLabel}</span>
     <span class="score-metric-caret" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
   </button>
   <div class="score-metric-detail"${expanded ? '' : ' hidden'}>
-    <p class="score-metric-meaning">${statusKey === 'implausible' ? t('score.meaning.implausible') : statusKey === 'excluded' ? t('score.meaning.excluded') : paramMeaningText(r.p, statusKey === 'good' ? 'good' : 'attn')}</p>
+    <p class="score-metric-meaning">${statusKey === 'implausible' ? t('score.meaning.implausible') : statusKey === 'excluded' ? t('score.meaning.excluded') : paramMeaningText(r.p, statusKey)}</p>
     <dl class="score-metric-facts">
       <div><dt>${t('score.result')}</dt><dd>${r.r}</dd></div>
       <div><dt>${t('score.standard')}</dt><dd>${r.std}</dd></div>
@@ -1496,15 +1492,27 @@ function renderScoreImprove(context = getScoreEvalContext()) {
     headingEl.textContent = verdict.tier === 'low' ? t('score.fixFirst') : t('score.improveTitle');
   }
   if (countEl) countEl.textContent = `· ${rows.length}`;
-  const warnIcon = `<span class="score-improve-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.5" r="0.8" fill="currentColor" stroke="none"/></svg></span>`;
-  listEl.innerHTML = rows.map(r => `<div class="score-improve-row">
-  ${warnIcon}
+  const improveIcon = `<span class="score-improve-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.5" r="0.8" fill="currentColor" stroke="none"/></svg></span>`;
+  const improveStatusLabel = {
+    good: t('score.status.good'),
+    fair: t('score.status.fair'),
+    attn: t('score.status.attn')
+  };
+  listEl.innerHTML = rows.map(r => {
+    const statusKey = paramStatusUiKey(r.st);
+    const known = statusKey === 'good' || statusKey === 'fair' || statusKey === 'attn';
+    const rowStatus = known ? statusKey : 'neutral';
+    const statusLabel = known ? improveStatusLabel[statusKey] : '';
+    return `<div class="score-improve-row is-${rowStatus}">
+  ${improveIcon}
   <span class="score-improve-body">
     <span class="score-improve-name">${r.p}</span>
     <span class="score-improve-range">${r.std}</span>
   </span>
+  <span class="score-improve-status">${statusLabel}</span>
   <span class="score-improve-value">${r.r}</span>
-</div>`).join('');
+</div>`;
+  }).join('');
 }
 
 /** Photo carousel for the currently viewed location(s), sourced from assessment tap photos. */

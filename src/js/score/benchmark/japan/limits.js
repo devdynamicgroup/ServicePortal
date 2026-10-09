@@ -11,10 +11,10 @@ window.JapanBenchmarkLimits = Object.freeze({
   display: Object.freeze({
     ph: '7.3 - 7.7',
     tds: '<= 200 mg/L',
-    chlorine: '<= 1 mg/L',
+    chlorine: '0.1 - 1.0 mg/L (project band)',
     turbidity: '<= 1 NTU',
     orp: '200 - 600 mV',
-    do: 'not evaluated (PD-012 B)',
+    do: 'Not specified',
     temp: '<= 30°C'
   }),
   // 2026-08-17 (PO-approved, evidence: 水質管理目標設定項目/comfortable water

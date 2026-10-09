@@ -18,7 +18,7 @@ window.ThailandBenchmarkLimits = Object.freeze({
     ph: '6.5 - 8.5',
     tds: '<= 500 mg/L',
     chlorine: '0.2 - 2.0 mg/L (project band)',
-    turbidity: '<= 1.0 NTU',
+    turbidity: '<= 1 NTU',
     orp: '200 - 600 mV',
     do: 'Not specified',
     temp: 'Not specified'
