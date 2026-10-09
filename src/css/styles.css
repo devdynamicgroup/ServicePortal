@@ -1431,6 +1431,8 @@ button.score-metric-row:active{background:#faf9f8}
   .score-metric-row.is-pending{grid-template-columns:minmax(0,1fr) minmax(0,.8fr) auto auto}
   .score-metric-name,.score-metric-value{font-size:12px}
 }
+/* Headings only make sense when the rows share columns (subgrid, below). */
+.score-metric-head{display:none}
 /* Every parameter row shares one set of column tracks, so the standard range
    and the measured value line up down the list instead of each row sizing its
    own columns. Browsers without subgrid keep the per-row grid above. */
@@ -1453,9 +1455,30 @@ button.score-metric-row:active{background:#faf9f8}
     grid-template-columns:subgrid;
   }
   .score-metric-detail{grid-column:1 / -1}
-  /* Every column starts at the same left edge, so the eye runs straight down each one. */
-  .score-metric-range{text-align:left}
-  .score-metric-value{text-align:left}
+  /* The standard and the result are right-aligned and meet at one edge, so a
+     reading sits next to the range it is judged against. */
+  .score-metric-range{text-align:right;font-weight:400}
+  .score-metric-value{text-align:right}
+  /* Column headings on the same tracks as the rows. The first one may run into
+     the empty left side of the standard column, which is right-aligned. */
+  .score-metric-head{
+    display:grid;
+    grid-column:1 / -1;
+    grid-template-columns:subgrid;
+    align-items:end;
+    padding:2px 0 0;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.02em;
+    color:var(--dim);
+  }
+  .score-metric-head>span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .score-metric-head>span:first-child{padding-left:7px;overflow:visible}
+  .score-metric-head>span:nth-child(2),
+  .score-metric-head>span:nth-child(3){text-align:right}
+  .score-metric-head>span:nth-child(4){margin-left:8px}
+  @media (max-width:414px){ .score-metric-head>span:first-child{padding-left:13px} }
+  @media (max-width:340px){ .score-metric-head>span:first-child{padding-left:11px} }
   /* The status sits a little clear of the value; the track is 8px wider to pay for it.
      Dot and label start on the first line, so a wrapped label lines up with the rest. */
   .score-metric-status{justify-content:flex-start;align-items:flex-start;white-space:normal;line-height:1.25;margin-left:8px}

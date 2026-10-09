@@ -250,7 +250,7 @@ const CARD_LINK = 'https://portal.example/card/tok-1';
     const i18n = read('src/js/i18n.js');
     assert((i18n.match(/'score\.refStandard\.short\.usEpa': 'US',/g) || []).length === 2, 'customer-facing label is "US" in EN and TH');
     assert(!i18n.includes("'score.refStandard.short.usEpa': 'US EPA'"), 'no "US EPA" short label remains');
-    assert(read('src/js/flows/score.js').includes("'thailand', 'eu', 'usEpa', 'who', 'japan'"), 'internal key usEpa unchanged');
+    assert(read('src/js/flows/score.js').includes("'thailand', 'usEpa', 'eu', 'who', 'japan'"), 'internal key usEpa unchanged');
     assert(read('src/js/score/benchmark/usEpa/score.js').includes("key: 'usEpa'") && read('src/js/score/benchmark/usEpa/score.js').includes("shortKey: 'score.refStandard.short.usEpa'"), 'US EPA engine registration unchanged');
   }
 

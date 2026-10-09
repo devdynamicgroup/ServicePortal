@@ -124,9 +124,10 @@ function animateScoreNumber(el, target) {
 }
 
 /** Benchmark comparison — independent country engines via WaterScoreBenchmarkRegistry.
- *  PD-005: dropdown order is navigation convenience only — NOT a magnitude ranking. */
+ *  PD-005: dropdown order runs roughly from least to most strict on typical tap water —
+ *  an average tendency, NOT a guaranteed magnitude ranking for any one sample. */
 const DEFAULT_SCORE_STANDARD_KEY = 'thailand';
-const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'eu', 'usEpa', 'who', 'japan']);
+const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'usEpa', 'eu', 'who', 'japan']);
 
 function benchmarkRegistry() {
   return (typeof window !== 'undefined' && window.WaterScoreBenchmarkRegistry)
@@ -505,7 +506,7 @@ function activeStandardKey() {
   return activeComparisonResult()?.standardKey || S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY;
 }
 
-/** Fixed dropdown order: Thai, EU, US EPA, WHO, Japan (not sample score). */
+/** Fixed dropdown order: Thai, US EPA, EU, WHO, Japan (not sample score). */
 function orderedStandardsForSelect() {
   const reg = benchmarkRegistry();
   return SCORE_STANDARD_ORDER.filter(key => reg?.has?.(key));
@@ -1401,7 +1402,9 @@ function renderScoreReadings(context = getScoreEvalContext()) {
 
   // Show ready metrics immediately; only pending rows shimmer while OCR / input catches up.
   listEl.classList.remove('is-loading');
-  listEl.innerHTML = rows.map(r => {
+  // Column headings; they sit on the same grid tracks as the rows below.
+  const headHtml = `<div class="score-metric-head" aria-hidden="true"><span>${t('score.param')}</span><span>${t('score.standard')}</span><span>${t('score.result')}</span><span>${t('score.status')}</span><span></span></div>`;
+  listEl.innerHTML = headHtml + rows.map(r => {
     const statusKey = paramStatusUiKey(r.st);
     const key = paramKey(r.p);
     if (statusKey === 'pending') {
