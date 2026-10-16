@@ -19,7 +19,8 @@ body{font-family:'Geist',system-ui,sans-serif;font-size:15px;color:var(--text)}
 /* Public /r/{token}: same Water Score screen, read-only chrome only */
 body.public-report-mode #s-score{display:flex}
 body.public-report-mode #s-score .hdr-back{display:none}
-body.public-report-mode #s-score .score-scroll{padding-bottom:calc(var(--bar) + 28px + env(safe-area-inset-bottom))}
+body.public-report-mode #s-score .foot{display:none}
+body.public-report-mode #s-score .score-scroll{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
 #s-score{background:var(--bg)}
 #s-score .hdr{background:var(--surface);border-bottom-color:var(--border);color:var(--text)}
 #s-score .hdr-title{color:var(--text)}
@@ -1730,10 +1731,9 @@ button.score-metric-row:active{background:#faf9f8}
 #s-score .score-standards[hidden]{display:none!important}
 #s-score .score-standards-head{display:flex;justify-content:space-between;gap:8px;padding-bottom:8px;font-size:12px;line-height:16px;color:#78716c}
 #s-score .score-std-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:20px}
-#s-score .score-std-name{display:flex;align-items:center;gap:8px;font-size:14px;color:#1c1917}
+#s-score .score-std-name{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:400;color:#1c1917}
 #s-score .score-std-mark{display:inline-flex;width:16px;height:16px;flex:0 0 16px}
-#s-score .score-std-label{font-size:12px;line-height:1.1;text-align:right;color:#78716c}
-#s-score .score-std-row.is-selected .score-std-name{font-weight:600}
+#s-score .score-std-label{font-size:12px;font-weight:400;line-height:1.1;text-align:right;color:#78716c}
 #s-score .score-std-label.is-good{color:#284dcd}
 #s-score .score-std-label.is-fair,
 #s-score .score-std-label.is-attn{color:#78716C}

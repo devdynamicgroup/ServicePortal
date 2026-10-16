@@ -38,7 +38,7 @@ function configurePublicScoreChrome() {
     shareBtn.onclick = sharePublicReport;
   }
 
-  document.querySelector('#s-score .foot')?.classList.remove('hidden');
+  document.querySelector('#s-score .foot')?.classList.add('hidden');
 }
 
 async function sharePublicReport() {

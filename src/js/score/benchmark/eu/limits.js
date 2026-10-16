@@ -6,7 +6,7 @@ window.EuBenchmarkLimits = Object.freeze({
   display: Object.freeze({
     ph: '6.5 - 9.5',
     tds: '<= 500 mg/L',
-    chlorine: '0.1 - 0.5 mg/L (project band)',
+    chlorine: '0.1 - 0.5 mg/L',
     turbidity: '<= 1 NTU',
     orp: '200 - 600 mV',
     do: '>= 6 mg/L',

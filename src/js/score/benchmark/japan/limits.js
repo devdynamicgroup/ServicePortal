@@ -11,7 +11,7 @@ window.JapanBenchmarkLimits = Object.freeze({
   display: Object.freeze({
     ph: '7.3 - 7.7',
     tds: '<= 200 mg/L',
-    chlorine: '0.1 - 1.0 mg/L (project band)',
+    chlorine: '0.1 - 1.0 mg/L',
     turbidity: '<= 1 NTU',
     orp: '200 - 600 mV',
     do: 'Not specified',
