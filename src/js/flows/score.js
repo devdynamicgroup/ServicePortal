@@ -1,3 +1,11 @@
+function getScoreStyle(wq) {
+  if (wq >= 90) return { band: t('score.band.exceptional'), pill: '#5b8def', pillText: '#fff', arc: '#5b8def', glow: 'rgba(91,141,239,.35)' };
+  if (wq >= 80) return { band: t('score.band.international'), pill: '#2e9b6f', pillText: '#0c0a09', arc: '#2e9b6f', glow: 'rgba(46,155,111,.4)' };
+  if (wq >= 60) return { band: t('score.band.good'), pill: '#d9a441', pillText: '#0c0a09', arc: '#d9a441', glow: 'rgba(217,164,65,.35)' };
+  if (wq >= 50) return { band: t('score.band.fair'), pill: '#c48a3a', pillText: '#0c0a09', arc: '#c48a3a', glow: 'rgba(196,138,58,.35)' };
+  return { band: t('score.band.attention'), pill: '#f07b7b', pillText: '#0c0a09', arc: '#f07b7b', glow: 'rgba(240,123,123,.35)' };
+}
+
 /** Customer-facing verdict shown on the summary card (not the DWQI band legend).
  *  Three tiers only: Excellent (blue) · Good (green) · Needs attention (red).
  *  2026-08-18 (PO-approved): bands are 0-50 Needs attention, 51-80 Good,
@@ -60,11 +68,8 @@ function customerVerdictForEngine(wq, engineKey) {
  */
 function qualityPublishPresentation(wq, complianceStatus) {
   const status = String(complianceStatus || '').toUpperCase();
-  // A country publication's compliance can be CRITICAL; it is the same customer
-  // bucket as FAIL (Attention), so it takes the same failed-compliance note.
-  const failed = status === 'FAIL' || status === 'CRITICAL';
-  const complianceOverride = failed || status === 'WARNING';
-  const complianceOverrideKind = failed ? 'FAIL' : (status === 'WARNING' ? 'WARNING' : null);
+  const complianceOverride = status === 'FAIL' || status === 'WARNING';
+  const complianceOverrideKind = status === 'FAIL' ? 'FAIL' : (status === 'WARNING' ? 'WARNING' : null);
   return { ...customerVerdict(wq), complianceOverride, complianceOverrideKind };
 }
 
@@ -88,18 +93,122 @@ function comparisonPresentationVerdict(wq, classifications, engineKey) {
   return customerVerdictForEngine(n, engineKey);
 }
 
-/** True when the hero/summary number is the selected Country Benchmark comparison score. */
-function isShowingCountryBenchmarkComparison() {
-  if (S.publicScoreView) return false;
-  const comparisonScore = activeComparisonResult()?.score;
-  // Null is unavailable. Number(null) is 0 and must not count as a score.
-  return comparisonScore != null && Number.isFinite(Number(comparisonScore));
+// 2026-10-08: FAIL now displays as "Fair" (#ffb266), not the red "Attention"
+// tier (see PARAM_CLASSIFICATION_UI_STATUS), so it no longer trips the
+// attention banner here -- only CRITICAL/INCOMPLETE do. Presentation-only;
+// does not change which rooms are complete or how they are scored.
+/** True when any room is CRITICAL or INCOMPLETE. */
+function roomStatusesNeedAttention(rooms) {
+  return (rooms || []).some((room) => {
+    const status = room && room.status;
+    return status === 'CRITICAL' || status === 'INCOMPLETE' || room.incomplete === true;
+  });
 }
 
-function scoreSummaryNote(wq, findings) {
+function missingParameterLabel(key) {
+  if (key === 'chlorine') return t('score.missing.chlorine');
+  if (key === 'do') return t('score.missing.do');
+  if (key === 'ph') return 'pH';
+  if (key === 'tds') return 'TDS';
+  if (key === 'turbidity') return t('score.missing.turbidity');
+  if (key === 'orp') return 'ORP';
+  return String(key || '');
+}
+
+function escapeScoreText(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Country status for every tap. Headline aggregation is unchanged. */
+function collectRoomCountryStatuses(job, standardKey) {
+  const taps = resolveJobTapDataForScore(job) || [];
+  const names = (Array.isArray(S.taps) && S.taps.length === taps.length)
+    ? S.taps
+    : taps.map((_, index) => `Room ${index + 1}`);
+  const reg = benchmarkRegistry();
+  const key = reg?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
+  if (!reg?.calculate) return [];
+  return taps.map((tap, index) => {
+    const readings = readingsFromTapData([tap]);
+    const result = reg.calculate(key, readings);
+    const incomplete = Boolean(result.measurementIncomplete)
+      || result.complete === false
+      || !Number.isFinite(Number(result.score));
+    const status = incomplete
+      ? 'INCOMPLETE'
+      : (typeof worstBenchmarkClassification === 'function'
+        ? worstBenchmarkClassification(result.classifications)
+        : 'PASS');
+    return {
+      label: names[index] || `Room ${index + 1}`,
+      status,
+      incomplete,
+      missingParameters: Array.isArray(result.missingParameters) ? result.missingParameters : [],
+      score: Number.isFinite(Number(result.score)) ? Number(result.score) : null
+    };
+  });
+}
+
+function renderRoomStatusList() {
+  const root = document.getElementById('score-room-status');
+  if (!root) return;
+  const rooms = Array.isArray(S.roomCountryStatuses) ? S.roomCountryStatuses : [];
+  if (!rooms.length || rooms.length < 2) {
+    root.hidden = true;
+    root.textContent = '';
+    return;
+  }
+  const selected = S.scoreTapFilter;
+  const items = rooms.map((room) => {
+    const selectedClass = selected && selected !== 'all' && selected === room.label ? ' is-selected' : '';
+    return `<li class="score-room-status-item${selectedClass}"><span>${escapeScoreText(room.label)}</span><span>${escapeScoreText(customerStatusLabel(room.status))}</span></li>`;
+  }).join('');
+  const banner = roomStatusesNeedAttention(rooms)
+    ? `<p class="score-room-status-banner">${escapeScoreText(t('score.household.banner'))}</p>`
+    : '';
+  root.hidden = false;
+  root.innerHTML = `<p class="score-room-status-title">${escapeScoreText(t('score.roomStatus.title'))}</p>${banner}<ul class="score-room-status-list">${items}</ul>`;
+}
+
+function renderBenchmarkLine(comparison) {
+  const line = document.getElementById('score-benchmark-line');
+  if (!line) return;
+  if (!comparison || !Number.isFinite(Number(comparison.score))) {
+    line.hidden = true;
+    line.textContent = '';
+    return;
+  }
+  const name = comparison.standard?.shortKey ? t(comparison.standard.shortKey) : (comparison.engine || '');
+  const status = comparison.measurementIncomplete
+    ? 'INCOMPLETE'
+    : (typeof worstBenchmarkClassification === 'function' && comparison.classifications
+      ? worstBenchmarkClassification(comparison.classifications)
+      : '');
+  const missing = (comparison.missingParameters || []).map(missingParameterLabel).filter(Boolean);
+  const missingText = missing.length
+    ? ` ${t('score.benchmark.missing').replace('{params}', missing.join(', '))}`
+    : '';
+  line.hidden = false;
+  line.textContent = `${t('score.benchmark.row').replace('{name}', name).replace('{score}', String(comparison.score))} · ${t('score.benchmark.status').replace('{status}', customerStatusLabel(status))}${missingText}`;
+}
+
+/** Primary gauge is Quality. Country benchmark is the secondary row, not the hero number. */
+function isShowingCountryBenchmarkComparison() {
+  return false;
+}
+
+function scoreSummaryNote(wq, findings, roomStatuses) {
   const attnCount = (findings || []).length;
   // 2026-08-18 (PO-approved): matches customerVerdict's tier boundaries (81+/51-80/0-50).
-  if (wq >= 81) return t('score.msg.excellent');
+  if (wq >= 81) {
+    if (roomStatusesNeedAttention(roomStatuses)) return t('score.msg.reviewRooms');
+    return t('score.msg.excellent');
+  }
+  if (wq >= BENCHMARK_OVERALL_PASS_MIN.thailand) return t('score.passesThai');
   if (wq >= 51) return t('score.msg.goodDetail');
   if (attnCount > 0) {
     return t('score.msg.attentionDetail').replace('{n}', String(attnCount));
@@ -124,10 +233,9 @@ function animateScoreNumber(el, target) {
 }
 
 /** Benchmark comparison — independent country engines via WaterScoreBenchmarkRegistry.
- *  PD-005: dropdown order runs roughly from least to most strict on typical tap water —
- *  an average tendency, NOT a guaranteed magnitude ranking for any one sample. */
+ *  PD-005: dropdown order is navigation convenience only — NOT a magnitude ranking. */
 const DEFAULT_SCORE_STANDARD_KEY = 'thailand';
-const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'usEpa', 'eu', 'who', 'japan']);
+const SCORE_STANDARD_ORDER = Object.freeze(['thailand', 'eu', 'usEpa', 'who', 'japan']);
 
 function benchmarkRegistry() {
   return (typeof window !== 'undefined' && window.WaterScoreBenchmarkRegistry)
@@ -240,6 +348,11 @@ function buildComparisonScoreResult(readings, standardKey = DEFAULT_SCORE_STANDA
     calculatedAt: scored.calculatedAt || null,
     inputFingerprint: scored.inputFingerprint || null,
     classifications: scored.classifications || null,
+    measurementIncomplete: Boolean(scored.measurementIncomplete),
+    missingParameters: Array.isArray(scored.missingParameters) ? scored.missingParameters.slice() : [],
+    severityProtection: scored.severityProtection || null,
+    countryGate: scored.countryGate || null,
+    rawAggregate: Number.isFinite(scored.rawAggregate) ? scored.rawAggregate : null,
     metadata: scored
   };
 }
@@ -252,72 +365,59 @@ function getCountryBenchmarkScore(readings, standardKey = DEFAULT_SCORE_STANDARD
   return buildComparisonScoreResult(readings, standardKey);
 }
 
+/** Frozen publication integer. Null when this Case has no published score. */
+function publishedWaterScore(job = S.activeJob) {
+  const raw = job?.result?.waterScore;
+  if (raw == null || raw === '' || !Number.isFinite(Number(raw))) return null;
+  return Math.max(0, Math.min(100, Math.round(Number(raw))));
+}
+
+/** Frozen publication compliance. Null stays null — never filled from live readings. */
+function publishedComplianceStatus(job = S.activeJob) {
+  const raw = job?.result?.complianceStatus;
+  if (raw == null || String(raw).trim() === '') return null;
+  return String(raw);
+}
+
 /**
  * Score the user actually sees in #gauge-val.
  *
- * Live Score screen: selected country engine (thailand|japan|eu|who|usEpa).
- * Public /r/{token} report: the persisted published Water Score.
- * A country-benchmark publication stays on publication.standardKey.
- * A Quality V3 publication keeps its existing published-score display.
- *
- * Quality V3 remains on currentScoreResult / S.scoreVal for publish+share and
- * does not change with the selected country.
+ * Staff: Quality V3. Customer publication: frozen published score.
+ * Country benchmark stays on `comparison` and is never the primary fallback.
  */
 function resolveDisplayedScore({
   publicView = false,
   publishedScore = null,
+  qualityScore = null,
   readings = {},
   standardKey = DEFAULT_SCORE_STANDARD_KEY
 } = {}) {
-  // A country-benchmark report shows its published score under the standard
-  // it was published with. Quality V3 has no published country key, so it
-  // keeps the published number.
-  const publishedKey = publicView ? publishedReportStandardKey() : null;
-  if (publicView && Number.isFinite(Number(publishedScore)) && (!publishedKey || publishedKey === standardKey)) {
-    const score = Math.max(0, Math.min(100, Math.round(Number(publishedScore))));
-    return {
-      score,
-      source: 'published',
-      standardKey: 'quality-v3',
-      engineKey: 'quality-v3',
-      showScore: true,
-      comparison: null,
-      classifications: null
-    };
-  }
   const comparison = getCountryBenchmarkScore(readings, standardKey);
-  const score = Number.isFinite(Number(comparison.score)) ? comparison.score : null;
+  const publishedNumber = Number(publishedScore);
+  const qualityNumber = Number(qualityScore);
+  const published = publicView && publishedScore != null && publishedScore !== '' && Number.isFinite(publishedNumber);
+  const primary = published
+    ? Math.max(0, Math.min(100, Math.round(publishedNumber)))
+    : (qualityScore != null && qualityScore !== '' && Number.isFinite(qualityNumber)
+      ? Math.max(0, Math.min(100, Math.round(qualityNumber)))
+      : null);
   return {
-    score,
-    source: 'country-benchmark',
-    standardKey: comparison.standardKey,
-    engineKey: comparison.engineKey,
-    showScore: score != null,
+    score: primary,
+    source: published ? 'published' : 'quality-v3',
+    standardKey: 'quality-v3',
+    engineKey: 'quality-v3',
+    showScore: primary != null,
     comparison,
-    classifications: comparison.classifications || null
+    classifications: null
   };
 }
 
 /**
- * What Share / Complete / Send Result publish: the selected country benchmark,
- * i.e. the staff primary number, from the same engine call and readings the
- * Score screen uses. `standardKey` is the internal registry key, never a label.
- * `score` is null when that engine cannot score the readings; the server
- * recomputes and is the final authority either way.
+ * The number at the top is always the overall Quality / published score.
+ * Choosing an inspection point changes that point's rows, not this number.
  */
-function resolvePublishScoreRequest(job = S.activeJob) {
-  const registry = benchmarkRegistry();
-  // The active Case's selection lives on S (restored from its draft on open and
-  // written back on every switch); any other Case only has its saved draft.
-  const candidates = isActiveScoreJob(job)
-    ? [S.scoreStandardKey, job?.draft?.scoreStandardKey]
-    : [job?.draft?.scoreStandardKey];
-  const standardKey = candidates.find(key => key && registry?.has?.(key)) || DEFAULT_SCORE_STANDARD_KEY;
-  const comparison = getCountryBenchmarkScore(resolveScoreReadings(job), standardKey);
-  // Strict presence: Number(null) is 0, which would publish "no score" as 0.
-  const raw = comparison?.score;
-  const score = raw !== null && raw !== undefined && Number.isFinite(Number(raw)) ? Number(raw) : null;
-  return { scoreType: 'country-benchmark', standardKey: comparison.standardKey, score };
+function staffHeroForPopulation(displayed) {
+  return displayed;
 }
 
 function scoreBarColorForScore(wq, verdict = null) {
@@ -335,7 +435,12 @@ function getScoreEvalContext(result = activeComparisonResult()) {
   const standardKey = result?.standardKey
     || (benchmarkRegistry()?.has?.(S.scoreStandardKey) ? S.scoreStandardKey : DEFAULT_SCORE_STANDARD_KEY);
   const standard = result?.standard || getWaterQualityStandard(standardKey);
-  const readings = result?.readings || S.scoreBaseReadings || S.currentScoreResult?.readings || {};
+  // Measurement rows keep the whole-house pool as their empty-zone fallback.
+  // The country score for a selected zone lives on comparisonScoreResult, not here.
+  const houseReadings = S.scoreBaseReadings && Object.keys(S.scoreBaseReadings).length
+    ? S.scoreBaseReadings
+    : null;
+  const readings = houseReadings || result?.readings || S.currentScoreResult?.readings || {};
   return {
     selectedStandard: standardKey,
     standard,
@@ -363,9 +468,13 @@ function paramStatusUiKey(status) {
  * Customer-facing parameter status (presentation only): the engine's internal
  * PASS / WARNING / FAIL / CRITICAL classification is read here, never changed,
  * and never shown as a label. Only three states reach the UI.
- * FAIL is outside a preferred band and is Fair (monitor). CRITICAL stays
- * Attention. This map does not change the classification or the score.
  */
+// 2026-10-08 (product request): widen "Fair" to cover FAIL as well as
+// WARNING -- FAIL cases (e.g. chlorine out of range but not dangerous) were
+// reading as the same alarming red as CRITICAL. Only CRITICAL stays
+// "Attention" red. This is a presentation-only remap -- the engine's
+// PASS/WARNING/FAIL/CRITICAL classification, thresholds, and scoring are
+// unchanged.
 const PARAM_CLASSIFICATION_UI_STATUS = Object.freeze({
   PASS: 'good',
   WARNING: 'fair',
@@ -373,17 +482,15 @@ const PARAM_CLASSIFICATION_UI_STATUS = Object.freeze({
   CRITICAL: 'attn'
 });
 
+/** Customer-facing label for an internal classification. Values outside the four (e.g. INCOMPLETE) pass through unchanged. */
+function customerStatusLabel(classification) {
+  const key = PARAM_CLASSIFICATION_UI_STATUS[String(classification || '').toUpperCase()];
+  return key ? t(`score.status.${key}`) : String(classification ?? '');
+}
+
 /** Rows the engine did not classify (not measured / not evaluated / incomplete) keep their existing status. */
-// 2026-10-09 (chlorine-only customer-status adjustment, display-only): a
-// CRITICAL chlorine reading now shows as Fair to the customer, not
-// Attention -- every other parameter's CRITICAL still maps to Attention via
-// the unchanged PARAM_CLASSIFICATION_UI_STATUS table below. This does not
-// touch the engine's internal classification (still CRITICAL everywhere it
-// is read -- scoring, Severity Protection, findings/summary counts, country
-// compliance), grade curves, thresholds, or any other parameter's mapping.
-function paramStatusFromClassification(status, classification, key) {
+function paramStatusFromClassification(status, classification) {
   if (status !== 'good' && status !== 'attn') return status;
-  if (key === 'chlorine' && classification === 'CRITICAL') return 'fair';
   return PARAM_CLASSIFICATION_UI_STATUS[classification] || status;
 }
 
@@ -392,12 +499,26 @@ function paramKey(paramName) {
 }
 
 /** One-line status hint shown on the collapsed metric row. */
-function paramCollapsedHint(paramName, status) {
+// 2026-10-09 (customer-facing explanation refinement, Option A — display
+// text only, no classification/threshold/score change): chlorine's non-good
+// explanation used to say "Elevated chlorine may affect taste and smell"
+// even when the actual reading was at or near zero (no residual detected at
+// all) -- the opposite problem from "elevated". `rawValue`, when given, lets
+// this pick the direction-correct wording for chlorine specifically; every
+// other parameter's wording is unchanged. CHLORINE_NONE_DETECTED_MAX is a
+// display-only wording cutoff, independent of and does not alter any
+// country engine's min/max compliance threshold.
+const CHLORINE_NONE_DETECTED_MAX = 0.1;
+function paramCollapsedHint(paramName, status, rawValue) {
   if (status === 'good') return t('score.explain.withinRange');
   const key = paramKey(paramName);
   if (key === 'ph') return t('score.impact.ph');
   if (key === 'tds') return t('score.impact.tds');
-  if (key === 'chlorine') return t('score.impact.chlorine');
+  if (key === 'chlorine') {
+    return Number.isFinite(rawValue) && rawValue < CHLORINE_NONE_DETECTED_MAX
+      ? t('score.impact.chlorine.none')
+      : t('score.impact.chlorine');
+  }
   if (key === 'turbidity') return t('score.impact.turbidity');
   if (key === 'orp') return t('score.impact.orp');
   if (key === 'do') return t('score.impact.do');
@@ -405,10 +526,8 @@ function paramCollapsedHint(paramName, status) {
   return t('score.impact.default');
 }
 
-/** Expanded “Meaning” line. Good keeps the parameter note. Fair and Attention use distinct status copy. */
-function paramMeaningText(paramName, status) {
-  if (status === 'fair') return t('score.explain.fair');
-  if (status === 'attn') return t('score.explain.attention');
+/** Expanded “Meaning” line — calm wording for good rows, impact for attention. */
+function paramMeaningText(paramName, status, rawValue) {
   const key = paramKey(paramName);
   if (status === 'good') {
     if (key === 'ph') return t('score.meaning.ph');
@@ -420,7 +539,7 @@ function paramMeaningText(paramName, status) {
     if (key === 'temp') return t('score.meaning.temp');
     return t('score.explain.withinRange');
   }
-  return paramCollapsedHint(paramName, status);
+  return paramCollapsedHint(paramName, status, rawValue);
 }
 
 function canDisplayScoreNumber(readiness, job = S.activeJob) {
@@ -433,6 +552,68 @@ function canDisplayScoreNumber(readiness, job = S.activeJob) {
   const present = readiness?.present || resolveScoreReadingsPresent(job);
   const scoreKeys = ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do'];
   return scoreKeys.every(key => present[key] !== undefined);
+}
+
+/** Visual only. Same 0–100 scale: 80 is the international mark on this card. */
+function paintScoreDotField(score, {
+  loading = false,
+  tier = 'mid',
+  rowsId = 'score-dot-rows',
+  fieldId = 'score-dot-field',
+  tickId = 'score-tick-live',
+  rowCount = 1,
+  dotsPerRow = 0,
+  markIndex = -1,
+  pinBadge = false
+} = {}) {
+  const field = document.getElementById(fieldId);
+  const rows = document.getElementById(rowsId);
+  const live = document.getElementById(tickId);
+  if (!field || !rows) return;
+  const COUNT = 40;
+  const bands = rowCount > 1 ? 2 : 1;
+  const perRow = dotsPerRow > 0 ? dotsPerRow : COUNT / bands;
+  const palette = tier === 'high'
+    ? ['#284DCD', '#3D6AE1', '#467EEB']
+    : tier === 'low'
+      ? ['#f07b7b', '#f7b0b0', '#fde2e2']
+      : ['#69A1F1', '#99C2F7', '#C3D9FA'];
+  const safe = Math.max(0, Math.min(100, Number(score) || 0));
+  const idx = markIndex >= 0
+    ? Math.max(0, Math.min(perRow - 1, markIndex))
+    : Math.round((safe / 100) * (perRow - 1));
+  const html = [];
+  for (let band = 0; band < bands; band++) {
+    const dots = [];
+    for (let i = 0; i < perRow; i++) {
+      const distance = loading ? 99 : Math.abs(i - idx);
+      const color = distance === 0 ? palette[0] : distance <= 2 ? palette[1] : distance === 3 ? palette[2] : '#E7E5E1';
+      dots.push(`<i class="score-pip${i === idx && !loading ? ' is-mark' : ''}" style="background:${color}"></i>`);
+    }
+    html.push(`<span class="score-pip-row">${dots.join('')}</span>`);
+  }
+  rows.innerHTML = html.join('');
+  const pin = markIndex >= 0 || pinBadge;
+  field.style.setProperty(
+    '--score-pct',
+    pin
+      ? `calc(${idx} * (100% - 6px) / ${perRow - 1} + 3px)`
+      : `${safe}%`
+  );
+  field.classList.toggle('is-loading', loading);
+  if (live) {
+    const rounded = Math.round(safe);
+    const crowded = loading || Math.abs(safe - 80) < 6 || safe < 6 || safe >= 90;
+    live.textContent = crowded ? '' : String(rounded);
+    live.hidden = crowded;
+    if (pin) {
+      live.style.left = `calc(${idx} * (100% - 6px) / ${perRow - 1} + 3px)`;
+      live.style.transform = 'translateX(-50%)';
+    } else {
+      live.style.left = `${safe}%`;
+      live.style.transform = safe < 18 ? 'translateX(0)' : 'translateX(calc(-100% - 10px))';
+    }
+  }
 }
 
 function renderScoreStatusBar(wq, { loading = false, incomplete = false, verdict = null } = {}) {
@@ -457,19 +638,13 @@ function renderScoreStatusBar(wq, { loading = false, incomplete = false, verdict
         : `Water Score ${Math.round(Math.max(0, Math.min(100, Number(wq) || 0)))} of 100`
     );
   }
-  const overlay = document.getElementById('score-bar-overlay');
   if (loading) {
     segments.forEach(seg => { if (seg.el) seg.el.style.width = '0%'; });
-    if (overlay) overlay.style.clipPath = 'inset(0 100% 0 0)';
     if (knob) knob.style.left = '0%';
+    paintScoreDotField(0, { loading: true, tier: 'pending', rowCount: 2, dotsPerRow: 33 });
     return;
   }
   const score = Math.max(0, Math.min(100, Number(wq) || 0));
-  // One verdict colour for the whole filled portion, drawn as a single continuous fill.
-  if (overlay) {
-    overlay.style.background = fillColor;
-    overlay.style.clipPath = `inset(0 ${100 - score}% 0 0)`;
-  }
   segments.forEach(seg => {
     if (!seg.el) return;
     const span = seg.to - seg.from;
@@ -478,6 +653,13 @@ function renderScoreStatusBar(wq, { loading = false, incomplete = false, verdict
     seg.el.style.background = fillColor;
   });
   if (knob) knob.style.left = `${score}%`;
+  paintScoreDotField(score, {
+    loading: false,
+    tier: verdict?.tier || 'mid',
+    rowCount: 2,
+    dotsPerRow: 33,
+    pinBadge: true
+  });
 }
 
 /**
@@ -514,40 +696,15 @@ function activeStandardKey() {
   return activeComparisonResult()?.standardKey || S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY;
 }
 
-/** Fixed dropdown order: Thai, US EPA, EU, WHO, Japan (not sample score). */
+/** Fixed dropdown order: Thai, EU, US EPA, WHO, Japan (not sample score). */
 function orderedStandardsForSelect() {
   const reg = benchmarkRegistry();
   return SCORE_STANDARD_ORDER.filter(key => reg?.has?.(key));
 }
 
 /** Spec shows the same Benchmark filter twice (hero + content) -- keep both in sync. */
-/**
- * On the customer report of a country-benchmark publication, the standard the
- * score was published under -- the one the report opens on, and the only one
- * the published number belongs to. Null everywhere else.
- */
-function publishedReportStandardKey(job = S.activeJob) {
-  if (!S.publicScoreView || job?.result?.scoreType !== 'country-benchmark') return null;
-  const key = job.result.standardKey;
-  return benchmarkRegistry()?.has?.(key) ? key : null;
-}
-
-function isFullAssessmentCase(job = S.activeJob) {
-  return String(job?.pkg || job?.draft?.pkg || '').trim() === 'full';
-}
-
-/**
- * The existing Benchmark control stays locked on other public reports.
- * A Full Assessment share uses that same control to look at other country scores.
- */
-function lockedPublishedStandardKey(job = S.activeJob) {
-  if (isFullAssessmentCase(job)) return null;
-  return publishedReportStandardKey(job);
-}
-
 function renderStandardSelect(context = getScoreEvalContext()) {
-  const lockedKey = lockedPublishedStandardKey();
-  const selected = lockedKey || context.selectedStandard;
+  const selected = context.selectedStandard;
   const order = orderedStandardsForSelect();
   const optionsHtml = order.map(key => {
     const standard = getWaterQualityStandard(key);
@@ -557,8 +714,7 @@ function renderStandardSelect(context = getScoreEvalContext()) {
     const selectEl = document.getElementById(id);
     if (!selectEl) return;
     selectEl.innerHTML = optionsHtml;
-    selectEl.disabled = Boolean(lockedKey);
-    selectEl.onchange = () => setScoreReferenceStandard(lockedKey || selectEl.value);
+    selectEl.onchange = () => setScoreReferenceStandard(selectEl.value);
   });
 }
 
@@ -578,25 +734,149 @@ function isPublishedScoreView(job = S.activeJob) {
   return Number.isFinite(published);
 }
 
-function renderScoreDisplay(options = {}) {
-  applyGaugePopulation(S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY);
+function formatScoreContextDate(value) {
+  const match = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return '';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${Number(match[3])} ${months[Number(match[2]) - 1]} ${match[1]}`;
+}
+
+function scorePlaceLabel(addr, city) {
+  const parts = String(addr || '')
+    .split(',')
+    .map(part => part.replace(/\b\d{5}\b/g, '').trim())
+    .filter(part => part && /[A-Za-z\u0E00-\u0E7F]/.test(part));
+  if (parts.length >= 2) return parts[1];
+  return parts[0] || String(city || '').trim();
+}
+
+function scorePropertyShort(value) {
+  const raw = String(value || '').trim();
+  if (/condo/i.test(raw)) return 'Condo';
+  if (/town/i.test(raw)) return 'Townhome';
+  if (/house/i.test(raw)) return 'House';
+  return raw;
+}
+
+function renderScoreContextLine(job = S.activeJob) {
+  const line = document.getElementById('score-context-line');
+  if (!line) return;
+  const fields = job?.draft?.fields || {};
+  const text = [
+    scorePlaceLabel(fields['ci-addr'], fields['ci-city']),
+    scorePropertyShort(fields['ci-proptype']),
+    formatScoreContextDate(job?.date)
+  ].filter(Boolean).join(' · ');
+  line.textContent = text;
+  line.hidden = !text;
+}
+
+const SCORE_BOARD_ORDER = Object.freeze(['thailand', 'who', 'eu', 'usEpa', 'japan']);
+
+/** Overall score floor for "Pass" on the standards board. The country number stays off the page. */
+const BENCHMARK_OVERALL_PASS_MIN = Object.freeze({
+  thailand: 65,
+  who: 70,
+  eu: 75,
+  usEpa: 80,
+  japan: 85
+});
+
+function benchmarkBoardStatus(key, overallScore) {
+  const min = BENCHMARK_OVERALL_PASS_MIN[key];
+  const score = Number(overallScore);
+  if (!Number.isFinite(score) || !Number.isFinite(min)) return 'pending';
+  return score >= min ? 'good' : 'fair';
+}
+
+function scoreStandardMark(kind) {
+  if (kind === 'good') {
+    return '<span class="score-std-mark is-good" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="8" fill="#284DCD"/><path d="M4.6 8.2 6.8 10.3 11.4 5.7" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+  }
+  if (kind === 'fair') {
+    return '<span class="score-std-mark is-fair" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="6.7" fill="none" stroke="#69A1F1" stroke-width="1.5"/><path d="M8 11V5.6M6 7.4 8 5.5l2 1.9" fill="none" stroke="#69A1F1" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+  }
+  if (kind === 'pending') {
+    return '<span class="score-std-mark is-pending" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="6.7" fill="none" stroke="#E7E5E1" stroke-width="1.5"/></svg></span>';
+  }
+  return '<span class="score-std-mark is-attn" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="6.7" fill="none" stroke="#f07b7b" stroke-width="1.5"/><path d="M8 5.2v3.6M8 11.2h.01" fill="none" stroke="#f07b7b" stroke-width="1.4" stroke-linecap="round"/></svg></span>';
+}
+
+function readingsForScoreBoard(fallback) {
+  const pooled = S.currentScoreResult?.readings || S.scoreBaseReadings;
+  const hasNumber = (bag) => bag && Object.keys(bag).some(name => Number.isFinite(Number(bag[name])));
+  if (hasNumber(pooled)) return pooled;
+  const all = typeof getRoomReadings === 'function' ? getRoomReadings('all') : null;
+  if (hasNumber(all)) return all;
+  if (hasNumber(fallback)) return fallback;
+  return all || fallback || pooled || {};
+}
+
+/** A real inspection point. The overall score stays on the card above. */
+function scorePointFilter() {
+  const taps = S.taps?.length ? S.taps : [];
+  if (S.scoreTapFilter && S.scoreTapFilter !== 'all' && (!taps.length || taps.includes(S.scoreTapFilter))) {
+    return S.scoreTapFilter;
+  }
+  return taps[0] || 'all';
+}
+
+/** Same status words as the old benchmark line: Good / Fair / Attention. Read-only. */
+function renderStandardsBoard(readings) {
+  const root = document.getElementById('score-standards');
+  const list = document.getElementById('score-standards-list');
+  if (!root || !list) return;
+  const reg = benchmarkRegistry();
+  if (!reg?.calculate || !readings) {
+    root.hidden = true;
+    list.textContent = '';
+    return;
+  }
+  const selected = benchmarkRegistry()?.has?.(S.scoreStandardKey) ? S.scoreStandardKey : DEFAULT_SCORE_STANDARD_KEY;
+  const overall = Number(S.displayedScore?.score ?? S.scoreVal);
+  const rows = SCORE_BOARD_ORDER.filter(key => reg.has?.(key)).map(key => {
+    const uiKey = benchmarkBoardStatus(key, overall);
+    const label = uiKey === 'good'
+      ? t('score.std.pass')
+      : (uiKey === 'pending' ? t('score.status.pending') : t('score.std.slight'));
+    const right = label;
+    const name = t(`score.board.${key}`);
+    const selectedClass = key === selected ? ' is-selected' : '';
+    return `<div class="score-std-row${selectedClass}">
+      <span class="score-std-name">${scoreStandardMark(uiKey)}<span>${escapeScoreText(name)}</span></span>
+      <span class="score-std-label is-${uiKey}">${escapeScoreText(right)}</span>
+    </div>`;
+  });
+  if (!rows.length) {
+    root.hidden = true;
+    list.textContent = '';
+    return;
+  }
+  list.innerHTML = rows.join('<i class="score-std-line"></i>');
+  root.hidden = false;
+}
+
+function renderScoreDisplay() {
   const result = activeComparisonResult();
   if (!result) return;
 
   const context = getScoreEvalContext(result);
   const readiness = getScoreDataReadiness(S.activeJob);
   // Eligibility still describes missing production inputs (publish/share).
-  // Live Hero visibility follows the selected country engine, not the
-  // production 6-key list (which requires DO even when Japan excludes DO).
+  // Staff All keeps Quality V3. A named zone shows that zone's country score.
+  // A customer publication keeps its frozen score.
   const eligibility = isPublishedScoreView(S.activeJob)
     ? (typeof EligibilityContract !== 'undefined' ? EligibilityContract.buildLegacy() : null)
     : (typeof resolveReportEligibility === 'function' ? resolveReportEligibility(S.activeJob) : null);
-  const displayed = S.displayedScore || {
-    score: null,
-    showScore: false,
-    source: 'country-benchmark',
-    standardKey: S.scoreStandardKey
-  };
+  const qualityDisplayed = resolveDisplayedScore({
+    publicView: Boolean(S.publicScoreView),
+    publishedScore: S.publicScoreView ? publishedWaterScore(S.activeJob) : null,
+    qualityScore: S.currentScoreResult?.computedScore ?? S.currentScoreResult?.score,
+    readings: result.readings || S.scoreBaseReadings || {},
+    standardKey: result.standardKey || S.scoreStandardKey
+  });
+  const displayed = staffHeroForPopulation(qualityDisplayed);
+  S.displayedScore = displayed;
   const showScore = displayed.showScore;
   const wq = displayed.score;
   const computedWho = S.currentScoreResult?.computedScore;
@@ -617,7 +897,8 @@ function renderScoreDisplay(options = {}) {
   updateShareScoreAvailability({
     eligibility,
     alreadyPublished: Number.isFinite(Number(S.activeJob?.result?.waterScore)),
-    showScore
+    // Share stays gated on the Quality / published score, not the zone hero.
+    showScore: qualityDisplayed.showScore
   });
   const findings = result.findings || [];
   // PD-001: Country Benchmark comparison uses pass-band presentation, not Excellent/Good.
@@ -646,17 +927,48 @@ function renderScoreDisplay(options = {}) {
   if (standardEl) {
     standardEl.textContent = t(context.standard.labelKey);
   }
-  // Live report UI hides channel labels; Quality V3 publish path is unchanged.
   if (heroSourceEl) {
-    heroSourceEl.textContent = '';
-    heroSourceEl.hidden = true;
+    if (!showScore) {
+      heroSourceEl.textContent = '';
+      heroSourceEl.hidden = true;
+    } else if (S.publicScoreView) {
+      heroSourceEl.textContent = t('score.hero.published');
+      heroSourceEl.hidden = false;
+    } else {
+      heroSourceEl.textContent = t('score.hero.quality');
+      heroSourceEl.hidden = false;
+    }
   }
   const complianceEl = document.getElementById('score-compliance-line');
   if (complianceEl) {
-    complianceEl.textContent = '';
-    complianceEl.hidden = true;
-    delete complianceEl.dataset.status;
+    const frozenPublicationCompliance = S.publicScoreView ? publishedComplianceStatus(S.activeJob) : null;
+    if (S.publicScoreView) {
+      if (showScore && frozenPublicationCompliance) {
+        complianceEl.hidden = false;
+        complianceEl.dataset.status = frozenPublicationCompliance;
+        complianceEl.textContent = t('score.compliance.label').replace('{status}', frozenPublicationCompliance);
+      } else {
+        complianceEl.textContent = '';
+        complianceEl.hidden = true;
+        delete complianceEl.dataset.status;
+      }
+    } else if (showScore && complianceStatus) {
+      complianceEl.hidden = false;
+      complianceEl.dataset.status = complianceStatus;
+      complianceEl.textContent = t('score.compliance.label').replace('{status}', customerStatusLabel(complianceStatus));
+    } else {
+      complianceEl.textContent = '';
+      complianceEl.hidden = true;
+      delete complianceEl.dataset.status;
+    }
   }
+  S.roomCountryStatuses = collectRoomCountryStatuses(
+    S.activeJob,
+    displayed.comparison?.standardKey || S.scoreStandardKey
+  );
+  renderBenchmarkLine(displayed.comparison);
+  renderRoomStatusList();
+  placeScoreAssessmentSections();
 
   // "Incomplete" (static, no shimmer) vs "loading" (spinner, actively
   // capturing) — genuinely distinct states (2026-08-17 fix). ocrBusy means a
@@ -672,6 +984,10 @@ function renderScoreDisplay(options = {}) {
   const eligibilityPresented = (eligibility && typeof EligibilityPresentation !== 'undefined')
     ? EligibilityPresentation.format(eligibility)
     : null;
+
+  renderScoreContextLine(S.activeJob);
+  if (showScore) renderStandardsBoard(readingsForScoreBoard(result.readings || S.scoreBaseReadings || {}));
+  else renderStandardsBoard(null);
 
   if (bandEl) {
     if (showScore) {
@@ -690,11 +1006,13 @@ function renderScoreDisplay(options = {}) {
       // PD-007 D + PD-009 B: FAIL/WARNING get explicit hybrid notes on Quality/publish path.
       // Comparison path keeps the benchmark disclaimer (PD-005 / PD-001).
       if (!showingComparison && verdict.complianceOverride) {
-        noteEl.textContent = verdict.complianceOverrideKind === 'WARNING'
-          ? t('score.msg.complianceWarningOverride')
-          : t('score.msg.complianceFailOverride');
+        noteEl.textContent = verdict.complianceOverrideKind === 'WARNING' && wq >= BENCHMARK_OVERALL_PASS_MIN.thailand
+          ? t('score.passesThai')
+          : (verdict.complianceOverrideKind === 'WARNING'
+            ? t('score.msg.complianceWarningOverride')
+            : t('score.msg.complianceFailOverride'));
       } else {
-        noteEl.textContent = scoreSummaryNote(wq, findings);
+        noteEl.textContent = scoreSummaryNote(wq, findings, S.roomCountryStatuses);
       }
       noteEl.hidden = false;
     } else if (readiness?.ocrBusy) {
@@ -714,14 +1032,6 @@ function renderScoreDisplay(options = {}) {
       noteEl.textContent = t('score.readiness.waitingNote')
         .replace('{filled}', String(readiness?.filledCount ?? 0))
         .replace('{total}', String(readiness?.totalCount ?? 7));
-    }
-  }
-  if (S.scorePointNotice === 'history-unavailable' || S.scorePointNotice === 'point-unavailable') {
-    const history = S.scorePointNotice === 'history-unavailable';
-    if (bandEl) bandEl.textContent = t(history ? 'score.pointHistory.unavailableTitle' : 'score.point.unavailableTitle');
-    if (noteEl) {
-      noteEl.hidden = false;
-      noteEl.textContent = t(history ? 'score.pointHistory.unavailable' : 'score.point.unavailable');
     }
   }
 
@@ -748,16 +1058,52 @@ function renderScoreDisplay(options = {}) {
   renderScoreReadings(context);
   // Always render improve / all-good from whatever readings are already available.
   renderScoreImprove(context);
-  if (!options.skipPhotos) renderScorePhotos(readiness);
+  renderScorePhotos(readiness);
+}
+
+/**
+ * On the customer page, keep the frozen publication block together and place
+ * the live benchmark, rooms, and parameter rows under one current-assessment label.
+ * Staff order is unchanged. No second score is rendered.
+ */
+function placeScoreAssessmentSections() {
+  const benchmark = document.getElementById('score-benchmark-line');
+  const rooms = document.getElementById('score-room-status');
+  const separator = document.getElementById('score-current-assessment');
+  const publishedLine = document.getElementById('score-published-line');
+  const panel = document.querySelector('#s-score .score-content-panel');
+  const progress = document.getElementById('score-status-bar');
+  if (separator) {
+    if (S.publicScoreView) {
+      separator.hidden = false;
+      separator.textContent = t('score.currentAssessment');
+    } else {
+      separator.hidden = true;
+      separator.textContent = '';
+    }
+  }
+  if (S.publicScoreView && panel && separator && benchmark && rooms && typeof panel.insertBefore === 'function') {
+    panel.insertBefore(separator, panel.firstChild || null);
+    panel.insertBefore(benchmark, separator.nextSibling || null);
+    panel.insertBefore(rooms, benchmark.nextSibling || null);
+  } else if (!S.publicScoreView && progress && progress.parentNode && benchmark && rooms && typeof progress.parentNode.insertBefore === 'function') {
+    progress.parentNode.insertBefore(benchmark, progress);
+    progress.parentNode.insertBefore(rooms, progress);
+  }
+  if (publishedLine) {
+    const published = publishedWaterScore(S.activeJob);
+    const current = Number(S.scoreVal);
+    const show = !S.publicScoreView
+      && published != null
+      && Number.isFinite(current)
+      && Math.round(current) !== published;
+    publishedLine.hidden = !show;
+    publishedLine.textContent = show ? `${t('score.hero.published')}: ${published}` : '';
+  }
 }
 
 /** Switch comparison standard — recalculates statuses from the same resolved readings. */
 function setScoreReferenceStandard(standardKey) {
-  const lockedKey = lockedPublishedStandardKey();
-  if (lockedKey && standardKey !== lockedKey) {
-    renderStandardSelect();
-    return;
-  }
   const key = benchmarkRegistry()?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
   const readings = resolveScoreReadings(S.activeJob);
   const computedScore = computeScoreFromReadings(readings);
@@ -767,35 +1113,37 @@ function setScoreReferenceStandard(standardKey) {
 
   S.scoreStandardKey = key;
   S.scoreBaseReadings = readings;
-  // A country-benchmark publication keeps its published score and compliance.
-  // Full Assessment may still select another country and see that score.
-  const publishedReport = publishedReportStandardKey() ? S.activeJob.result : null;
-  const publishedReportScore = publishedReport ? Math.max(0, Math.min(100, Math.round(Number(publishedReport.waterScore)))) : null;
-  // Publish/share channel stays Quality V3. Live Hero uses country engine.
-  S.scoreVal = publishedReport ? publishedReportScore : computedScore;
+  // Staff hero uses the live Quality V3 score.
+  // A customer publication keeps the frozen score and compliance.
+  const frozenScore = S.publicScoreView ? publishedWaterScore(S.activeJob) : null;
+  const gaugeScore = frozenScore != null ? frozenScore : computedScore;
+  S.scoreVal = gaugeScore;
   S.currentScoreResult = {
     ...(S.currentScoreResult || {}),
-    score: publishedReport ? publishedReportScore : computedScore,
+    score: gaugeScore,
     computedScore,
     readings: { ...readings },
-    source: 'computed',
+    source: frozenScore != null ? 'published' : 'computed',
     standardKey: 'quality-v3',
     engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v3'),
     paramScores: detail?.params || null,
-    complianceStatus: publishedReport ? (publishedReport.complianceStatus || null) : (detail?.compliance?.status || null),
-    compliance: detail?.compliance || null,
+    complianceStatus: S.publicScoreView ? publishedComplianceStatus(S.activeJob) : (detail?.compliance?.status || null),
+    compliance: S.publicScoreView ? null : (detail?.compliance || null),
     validation: S.lastReadingsValidation || null
   };
-  S.comparisonScoreResult = getCountryBenchmarkScore(readings, key);
-  S.displayedScore = resolveDisplayedScore({
+  // Quality stays on the whole-house readings above. Country Benchmark follows
+  // the selected zone when one is open, and the same whole-house pool when not.
+  const countryReadings = readingsForCountryBenchmark(S.activeJob);
+  S.comparisonScoreResult = getCountryBenchmarkScore(countryReadings, key);
+  S.displayedScore = staffHeroForPopulation(resolveDisplayedScore({
     publicView: Boolean(S.publicScoreView),
-    publishedScore: S.currentScoreResult.score,
-    readings,
+    publishedScore: frozenScore,
+    qualityScore: computedScore,
+    readings: countryReadings,
     standardKey: key
-  });
+  }));
   S.scoreParamOpen = null;
-  // The customer report never writes its locked standard back onto the Case.
-  if (!S.publicScoreView && typeof persistActiveCaseScoreStandard === 'function') {
+  if (typeof persistActiveCaseScoreStandard === 'function') {
     persistActiveCaseScoreStandard(key);
   }
   console.log('STANDARD SWITCH', {
@@ -993,19 +1341,107 @@ function resolveJobTapDataForScore(job) {
 }
 
 /**
+ * D2 (locked 2026-10-06): the whole-house "All" reading is built only from
+ * complete rooms. Completeness = every parameter the selected country engine
+ * weights (temperature never), evaluated on each room's own resolved readings
+ * through the existing fallback chain (standardMeasurement → meterReadings →
+ * chlorineReadings). If no room is complete, no All reading is produced.
+ */
+function resolveCompletenessCountryKey(job) {
+  const reg = benchmarkRegistry();
+  const key = [S.scoreStandardKey, job?.draft?.scoreStandardKey].find(k => k && reg?.has?.(k));
+  return key || DEFAULT_SCORE_STANDARD_KEY;
+}
+
+/** Scored parameters of a country engine, read from the engine's own weights. */
+function requiredScoredParamsForCountry(countryKey) {
+  const reg = benchmarkRegistry();
+  if (!reg?.has?.(countryKey)) return null;
+  // Each engine registers its weights object (see engine register() calls);
+  // a parameter with a positive weight is scored. Temperature is never scored.
+  const weights = reg.get(countryKey)?.weights || {};
+  const keys = Object.keys(weights).filter(key => Number(weights[key]) > 0 && key !== 'temp');
+  return keys.length ? keys : null;
+}
+
+/** Opt-in forensic trace: set window.WM_SCORE_TRACE = true in the console. */
+function traceScoreCompleteness(event, fields) {
+  if (typeof window === 'undefined' || window.WM_SCORE_TRACE !== true) return;
+  console.info(`[score:${event}]`, fields);
+}
+
+function roomReadingSource(tap, key) {
+  const finite = (value) => typeof value === 'number' && Number.isFinite(value);
+  if (finite(numOrUndefined(tap?.standardMeasurement?.[key]))) return 'standardMeasurement';
+  if (finite(numOrUndefined(tap?.meterReadings?.[key]))) return 'meterReadings';
+  if (key === 'chlorine' && finite(numOrUndefined(tap?.chlorineReadings?.freeChlorine ?? tap?.chlorineReadings?.chlorine))) return 'chlorineReadings';
+  return null;
+}
+
+function completeRoomTapsForAll(job, countryKey) {
+  const taps = resolveJobTapDataForScore(job) || [];
+  const required = requiredScoredParamsForCountry(countryKey);
+  if (!required) {
+    traceScoreCompleteness('score_all_aggregation', {
+      country: countryKey, totalRooms: taps.length, includedRooms: 0, allScoreAvailable: false, reason: 'no_engine_contract'
+    });
+    return [];
+  }
+  const STATE = typeof MeasurementValidator !== 'undefined' ? MeasurementValidator.STATE : {};
+  const included = [];
+  const excluded = [];
+  taps.forEach((tap, roomIndex) => {
+    const resolved = readingsFromTapData([tap]);
+    const validation = typeof MeasurementValidator !== 'undefined'
+      ? MeasurementValidator.validateMeasurements(resolved)
+      : null;
+    const cleared = resolved.__explicitClears instanceof Set ? resolved.__explicitClears : new Set();
+    const missing = required.filter(key => {
+      if (cleared.has(key)) return true;
+      const value = resolved[key];
+      if (typeof value !== 'number' || !Number.isFinite(value)) return true;
+      const state = validation?.fields?.[key]?.state;
+      return state === STATE.IMPLAUSIBLE || state === STATE.INVALID_TYPE;
+    });
+    const complete = missing.length === 0;
+    if (complete) included.push(roomIndex); else excluded.push({ roomIndex, missing });
+    traceScoreCompleteness('score_room_completeness', {
+      country: countryKey,
+      roomIndex,
+      requiredParameters: required,
+      resolvedParameters: required.filter(key => !missing.includes(key)),
+      missingParameters: missing,
+      sources: Object.fromEntries(required.map(key => [key, roomReadingSource(tap, key)])),
+      complete
+    });
+  });
+  traceScoreCompleteness('score_all_aggregation', {
+    country: countryKey,
+    totalRooms: taps.length,
+    includedRooms: included.length,
+    excludedRooms: excluded.length,
+    includedRoomIndexes: included,
+    excludedRoomsWithReasons: excluded,
+    allScoreAvailable: included.length > 0,
+    aggregationMode: 'complete_rooms_only'
+  });
+  return included.map(roomIndex => taps[roomIndex]);
+}
+
+/**
  * Real measurements only — never HTML placeholders, never demo fill values.
- * Sources: Case-owned tap snapshots and that Case's draft fields.
- * Active-session S.tapData may supply taps only when scoring the active Case
- * and draft.tapData is absent (see resolveJobTapDataForScore).
+ * Sources: Case-owned tap snapshots only. Draft fields are not rooms and do not
+ * feed "All" (D2). Active-session S.tapData may supply taps only when scoring the
+ * active Case and draft.tapData is absent (see resolveJobTapDataForScore).
  * Meter DOM (#m-*) is intentionally excluded — leftover DOM from Case A must
  * never complete Case B's score.
  */
 function resolveScoreReadingsPresent(job) {
-  const draft = job?.draft || {};
-  const fromTaps = readingsFromTapData(resolveJobTapDataForScore(job));
-  const fromFields = readingsFromFieldMap(draft.fields || {});
+  const countryKey = resolveCompletenessCountryKey(job);
+  const completeTaps = completeRoomTapsForAll(job, countryKey);
+  // The Case-level draft.fields layer is not a room, so it does not feed "All".
   // Do not use scoreBaseReadings here — older drafts may have cached demo fill values.
-  return mergeReadingLayers(fromTaps, fromFields);
+  return mergeReadingLayers(readingsFromTapData(completeTaps));
 }
 
 function getScoreDataReadiness(job = S.activeJob) {
@@ -1112,21 +1548,16 @@ function readingsFromJob(job) {
 
 /**
  * Single Water Score renderer used by both the field app and /r/{token}.
- * publicView only changes chrome (handled by caller); display path is identical.
  *
- * currentScoreResult  → Quality V3 (share + backend publish only)
- * comparisonScoreResult / displayedScore → selected country engine (live Hero)
+ * Customer public view: the gauge and compliance use the frozen publication score and compliance when available.
+ * Staff display remains live.
+ * Country benchmark, room status, and parameter rows stay on the current Case readings.
  */
 function renderWaterScore(job, options = {}) {
   const publicView = Boolean(options.publicView);
   const draft = job?.draft || {};
   if (!publicView && benchmarkRegistry()?.has?.(draft.scoreStandardKey)) {
     S.scoreStandardKey = draft.scoreStandardKey;
-  }
-  // Customer report of a country-benchmark publication: its rows and standard
-  // name follow the standard the score was published under.
-  if (publicView && job?.result?.scoreType === 'country-benchmark' && benchmarkRegistry()?.has?.(job.result.standardKey)) {
-    S.scoreStandardKey = job.result.standardKey;
   }
   // Always resolve from tapData / fields / DOM — do not trust stale score-only cache.
   const readings = resolveScoreReadings(job);
@@ -1159,7 +1590,7 @@ function renderWaterScore(job, options = {}) {
   // A published/shared report must not lose its safety channel: prefer the
   // persisted compliance status (set at publish time) over a recompute from
   // whatever readings happen to still be reconstructable on the public page.
-  const persistedCompliance = publicView ? (job?.result?.complianceStatus || null) : null;
+  const frozenCompliance = publicView ? publishedComplianceStatus(job) : null;
   S.currentScoreResult = {
     score: productionScore,
     standardKey: 'quality-v3',
@@ -1168,8 +1599,8 @@ function renderWaterScore(job, options = {}) {
     computedScore,
     engineVersion: detail?.engineVersion || (typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined' ? QUALITY_SCORE_ENGINE_VERSION : 'quality-v3'),
     paramScores: detail?.params || null,
-    complianceStatus: persistedCompliance || detail?.compliance?.status || null,
-    compliance: detail?.compliance || null,
+    complianceStatus: publicView ? frozenCompliance : (detail?.compliance?.status || null),
+    compliance: publicView ? null : (detail?.compliance || null),
     validation: S.lastReadingsValidation || null
   };
   if (!S.scoreStandardKey || !benchmarkRegistry()?.has?.(S.scoreStandardKey)) {
@@ -1178,7 +1609,8 @@ function renderWaterScore(job, options = {}) {
   S.comparisonScoreResult = getCountryBenchmarkScore(readings, S.scoreStandardKey);
   S.displayedScore = resolveDisplayedScore({
     publicView,
-    publishedScore: productionScore,
+    publishedScore: publicView ? productionScore : null,
+    qualityScore: Number.isFinite(computedScore) ? computedScore : null,
     readings,
     standardKey: S.scoreStandardKey
   });
@@ -1194,12 +1626,8 @@ function renderWaterScore(job, options = {}) {
     published: Number.isFinite(published) ? published : null
   });
   S.taps = taps;
-  // Default Room Analysis = All when multiple taps are available.
-  // A full render starts at Whole House. Country and point switches use their
-  // own entry points and do not come back through here.
-  S.scorePointOrdinal = null;
-  S.scorePointNotice = null;
-  S.scoreTapFilter = taps.length > 1 ? 'all' : taps[0];
+  // The list below names each inspection point. The top number stays the overall score.
+  S.scoreTapFilter = taps[0] || 'all';
   S.publicScoreView = publicView;
 
   renderScoreDisplay();
@@ -1342,10 +1770,7 @@ function getRoomReadings(tapKey, context = getScoreEvalContext()) {
 function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   const standardKey = context.selectedStandard || DEFAULT_SCORE_STANDARD_KEY;
   const display = context.display || getWaterQualityStandard(standardKey).display;
-  // Display only: the limits files keep their ASCII "<=" / ">=" text.
-  const stdLabel = (text) => (text === 'Not specified'
-    ? t('score.std.notSpecified')
-    : String(text ?? '').replace(/<=/g, '≤').replace(/>=/g, '≥'));
+  const stdLabel = (text) => (text === 'Not specified' ? t('score.std.notSpecified') : text);
   const fmt = (n, digits, suffix = '') => (Number.isFinite(n) ? n.toFixed(digits) + suffix : '—');
   const fmtInt = (n, suffix = '') => (Number.isFinite(n) ? Math.round(n) + suffix : '—');
   const toFin = typeof toFiniteReading === 'function'
@@ -1379,7 +1804,7 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
     if (!Number.isFinite(computedVal) && validationFields?.[key]?.state === 'IMPLAUSIBLE') {
       const rawVal = toFin(rawReadings[key]);
       if (Number.isFinite(rawVal)) {
-        return { p: label, r: fmtFn(rawVal), std, st: 'implausible' };
+        return { p: label, r: fmtFn(rawVal), std, st: 'implausible', raw: rawVal };
       }
     }
     // A real value is present, but this standard's engine deliberately never
@@ -1388,15 +1813,15 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
     // That is not "still loading" — show the measured value with a neutral
     // "not scored here" note instead of shimmering forever (2026-08-17 fix).
     if (status === 'pending' && Number.isFinite(computedVal)) {
-      return { p: label, r: fmtFn(computedVal), std, st: 'excluded' };
+      return { p: label, r: fmtFn(computedVal), std, st: 'excluded', raw: computedVal };
     }
-    return { p: label, r: fmtFn(computedVal), std, st: paramStatusFromClassification(status, classifications?.[key], key) };
+    return { p: label, r: fmtFn(computedVal), std, st: paramStatusFromClassification(status, classifications?.[key]), raw: computedVal };
   };
 
   return [
     buildRow('ph', 'pH', ph, (n) => fmt(n, 1), stdLabel(display.ph), evaluateParamStatus('ph', ph, standardKey)),
     buildRow('tds', 'TDS', tds, (n) => fmtInt(n, ' mg/L'), stdLabel(display.tds), evaluateParamStatus('tds', tds, standardKey)),
-    buildRow('chlorine', 'Chlorine', chlorine, (n) => fmt(n, 2, ' mg/L'), stdLabel(display.chlorine), evaluateParamStatus('chlorine', chlorine, standardKey)),
+    buildRow('chlorine', 'Chlorine', chlorine, (n) => fmt(n, 1, ' mg/L'), stdLabel(display.chlorine), evaluateParamStatus('chlorine', chlorine, standardKey)),
     buildRow('turbidity', 'Turbidity', turbidity, (n) => fmt(n, 1, ' NTU'), stdLabel(display.turbidity), evaluateParamStatus('turbidity', turbidity, standardKey)),
     buildRow('orp', 'ORP', orp, (n) => fmtInt(n, ' mV'), stdLabel(display.orp), evaluateParamStatus('orp', orp, standardKey)),
     buildRow('do', 'DO', doVal, (n) => fmt(n, 1, ' mg/L'), stdLabel(display.do), evaluateParamStatus('do', doVal, standardKey)),
@@ -1410,23 +1835,16 @@ function scoreTapRows(key, context = getScoreEvalContext()) {
 
 function renderScoreReadings(context = getScoreEvalContext()) {
   const taps = S.taps?.length ? S.taps : ['Tap 1'];
-  const hasMultipleTaps = taps.length > 1;
-  if (!hasMultipleTaps) S.scoreTapFilter = taps[0];
-  if (!S.scoreTapFilter) S.scoreTapFilter = hasMultipleTaps ? 'all' : taps[0];
+  if (taps.length <= 1) S.scoreTapFilter = taps[0];
+  if (!S.scoreTapFilter) S.scoreTapFilter = taps[0];
 
   const listEl = document.getElementById('score-readings-rows');
   const scopeEl = document.getElementById('score-params-scope');
   if (!listEl) return;
 
-  if (scopeEl) {
-    const ordinal = selectedPointOrdinal();
-    const choice = ordinal == null ? null : pointChoices().find((item) => item.ordinal === ordinal);
-    scopeEl.textContent = ordinal == null
-      ? t('score.paramsOverall')
-      : `${t('score.viewingRoom')}: ${choice ? choice.label : ''}`;
-  }
+  if (scopeEl) scopeEl.hidden = true;
 
-  const rows = rowsForScorePopulation(context);
+  const rows = scoreTapRows(scorePointFilter(), context);
   const statusLabels = {
     good: t('score.status.good'),
     fair: t('score.status.fair'),
@@ -1443,47 +1861,31 @@ function renderScoreReadings(context = getScoreEvalContext()) {
 
   // Show ready metrics immediately; only pending rows shimmer while OCR / input catches up.
   listEl.classList.remove('is-loading');
-  // Column headings; they sit on the same grid tracks as the rows below.
-  const headHtml = `<div class="score-metric-head" aria-hidden="true"><span>${t('score.param')}</span><span>${t('score.standard')}</span><span>${t('score.result')}</span><span>${t('score.status')}</span><span></span></div>`;
-  listEl.innerHTML = headHtml + rows.map(r => {
+  listEl.innerHTML = rows.map(r => {
     const statusKey = paramStatusUiKey(r.st);
-    const key = paramKey(r.p);
     if (statusKey === 'pending') {
       return `<div class="score-metric-item">
   <div class="score-metric-row is-pending">
     <span class="score-metric-name">${r.p}</span>
-    <span class="score-metric-range">${String(r.std ?? '').replace(/\s*\([^)]*\)\s*$/, '')}</span>
+    <span class="score-metric-range">${r.std}</span>
     <span class="score-metric-value score-metric-skel">&nbsp;</span>
     <span class="score-metric-status score-metric-skel"><i class="score-dot" aria-hidden="true"></i>${statusLabels.pending}</span>
   </div>
 </div>`;
     }
     const statusLabel = statusLabels[statusKey];
-    const expanded = S.scoreMetricOpen === key;
-    return `<div class="score-metric-item${expanded ? ' is-open' : ''}">
-  <button type="button" class="score-metric-row is-${statusKey}" aria-expanded="${expanded}" onclick="toggleScoreMetricDetail('${key}')">
+    const filled = statusKey === 'good' ? 4 : statusKey === 'fair' ? 2 : (statusKey === 'attn' || statusKey === 'implausible') ? 1 : 3;
+    const pips = Array.from({ length: 4 }, (_, index) => `<i class="${index < filled ? 'is-on' : ''}"></i>`).join('');
+    return `<div class="score-metric-item">
+  <div class="score-metric-row is-${statusKey}">
     <span class="score-metric-name">${r.p}</span>
-    <span class="score-metric-range">${String(r.std ?? '').replace(/\s*\([^)]*\)\s*$/, '')}</span>
+    <span class="score-metric-range">${r.std}</span>
     <span class="score-metric-value">${r.r}</span>
+    <span class="score-metric-pips" aria-hidden="true">${pips}</span>
     <span class="score-metric-status"><i class="score-dot" aria-hidden="true"></i>${statusLabel}</span>
-    <span class="score-metric-caret" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
-  </button>
-  <div class="score-metric-detail"${expanded ? '' : ' hidden'}>
-    <p class="score-metric-meaning">${statusKey === 'implausible' ? t('score.meaning.implausible') : statusKey === 'excluded' ? t('score.meaning.excluded') : paramMeaningText(r.p, statusKey)}</p>
-    <dl class="score-metric-facts">
-      <div><dt>${t('score.result')}</dt><dd>${r.r}</dd></div>
-      <div><dt>${t('score.standard')}</dt><dd>${r.std}</dd></div>
-      <div><dt>${t('score.status')}</dt><dd class="is-${statusKey}">${statusLabel}</dd></div>
-    </dl>
   </div>
 </div>`;
   }).join('');
-}
-
-/** Expands one metric row's detail panel. Display-only — never recalculates a score. */
-function toggleScoreMetricDetail(key) {
-  S.scoreMetricOpen = S.scoreMetricOpen === key ? null : key;
-  renderScoreReadings();
 }
 
 /** "Fix first" / "Room to improve" — attention-status rows for the currently viewed location. */
@@ -1496,19 +1898,18 @@ function renderScoreImprove(context = getScoreEvalContext()) {
   const allGoodText = document.getElementById('score-all-good-text');
   if (!section || !listEl) return;
 
-  const allRows = rowsForScorePopulation(context);
+  const allRows = scoreTapRows(scorePointFilter(), context);
   // Fair rows were listed here as Attention before the Fair state existed — keep them listed.
   const rows = allRows.filter(r => ['attn', 'fair'].includes(paramStatusUiKey(r.st)));
-  const displayed = selectedPointOrdinal() != null && S.displayedScore
-    ? S.displayedScore
-    : resolveDisplayedScore({
-      publicView: Boolean(S.publicScoreView),
-      publishedScore: S.currentScoreResult?.score,
-      readings: context.readings || S.scoreBaseReadings || {},
-      standardKey: context.selectedStandard || S.scoreStandardKey
-    });
+  const displayed = resolveDisplayedScore({
+    publicView: Boolean(S.publicScoreView),
+    publishedScore: S.publicScoreView ? publishedWaterScore(S.activeJob) : null,
+    qualityScore: S.currentScoreResult?.computedScore ?? S.currentScoreResult?.score,
+    readings: context.readings || S.scoreBaseReadings || {},
+    standardKey: context.selectedStandard || S.scoreStandardKey
+  });
   const showScore = displayed.showScore;
-  const wq = displayed.score != null && Number.isFinite(Number(displayed.score)) ? Number(displayed.score) : 0;
+  const wq = Number.isFinite(displayed.score) ? displayed.score : 0;
   // PD-001: comparison uses pass-band tiers.
   // PD-007 D + PD-009 B: Quality path uses FAIL/WARNING presentation override.
   const verdict = isShowingCountryBenchmarkComparison()
@@ -1527,6 +1928,7 @@ function renderScoreImprove(context = getScoreEvalContext()) {
           : t('score.allGood').replace('{n}', String(allRows.length || 8));
       }
     }
+    syncScoreWhatsNext(showScore);
     return;
   }
 
@@ -1536,27 +1938,170 @@ function renderScoreImprove(context = getScoreEvalContext()) {
     headingEl.textContent = verdict.tier === 'low' ? t('score.fixFirst') : t('score.improveTitle');
   }
   if (countEl) countEl.textContent = `· ${rows.length}`;
-  const improveIcon = `<span class="score-improve-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.5" r="0.8" fill="currentColor" stroke="none"/></svg></span>`;
-  const improveStatusLabel = {
+  const improveLabels = {
     good: t('score.status.good'),
     fair: t('score.status.fair'),
     attn: t('score.status.attn')
   };
   listEl.innerHTML = rows.map(r => {
     const statusKey = paramStatusUiKey(r.st);
-    const known = statusKey === 'good' || statusKey === 'fair' || statusKey === 'attn';
-    const rowStatus = known ? statusKey : 'neutral';
-    const statusLabel = known ? improveStatusLabel[statusKey] : '';
-    return `<div class="score-improve-row is-${rowStatus}">
-  ${improveIcon}
-  <span class="score-improve-body">
-    <span class="score-improve-name">${r.p}</span>
-    <span class="score-improve-range">${r.std}</span>
-  </span>
-  <span class="score-improve-status">${statusLabel}</span>
+    return `<div class="score-improve-row is-${statusKey}">
+  <i class="score-flag" aria-hidden="true"></i>
+  <span class="score-improve-name">${r.p}</span>
+  <span class="score-improve-range">${r.std}</span>
   <span class="score-improve-value">${r.r}</span>
+  <span class="score-improve-status">${improveLabels[statusKey] || ''}</span>
 </div>`;
   }).join('');
+  syncScoreWhatsNext(showScore);
+}
+
+const SCORE_SHIFT_ROWS = Object.freeze([
+  { key: 'ph', label: 'pH' },
+  { key: 'turbidity', label: 'Turbidity' },
+  { key: 'chlorine', label: 'Chlorine' },
+  { key: 'tds', label: 'TDS' }
+]);
+
+/** Project near-ideal points already used by the quality formula. Presentation only. */
+const SCORE_QUALITY_IDEAL = Object.freeze({
+  ph: 7.2,
+  tds: 80,
+  turbidity: 0.1,
+  orp: 400,
+  chlorine: 0.35,
+  do: 8
+});
+
+function firstFiniteLimit(...vals) {
+  for (const value of vals) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function scoreShiftDirection(key, value, standardKey) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 'pending';
+  const limits = benchmarkRegistry()?.get?.(standardKey)?.limits?.[key] || {};
+  const min = firstFiniteLimit(limits.preferredMin, limits.excellentMin, limits.idealMin)
+    ?? firstFiniteLimit(limits.min);
+  const max = firstFiniteLimit(limits.preferredMax, limits.excellentMax, limits.idealMax, limits.gradeExcellentMax)
+    ?? firstFiniteLimit(limits.passMax, limits.max);
+  if (min == null && max == null) return 'pending';
+  if (min != null && n < min) return 'below';
+  if (max != null && n > max) return 'above';
+  return 'optimal';
+}
+
+function scoreShiftMark(kind) {
+  if (kind === 'below') {
+    return '<span class="score-shift-mark" aria-hidden="true"><svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="8.1" fill="none" stroke="#69A1F1" stroke-width="1.6"/><path d="M10 6.4v7M7.5 11 10 13.5 12.5 11" fill="none" stroke="#69A1F1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+  }
+  if (kind === 'above') {
+    return '<span class="score-shift-mark" aria-hidden="true"><svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="8.1" fill="none" stroke="#69A1F1" stroke-width="1.6"/><path d="M10 13.6V6.6M7.5 9 10 6.5 12.5 9" fill="none" stroke="#69A1F1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+  }
+  return '<span class="score-shift-mark" aria-hidden="true"><svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="10" fill="#284DCD"/><path d="M5.7 10.2 8.4 12.8 14.3 7.1" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+}
+
+function scoreShiftLabel(kind) {
+  if (kind === 'optimal') return t('score.shift.optimal');
+  if (kind === 'below') return t('score.shift.below');
+  if (kind === 'above') return t('score.shift.above');
+  return '';
+}
+
+function scoreShiftRowHtml(label, kind) {
+  return `<div class="score-shift-row">
+    ${scoreShiftMark(kind)}
+    <span class="score-shift-name">${escapeScoreText(label)}</span>
+    <span class="score-shift-state is-${kind}">${escapeScoreText(scoreShiftLabel(kind))}</span>
+  </div>`;
+}
+
+function thailandStandardPasses(readings) {
+  const reg = benchmarkRegistry();
+  if (!reg?.calculate || !readings) return false;
+  const out = reg.calculate('thailand', readings);
+  if (!out || out.measurementIncomplete || out.complete === false || !Number.isFinite(Number(out.score))) return false;
+  const worst = typeof worstBenchmarkClassification === 'function'
+    ? worstBenchmarkClassification(out.classifications)
+    : null;
+  return worst === 'PASS';
+}
+
+/**
+ * After card. Direction uses the selected standard's existing ideal band.
+ * The after number is the current quality formula with those readings on its own ideal points.
+ * It is not written back to the case score.
+ */
+function renderScoreShift(showScore, currentScore) {
+  const noteEl = document.getElementById('score-summary-note');
+  const compliance = document.getElementById('score-compliance-line')?.dataset?.status;
+  const overallNote = Number(currentScore);
+  if (showScore && noteEl && compliance !== 'FAIL' && compliance !== 'WARNING'
+    && overallNote >= BENCHMARK_OVERALL_PASS_MIN.thailand && overallNote < 81) {
+    noteEl.textContent = t('score.passesThai');
+  }
+  const upgrade = document.getElementById('score-upgrade-card');
+  if (!upgrade) return;
+  const readings = readingsForScoreBoard({});
+  const standardKey = benchmarkRegistry()?.has?.(S.scoreStandardKey) ? S.scoreStandardKey : DEFAULT_SCORE_STANDARD_KEY;
+  const idealReadings = { ...(readings || {}) };
+  Object.keys(SCORE_QUALITY_IDEAL).forEach(key => {
+    if (Number.isFinite(Number(idealReadings[key]))) idealReadings[key] = SCORE_QUALITY_IDEAL[key];
+  });
+  const detail = (showScore && typeof computeQualityScoreDetail === 'function')
+    ? computeQualityScoreDetail(idealReadings)
+    : null;
+  const after = Number(detail?.score);
+  const current = Number(currentScore);
+  const showAfter = showScore && Number.isFinite(after) && (!Number.isFinite(current) || after > current);
+  upgrade.hidden = !showAfter;
+  if (!showAfter) return;
+  const upgradeFigure = 95;
+  const verdict = typeof customerVerdict === 'function' ? customerVerdict(upgradeFigure) : { tier: 'high', label: '' };
+  const num = document.getElementById('score-upgrade-val');
+  const band = document.getElementById('score-upgrade-band');
+  const note = document.getElementById('score-upgrade-note');
+  const afterList = document.getElementById('score-upgrade-list');
+  if (num) num.textContent = String(upgradeFigure);
+  upgrade.dataset.tier = verdict.tier || 'high';
+  if (band) band.textContent = verdict.tier === 'high' ? t('score.shift.optimal') : (verdict.label || '');
+  if (note) {
+    note.textContent = verdict.tier === 'high' ? t('score.shift.meetsIntl') : t('score.upgrade.note');
+  }
+  const afterRows = SCORE_SHIFT_ROWS.map(row => ({
+    ...row,
+    kind: scoreShiftDirection(row.key, idealReadings[row.key], standardKey)
+  })).filter(row => row.kind !== 'pending');
+  if (afterList) {
+    afterList.innerHTML = (afterRows.length ? afterRows : SCORE_SHIFT_ROWS.map(row => ({ ...row, kind: 'optimal' })))
+      .map(row => scoreShiftRowHtml(row.label, row.kind))
+      .join('');
+  }
+  paintScoreDotField(upgradeFigure, {
+    loading: false,
+    tier: verdict.tier || 'high',
+    rowsId: 'score-upgrade-dot-rows',
+    fieldId: 'score-upgrade-dots',
+    tickId: 'score-upgrade-tick',
+    rowCount: 2,
+    dotsPerRow: 33,
+    markIndex: 29
+  });
+}
+
+function syncScoreWhatsNext(showScore) {
+  renderScoreShift(Boolean(showScore), S.displayedScore?.score);
+  const title = document.getElementById('score-whats-next');
+  const improve = document.getElementById('score-improve-section');
+  const upgrade = document.getElementById('score-upgrade-card');
+  const allGood = document.getElementById('score-all-good');
+  if (!title) return;
+  const visible = (improve && !improve.hidden) || (upgrade && !upgrade.hidden) || (allGood && !allGood.hidden);
+  title.hidden = !visible;
 }
 
 /** Photo carousel for the currently viewed location(s), sourced from assessment tap photos. */
@@ -1570,10 +2115,10 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
 
   const taps = S.taps?.length ? S.taps : [];
   const tapData = resolveJobTapDataForScore(S.activeJob) || [];
-  const selectedOrdinal = selectedPointOrdinal();
-  const indices = selectedOrdinal == null
-    ? taps.map((_, i) => i)
-    : [selectedOrdinal].filter(i => i >= 0 && i < Math.max(taps.length, tapData.length));
+  const point = scorePointFilter();
+  const indices = point && point !== 'all'
+    ? [taps.indexOf(point)].filter(i => i >= 0)
+    : taps.map((_, i) => i);
 
   const photoSrc = photo => {
     if (!photo) return '';
@@ -1592,7 +2137,7 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
       const src = photoSrc(photo);
       if (!src || seen.has(src)) continue;
       seen.add(src);
-      images.push({ label, src, tap: taps[i], ordinal: i });
+      images.push({ label, src, tap: taps[i] });
       break;
     }
   });
@@ -1626,7 +2171,7 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
   // Drive link, etc.) must not sit in the carousel as a solid broken-image
   // box -- drop that one slide (and its dot) instead. If every slide fails,
   // fall back to the "no photo yet" placeholder like nothing was captured.
-  track.querySelectorAll?.('.score-photo-slide img')?.forEach(imgEl => {
+  track.querySelectorAll('.score-photo-slide img').forEach(imgEl => {
     imgEl.onerror = () => {
       const slide = imgEl.closest('.score-photo-slide');
       const idx = Number(slide?.dataset.slideIndex);
@@ -1653,17 +2198,30 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
     // Once a swipe has taken over the filter, keep following swipes even
     // though scoreTapFilter is no longer 'all' -- only a manual dropdown
     // pick (setScoreTapFilter, which clears this flag) should stop it.
-    if (selectedPointOrdinal() != null && !S._scorePhotoAutoSynced) return;
-    const ordinal = images[idx]?.ordinal;
-    if (!Number.isInteger(ordinal) || ordinal === syncedTap) return;
-    syncedTap = ordinal;
-    S.scorePointOrdinal = ordinal;
-    S.scoreTapFilter = images[idx]?.tap || 'all';
+    if (S.scoreTapFilter !== 'all' && !S._scorePhotoAutoSynced) return;
+    const tap = images[idx]?.tap;
+    if (!tap || tap === syncedTap) return;
+    syncedTap = tap;
+    S.scoreTapFilter = tap;
     S._scorePhotoAutoSynced = true;
-    renderScoreDisplay({ skipPhotos: true });
+    applyCountryBenchmarkPopulation();
+    const hero = S.displayedScore;
+    const gaugeEl = document.getElementById('gauge-val');
+    if (gaugeEl) {
+      if (hero?.showScore) animateScoreNumber(gaugeEl, hero.score);
+      else {
+        _scoreAnimToken += 1;
+        gaugeEl.textContent = '—';
+      }
+    }
+    const context = getScoreEvalContext();
+    renderScoreReadings(context);
+    renderScoreImprove(context);
+    renderBenchmarkLine(S.displayedScore?.comparison);
+    renderRoomStatusList();
     ['score-room-select', 'score-room-select-top'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.value = String(ordinal);
+      if (el) el.value = tap;
     });
   };
 
@@ -1711,223 +2269,21 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
   });
 }
 
-function selectedPointOrdinal() {
-  return Number.isInteger(S.scorePointOrdinal) && S.scorePointOrdinal >= 0 ? S.scorePointOrdinal : null;
-}
-
-/**
- * Point choices are ordinals. Labels are display text and may be duplicated.
- * A published report with frozen pointReadings uses those ordinals and labels.
- */
-function pointChoices(job = S.activeJob) {
-  if (S.publicScoreView && Array.isArray(job?.result?.pointReadings) && job.result.pointReadings.length) {
-    return job.result.pointReadings.map((point) => ({
-      ordinal: Number(point?.ordinal),
-      label: String(point?.label || `Tap ${Number(point?.ordinal) + 1}`)
-    })).filter((point) => Number.isInteger(point.ordinal) && point.ordinal >= 0);
-  }
-  const taps = S.taps?.length ? S.taps : (Array.isArray(job?.draft?.taps) ? job.draft.taps : []);
-  return taps.map((label, ordinal) => ({ ordinal, label: String(label) }));
-}
-
-function finiteReadingMap(source) {
-  const keys = ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp'];
-  const out = {};
-  keys.forEach((key) => {
-    const n = numOrUndefined(source?.[key]);
-    if (n !== undefined) out[key] = n;
-  });
-  return out;
-}
-
-/** Same validator strip resolveScoreReadings uses. Missing values stay absent, never 0. */
-function sanitizeOwnReadings(raw) {
-  const present = raw && typeof raw === 'object' ? { ...raw } : {};
-  const validation = (typeof MeasurementValidator !== 'undefined')
-    ? MeasurementValidator.validateMeasurements(present)
-    : null;
-  const readings = { ...present };
-  if (validation) {
-    MeasurementValidator.SCORED_KEYS.forEach((key) => {
-      const state = validation.fields[key]?.state;
-      if (state === MeasurementValidator.STATE.IMPLAUSIBLE || state === MeasurementValidator.STATE.INVALID_TYPE) {
-        delete readings[key];
-      }
-    });
-  }
-  return { readings: finiteReadingMap(readings), validation, present };
-}
-
-/**
- * One tap's own measurements. draft.fields and other taps are not consulted.
- * Returns null readings when the tap has no usable own source.
- */
-function resolveOwnPointReadings(job, ordinal) {
-  const tapData = resolveJobTapDataForScore(job) || [];
-  const tap = tapData[ordinal];
-  if (!tap || !hasTapReadingSource(tap)) return { readings: null, validation: null, present: {} };
-  const sanitized = sanitizeOwnReadings(readingsFromSingleTap(tap, {}));
-  return {
-    readings: Object.keys(sanitized.readings).length ? sanitized.readings : null,
-    validation: sanitized.validation,
-    present: sanitized.present
-  };
-}
-
-/**
- * Frozen point list captured with a new publication.
- * Uses the Case draft only, so the server sandbox cannot see a browser session.
- */
-function capturePublicationPointReadings(job) {
-  const draft = job?.draft || {};
-  const taps = Array.isArray(draft.taps) ? draft.taps : [];
-  const tapData = Array.isArray(draft.tapData) ? draft.tapData : [];
-  const count = Math.max(taps.length, tapData.length);
-  const points = [];
-  for (let ordinal = 0; ordinal < count; ordinal += 1) {
-    const rawLabel = taps[ordinal] == null ? '' : String(taps[ordinal]).trim();
-    const label = (rawLabel || `Tap ${ordinal + 1}`).slice(0, 80);
-    const tap = tapData[ordinal];
-    let readings = null;
-    if (tap && hasTapReadingSource(tap)) {
-      const sanitized = sanitizeOwnReadings(readingsFromSingleTap(tap, {}));
-      readings = Object.keys(sanitized.readings).length ? sanitized.readings : null;
-    }
-    points.push({ ordinal, label, readings });
-  }
-  return points;
-}
-
-function frozenPointEntry(job, ordinal) {
-  const points = job?.result?.pointReadings;
-  if (!Array.isArray(points)) return undefined;
-  return points.find((point) => Number(point?.ordinal) === ordinal);
-}
-
-/**
- * Readings the gauge is allowed to score.
- * All = resolveScoreReadings (Whole House).
- * Named point = that point only, or an explicit unavailable result.
- */
-function populationForGauge(job) {
-  const ordinal = selectedPointOrdinal();
-  if (ordinal == null) {
-    const readings = resolveScoreReadings(job);
-    return {
-      kind: 'whole-house',
-      readings,
-      notice: null,
-      validation: S.lastReadingsValidation || null,
-      rawReadings: { ...(S.lastReadingsPresent || {}) }
-    };
-  }
-  if (S.publicScoreView) {
-    if (!Array.isArray(job?.result?.pointReadings)) {
-      return { kind: 'history-unavailable', readings: {}, notice: 'history-unavailable', validation: null, rawReadings: {} };
-    }
-    const point = frozenPointEntry(job, ordinal);
-    if (!point || point.readings == null || typeof point.readings !== 'object') {
-      return { kind: 'point-unavailable', readings: {}, notice: 'point-unavailable', validation: null, rawReadings: {} };
-    }
-    const sanitized = sanitizeOwnReadings(point.readings);
-    const rawReadings = { ...(sanitized.present || {}) };
-    if (!Object.keys(sanitized.readings).length) {
-      return { kind: 'point-unavailable', readings: {}, notice: 'point-unavailable', validation: sanitized.validation, rawReadings };
-    }
-    return { kind: 'point', readings: sanitized.readings, notice: null, validation: sanitized.validation, rawReadings };
-  }
-  const own = resolveOwnPointReadings(job, ordinal);
-  const rawReadings = { ...(own.present || {}) };
-  if (!own.readings) {
-    return { kind: 'point-unavailable', readings: {}, notice: 'point-unavailable', validation: own.validation, rawReadings };
-  }
-  return { kind: 'point', readings: own.readings, notice: null, validation: own.validation, rawReadings };
-}
-
-function unavailableGauge(standardKey, source) {
-  return {
-    score: null,
-    source,
-    standardKey,
-    engineKey: standardKey,
-    showScore: false,
-    comparison: null,
-    classifications: null
-  };
-}
-
-function finiteCountryScore(comparison) {
-  const raw = comparison?.score;
-  return raw != null && Number.isFinite(Number(raw)) ? Number(raw) : null;
-}
-
-/** Staff and Full Assessment both land here for the selected point and country. */
-function applyGaugePopulation(standardKey) {
-  const registry = benchmarkRegistry();
-  const key = registry?.has?.(standardKey) ? standardKey : DEFAULT_SCORE_STANDARD_KEY;
-  const population = populationForGauge(S.activeJob);
-  S.scorePointNotice = population.notice;
-  // Always replace the display context. A missing validation object means this
-  // population has none; keeping the previous object's fields would paint
-  // another point's implausible raw value onto an empty point.
-  S.lastReadingsValidation = population.validation || null;
-  S.lastReadingsPresent = population.rawReadings || {};
-  if (population.kind === 'history-unavailable') {
-    S.comparisonScoreResult = getCountryBenchmarkScore({}, key);
-    S.displayedScore = unavailableGauge(key, 'point-history-unavailable');
-    return;
-  }
-  if (population.kind === 'whole-house') {
-    S.comparisonScoreResult = getCountryBenchmarkScore(population.readings, key);
-    S.displayedScore = resolveDisplayedScore({
-      publicView: Boolean(S.publicScoreView),
-      publishedScore: S.currentScoreResult?.score,
-      readings: population.readings,
-      standardKey: key
-    });
-    return;
-  }
-  const comparison = getCountryBenchmarkScore(population.readings, key);
-  const score = finiteCountryScore(comparison);
-  S.comparisonScoreResult = comparison;
-  S.displayedScore = {
-    score,
-    source: 'country-benchmark',
-    standardKey: comparison.standardKey,
-    engineKey: comparison.engineKey,
-    showScore: score != null,
-    comparison,
-    classifications: comparison.classifications || null
-  };
-  if (score == null) S.scorePointNotice = 'point-unavailable';
-}
-
-function rowsForScorePopulation(context = getScoreEvalContext()) {
-  if (selectedPointOrdinal() != null) {
-    const readings = S.scorePointNotice ? {} : (S.comparisonScoreResult?.readings || {});
-    return buildMetricRowsForReadings(readings, context);
-  }
-  const key = !S.scoreTapFilter || S.scoreTapFilter === 'all' ? 'all' : S.scoreTapFilter;
-  return scoreTapRows(key, context);
-}
-
-/** Location filter now lives only in the hero row (removed from the duplicate below). */
+/** One option per inspection point. The overall score stays on the card above. */
 function renderLocationSelect() {
-  const choices = pointChoices();
+  const taps = S.taps?.length ? S.taps : [];
   const pairs = [
     ['score-room-select-wrap-top', 'score-room-select-top']
   ];
 
-  if (choices.length <= 1) {
+  if (!taps.length) {
     pairs.forEach(([wrapId]) => document.getElementById(wrapId)?.classList.add('hidden'));
     return;
   }
 
-  const allLabel = `${t('score.allLocations')} (${choices.length})`;
-  const selected = selectedPointOrdinal() == null ? 'all' : String(selectedPointOrdinal());
-  const options = [{ key: 'all', label: allLabel }, ...choices.map((choice) => ({ key: String(choice.ordinal), label: choice.label }))];
-  const optionsHtml = options.map(opt =>
-    `<option value="${opt.key}"${selected === opt.key ? ' selected' : ''}>${opt.label}</option>`
+  const selected = scorePointFilter();
+  const optionsHtml = taps.map(tap =>
+    `<option value="${escapeScoreText(tap)}"${selected === tap ? ' selected' : ''}>${escapeScoreText(tap)}</option>`
   ).join('');
 
   pairs.forEach(([wrapId, selectId]) => {
@@ -1936,28 +2292,54 @@ function renderLocationSelect() {
     if (!wrap || !selectEl) return;
     wrap.classList.remove('hidden');
     selectEl.innerHTML = optionsHtml;
-    selectEl.value = selected;
-    selectEl.onchange = () => setScorePointOrdinal(selectEl.value === 'all' ? null : Number(selectEl.value));
+    selectEl.onchange = () => setScoreTapFilter(selectEl.value);
   });
 }
 
-function setScorePointOrdinal(ordinal) {
-  S.scorePointOrdinal = Number.isInteger(ordinal) && ordinal >= 0 ? ordinal : null;
-  const choice = pointChoices().find((item) => item.ordinal === S.scorePointOrdinal);
-  S.scoreTapFilter = S.scorePointOrdinal == null ? 'all' : (choice ? choice.label : 'all');
-  S._scorePhotoAutoSynced = false;
-  renderScoreDisplay();
+/**
+ * Readings passed into the existing country engine.
+ * 'all', or a case with one location, keeps resolveScoreReadings (whole house).
+ * A selected zone passes only that zone's own measurements.
+ * An empty zone passes {} so the engine stays incomplete. It never receives the house pool.
+ */
+function readingsForCountryBenchmark(job = S.activeJob) {
+  const filter = S.scoreTapFilter;
+  const taps = (Array.isArray(S.taps) && S.taps.length)
+    ? S.taps
+    : (Array.isArray(job?.draft?.taps) ? job.draft.taps : []);
+  if (!filter || filter === 'all' || taps.length <= 1) return resolveScoreReadings(job);
+
+  const tapData = resolveJobTapDataForScore(job) || [];
+  const index = taps.indexOf(filter);
+  const tap = index >= 0 ? tapData[index] : null;
+  if (!tap || !hasTapReadingSource(tap)) return {};
+  return getRoomReadings(filter);
+}
+
+/** Recompute the country comparison for the current filter. Does not touch Quality or publication. */
+function applyCountryBenchmarkPopulation(job = S.activeJob) {
+  const standardKey = benchmarkRegistry()?.has?.(S.scoreStandardKey)
+    ? S.scoreStandardKey
+    : DEFAULT_SCORE_STANDARD_KEY;
+  const countryReadings = readingsForCountryBenchmark(job);
+  S.comparisonScoreResult = getCountryBenchmarkScore(countryReadings, standardKey);
+  const frozenScore = S.publicScoreView ? publishedWaterScore(job) : null;
+  const qualityScore = S.currentScoreResult?.computedScore;
+  S.displayedScore = staffHeroForPopulation(resolveDisplayedScore({
+    publicView: Boolean(S.publicScoreView),
+    publishedScore: frozenScore,
+    qualityScore: qualityScore != null && qualityScore !== '' ? qualityScore : S.currentScoreResult?.score,
+    readings: countryReadings,
+    standardKey
+  }));
+  return S.comparisonScoreResult;
 }
 
 function setScoreTapFilter(key) {
-  if (key === 'all' || key == null || key === '') {
-    setScorePointOrdinal(null);
-    return;
-  }
-  const ordinal = /^\d+$/.test(String(key)) ? Number(key) : NaN;
-  if (Number.isInteger(ordinal) && pointChoices().some((choice) => choice.ordinal === ordinal)) {
-    setScorePointOrdinal(ordinal);
-  }
+  S.scoreTapFilter = key;
+  S._scorePhotoAutoSynced = false;
+  applyCountryBenchmarkPopulation();
+  renderScoreDisplay();
 }
 
 let sharingScore = false;
@@ -2033,25 +2415,22 @@ function updateShareScoreAvailability({ eligibility, alreadyPublished, showScore
 }
 
 /**
- * A report link in its package-specific form: /score/{token} for a Full
- * Assessment, /card/{token} for Essential. The server also accepts the older
- * /r/{token} form and redirects it, so this only changes what is passed on.
+ * Full Assessment vs Essential — job.pkg, the same signal the server uses to
+ * route /r/{token} (case-flow-routes.js:isFreeInspectionJob).
  */
-function reportLinkForPackage(reportUrl, isFull) {
-  return String(reportUrl || '').replace(/\/r\/([^/?#]+)/, `/${isFull ? 'score' : 'card'}/$1`);
+function isFullAssessmentJob(job) {
+  return String(job?.pkg || 'essential').trim() === 'full';
 }
 
 /**
  * Shared fallback cascade used by both shareScore() and sharePublicReport():
  * share the PNG as a file, else share the link, else copy it to clipboard.
  * Keeping this in one place is what stops the two callers from drifting.
- * onReady fires once the link / image is in hand, just before the share sheet
- * opens, so the caller can stop showing a "preparing" state while it is open.
+ * shareCard=false skips the PNG: a Full Assessment shares its Water Score
+ * page link, never the Essential poster image.
  */
-async function shareScoreResult({ reportToken, reportUrl, title, text, wholePage = false, onReady }) {
-  // Full package shares the whole Water Score page link; free shares the score card.
-  const file = wholePage ? null : await shareScoreCardImage({ reportToken, title, text });
-  if (typeof onReady === 'function') onReady();
+async function shareScoreResult({ reportToken, reportUrl, title, text, shareCard = true }) {
+  const file = shareCard ? await shareScoreCardImage({ reportToken, title, text }) : null;
   if (file && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title, text });
@@ -2063,15 +2442,8 @@ async function shareScoreResult({ reportToken, reportUrl, title, text, wholePage
   }
 
   if (navigator.share) {
-    try {
-      await navigator.share({ title, text, url: reportUrl });
-      return 'url';
-    } catch (error) {
-      if (error?.name === 'AbortError') throw error;
-      // The browser refuses to open its share sheet once the click is too old
-      // (e.g. publishing took several seconds). Copy the link instead of failing.
-      console.warn('URL share failed, copying the link instead', error);
-    }
+    await navigator.share({ title, text, url: reportUrl });
+    return 'url';
   }
 
   await navigator.clipboard.writeText(reportUrl);
@@ -2103,8 +2475,7 @@ async function shareScore() {
       return;
     }
   }
-  const publishRequest = resolvePublishScoreRequest(job);
-  if (publishRequest.score === null) {
+  if (!Number.isFinite(Number(S.scoreVal))) {
     showToast('Please calculate the Water Score first');
     return;
   }
@@ -2125,9 +2496,13 @@ async function shareScore() {
       },
       credentials: 'same-origin',
       body: JSON.stringify({
-        ...publishRequest,
+        score: Number(S.scoreVal),
+        complianceStatus: S.currentScoreResult?.complianceStatus || null,
         intent,
-        idempotencyKey
+        idempotencyKey,
+        modelVersion: (!alreadyPublished && typeof QUALITY_SCORE_ENGINE_VERSION !== 'undefined')
+          ? QUALITY_SCORE_ENGINE_VERSION
+          : undefined
       })
     });
     const result = await response.json();
@@ -2137,26 +2512,17 @@ async function shareScore() {
     job.result = {
       ...(job.result || {}),
       waterScore: result.score,
-      scoreType: result.scoreType || job.result?.scoreType,
-      standardKey: result.standardKey || job.result?.standardKey,
-      complianceStatus: result.complianceStatus || job.result?.complianceStatus || null,
+      complianceStatus: S.currentScoreResult?.complianceStatus || job.result?.complianceStatus || null,
       reportUrl: result.reportUrl,
       publicReportToken: result.reportToken
     };
 
-    const isFull = (job.draft?.pkg || job.pkg || 'essential') === 'full';
     const outcome = await shareScoreResult({
       reportToken: result.reportToken,
-      reportUrl: reportLinkForPackage(result.reportUrl, isFull),
+      reportUrl: result.reportUrl,
       title: 'Water Motion - Water Score',
       text: `ผล Water Score ของคุณ: ${result.score}/100`,
-      wholePage: isFull,
-      // The link is ready: stop "Preparing…" before the share sheet opens.
-      onReady: () => {
-        sharingScore = false;
-        setShareButtonLoading(false);
-        showToast(t('score.toast.linkReady'));
-      }
+      shareCard: !isFullAssessmentJob(job)
     });
     showToast(outcome === 'clipboard' ? 'Score link copied - share with client' : 'Score shared');
   } catch (error) {
@@ -2171,7 +2537,7 @@ async function shareScore() {
 
 function completeScore() {
   S.stepsDone.score = true;
-  saveActiveJobState();
-  renderJobSteps();
-  goScreen('s-dash');
+  if (typeof saveActiveJobState === 'function') saveActiveJobState();
+  if (typeof renderJobSteps === 'function') renderJobSteps();
+  if (typeof goScreen === 'function') goScreen('s-dash');
 }

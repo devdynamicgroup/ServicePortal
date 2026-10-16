@@ -38,8 +38,7 @@ function configurePublicScoreChrome() {
     shareBtn.onclick = sharePublicReport;
   }
 
-  // Public report is read-only: no Give Feedback / Google Review footer.
-  document.querySelector('#s-score .foot')?.classList.add('hidden');
+  document.querySelector('#s-score .foot')?.classList.remove('hidden');
 }
 
 async function sharePublicReport() {
@@ -58,8 +57,7 @@ async function sharePublicReport() {
       text,
       // This page is only ever served for a Full Assessment (the server sends
       // Essential Cases the poster instead), so Share passes on this page's link.
-      wholePage: true,
-      onReady: () => { sharingPublicReport = false; setShareButtonLoading(false); }
+      shareCard: false
     });
     showToast(outcome === 'clipboard' ? 'Score link copied' : 'Score shared');
   } catch (error) {
@@ -107,7 +105,7 @@ async function initPublicReport() {
   }
 
   try {
-    S.lang = localStorage.getItem('wm-lang') || 'th';
+    S.lang = 'en';
     if (typeof applyI18n === 'function') applyI18n(S.lang);
 
     // Prefer embedded report for first paint (no empty flash while waiting on fetch).

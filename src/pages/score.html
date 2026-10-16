@@ -9,17 +9,7 @@
     <section class="score-report" id="score-hero">
       <div class="score-report-inner score-reveal">
         <div class="score-summary-card">
-          <div class="score-report-filters score-report-filters-top">
-            <div class="score-location-row">
-              <div class="score-select-wrap" id="score-room-select-wrap-top">
-                <select class="score-select" id="score-room-select-top" aria-label="Location"></select>
-              </div>
-            </div>
-            <div class="score-benchmark-row">
-              <label class="score-benchmark-label" for="score-standard-select-top" data-i18n="score.benchmark">Benchmark</label>
-              <select class="score-select" id="score-standard-select-top" aria-label="Reference standard"></select>
-            </div>
-          </div>
+          <p class="score-context-line" id="score-context-line" hidden></p>
           <div class="score-summary-head">
             <div class="score-summary-score" id="score-summary-score">
               <span class="score-summary-num" id="gauge-val">—</span>
@@ -30,27 +20,35 @@
             </div>
             <div class="score-summary-meta">
               <span class="score-summary-count" id="score-indicator-count">7 <span data-i18n="score.indicators">Indicators</span></span>
-              <span class="score-summary-badge" id="score-summary-band">—</span>
             </div>
           </div>
           <p class="score-hero-source" id="score-hero-source" hidden></p>
+          <p class="score-published-line" id="score-published-line" hidden></p>
           <p class="score-compliance-line" id="score-compliance-line" hidden></p>
+          <p class="score-benchmark-line" id="score-benchmark-line" hidden></p>
+          <div class="score-room-status" id="score-room-status" hidden></div>
 
-          <div class="score-progress" id="score-status-bar" role="img" aria-label="Water Score level">
-            <div class="score-progress-segments" aria-hidden="true">
-              <span class="score-seg" data-from="0" data-to="50"><i class="score-seg-fill" id="score-seg-fill-0"></i></span>
-              <span class="score-seg" data-from="50" data-to="80"><i class="score-seg-fill" id="score-seg-fill-1"></i></span>
-              <span class="score-seg" data-from="80" data-to="100"><i class="score-seg-fill" id="score-seg-fill-2"></i></span>
+          <div class="score-dot-block">
+            <div class="score-dot-field" id="score-dot-field">
+              <div class="score-dot-rows" id="score-dot-rows"></div>
+              <span class="score-summary-badge" id="score-summary-band">—</span>
             </div>
-            <i class="score-bar-overlay" id="score-bar-overlay" aria-hidden="true"></i>
-            <div class="score-progress-indeterminate" aria-hidden="true"></div>
-            <span class="score-progress-knob" id="score-progress-knob" aria-hidden="true"></span>
-          </div>
-          <div class="score-progress-ticks" aria-hidden="true">
-            <span class="tick-0">0</span>
-            <span class="tick-50" id="score-tick-thai">50 &middot; Thai</span>
-            <span class="tick-80" id="score-tick-intl">80 &middot; Int'l</span>
-            <span class="tick-100">100</span>
+            <div class="score-progress" id="score-status-bar" role="img" aria-label="Water Score level">
+              <div class="score-progress-segments" aria-hidden="true">
+                <span class="score-seg" data-from="0" data-to="50"><i class="score-seg-fill" id="score-seg-fill-0"></i></span>
+                <span class="score-seg" data-from="50" data-to="80"><i class="score-seg-fill" id="score-seg-fill-1"></i></span>
+                <span class="score-seg" data-from="80" data-to="100"><i class="score-seg-fill" id="score-seg-fill-2"></i></span>
+              </div>
+              <div class="score-progress-indeterminate" aria-hidden="true"></div>
+              <span class="score-progress-knob" id="score-progress-knob" aria-hidden="true"></span>
+            </div>
+            <div class="score-progress-ticks" aria-hidden="true">
+              <span class="tick-0">0</span>
+              <span class="tick-50" id="score-tick-thai">50 &middot; Thai</span>
+              <span class="tick-live" id="score-tick-live" hidden></span>
+              <span class="tick-80" id="score-tick-intl">80 &middot; intl</span>
+              <span class="tick-100">100</span>
+            </div>
           </div>
 
           <p class="score-summary-note" id="score-summary-note"></p>
@@ -66,26 +64,31 @@
           </div>
         </div>
 
+        <section class="score-standards" id="score-standards" hidden>
+          <div class="score-standards-head">
+            <span data-i18n="score.yourWater">Your water</span>
+            <span data-i18n="score.vsStandards">vs international standards</span>
+          </div>
+          <div id="score-standards-list"></div>
+        </section>
+
         <div class="score-content-panel">
+          <p class="score-current-assessment" id="score-current-assessment" hidden></p>
+          <div class="score-report-filters">
+            <div class="score-location-row">
+              <div class="score-select-wrap" id="score-room-select-wrap-top">
+                <select class="score-select" id="score-room-select-top" aria-label="Location"></select>
+              </div>
+            </div>
+            <div class="score-benchmark-row">
+              <label class="score-benchmark-label" for="score-standard-select" data-i18n="score.benchmark">Benchmark</label>
+              <select class="score-select" id="score-standard-select" aria-label="Reference standard"></select>
+            </div>
+          </div>
+          <select class="score-select" id="score-standard-select-top" hidden aria-hidden="true" tabindex="-1"></select>
+
           <p class="score-params-scope" id="score-params-scope" hidden data-i18n="score.paramsOverall">Overall average across taps</p>
           <div class="score-metric-list" id="score-readings-rows"></div>
-
-          <section class="score-improve" id="score-improve-section" hidden>
-            <h2 class="score-improve-title">
-              <span id="score-improve-heading" data-i18n="score.improveTitle">Room to improve</span>
-              <span id="score-improve-count"></span>
-            </h2>
-            <div id="score-improve-list" class="score-improve-list"></div>
-          </section>
-
-          <section class="score-all-good" id="score-all-good" hidden>
-            <div class="score-all-good-card">
-              <span class="score-all-good-icon" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </span>
-              <span class="score-all-good-text" id="score-all-good-text">All indicators at international-level quality</span>
-            </div>
-          </section>
 
           <section class="score-bottom-media" aria-label="Room photos">
             <div class="score-photo-carousel" id="score-photo-carousel" hidden>
@@ -98,16 +101,54 @@
               <span class="score-photo-placeholder-text" id="score-photo-placeholder-text">Photos will appear once captured</span>
             </div>
           </section>
-
           <div class="score-photo-dots" id="score-photo-dots" hidden></div>
         </div>
+
+        <h2 class="score-next-title" id="score-whats-next" hidden data-i18n="score.whatsNext">What’s next</h2>
+
+        <section class="score-all-good" id="score-all-good" hidden>
+          <div class="score-all-good-card">
+            <span class="score-all-good-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <span class="score-all-good-text" id="score-all-good-text">All indicators at international-level quality</span>
+          </div>
+        </section>
+
+        <section class="score-improve" id="score-improve-section" hidden>
+          <h2 class="score-improve-title">
+            <span id="score-improve-heading" data-i18n="score.improveTitle">Room to improve</span>
+            <span id="score-improve-count"></span>
+          </h2>
+          <div id="score-improve-list" class="score-improve-list"></div>
+        </section>
+
+        <button class="score-upgrade" id="score-upgrade-card" type="button" hidden onclick="if (typeof showPkgSheet === 'function') showPkgSheet()">
+          <p class="score-context-line" id="score-upgrade-kicker" data-i18n="score.upgrade.title">Whole-House Upgrade</p>
+          <div class="score-summary-score">
+            <span class="score-summary-num" id="score-upgrade-val">—</span>
+            <span class="score-summary-den">/100</span>
+          </div>
+          <div class="score-dot-block">
+            <div class="score-dot-field" id="score-upgrade-dots">
+              <div class="score-dot-rows" id="score-upgrade-dot-rows"></div>
+              <span class="score-summary-badge" id="score-upgrade-band">—</span>
+            </div>
+            <div class="score-progress-ticks" aria-hidden="true">
+              <span class="tick-live" id="score-upgrade-tick" hidden></span>
+              <span class="tick-80">80 &middot; intl</span>
+            </div>
+          </div>
+          <p class="score-summary-note" id="score-upgrade-note"></p>
+          <div class="score-shift-list" id="score-upgrade-list"></div>
+        </button>
 
       </div>
     </section>
   </div>
 
   <div class="foot">
-    <button class="btn btn-secondary btn-draft" type="button" onclick="showPkgSheet()" data-i18n="common.upgrade">Upgrade</button>
+    <button class="btn btn-secondary btn-draft" type="button" onclick="if (typeof showPkgSheet === 'function') showPkgSheet()" data-i18n="common.upgrade">Upgrade</button>
     <button class="btn btn-primary" type="button" onclick="completeScore()" data-i18n="common.complete">Complete</button>
   </div>
 </div>
