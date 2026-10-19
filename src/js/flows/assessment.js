@@ -1234,49 +1234,57 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
   const queueKey = `${driveQueueKey('meter', tapIndex)}:${imageId}`;
   const existing = entry.photo;
 
-  // Already uploaded for THIS capture — skip. A new dataUrl must always upload.
-  if (DrivePhoto.isUploaded(existing) && resolveCaptureDataUrl(existing) === dataUrl) {
-    await DrivePhoto.dequeue?.(queueKey);
+  // Same in-flight capture — do not start a second POST for this operation.
+  if (existing?.uploading && existing?.uploadOp && resolveCaptureDataUrl(existing) === dataUrl) {
     return existing;
   }
 
-  // Live upload in progress for the same capture — do not start a second POST.
-  if (existing?.uploading && resolveCaptureDataUrl(existing) === dataUrl) {
+  // Already uploaded for THIS capture — skip. A preserved previous fileId
+  // plus a new preview must still upload.
+  if (sameCaptureAlreadyStored(existing, dataUrl)) {
+    await DrivePhoto.dequeue?.(queueKey);
     return existing;
   }
-
-  const compressed = await DrivePhoto.compress(dataUrl);
-
-  // Re-check after async compress (flush/retry may have finished meanwhile).
-  const latestEntry = images.find(img => img.id === imageId);
-  const latest = latestEntry?.photo;
-  if (DrivePhoto.isUploaded(latest) && resolveCaptureDataUrl(latest) === compressed) {
-    await DrivePhoto.dequeue?.(queueKey);
-    return latest;
-  }
-  if (latest?.uploading && resolveCaptureDataUrl(latest) === compressed) {
-    return latest;
-  }
-  if (!latestEntry) return null;
 
   const category = typeof DrivePhoto.resolveClientCategory === 'function'
     ? DrivePhoto.resolveClientCategory('meter', 'image/jpeg')
     : 'Site Inspection';
-
-  latestEntry.photo = {
+  const previous = committedPhotoFields(existing);
+  const uploadOp = nextPhotoUploadOp();
+  const owns = () => {
+    const current = S.tapData[tapIndex]?.meterImages?.find(img => img.id === imageId)?.photo;
+    return photoUploadOwns(current, uploadOp);
+  };
+  entry.photo = {
+    ...(previous || {}),
     uploading: true,
-    previewUrl: compressed,
+    uploadOp,
+    previewUrl: dataUrl,
     folder: 'main',
     purpose: 'meter',
     category,
     subCategory: imageId,
     notionId: customer.notionId,
-    uploadedAt: null,
     jobId,
-    pendingAutoRetry: false
+    pendingAutoRetry: false,
+    replacing: false,
+    uploadError: null,
+    uploadErrorCode: null
   };
   syncMeterThumbFromSession(tap);
   saveActiveJobState?.();
+
+  let compressed = dataUrl;
+  try {
+    compressed = await DrivePhoto.compress(dataUrl);
+  } catch (error) {
+    if (!owns()) return S.tapData[tapIndex]?.meterImages?.find(img => img.id === imageId)?.photo || null;
+    compressed = dataUrl;
+    return finishMeterUploadFailure(error);
+  }
+  if (!owns()) return S.tapData[tapIndex]?.meterImages?.find(img => img.id === imageId)?.photo || null;
+  const owned = S.tapData[tapIndex].meterImages.find(img => img.id === imageId);
+  if (owned?.photo) owned.photo.previewUrl = compressed;
 
   try {
     const meta = await DrivePhoto.uploadOnce({
@@ -1287,32 +1295,51 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
       subCategory: imageId,
       uploadType: imageId,
       contentType: 'image/jpeg',
-      inflightKey: `main:meter:${tapIndex}:${imageId}`,
+      inflightKey: `main:meter:${tapIndex}:${imageId}:${uploadOp}`,
       jobId,
       notionId: customer.notionId,
       customerName: customer.customerName,
       customerFolderId: customer.customerFolderId
     });
-    latestEntry.photo = buildStoredDrivePhotoMeta(meta, { purpose: 'meter', previewUrl: compressed });
+    if (!owns()) return S.tapData[tapIndex]?.meterImages?.find(img => img.id === imageId)?.photo || null;
+    const currentEntry = S.tapData[tapIndex].meterImages.find(img => img.id === imageId);
+    currentEntry.photo = buildStoredDrivePhotoMeta(meta, { purpose: 'meter', previewUrl: compressed });
     syncMeterThumbFromSession(tap);
     await DrivePhoto.dequeue?.(queueKey);
     saveActiveJobState?.();
     renderAssessList();
     renderMeterThumbnailRow();
-    return latestEntry.photo;
+    return currentEntry.photo;
   } catch (error) {
-    if (error?.code === 'UPLOAD_IN_FLIGHT') return latestEntry.photo;
-    console.warn('Meter session Drive upload failed', error);
-    latestEntry.photo = markDriveUploadFailed({
-      previewUrl: compressed,
-      folder: 'main',
-      purpose: 'meter',
-      category,
-      subCategory: imageId,
-      notionId: customer.notionId,
-      jobId
-    }, error);
-    if (DrivePhoto.isRetryableError?.(error)) {
+    if (!owns()) return S.tapData[tapIndex]?.meterImages?.find(img => img.id === imageId)?.photo || null;
+    return finishMeterUploadFailure(error);
+  }
+
+  async function finishMeterUploadFailure(error) {
+    const inFlight = error?.code === 'UPLOAD_IN_FLIGHT';
+    if (!inFlight) console.warn('Meter session Drive upload failed', error);
+    const retryable = !inFlight && Boolean(DrivePhoto.isRetryableError?.(error));
+    const failed = previous
+      ? {
+        ...previous,
+        uploading: false,
+        previewUrl: compressed,
+        uploadError: error.message || 'Upload failed',
+        uploadErrorCode: error.code || null,
+        pendingAutoRetry: retryable
+      }
+      : markDriveUploadFailed({
+        previewUrl: compressed,
+        folder: 'main',
+        purpose: 'meter',
+        category,
+        subCategory: imageId,
+        notionId: customer.notionId,
+        jobId
+      }, error);
+    const currentEntry = S.tapData[tapIndex]?.meterImages?.find(img => img.id === imageId);
+    if (currentEntry) currentEntry.photo = failed;
+    if (!inFlight && DrivePhoto.isRetryableError?.(error)) {
       await DrivePhoto.enqueue?.({
         queueKey,
         jobId,
@@ -1331,11 +1358,12 @@ async function uploadMeterSessionImage(tapIndex, imageId, dataUrl) {
     saveActiveJobState?.();
     renderAssessList();
     renderMeterThumbnailRow();
-    // Backup-only message — never imply OCR failed (OCR already finished above).
-    showToast(
-      typeof t === 'function' ? t('photo.backupFailed') : 'Photo backup failed.'
-    );
-    return latestEntry.photo;
+    if (!inFlight) {
+      showToast(
+        typeof t === 'function' ? t('photo.backupFailed') : 'Photo backup failed.'
+      );
+    }
+    return failed;
   }
 }
 
@@ -2129,24 +2157,27 @@ function resolveCaptureDataUrl(photoOrSrc) {
   return '';
 }
 
+function photoOperationStillInFlight(photo) {
+  const uploadOp = photo?.uploadOp;
+  if (!uploadOp || typeof DrivePhoto === 'undefined' || typeof DrivePhoto.operationInFlight !== 'function') {
+    return false;
+  }
+  return Boolean(DrivePhoto.operationInFlight(uploadOp));
+}
+
 function normalizeInterruptedPhoto(photo) {
   if (!photo || typeof photo !== 'object') return photo;
-  if (photo.fileId) return photo;
-  // Upload abandoned mid-flight (reload) — keep preview and allow retry.
-  // Skip while a live in-page upload is still running (screen switch must not mark failed).
-  if (photo.uploading && photo.previewUrl) {
-    if (typeof DrivePhoto !== 'undefined' && DrivePhoto.hasInflight?.()) {
-      return photo;
-    }
-    return {
-      ...photo,
-      uploading: false,
-      uploadError: photo.uploadError || 'Upload interrupted',
-      uploadErrorCode: photo.uploadErrorCode || 'NETWORK_ERROR',
-      pendingAutoRetry: photo.pendingAutoRetry !== false
-    };
-  }
-  return photo;
+  // Only this photo's uploadOnce key keeps the attempt. A different slot,
+  // or a compress that has not reached Drive, does not.
+  if (!photo.uploading || photoOperationStillInFlight(photo)) return photo;
+  return {
+    ...photo,
+    uploading: false,
+    uploadOp: null,
+    uploadError: photo.previewUrl ? (photo.uploadError || 'Upload interrupted') : photo.uploadError,
+    uploadErrorCode: photo.previewUrl ? (photo.uploadErrorCode || 'NETWORK_ERROR') : photo.uploadErrorCode,
+    pendingAutoRetry: photo.previewUrl ? photo.pendingAutoRetry !== false : photo.pendingAutoRetry
+  };
 }
 
 function applyDriveContentSrc(img, photoOrUrl, fallbackDataUrl) {
@@ -2199,6 +2230,34 @@ function buildStoredDrivePhotoMeta(meta, { purpose, previewUrl } = {}) {
   };
 }
 
+function committedPhotoFields(photo) {
+  if (typeof AssessmentSnapshot !== 'undefined' && typeof AssessmentSnapshot.committedPhotoFields === 'function') {
+    return AssessmentSnapshot.committedPhotoFields(photo);
+  }
+  return null;
+}
+
+function nextPhotoUploadOp() {
+  return `upl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function photoUploadOwns(photo, uploadOp) {
+  return Boolean(photo && uploadOp && photo.uploadOp === uploadOp);
+}
+
+/** True only when this data URL is already the stored capture, not a previous file kept during replacement. */
+function sameCaptureAlreadyStored(photo, dataUrl) {
+  return Boolean(
+    photo
+    && typeof DrivePhoto !== 'undefined'
+    && DrivePhoto.isUploaded(photo)
+    && !photo.replacing
+    && !photo.uploadError
+    && !photo.pendingAutoRetry
+    && resolveCaptureDataUrl(photo) === dataUrl
+  );
+}
+
 function markDriveUploadFailed(photoBase, error) {
   const retryable = typeof DrivePhoto !== 'undefined' && DrivePhoto.isRetryableError?.(error);
   return {
@@ -2238,43 +2297,52 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
   const jobId = customer.jobId;
   const queueKey = driveQueueKey(taskKey, tapIndex);
 
-  // Already uploaded for THIS capture — skip. A new dataUrl must always upload.
-  if (DrivePhoto.isUploaded(existing) && resolveCaptureDataUrl(existing) === dataUrl) {
+  // Same in-flight capture — do not start a second POST for this operation.
+  if (existing?.uploading && existing?.uploadOp && resolveCaptureDataUrl(existing) === dataUrl) {
+    return existing;
+  }
+
+  // Already uploaded for THIS capture — skip. A preserved previous fileId
+  // plus a new preview must still upload (photo.replacing).
+  if (sameCaptureAlreadyStored(existing, dataUrl)) {
     await DrivePhoto.dequeue?.(queueKey);
     return existing;
   }
 
-  // Live upload in progress for the same capture — do not start a second POST.
-  if (existing?.uploading && resolveCaptureDataUrl(existing) === dataUrl) {
-    return existing;
-  }
-
-  const compressed = await DrivePhoto.compress(dataUrl);
-
-  // Re-check after async compress (flush/retry may have finished meanwhile).
-  const latest = S.tapData[tapIndex]?.photos?.[taskKey];
-  if (DrivePhoto.isUploaded(latest) && resolveCaptureDataUrl(latest) === compressed) {
-    await DrivePhoto.dequeue?.(queueKey);
-    return latest;
-  }
-  if (latest?.uploading && resolveCaptureDataUrl(latest) === compressed) {
-    return latest;
-  }
-
+  const previous = committedPhotoFields(existing);
+  const uploadOp = nextPhotoUploadOp();
+  const owns = () => photoUploadOwns(S.tapData[tapIndex]?.photos?.[taskKey], uploadOp);
   photos[taskKey] = {
+    ...(previous || {}),
     uploading: true,
-    previewUrl: compressed,
+    uploadOp,
+    previewUrl: dataUrl,
     folder: 'main',
     purpose: taskKey,
     category,
     subCategory,
     notionId: customer.notionId,
-    uploadedAt: null,
     jobId,
-    pendingAutoRetry: false
+    pendingAutoRetry: false,
+    replacing: false,
+    uploadError: null,
+    uploadErrorCode: null
   };
   setPhotoUploadUi(previewId, 'uploading');
   saveActiveJobState?.();
+
+  let compressed = dataUrl;
+  try {
+    compressed = await DrivePhoto.compress(dataUrl);
+  } catch (error) {
+    if (!owns()) return S.tapData[tapIndex]?.photos?.[taskKey] || null;
+    compressed = dataUrl;
+    return finishTaskUploadFailure(error);
+  }
+  if (!owns()) return S.tapData[tapIndex]?.photos?.[taskKey] || null;
+  if (S.tapData[tapIndex]?.photos?.[taskKey]) {
+    S.tapData[tapIndex].photos[taskKey].previewUrl = compressed;
+  }
 
   try {
     const meta = await DrivePhoto.uploadOnce({
@@ -2285,17 +2353,18 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
       subCategory,
       uploadType: subCategory,
       contentType: 'image/jpeg',
-      inflightKey: `main:${taskKey}:${tapIndex}`,
+      inflightKey: `main:${taskKey}:${tapIndex}:${uploadOp}`,
       jobId,
       notionId: customer.notionId,
       customerName: customer.customerName,
       customerFolderId: customer.customerFolderId
     });
 
+    // A later selection replaces uploadOp. This response must not land on it.
+    // The Drive file from this request, if already created, is left in place.
+    if (!owns()) return S.tapData[tapIndex]?.photos?.[taskKey] || null;
     const stored = buildStoredDrivePhotoMeta(meta, { purpose: taskKey, previewUrl: compressed });
-
-    // Write back to the tap that started the upload (user may have switched taps).
-    if (S.tapData[tapIndex]?.photos) S.tapData[tapIndex].photos[taskKey] = stored;
+    S.tapData[tapIndex].photos[taskKey] = stored;
     setPhotoUploadUi(previewId, 'ok');
     applyDriveContentSrc(document.getElementById(previewId), stored, compressed);
     await DrivePhoto.dequeue?.(queueKey);
@@ -2303,19 +2372,37 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
     renderAssessList();
     return stored;
   } catch (error) {
-    if (error?.code === 'UPLOAD_IN_FLIGHT') return S.tapData[tapIndex]?.photos?.[taskKey];
-    console.warn('Drive upload failed', error);
-    const failed = markDriveUploadFailed({
-      previewUrl: compressed,
-      folder: 'main',
-      purpose: taskKey,
-      category,
-      subCategory,
-      notionId: customer.notionId,
-      jobId
-    }, error);
+    if (!owns()) return S.tapData[tapIndex]?.photos?.[taskKey] || null;
+    return finishTaskUploadFailure(error);
+  }
+
+  async function finishTaskUploadFailure(error) {
+    const inFlight = error?.code === 'UPLOAD_IN_FLIGHT';
+    if (!inFlight) console.warn('Drive upload failed', error);
+    const retryable = !inFlight && Boolean(DrivePhoto.isRetryableError?.(error));
+    const failed = previous
+      ? {
+        ...previous,
+        uploading: false,
+        previewUrl: compressed,
+        uploadError: error.message || 'Upload failed',
+        uploadErrorCode: error.code || null,
+        pendingAutoRetry: retryable
+      }
+      : markDriveUploadFailed({
+        previewUrl: compressed,
+        folder: 'main',
+        purpose: taskKey,
+        category,
+        subCategory,
+        notionId: customer.notionId,
+        jobId
+      }, error);
     if (S.tapData[tapIndex]?.photos) S.tapData[tapIndex].photos[taskKey] = failed;
-    if (DrivePhoto.isRetryableError?.(error)) {
+    if (previous && !inFlight) {
+      applyDriveContentSrc(document.getElementById(previewId), previous, '');
+    }
+    if (retryable) {
       await DrivePhoto.enqueue?.({
         queueKey,
         jobId,
@@ -2335,20 +2422,25 @@ async function uploadTaskPhotoToDrive(taskKey, previewId, dataUrl) {
     }
     setPhotoUploadUi(previewId, 'failed');
     saveActiveJobState?.();
-    showToast(
-      typeof t === 'function' ? t('photo.backupFailed') : 'Photo backup failed.'
-    );
+    if (!inFlight) {
+      showToast(
+        typeof t === 'function' ? t('photo.backupFailed') : 'Photo backup failed.'
+      );
+    }
     return failed;
   }
 }
 
 async function uploadSlipPhotoToDrive(dataUrl) {
-  if (typeof DrivePhoto === 'undefined') return null;
-  if (DrivePhoto.isUploaded(S.paymentSlipPhoto) && resolveCaptureDataUrl(S.paymentSlipPhoto) === dataUrl) {
-    return S.paymentSlipPhoto;
+  if (!dataUrl || typeof DrivePhoto === 'undefined') return null;
+  const existing = S.paymentSlipPhoto;
+  if (existing?.uploading && existing?.uploadOp && resolveCaptureDataUrl(existing) === dataUrl) {
+    return existing;
   }
-  if (S.paymentSlipPhoto?.uploading && resolveCaptureDataUrl(S.paymentSlipPhoto) === dataUrl) {
-    return S.paymentSlipPhoto;
+  const queueKey = driveQueueKey('payment', 'slip');
+  if (sameCaptureAlreadyStored(existing, dataUrl)) {
+    await DrivePhoto.dequeue?.(queueKey);
+    return existing;
   }
 
   const customer = typeof DrivePhoto.resolveActiveCustomerContext === 'function'
@@ -2360,31 +2452,39 @@ async function uploadSlipPhotoToDrive(dataUrl) {
         customerFolderId: S.activeJob?.drive?.folderId || null
       };
   const jobId = customer.jobId;
-  const queueKey = driveQueueKey('payment', 'slip');
-  const compressed = await DrivePhoto.compress(dataUrl);
-
-  if (DrivePhoto.isUploaded(S.paymentSlipPhoto) && resolveCaptureDataUrl(S.paymentSlipPhoto) === compressed) {
-    await DrivePhoto.dequeue?.(queueKey);
-    return S.paymentSlipPhoto;
-  }
-  if (S.paymentSlipPhoto?.uploading && resolveCaptureDataUrl(S.paymentSlipPhoto) === compressed) {
-    return S.paymentSlipPhoto;
-  }
-
+  const previous = committedPhotoFields(existing);
+  const uploadOp = nextPhotoUploadOp();
+  const owns = () => photoUploadOwns(S.paymentSlipPhoto, uploadOp);
   S.paymentSlipPhoto = {
+    ...(previous || {}),
     uploading: true,
-    previewUrl: compressed,
+    uploadOp,
+    previewUrl: dataUrl,
     folder: 'main',
     purpose: 'payment',
     category: 'Payment',
     subCategory: 'Slip',
     notionId: customer.notionId,
     jobId,
-    pendingAutoRetry: false
+    pendingAutoRetry: false,
+    replacing: false,
+    uploadError: null,
+    uploadErrorCode: null
   };
   S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
   setPhotoUploadUi('slip-preview', 'uploading');
   saveActiveJobState?.();
+
+  let compressed = dataUrl;
+  try {
+    compressed = await DrivePhoto.compress(dataUrl);
+  } catch (error) {
+    if (!owns()) return S.paymentSlipPhoto;
+    compressed = dataUrl;
+    return finishSlipUploadFailure(error);
+  }
+  if (!owns()) return S.paymentSlipPhoto;
+  if (S.paymentSlipPhoto) S.paymentSlipPhoto.previewUrl = compressed;
 
   try {
     const meta = await DrivePhoto.uploadOnce({
@@ -2395,13 +2495,14 @@ async function uploadSlipPhotoToDrive(dataUrl) {
       subCategory: 'Slip',
       uploadType: 'Slip',
       contentType: 'image/jpeg',
-      filename: DrivePhoto.buildFilename('payment-slip'),
-      inflightKey: 'main:payment:slip',
+      filename: DrivePhoto.buildFilename?.('payment-slip'),
+      inflightKey: `main:payment:slip:${uploadOp}`,
       jobId,
       notionId: customer.notionId,
       customerName: customer.customerName,
       customerFolderId: customer.customerFolderId
     });
+    if (!owns()) return S.paymentSlipPhoto;
     S.paymentSlipPhoto = buildStoredDrivePhotoMeta(meta, { purpose: 'payment', previewUrl: compressed });
     setPhotoUploadUi('slip-preview', 'ok');
     applyDriveContentSrc(document.getElementById('slip-preview'), S.paymentSlipPhoto, compressed);
@@ -2409,18 +2510,34 @@ async function uploadSlipPhotoToDrive(dataUrl) {
     saveActiveJobState?.();
     return S.paymentSlipPhoto;
   } catch (error) {
-    if (error?.code === 'UPLOAD_IN_FLIGHT') return S.paymentSlipPhoto;
-    console.warn('Slip Drive upload failed', error);
-    S.paymentSlipPhoto = markDriveUploadFailed({
-      previewUrl: compressed,
-      folder: 'main',
-      purpose: 'payment',
-      category: 'Payment',
-      subCategory: 'Slip',
-      notionId: customer.notionId,
-      jobId
-    }, error);
-    if (DrivePhoto.isRetryableError?.(error)) {
+    if (!owns()) return S.paymentSlipPhoto;
+    return finishSlipUploadFailure(error);
+  }
+
+  async function finishSlipUploadFailure(error) {
+    const inFlight = error?.code === 'UPLOAD_IN_FLIGHT';
+    if (!inFlight) console.warn('Slip Drive upload failed', error);
+    const retryable = !inFlight && Boolean(DrivePhoto.isRetryableError?.(error));
+    const failed = previous
+      ? {
+        ...previous,
+        uploading: false,
+        previewUrl: compressed,
+        uploadError: error.message || 'Upload failed',
+        uploadErrorCode: error.code || null,
+        pendingAutoRetry: retryable
+      }
+      : markDriveUploadFailed({
+        previewUrl: compressed,
+        folder: 'main',
+        purpose: 'payment',
+        category: 'Payment',
+        subCategory: 'Slip',
+        notionId: customer.notionId,
+        jobId
+      }, error);
+    S.paymentSlipPhoto = failed;
+    if (retryable) {
       await DrivePhoto.enqueue?.({
         queueKey,
         jobId,
@@ -2441,10 +2558,12 @@ async function uploadSlipPhotoToDrive(dataUrl) {
     }
     setPhotoUploadUi('slip-preview', 'failed');
     saveActiveJobState?.();
-    showToast(
-      typeof t === 'function' ? t('photo.backupFailed') : 'Photo backup failed.'
-    );
-    return S.paymentSlipPhoto;
+    if (!inFlight) {
+      showToast(
+        typeof t === 'function' ? t('photo.backupFailed') : 'Photo backup failed.'
+      );
+    }
+    return failed;
   }
 }
 
@@ -2463,8 +2582,10 @@ async function flushPendingDriveUploads() {
       }
       try {
         if (item.isSlip || item.purpose === 'payment') {
-          if (DrivePhoto.isUploaded(S.paymentSlipPhoto) || S.paymentSlipPhoto?.uploading) {
-            if (DrivePhoto.isUploaded(S.paymentSlipPhoto)) await DrivePhoto.dequeue?.(item.queueKey);
+          const slip = S.paymentSlipPhoto;
+          const retryingSlip = Boolean(slip?.pendingAutoRetry || slip?.uploadError);
+          if (!retryingSlip && (DrivePhoto.isUploaded(slip) || slip?.uploading)) {
+            if (DrivePhoto.isUploaded(slip)) await DrivePhoto.dequeue?.(item.queueKey);
             continue;
           }
           await uploadSlipPhotoToDrive(item.dataUrl);
@@ -2473,7 +2594,8 @@ async function flushPendingDriveUploads() {
           ensureTapData();
           const entry = S.tapData[tapIndex]?.meterImages?.find(img => img.id === item.meterImageId);
           const existing = entry?.photo;
-          if (DrivePhoto.isUploaded(existing) || existing?.uploading) {
+          const retryingReplacement = Boolean(existing?.pendingAutoRetry || existing?.uploadError);
+          if (!retryingReplacement && (DrivePhoto.isUploaded(existing) || existing?.uploading)) {
             if (DrivePhoto.isUploaded(existing)) await DrivePhoto.dequeue?.(item.queueKey);
             continue;
           }
@@ -2484,7 +2606,8 @@ async function flushPendingDriveUploads() {
           if (Number.isFinite(tapIndex)) S.activeTap = tapIndex;
           ensureTapData();
           const existing = S.tapData[tapIndex]?.photos?.[item.taskKey];
-          if (DrivePhoto.isUploaded(existing) || existing?.uploading) {
+          const retryingReplacement = Boolean(existing?.pendingAutoRetry || existing?.uploadError);
+          if (!retryingReplacement && (DrivePhoto.isUploaded(existing) || existing?.uploading)) {
             if (DrivePhoto.isUploaded(existing)) await DrivePhoto.dequeue?.(item.queueKey);
             S.activeTap = priorTap;
             continue;
@@ -2507,7 +2630,8 @@ async function flushPendingDriveUploads() {
         for (const [taskKey, photo] of Object.entries(photos)) {
           // Session meter images own retry via meterImages[] — do not rewrite photos.meter alone.
           if (taskKey === 'meter' && hasMeterSession) continue;
-          if (!photo || photo.fileId || photo.uploading || !photo.pendingAutoRetry || !photo.previewUrl) continue;
+          if (!photo || photo.uploading || !photo.pendingAutoRetry || !photo.previewUrl) continue;
+          if (photo.fileId && !photo.uploadError) continue;
           const priorTap = S.activeTap;
           S.activeTap = i;
           const previewId = Object.entries(PHOTO_ID_TASKS).find(([, key]) => key === taskKey)?.[0];
@@ -2522,9 +2646,10 @@ async function flushPendingDriveUploads() {
         const meterImages = S.tapData[i]?.meterImages || [];
         for (const entry of meterImages) {
           const photo = entry?.photo;
-          if (!entry?.id || !photo || photo.fileId || photo.uploading || !photo.pendingAutoRetry || !photo.previewUrl) {
+          if (!entry?.id || !photo || photo.uploading || !photo.pendingAutoRetry || !photo.previewUrl) {
             continue;
           }
+          if (photo.fileId && !photo.uploadError) continue;
           try {
             await uploadMeterSessionImage(i, entry.id, photo.previewUrl);
           } catch (error) {
@@ -2536,8 +2661,8 @@ async function flushPendingDriveUploads() {
     if (
       S.paymentSlipPhoto?.pendingAutoRetry
       && S.paymentSlipPhoto?.previewUrl
-      && !S.paymentSlipPhoto.fileId
       && !S.paymentSlipPhoto.uploading
+      && !(S.paymentSlipPhoto.fileId && !S.paymentSlipPhoto.uploadError)
     ) {
       try {
         await uploadSlipPhotoToDrive(S.paymentSlipPhoto.previewUrl);
@@ -2656,11 +2781,18 @@ function setPhotoPreview(previewId, src, options = {}) {
     } else if (dataUrl) {
       // Preview only — uploadTaskPhotoToDrive owns the uploading flag.
       if (!skipUpload) {
+        const kept = committedPhotoFields(S.tapData[S.activeTap].photos[taskKey]);
         S.tapData[S.activeTap].photos[taskKey] = {
+          ...(kept || {}),
           previewUrl: dataUrl,
           folder: 'main',
           purpose: taskKey,
-          jobId: S.activeJob?.notionId || S.activeJob?.id || null
+          jobId: S.activeJob?.notionId || S.activeJob?.id || null,
+          replacing: Boolean(kept),
+          uploading: false,
+          uploadError: null,
+          uploadErrorCode: null,
+          pendingAutoRetry: false
         };
       } else if (!DrivePhoto?.isUploaded(S.tapData[S.activeTap].photos[taskKey])) {
         S.tapData[S.activeTap].photos[taskKey] = dataUrl;
@@ -2678,6 +2810,10 @@ function setPhotoPreview(previewId, src, options = {}) {
     );
   }
 
+  if (!skipUpload && dataUrl && taskKey && !isMeterSession) {
+    uploadTaskPhotoToDrive(taskKey, previewId, dataUrl);
+  }
+
   if (!options.silent && (previewId === 'cl-photo-preview' || previewId === 'turb-photo-preview')) {
     const ocrSource = dataUrl || (typeof src === 'string' ? src : '');
     if (ocrSource) {
@@ -2687,20 +2823,30 @@ function setPhotoPreview(previewId, src, options = {}) {
       });
     }
   }
+}
 
-  if (!skipUpload && dataUrl && taskKey && !isMeterSession) {
-    uploadTaskPhotoToDrive(taskKey, previewId, dataUrl);
-  }
+function stageSlipSelection(dataUrl) {
+  const kept = committedPhotoFields(S.paymentSlipPhoto);
+  S.paymentSlipPhoto = {
+    ...(kept || {}),
+    previewUrl: dataUrl,
+    folder: 'main',
+    purpose: 'payment',
+    replacing: Boolean(kept),
+    uploading: false,
+    uploadError: null,
+    uploadErrorCode: null,
+    pendingAutoRetry: false
+  };
+  S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
+  setPhotoPreview('slip-preview', S.paymentSlipPhoto, { skipUpload: true });
 }
 
 function handleSlipUpload(input) {
   const file = input.files?.[0];
   if (!file) return;
   readImageFile(file, src => {
-    // Preview only — uploadSlipPhotoToDrive sets uploading to avoid skip-race.
-    S.paymentSlipPhoto = { previewUrl: src, folder: 'main', purpose: 'payment' };
-    S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
-    setPhotoPreview('slip-preview', S.paymentSlipPhoto, { skipUpload: true });
+    stageSlipSelection(src);
     closeCameraCapture();
     showToast(typeof t === 'function' ? t('pay.uploaded') : 'Photo attached');
     uploadSlipPhotoToDrive(src);
@@ -2708,9 +2854,7 @@ function handleSlipUpload(input) {
 }
 
 function handleSlipCapture(dataUrl) {
-  S.paymentSlipPhoto = { previewUrl: dataUrl, folder: 'main', purpose: 'payment' };
-  S.paymentSlipSource = typeof t === 'function' ? t('pay.uploaded') : 'Photo attached';
-  setPhotoPreview('slip-preview', S.paymentSlipPhoto, { skipUpload: true });
+  stageSlipSelection(dataUrl);
   showToast(typeof t === 'function' ? t('pay.uploaded') : 'Photo attached');
   uploadSlipPhotoToDrive(dataUrl);
 }

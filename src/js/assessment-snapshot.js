@@ -78,6 +78,39 @@
     return out;
   }
 
+  /**
+   * A committed photo is identified by a Drive file ID or a non-data content
+   * URL. purpose, name, and an in-progress preview are not a reference.
+   */
+  function hasCommittedPhotoIdentity(photo) {
+    if (!isPlainObject(photo)) return false;
+    if (photo.fileId) return true;
+    return Boolean(photo.contentUrl && !isDataUrl(photo.contentUrl));
+  }
+
+  /**
+   * Fields that must survive an in-progress replacement. Preview bytes,
+   * upload flags, and operation tokens are intentionally omitted.
+   */
+  function committedPhotoFields(photo) {
+    if (!hasCommittedPhotoIdentity(photo)) return null;
+    const ref = {};
+    if (photo.fileId) ref.fileId = String(photo.fileId);
+    if (photo.contentUrl && !isDataUrl(photo.contentUrl)) {
+      ref.contentUrl = String(photo.contentUrl);
+    }
+    if (photo.filename) ref.filename = String(photo.filename);
+    if (photo.name) ref.name = String(photo.name);
+    if (photo.purpose) ref.purpose = String(photo.purpose);
+    if (photo.mimeType) ref.mimeType = String(photo.mimeType);
+    if (photo.webViewLink && !isDataUrl(photo.webViewLink)) {
+      ref.webViewLink = String(photo.webViewLink);
+    }
+    if (photo.uploadedAt) ref.uploadedAt = String(photo.uploadedAt);
+    if (photo.folder) ref.folder = String(photo.folder);
+    return ref;
+  }
+
   /** Photo references only — never persist base64 / data URLs. */
   function compactPhotoRef(photo) {
     if (!photo) return undefined;
@@ -86,7 +119,7 @@
       const trimmed = photo.trim();
       return trimmed ? { contentUrl: trimmed } : undefined;
     }
-    if (!isPlainObject(photo)) return undefined;
+    if (!hasCommittedPhotoIdentity(photo)) return undefined;
     const ref = {};
     if (photo.fileId) ref.fileId = String(photo.fileId);
     if (photo.contentUrl && !isDataUrl(photo.contentUrl)) {
@@ -256,6 +289,45 @@
     return out;
   }
 
+  /**
+   * Incoming wins only when it is itself a committed photo. A purpose-only
+   * or still-uploading object must not erase a file ID already stored.
+   * An omitted key still means "not supplied" and keeps the existing photo.
+   */
+  function mergePhotoMaps(existingPhotos, incomingPhotos) {
+    const existing = compactPhotos(existingPhotos);
+    const incoming = compactPhotos(incomingPhotos);
+    const photos = { ...existing };
+    Object.keys(incoming).forEach((key) => {
+      const next = incoming[key];
+      if (!hasCommittedPhotoIdentity(next)) return;
+      photos[key] = next;
+    });
+    return photos;
+  }
+
+  /**
+   * Incoming meter-image order is the new order. An entry replaces its
+   * committed photo only when the incoming photo itself has a file ID or
+   * real content URL. A purpose-only or still-uploading entry keeps the
+   * photo already stored for that id. An empty incoming list still clears.
+   */
+  function mergeMeterImages(existingImages, incomingImages) {
+    if (incomingImages === undefined) return compactMeterImages(existingImages);
+    const existing = compactMeterImages(existingImages) || [];
+    const incoming = compactMeterImages(incomingImages) || [];
+    if (!incoming.length) return undefined;
+    const previousById = new Map();
+    existing.forEach((entry) => {
+      if (entry.id) previousById.set(entry.id, entry);
+    });
+    return incoming.map((entry) => {
+      const prev = entry.id ? previousById.get(entry.id) : null;
+      if (!prev || hasCommittedPhotoIdentity(entry.photo) || !prev.photo) return entry;
+      return { ...entry, photo: prev.photo };
+    });
+  }
+
   function mergeTap(existingTap = {}, incomingTap = {}) {
     const meterReadings = mergeReadingMaps(
       existingTap.meterReadings, incomingTap.meterReadings, METER_KEYS
@@ -270,13 +342,8 @@
       ...compactTasks(existingTap.tasks),
       ...compactTasks(incomingTap.tasks)
     };
-    const photos = {
-      ...compactPhotos(existingTap.photos),
-      ...compactPhotos(incomingTap.photos)
-    };
-    const meterImages = incomingTap.meterImages !== undefined
-      ? compactMeterImages(incomingTap.meterImages)
-      : compactMeterImages(existingTap.meterImages);
+    const photos = mergePhotoMaps(existingTap.photos, incomingTap.photos);
+    const meterImages = mergeMeterImages(existingTap.meterImages, incomingTap.meterImages);
 
     const out = {
       index: Number.isFinite(Number(incomingTap.index))
@@ -488,6 +555,8 @@
     resolveDisplayActiveTap,
     tapHasPersistedWork,
     compactPhotoRef,
+    committedPhotoFields,
+    hasCommittedPhotoIdentity,
     asMeasurementNumber
   };
 });

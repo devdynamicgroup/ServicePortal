@@ -1064,6 +1064,15 @@ window.DrivePhoto = {
   dequeue: removeDriveQueueItem,
   readQueue: readDriveQueue,
   hasInflight: () => DriveUploadInflight.size > 0,
+  // Photo keys end with the operation token. Another slot's request does not match.
+  operationInFlight: (uploadOp) => {
+    if (!uploadOp) return false;
+    const suffix = `:${String(uploadOp)}`;
+    for (const key of DriveUploadInflight) {
+      if (String(key).endsWith(suffix)) return true;
+    }
+    return false;
+  },
   maxBytes: DRIVE_MAX_UPLOAD_BYTES,
   timeoutMs: DRIVE_UPLOAD_TIMEOUT_MS,
   retryableCodes: DRIVE_RETRYABLE_CODES
