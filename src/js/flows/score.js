@@ -761,12 +761,7 @@ function scorePropertyShort(value) {
 function renderScoreContextLine(job = S.activeJob) {
   const line = document.getElementById('score-context-line');
   if (!line) return;
-  const fields = job?.draft?.fields || {};
-  const text = [
-    scorePlaceLabel(fields['ci-addr'], fields['ci-city']),
-    scorePropertyShort(fields['ci-proptype']),
-    formatScoreContextDate(job?.date)
-  ].filter(Boolean).join(' · ');
+  const text = String(job?.name || '').trim();
   line.textContent = text;
   line.hidden = !text;
 }
@@ -2036,6 +2031,21 @@ function thailandStandardPasses(readings) {
  * The after number is the current quality formula with those readings on its own ideal points.
  * It is not written back to the case score.
  */
+function setScoreShiftMode(mode) {
+  S.scoreShiftMode = mode === 'next' ? 'next' : 'now';
+  const nowBtn = document.getElementById('score-shift-now');
+  const nextBtn = document.getElementById('score-shift-next');
+  if (nowBtn) {
+    nowBtn.classList.toggle('is-on', S.scoreShiftMode === 'now');
+    nowBtn.setAttribute('aria-selected', S.scoreShiftMode === 'now' ? 'true' : 'false');
+  }
+  if (nextBtn) {
+    nextBtn.classList.toggle('is-on', S.scoreShiftMode === 'next');
+    nextBtn.setAttribute('aria-selected', S.scoreShiftMode === 'next' ? 'true' : 'false');
+  }
+  renderScoreShift(true, S.displayedScore?.score);
+}
+
 function renderScoreShift(showScore, currentScore) {
   const noteEl = document.getElementById('score-summary-note');
   const compliance = document.getElementById('score-compliance-line')?.dataset?.status;
@@ -2060,37 +2070,62 @@ function renderScoreShift(showScore, currentScore) {
   const showAfter = showScore && Number.isFinite(after) && (!Number.isFinite(current) || after > current);
   upgrade.hidden = !showAfter;
   if (!showAfter) return;
+  if (S.scoreShiftMode !== 'now' && S.scoreShiftMode !== 'next') S.scoreShiftMode = 'now';
+  upgrade.dataset.mode = S.scoreShiftMode;
+  const nowBtn = document.getElementById('score-shift-now');
+  const nextBtn = document.getElementById('score-shift-next');
+  if (nowBtn) {
+    nowBtn.textContent = t('score.shift.now');
+    nowBtn.classList.toggle('is-on', S.scoreShiftMode === 'now');
+    nowBtn.setAttribute('aria-selected', S.scoreShiftMode === 'now' ? 'true' : 'false');
+  }
+  if (nextBtn) {
+    nextBtn.textContent = t('score.shift.next');
+    nextBtn.classList.toggle('is-on', S.scoreShiftMode === 'next');
+    nextBtn.setAttribute('aria-selected', S.scoreShiftMode === 'next' ? 'true' : 'false');
+  }
+  const mode = S.scoreShiftMode;
   const upgradeFigure = 95;
-  const verdict = typeof customerVerdict === 'function' ? customerVerdict(upgradeFigure) : { tier: 'high', label: '' };
+  const shown = mode === 'next' ? upgradeFigure : current;
+  const verdict = typeof customerVerdict === 'function' ? customerVerdict(shown) : { tier: 'high', label: '' };
   const num = document.getElementById('score-upgrade-val');
   const band = document.getElementById('score-upgrade-band');
   const note = document.getElementById('score-upgrade-note');
   const afterList = document.getElementById('score-upgrade-list');
-  if (num) num.textContent = String(upgradeFigure);
-  upgrade.dataset.tier = verdict.tier || 'high';
-  if (band) band.textContent = verdict.tier === 'high' ? t('score.shift.optimal') : (verdict.label || '');
-  if (note) {
-    note.textContent = verdict.tier === 'high' ? t('score.shift.meetsIntl') : t('score.upgrade.note');
+  if (num) num.textContent = Number.isFinite(shown) ? String(Math.round(shown)) : '—';
+  upgrade.dataset.tier = mode === 'next' ? 'high' : (verdict.tier || 'mid');
+  if (band) {
+    band.textContent = mode === 'next'
+      ? t('score.shift.optimal')
+      : (verdict.label || '');
   }
+  if (note) {
+    note.textContent = mode === 'next'
+      ? t('score.shift.meetsIntl')
+      : (noteEl?.textContent || scoreSummaryNote(current));
+  }
+  const sourceReadings = mode === 'next' ? idealReadings : (readings || {});
   const afterRows = SCORE_SHIFT_ROWS.map(row => ({
     ...row,
-    kind: scoreShiftDirection(row.key, idealReadings[row.key], standardKey)
+    kind: mode === 'next' ? 'optimal' : scoreShiftDirection(row.key, sourceReadings[row.key], standardKey)
   })).filter(row => row.kind !== 'pending');
   if (afterList) {
     afterList.innerHTML = (afterRows.length ? afterRows : SCORE_SHIFT_ROWS.map(row => ({ ...row, kind: 'optimal' })))
       .map(row => scoreShiftRowHtml(row.label, row.kind))
       .join('');
   }
-  paintScoreDotField(upgradeFigure, {
+  const dotOptions = {
     loading: false,
-    tier: verdict.tier || 'high',
+    tier: mode === 'next' ? 'high' : (verdict.tier || 'mid'),
     rowsId: 'score-upgrade-dot-rows',
     fieldId: 'score-upgrade-dots',
     tickId: 'score-upgrade-tick',
     rowCount: 2,
-    dotsPerRow: 33,
-    markIndex: 29
-  });
+    dotsPerRow: 33
+  };
+  if (mode === 'next') dotOptions.markIndex = 29;
+  else dotOptions.pinBadge = true;
+  paintScoreDotField(Number.isFinite(shown) ? shown : 0, dotOptions);
 }
 
 function syncScoreWhatsNext(showScore) {

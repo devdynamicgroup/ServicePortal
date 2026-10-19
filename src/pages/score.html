@@ -123,8 +123,11 @@
           <div id="score-improve-list" class="score-improve-list"></div>
         </section>
 
-        <button class="score-upgrade" id="score-upgrade-card" type="button" hidden onclick="if (typeof showPkgSheet === 'function') showPkgSheet()">
-          <p class="score-context-line" id="score-upgrade-kicker" data-i18n="score.upgrade.title">Whole-House Upgrade</p>
+        <div class="score-upgrade" id="score-upgrade-card" hidden>
+          <div class="score-now-next" role="tablist" aria-label="Now or next">
+            <button class="score-now-next-btn is-on" id="score-shift-now" type="button" role="tab" aria-selected="true" data-i18n="score.shift.now" onclick="setScoreShiftMode('now')">Now</button>
+            <button class="score-now-next-btn" id="score-shift-next" type="button" role="tab" aria-selected="false" data-i18n="score.shift.next" onclick="setScoreShiftMode('next')">Next</button>
+          </div>
           <div class="score-summary-score">
             <span class="score-summary-num" id="score-upgrade-val">—</span>
             <span class="score-summary-den">/100</span>
@@ -141,7 +144,7 @@
           </div>
           <p class="score-summary-note" id="score-upgrade-note"></p>
           <div class="score-shift-list" id="score-upgrade-list"></div>
-        </button>
+        </div>
 
       </div>
     </section>
