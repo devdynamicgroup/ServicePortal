@@ -49,12 +49,24 @@ console.log('\n2. Consecutive cases keep their own photos');
   assert(second.photoUrl === '' || !second.photoUrl.includes('tap-a'), 'case B url is not case A');
 }
 
-console.log('\n3. Missing photo keeps the latest-file fallback, then none');
+console.log('\n3. Every case is selected on its own');
 {
+  const cases = ['tap-1', 'tap-2', 'tap-3'].map((fileId, index) => cardOptionsFromJob(job(`case-${index}`, { fileId })));
+  assert(cases.map((item) => item.photoFileId).join(',') === 'tap-1,tap-2,tap-3', 'three cases keep three different photos');
+  const laterTap = cardOptionsFromJob({
+    result: { waterScore: 71 },
+    draft: { tapData: [{ photos: {} }, { photos: { tapphoto: { fileId: 'tap-room-2' } } }] }
+  });
+  assert(laterTap.photoFileId === 'tap-room-2', 'a photo on a later tap still belongs to that case');
+  const meterSession = cardOptionsFromJob({
+    result: { waterScore: 71 },
+    draft: { tapData: [{ photos: {}, meterImages: [{ id: 'm1', photo: { contentUrl: '/api/drive/images/meter-session/content' } }] }] }
+  });
+  assert(meterSession.photoFileId === 'meter-session', 'a meter-session photo is used when the tap photo is absent');
   const latestOnly = cardOptionsFromJob(job('case-empty', null, 'latest-c'));
-  assert(latestOnly.photoFileId === 'latest-c', 'no site photo still uses this case latest file');
+  assert(latestOnly.photoFileId === 'latest-c', 'a case with no site photo keeps its previous file');
   const none = cardOptionsFromJob({ id: 'case-none', result: { waterScore: 71 }, draft: { tapData: [{}] } });
-  assert(none.photoFileId === '' && none.photoUrl === '', 'no photo leaves both references empty');
+  assert(none.photoFileId === '' && none.photoUrl === '', 'a case with no photo at all leaves the stock fallback');
 }
 
 console.log('\n4. Failed or absent bytes resolve to the stock photo, not another case');

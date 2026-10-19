@@ -748,22 +748,47 @@ async function renderShareCardPng(format, options = {}) {
   return { ...built, png };
 }
 
+function driveFileIdFromUrl(url) {
+  const match = String(url || '').match(/\/api\/drive\/images\/([^/?#]+)\/content/i);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+/** One committed site photo. Data URLs are previews and are not a share photo. */
+function usableSitePhoto(photo) {
+  if (!photo) return null;
+  if (typeof photo === 'string') {
+    const trimmed = photo.trim();
+    if (!trimmed || trimmed.startsWith('data:')) return null;
+    const fileId = driveFileIdFromUrl(trimmed);
+    return fileId ? { fileId, contentUrl: '' } : { fileId: '', contentUrl: trimmed };
+  }
+  if (typeof photo !== 'object') return null;
+  const rawUrl = String(photo.contentUrl || '').trim();
+  const usableUrl = rawUrl && !rawUrl.startsWith('data:') ? rawUrl : '';
+  const fileId = String(photo.fileId || '').trim() || driveFileIdFromUrl(usableUrl);
+  const contentUrl = fileId && driveFileIdFromUrl(usableUrl) ? '' : usableUrl;
+  if (!fileId && !contentUrl) return null;
+  return { fileId, contentUrl };
+}
+
 /**
- * Site photo for this Case only. Same order as the score page carousel:
- * tap photo, then visual, then meter. Drive's latest file is a later upload
- * and must not replace a photo this Case already has.
+ * Site photo for whichever Case this card is rendering. Walks every tap,
+ * in the same order as the score page: tap photo, visual, meter, then a
+ * meter-session photo. A Case with none of those keeps the previous
+ * fallback (latest Drive file, otherwise the stock faucet).
  */
 function caseSitePhoto(job) {
   const taps = Array.isArray(job?.draft?.tapData) ? job.draft.tapData : [];
   for (const tap of taps) {
     const photos = tap?.photos || {};
     for (const key of ['tapphoto', 'visual', 'meter']) {
-      const photo = photos[key];
-      if (!photo || typeof photo !== 'object') continue;
-      const fileId = String(photo.fileId || '').trim();
-      const contentUrl = String(photo.contentUrl || '').trim();
-      const usableUrl = contentUrl && !contentUrl.startsWith('data:') ? contentUrl : '';
-      if (fileId || usableUrl) return { fileId, contentUrl: usableUrl };
+      const found = usableSitePhoto(photos[key]);
+      if (found) return found;
+    }
+    const meterImages = Array.isArray(tap?.meterImages) ? tap.meterImages : [];
+    for (const entry of meterImages) {
+      const found = usableSitePhoto(entry?.photo || entry);
+      if (found) return found;
     }
   }
   return null;
