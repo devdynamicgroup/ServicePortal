@@ -748,6 +748,27 @@ async function renderShareCardPng(format, options = {}) {
   return { ...built, png };
 }
 
+/**
+ * Site photo for this Case only. Same order as the score page carousel:
+ * tap photo, then visual, then meter. Drive's latest file is a later upload
+ * and must not replace a photo this Case already has.
+ */
+function caseSitePhoto(job) {
+  const taps = Array.isArray(job?.draft?.tapData) ? job.draft.tapData : [];
+  for (const tap of taps) {
+    const photos = tap?.photos || {};
+    for (const key of ['tapphoto', 'visual', 'meter']) {
+      const photo = photos[key];
+      if (!photo || typeof photo !== 'object') continue;
+      const fileId = String(photo.fileId || '').trim();
+      const contentUrl = String(photo.contentUrl || '').trim();
+      const usableUrl = contentUrl && !contentUrl.startsWith('data:') ? contentUrl : '';
+      if (fileId || usableUrl) return { fileId, contentUrl: usableUrl };
+    }
+  }
+  return null;
+}
+
 function cardOptionsFromJob(job = {}, overrides = {}) {
   // Strict presence, not bare coercion -- see api/public-routes.js's
   // route-level guard for the same reasoning. This helper has exactly one
@@ -763,13 +784,14 @@ function cardOptionsFromJob(job = {}, overrides = {}) {
   const note = (!noteLooksLikeScoreLabel && rawSummary)
     ? rawSummary
     : scoreSummaryNote(score, findingsCount);
+  const sitePhoto = caseSitePhoto(job);
   return {
     score: Number.isFinite(score) ? score : 0,
     note,
     findingsCount,
     indicators: overrides.indicators || 8,
-    photoFileId: overrides.photoFileId || job.drive?.latestFileId || '',
-    photoUrl: overrides.photoUrl || job.drive?.latestFileUrl || '',
+    photoFileId: overrides.photoFileId || (sitePhoto ? sitePhoto.fileId : (job.drive?.latestFileId || '')),
+    photoUrl: overrides.photoUrl || (sitePhoto ? sitePhoto.contentUrl : (job.drive?.latestFileUrl || '')),
     photoDataUri: overrides.photoDataUri || '',
     feedbackToken: overrides.feedbackToken || job.feedback?.token || ''
   };
@@ -784,6 +806,7 @@ module.exports = {
   renderShareCardPng,
   cardOptionsFromJob,
   fetchAsDataUri,
+  resolvePhotoDataUri,
   // Test-only exports (2026-08-27, per-Case QR badge) -- same functions,
   // same behavior, just reachable from a test file.
   renderDynamicCtaBadge,
