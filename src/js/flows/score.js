@@ -750,23 +750,6 @@ function formatScoreContextDate(value) {
   return `${Number(match[3])} ${months[Number(match[2]) - 1]} ${match[1]}`;
 }
 
-function scorePlaceLabel(addr, city) {
-  const parts = String(addr || '')
-    .split(',')
-    .map(part => part.replace(/\b\d{5}\b/g, '').trim())
-    .filter(part => part && /[A-Za-z\u0E00-\u0E7F]/.test(part));
-  if (parts.length >= 2) return parts[1];
-  return parts[0] || String(city || '').trim();
-}
-
-function scorePropertyShort(value) {
-  const raw = String(value || '').trim();
-  if (/condo/i.test(raw)) return 'Condo';
-  if (/town/i.test(raw)) return 'Townhome';
-  if (/house/i.test(raw)) return 'House';
-  return raw;
-}
-
 function renderScoreContextLine(job = S.activeJob) {
   const line = document.getElementById('score-context-line');
   if (!line) return;
@@ -777,14 +760,15 @@ function renderScoreContextLine(job = S.activeJob) {
     return;
   }
   const fields = job?.draft?.fields || {};
-  const firstPlace = String(fields['ci-addr'] || '')
+  const caseName = String(job?.name || '').trim();
+  const placeholder = /^address to confirm$/i;
+  const addressPlace = String(fields['ci-addr'] || job?.addr || '')
     .split(',')
     .map(part => part.replace(/\b\d{5}\b/g, '').trim())
-    .find(part => part && /[A-Za-z\u0E00-\u0E7F]/.test(part));
-  const place = firstPlace || scorePlaceLabel(fields['ci-addr'], fields['ci-city']) || String(job?.name || '').trim();
-  const property = scorePropertyShort(fields['ci-proptype']);
+    .find(part => part && !placeholder.test(part) && /[A-Za-z\u0E00-\u0E7F]/.test(part));
+  const name = caseName && !placeholder.test(caseName) ? caseName : (addressPlace || '');
   const date = formatScoreContextDate(job?.date || job?.draft?.date);
-  const text = [place, property, date].filter(Boolean).join(' · ');
+  const text = [name, date].filter(Boolean).join(' · ');
   line.textContent = text;
   line.hidden = !text;
 }
