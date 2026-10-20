@@ -206,6 +206,7 @@ function scoreSummaryNote(wq, findings, roomStatuses) {
   // 2026-08-18 (PO-approved): matches customerVerdict's tier boundaries (81+/51-80/0-50).
   if (wq >= 81) {
     if (roomStatusesNeedAttention(roomStatuses)) return t('score.msg.reviewRooms');
+    if (passesEveryCountryBenchmark(wq)) return t('score.share.note.optimal');
     return t('score.msg.excellent');
   }
   if (wq >= BENCHMARK_OVERALL_PASS_MIN.thailand) return t('score.passesThai');
@@ -811,6 +812,10 @@ function benchmarkBoardStatus(key, overallScore) {
 }
 
 /** Customer share board only. Pass, then a near miss, then clearly out. Does not change the score. */
+function passesEveryCountryBenchmark(score) {
+  return SCORE_BOARD_ORDER.every(key => customerBoardStatus(key, score) === 'good');
+}
+
 function customerBoardStatus(key, overallScore) {
   const min = BENCHMARK_OVERALL_PASS_MIN[key];
   const score = Number(overallScore);
