@@ -1835,7 +1835,7 @@ body.public-report-mode #s-score .score-std-label.is-attn{color:#78716C}
 #s-score .score-metric-row.is-good .score-metric-dot.is-on circle{fill:#284dcd}
 #s-score .score-metric-row.is-fair .score-metric-dot.is-on circle{fill:#F5C400}
 #s-score .score-metric-row.is-attn .score-metric-dot.is-on circle,
-#s-score .score-metric-row.is-implausible .score-metric-dot.is-on circle{fill:#E5484D}
+#s-score .score-metric-row.is-implausible .score-metric-dot.is-on circle{fill:#F58C8C}
 #s-score .score-metric-row.is-excluded .score-metric-dot.is-on circle,
 #s-score .score-metric-row.is-pending .score-metric-dot.is-on circle{fill:#69A1F1}
 body.public-report-mode #score-photo-placeholder{display:none!important}
@@ -1851,7 +1851,7 @@ body.public-report-mode #s-score .score-metric-item.is-target .score-metric-targ
 body.public-report-mode #s-score .score-metric-item.is-target .score-metric-target p{font-size:11px;line-height:1.35;color:#a8a29e}
 body.public-report-mode #s-score .score-std-mark.is-open{width:16px;height:16px;flex-basis:16px}
 body.public-report-mode #s-score .score-metric-row.is-callout.is-attn .score-metric-dot.is-on circle,
-body.public-report-mode #s-score .score-metric-row.is-callout.is-implausible .score-metric-dot.is-on circle{fill:#E5484D}
+body.public-report-mode #s-score .score-metric-row.is-callout.is-implausible .score-metric-dot.is-on circle{fill:#F58C8C}
 body.public-report-mode #s-score .score-metric-row.is-callout .score-metric-name{color:#1C1917;font-weight:400}
 body.public-report-mode #s-score .score-metric-list.is-targets .score-metric-row.is-fair:not(.is-callout) .score-metric-name,
 body.public-report-mode #s-score .score-metric-list.is-targets .score-metric-row.is-attn:not(.is-callout) .score-metric-name{color:#1C1917}
