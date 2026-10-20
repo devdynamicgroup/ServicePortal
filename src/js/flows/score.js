@@ -2011,19 +2011,8 @@ function metricTargetSide(key, value, limits) {
   return 'out';
 }
 
-const CUSTOMER_THAI_TARGETS = Object.freeze({
-  ph: '6.5–8.5',
-  tds: '≤ 500 mg/L',
-  chlorine: '0.2–1.0 mg/L',
-  turbidity: '≤ 5 NTU',
-  orp: '200–600 mV',
-  do: '> 6 mg/L',
-  temp: '≤ 30°C'
-});
-
 function customerTargetLabel(key, context) {
   const standardKey = context?.selectedStandard || S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY;
-  if (standardKey === 'thailand' && CUSTOMER_THAI_TARGETS[key]) return CUSTOMER_THAI_TARGETS[key];
   const display = context?.display || getWaterQualityStandard(standardKey).display || {};
   const raw = String(display[key] || '').trim();
   if (!raw || /not specified|not evaluated|pd-\d+/i.test(raw)) return '';
@@ -2085,16 +2074,11 @@ function setScoreTargets(on) {
   renderScoreReadings();
 }
 
-function customerPipFilled(row, context, statusKey, callout) {
-  if (callout || statusKey !== 'good') return 3;
-  const band = getWaterQualityStandard(context.selectedStandard || DEFAULT_SCORE_STANDARD_KEY).limits?.[row.key];
-  const value = Number(row.raw);
-  if (!band || !Number.isFinite(value)) return 4;
-  const min = [band.preferredMin, band.excellentMin, band.goodMin].find(n => Number.isFinite(n));
-  const max = [band.preferredMax, band.excellentMax, band.goodMax, band.gradeExcellentMax].find(n => Number.isFinite(n));
-  if (Number.isFinite(min) && value < min) return 3;
-  if (Number.isFinite(max) && value > max) return 3;
-  return 4;
+function statusPipCount(statusKey) {
+  if (statusKey === 'good' || statusKey === 'excluded') return 4;
+  if (statusKey === 'fair') return 2;
+  if (statusKey === 'attn' || statusKey === 'implausible') return 1;
+  return 3;
 }
 
 function renderScoreReadings(context = getScoreEvalContext()) {
@@ -2143,16 +2127,10 @@ function renderScoreReadings(context = getScoreEvalContext()) {
     }
     const statusLabel = statusLabels[statusKey];
     const callout = customerCalloutVisible(r);
-    const filled = S.publicScoreView
-      ? customerPipFilled(r, context, statusKey, callout)
-      : (!S.scoreTargetsOn
-        ? 4
-        : (statusKey === 'good' || statusKey === 'excluded')
-          ? 4
-          : statusKey === 'fair'
-            ? 2
-            : (statusKey === 'attn' || statusKey === 'implausible') ? 1 : 3);
-    const pips = Array.from({ length: 4 }, (_, index) => `<i class="${index < filled ? 'is-on' : ''}"></i>`).join('');
+    const filled = statusPipCount(statusKey);
+    const pips = Array.from({ length: 4 }, (_, index) =>
+      `<svg class="score-metric-dot${index < filled ? ' is-on' : ''}" viewBox="0 0 8 8" width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="3.5"/></svg>`
+    ).join('');
     const detail = scoreTargetDetail(r, context);
     const warn = detail.warn ? SCORE_TARGET_WARN : '';
     const soft = S.publicScoreView && !callout && filled < 4;

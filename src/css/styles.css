@@ -1802,9 +1802,6 @@ body.public-report-mode #s-score .score-std-label.is-attn{color:#78716C}
   font-size:12px;font-weight:400;line-height:13px;color:#1c1917
 }
 #s-score .score-metric-list{gap:0;margin:0}
-#s-score .score-metric-list.is-targets .score-metric-row.is-fair .score-metric-name,
-#s-score .score-metric-list.is-targets .score-metric-row.is-attn .score-metric-name,
-#s-score .score-metric-list.is-targets .score-metric-row.is-implausible .score-metric-name{color:#e11d48}
 #s-score .score-metric-warn{display:inline-flex;margin-right:4px;vertical-align:-2px;color:#e11d48}
 #s-score .score-metric-target{padding:0 0 10px}
 #s-score .score-metric-target p{margin:0;font-size:12px;line-height:1.45;color:#a8a29e}
@@ -1823,24 +1820,16 @@ body.public-report-mode #s-score .score-std-label.is-attn{color:#78716C}
 #s-score .score-metric-caret{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 #s-score .score-metric-pips{
   display:flex;flex-direction:row;align-items:center;padding:0;gap:2px;
-  width:30px;height:6px;flex:none;margin-left:8px
+  height:8px;flex:none;margin-left:8px
 }
-#s-score .score-metric-pips i{width:6px;height:6px;border-radius:50%;background:#e7e5e1}
-#s-score .score-metric-row.is-good .score-metric-pips i.is-on{background:#284dcd}
-#s-score .score-metric-row.is-fair .score-metric-pips i.is-on{background:#ffb266}
-#s-score .score-metric-row.is-attn .score-metric-pips i.is-on,
-#s-score .score-metric-row.is-implausible .score-metric-pips i.is-on{background:#f07b7b}
-#s-score .score-metric-row.is-excluded .score-metric-pips i.is-on,
-#s-score .score-metric-row.is-pending .score-metric-pips i.is-on{background:#69A1F1}
-#s-score .score-metric-list:not(.is-targets) .score-metric-row .score-metric-pips i.is-on{background:#284dcd}
-#s-score .score-metric-list.is-targets .score-metric-row.is-fair .score-metric-pips i.is-on{background:#e6b325}
-body.public-report-mode #s-score .score-metric-list:not(.is-targets) .score-metric-row.is-fair .score-metric-pips i.is-on,
-body.public-report-mode #s-score .score-metric-list:not(.is-targets) .score-metric-row.is-excluded .score-metric-pips i.is-on,
-body.public-report-mode #s-score .score-metric-list:not(.is-targets) .score-metric-row.is-attn .score-metric-pips i.is-on,
-body.public-report-mode #s-score .score-metric-list.is-targets .score-metric-row.is-fair:not(.is-callout) .score-metric-pips i.is-on{background:#69A1F1}
-body.public-report-mode #s-score .score-metric-list .score-metric-row.is-soft .score-metric-pips i.is-on{background:#69A1F1}
-body.public-report-mode #s-score .score-metric-list.is-targets .score-metric-row.is-callout.is-fair .score-metric-pips i.is-on,
-body.public-report-mode #s-score .score-metric-row.is-callout.is-fair .score-metric-pips i.is-on{background:#69A1F1}
+#s-score .score-metric-dot{display:block;width:8px;height:8px;flex:0 0 8px}
+#s-score .score-metric-dot circle{fill:#e7e5e1}
+#s-score .score-metric-row.is-good .score-metric-dot.is-on circle{fill:#284dcd}
+#s-score .score-metric-row.is-fair .score-metric-dot.is-on circle{fill:#ffb266}
+#s-score .score-metric-row.is-attn .score-metric-dot.is-on circle,
+#s-score .score-metric-row.is-implausible .score-metric-dot.is-on circle{fill:#f07b7b}
+#s-score .score-metric-row.is-excluded .score-metric-dot.is-on circle,
+#s-score .score-metric-row.is-pending .score-metric-dot.is-on circle{fill:#69A1F1}
 body.public-report-mode #score-photo-placeholder{display:none!important}
 body.public-report-mode #s-score .score-metric-item{overflow:visible;background:transparent;border:0;border-radius:0;border-bottom:0.5px solid #e7e5e1;padding:0}
 body.public-report-mode #s-score .score-metric-item:last-child{border-bottom:0}
@@ -1853,8 +1842,8 @@ body.public-report-mode #s-score .score-metric-warn{color:#F58C8C}
 body.public-report-mode #s-score .score-metric-item.is-target .score-metric-target{padding:4px 0 10px;margin-top:0}
 body.public-report-mode #s-score .score-metric-item.is-target .score-metric-target p{font-size:11px;line-height:1.35;color:#a8a29e}
 body.public-report-mode #s-score .score-std-mark.is-open{width:16px;height:16px;flex-basis:16px}
-body.public-report-mode #s-score .score-metric-row.is-callout.is-attn .score-metric-pips i.is-on,
-body.public-report-mode #s-score .score-metric-row.is-callout.is-implausible .score-metric-pips i.is-on{background:#e11d48}
+body.public-report-mode #s-score .score-metric-row.is-callout.is-attn .score-metric-dot.is-on circle,
+body.public-report-mode #s-score .score-metric-row.is-callout.is-implausible .score-metric-dot.is-on circle{fill:#f07b7b}
 body.public-report-mode #s-score .score-metric-row.is-callout .score-metric-name{color:#1C1917;font-weight:400}
 body.public-report-mode #s-score .score-metric-list.is-targets .score-metric-row.is-fair:not(.is-callout) .score-metric-name,
 body.public-report-mode #s-score .score-metric-list.is-targets .score-metric-row.is-attn:not(.is-callout) .score-metric-name{color:#1C1917}
