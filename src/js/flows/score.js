@@ -410,11 +410,26 @@ function resolveDisplayedScore({
 }
 
 /**
- * The number at the top is always the overall Quality / published score.
- * Choosing an inspection point changes that point's rows, not this number.
+ * The gauge follows the selected country and inspection point.
+ * The stored publication score is not rewritten.
  */
 function staffHeroForPopulation(displayed) {
   return displayed;
+}
+
+function countryHeroScore(qualityDisplayed) {
+  const comparison = S.comparisonScoreResult;
+  const score = Number(comparison?.score);
+  if (!comparison || !Number.isFinite(score)) return qualityDisplayed;
+  return {
+    ...qualityDisplayed,
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    source: 'country-benchmark',
+    standardKey: comparison.standardKey || qualityDisplayed?.standardKey,
+    engineKey: comparison.engineKey || comparison.standardKey,
+    showScore: true,
+    comparison
+  };
 }
 
 function scoreBarColorForScore(wq, verdict = null) {
@@ -867,9 +882,13 @@ function renderStandardsBoard(readings) {
     return;
   }
   const selected = benchmarkRegistry()?.has?.(S.scoreStandardKey) ? S.scoreStandardKey : DEFAULT_SCORE_STANDARD_KEY;
-  const overall = Number(S.displayedScore?.score ?? S.scoreVal);
+  const sourceReadings = (S.comparisonScoreResult && S.comparisonScoreResult.readings) || readings || {};
   const rows = SCORE_BOARD_ORDER.filter(key => reg.has?.(key)).map(key => {
-    const uiKey = S.publicScoreView ? customerBoardStatus(key, overall) : benchmarkBoardStatus(key, overall);
+    const own = reg.calculate(key, sourceReadings);
+    const score = Number(own?.score);
+    const uiKey = !Number.isFinite(score)
+      ? 'pending'
+      : (S.publicScoreView ? customerBoardStatus(key, score) : benchmarkBoardStatus(key, score));
     const label = uiKey === 'good'
       ? t('score.std.pass')
       : uiKey === 'attn'
@@ -911,7 +930,7 @@ function renderScoreDisplay() {
     readings: result.readings || S.scoreBaseReadings || {},
     standardKey: result.standardKey || S.scoreStandardKey
   });
-  const displayed = staffHeroForPopulation(qualityDisplayed);
+  const displayed = staffHeroForPopulation(countryHeroScore(qualityDisplayed));
   S.displayedScore = displayed;
   const showScore = displayed.showScore;
   const wq = displayed.score;
@@ -1654,12 +1673,16 @@ function renderWaterScore(job, options = {}) {
   if (!S.scoreStandardKey || !benchmarkRegistry()?.has?.(S.scoreStandardKey)) {
     S.scoreStandardKey = DEFAULT_SCORE_STANDARD_KEY;
   }
-  S.comparisonScoreResult = getCountryBenchmarkScore(readings, S.scoreStandardKey);
+  S.taps = taps;
+  S.scoreTapFilter = taps[0] || 'all';
+  S.publicScoreView = publicView;
+  const countryReadings = readingsForCountryBenchmark(job);
+  S.comparisonScoreResult = getCountryBenchmarkScore(countryReadings, S.scoreStandardKey);
   S.displayedScore = resolveDisplayedScore({
     publicView,
     publishedScore: publicView ? productionScore : null,
     qualityScore: Number.isFinite(computedScore) ? computedScore : null,
-    readings,
+    readings: countryReadings,
     standardKey: S.scoreStandardKey
   });
   console.log('DISPLAY SCORE PATH', {
@@ -1673,11 +1696,6 @@ function renderWaterScore(job, options = {}) {
     standard: S.scoreStandardKey,
     published: Number.isFinite(published) ? published : null
   });
-  S.taps = taps;
-  // The list below names each inspection point. The top number stays the overall score.
-  S.scoreTapFilter = taps[0] || 'all';
-  S.publicScoreView = publicView;
-
   renderScoreDisplay();
   return productionScore;
 }
