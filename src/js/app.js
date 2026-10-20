@@ -1,6 +1,7 @@
 async function initApp() {
   try {
     await loadPagePartials();
+    if (openLocalSharePreviewIfRequested()) return;
     runInitStep(applyStaticIcons);
     if (typeof syncFeedbackReviewUi === 'function') syncFeedbackReviewUi();
     let jobsLoaded = false;
@@ -34,6 +35,15 @@ async function initApp() {
     document.getElementById('app').innerHTML = '<div class="content"><div class="card">Unable to load app pages. Please run this app through a local web server.</div></div>';
     console.error(error);
   }
+}
+
+function openLocalSharePreviewIfRequested() {
+  const host = window.location.hostname;
+  if (host !== 'localhost' && host !== '127.0.0.1') return false;
+  const band = new URLSearchParams(window.location.search).get('sharePreview');
+  if (!band || typeof mountLocalSharePreview !== 'function') return false;
+  mountLocalSharePreview(band);
+  return true;
 }
 
 function getPreassessmentRequestId() {

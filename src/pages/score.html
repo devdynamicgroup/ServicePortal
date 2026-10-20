@@ -1,6 +1,6 @@
 <div id="s-score" class="screen">
   <div class="hdr">
-    <button class="hdr-back" type="button" onclick="goBack('s-assess')" aria-label="Back"><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>
+    <button class="hdr-back" type="button" onclick="scoreHeaderBack()" aria-label="Back"><svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></svg></button>
     <span class="hdr-title" data-i18n="score.title">Water Score</span>
     <button class="hdr-action" type="button" onclick="shareScore()" data-i18n="score.share">Share Score</button>
   </div>
@@ -80,9 +80,15 @@
                 <select class="score-select" id="score-room-select-top" aria-label="Location"></select>
               </div>
             </div>
-            <div class="score-benchmark-row">
-              <label class="score-benchmark-label" for="score-standard-select" data-i18n="score.benchmark">Benchmark</label>
-              <select class="score-select" id="score-standard-select" aria-label="Reference standard"></select>
+            <div class="score-filter-side">
+              <button class="score-targets-toggle" id="score-targets-toggle" type="button" aria-pressed="false" onclick="setScoreTargets(!S.scoreTargetsOn)">
+                <span data-i18n="score.targets">Targets</span>
+                <span class="score-targets-knob" aria-hidden="true"></span>
+              </button>
+              <div class="score-benchmark-row">
+                <label class="score-benchmark-label" for="score-standard-select" data-i18n="score.benchmark">Benchmark</label>
+                <select class="score-select" id="score-standard-select" aria-label="Reference standard"></select>
+              </div>
             </div>
           </div>
           <select class="score-select" id="score-standard-select-top" hidden aria-hidden="true" tabindex="-1"></select>
@@ -105,23 +111,6 @@
         </div>
 
         <h2 class="score-next-title" id="score-whats-next" hidden data-i18n="score.whatsNext">What’s next</h2>
-
-        <section class="score-all-good" id="score-all-good" hidden>
-          <div class="score-all-good-card">
-            <span class="score-all-good-icon" aria-hidden="true">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            </span>
-            <span class="score-all-good-text" id="score-all-good-text">All indicators at international-level quality</span>
-          </div>
-        </section>
-
-        <section class="score-improve" id="score-improve-section" hidden>
-          <h2 class="score-improve-title">
-            <span id="score-improve-heading" data-i18n="score.improveTitle">Room to improve</span>
-            <span id="score-improve-count"></span>
-          </h2>
-          <div id="score-improve-list" class="score-improve-list"></div>
-        </section>
 
         <div class="score-upgrade" id="score-upgrade-card" hidden>
           <div class="score-now-next" role="tablist" aria-label="Now or next">
@@ -146,12 +135,38 @@
           <div class="score-shift-list" id="score-upgrade-list"></div>
         </div>
 
+        <section class="score-already" id="score-already" hidden>
+          <p class="score-already-kicker">
+            <span class="score-shift-mark" aria-hidden="true"><svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="10" fill="#284DCD"/><path d="M5.7 10.2 8.4 12.8 14.3 7.1" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span id="score-already-kicker">Excellent · 92/100</span>
+          </p>
+          <h3 class="score-already-title" id="score-already-title">Your water is already optimal.</h3>
+          <p class="score-already-body" id="score-already-body">No upgrade needed. Let us know if you want ongoing care or have any questions about your water.</p>
+        </section>
+
+        <section class="score-all-good" id="score-all-good" hidden>
+          <div class="score-all-good-card">
+            <span class="score-all-good-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <span class="score-all-good-text" id="score-all-good-text">All indicators at international-level quality</span>
+          </div>
+        </section>
+
+        <section class="score-improve" id="score-improve-section" hidden>
+          <h2 class="score-improve-title">
+            <span id="score-improve-heading" data-i18n="score.improveTitle">Room to improve</span>
+            <span id="score-improve-count"></span>
+          </h2>
+          <div id="score-improve-list" class="score-improve-list"></div>
+        </section>
+
       </div>
     </section>
   </div>
 
   <div class="foot">
-    <button class="btn btn-secondary btn-draft" type="button" onclick="if (typeof showPkgSheet === 'function') showPkgSheet()" data-i18n="common.upgrade">Upgrade</button>
-    <button class="btn btn-primary" type="button" onclick="completeScore()" data-i18n="common.complete">Complete</button>
+    <button class="btn btn-secondary btn-draft" type="button" onclick="goBack('s-dash')" data-i18n="score.footer.close">Close</button>
+    <button class="btn btn-primary" type="button" onclick="openScoreWhatsNext()" data-i18n="score.footer.next">What's Next</button>
   </div>
 </div>

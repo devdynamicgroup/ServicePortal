@@ -16,6 +16,7 @@ const S = {
   actionJobId: null,
   scoreTapFilter: 'all',
   scoreStandardKey: 'thailand',
+  scoreTargetsOn: false,
   currentScoreResult: null,
   comparisonScoreResult: null,
   displayedScore: null,

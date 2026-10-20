@@ -577,7 +577,9 @@ function paintScoreDotField(score, {
     ? ['#284DCD', '#3D6AE1', '#467EEB']
     : tier === 'low'
       ? ['#f07b7b', '#f7b0b0', '#fde2e2']
-      : ['#69A1F1', '#99C2F7', '#C3D9FA'];
+      : tier === 'fair'
+        ? ['#E0A04A', '#F2C56B', '#F8E3B0']
+        : ['#69A1F1', '#99C2F7', '#C3D9FA'];
   const safe = Math.max(0, Math.min(100, Number(score) || 0));
   const idx = markIndex >= 0
     ? Math.max(0, Math.min(perRow - 1, markIndex))
@@ -586,9 +588,19 @@ function paintScoreDotField(score, {
   for (let band = 0; band < bands; band++) {
     const dots = [];
     for (let i = 0; i < perRow; i++) {
-      const distance = loading ? 99 : Math.abs(i - idx);
-      const color = distance === 0 ? palette[0] : distance <= 2 ? palette[1] : distance === 3 ? palette[2] : '#E7E5E1';
-      dots.push(`<i class="score-pip${i === idx && !loading ? ' is-mark' : ''}" style="background:${color}"></i>`);
+      const offset = loading ? 99 : i - idx;
+      const spread = tier === 'fair'
+        ? ['#F8B4B4', '#F5CC81', '#F2BF61', '#F2BF61', '#F2BF61', '#C3D9FA', '#99C2F7']
+        : tier === 'low'
+          ? ['#F8B4B4', '#F8B4B4', '#F58C8C', '#F58C8C', '#F58C8C', '#F2BF61', '#F2BF61']
+          : null;
+      const nextCluster = tier === 'high' && markIndex >= 0 && offset >= -3 && offset <= 3;
+      const color = spread && offset >= -3 && offset <= 3
+        ? spread[offset + 3]
+        : nextCluster
+          ? (Math.abs(offset) <= 1 ? '#284DCD' : Math.abs(offset) === 2 ? '#3D6AE1' : '#467EEB')
+          : (Math.abs(offset) === 0 ? palette[0] : Math.abs(offset) <= 2 ? palette[1] : Math.abs(offset) === 3 ? palette[2] : '#E7E5E1');
+      dots.push(`<svg class="score-pip${i === idx && !loading ? ' is-mark' : ''}" viewBox="0 0 8 8" width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="3.5" fill="${color}"/></svg>`);
     }
     html.push(`<span class="score-pip-row">${dots.join('')}</span>`);
   }
@@ -597,7 +609,7 @@ function paintScoreDotField(score, {
   field.style.setProperty(
     '--score-pct',
     pin
-      ? `calc(${idx} * (100% - 6px) / ${perRow - 1} + 3px)`
+      ? `calc(${idx} * (100% - 8px) / ${perRow - 1} + 4px)`
       : `${safe}%`
   );
   field.classList.toggle('is-loading', loading);
@@ -607,7 +619,7 @@ function paintScoreDotField(score, {
     live.textContent = crowded ? '' : String(rounded);
     live.hidden = crowded;
     if (pin) {
-      live.style.left = `calc(${idx} * (100% - 6px) / ${perRow - 1} + 3px)`;
+      live.style.left = `calc(${idx} * (100% - 8px) / ${perRow - 1} + 4px)`;
       live.style.transform = 'translateX(-50%)';
     } else {
       live.style.left = `${safe}%`;
@@ -761,7 +773,21 @@ function scorePropertyShort(value) {
 function renderScoreContextLine(job = S.activeJob) {
   const line = document.getElementById('score-context-line');
   if (!line) return;
-  const text = String(job?.name || '').trim();
+  if (!S.publicScoreView) {
+    const text = String(job?.name || '').trim();
+    line.textContent = text;
+    line.hidden = !text;
+    return;
+  }
+  const fields = job?.draft?.fields || {};
+  const firstPlace = String(fields['ci-addr'] || '')
+    .split(',')
+    .map(part => part.replace(/\b\d{5}\b/g, '').trim())
+    .find(part => part && /[A-Za-z\u0E00-\u0E7F]/.test(part));
+  const place = firstPlace || scorePlaceLabel(fields['ci-addr'], fields['ci-city']) || String(job?.name || '').trim();
+  const property = scorePropertyShort(fields['ci-proptype']);
+  const date = formatScoreContextDate(job?.date || job?.draft?.date);
+  const text = [place, property, date].filter(Boolean).join(' · ');
   line.textContent = text;
   line.hidden = !text;
 }
@@ -784,12 +810,40 @@ function benchmarkBoardStatus(key, overallScore) {
   return score >= min ? 'good' : 'fair';
 }
 
+/** Customer share board only. Pass, then a near miss, then clearly out. Does not change the score. */
+function customerBoardStatus(key, overallScore) {
+  const min = BENCHMARK_OVERALL_PASS_MIN[key];
+  const score = Number(overallScore);
+  if (!Number.isFinite(score) || !Number.isFinite(min)) return 'pending';
+  if (score >= min) return 'good';
+  if (min - score <= 25) return 'fair';
+  return 'attn';
+}
+
+/**
+ * Labels on the shared Full Assessment page. The number stays the published score.
+ * 81+ Optimal, 65–80 Good, 51–64 Fair, below 51 Needs attention.
+ */
+function customerShareCopy(score) {
+  const n = Number(score);
+  if (n >= 81) {
+    return { key: 'optimal', tier: 'high', label: t('score.share.optimal'), note: t('score.share.note.optimal'), color: '#284dcd' };
+  }
+  if (n >= BENCHMARK_OVERALL_PASS_MIN.thailand) {
+    return { key: 'good', tier: 'mid', label: t('score.verdict.good'), note: t('score.share.note.good'), color: '#69A1F1' };
+  }
+  if (n >= 51) {
+    return { key: 'fair', tier: 'fair', label: t('score.share.fair'), note: t('score.share.note.fair'), color: '#E0A04A' };
+  }
+  return { key: 'attention', tier: 'low', label: t('score.verdict.attention'), note: t('score.share.note.attention'), color: '#f07b7b' };
+}
+
 function scoreStandardMark(kind) {
   if (kind === 'good') {
     return '<span class="score-std-mark is-good" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="8" fill="#284DCD"/><path d="M4.6 8.2 6.8 10.3 11.4 5.7" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
   }
-  if (kind === 'fair') {
-    return '<span class="score-std-mark is-fair" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="6.7" fill="none" stroke="#69A1F1" stroke-width="1.5"/><path d="M8 11V5.6M6 7.4 8 5.5l2 1.9" fill="none" stroke="#69A1F1" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+  if (kind === 'fair' || (kind === 'attn' && S.publicScoreView)) {
+    return '<span class="score-std-mark is-fair" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="6.15" fill="none" stroke="#69A1F1" stroke-width="1.7"/><path fill="#69A1F1" d="M8 4 11.5 7.5H9V11.5H7V7.5H4.5Z"/></svg></span>';
   }
   if (kind === 'pending') {
     return '<span class="score-std-mark is-pending" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="6.7" fill="none" stroke="#E7E5E1" stroke-width="1.5"/></svg></span>';
@@ -830,10 +884,12 @@ function renderStandardsBoard(readings) {
   const selected = benchmarkRegistry()?.has?.(S.scoreStandardKey) ? S.scoreStandardKey : DEFAULT_SCORE_STANDARD_KEY;
   const overall = Number(S.displayedScore?.score ?? S.scoreVal);
   const rows = SCORE_BOARD_ORDER.filter(key => reg.has?.(key)).map(key => {
-    const uiKey = benchmarkBoardStatus(key, overall);
+    const uiKey = S.publicScoreView ? customerBoardStatus(key, overall) : benchmarkBoardStatus(key, overall);
     const label = uiKey === 'good'
       ? t('score.std.pass')
-      : (uiKey === 'pending' ? t('score.status.pending') : t('score.std.slight'));
+      : uiKey === 'attn'
+        ? t('score.std.out')
+        : (uiKey === 'pending' ? t('score.status.pending') : t('score.std.slight'));
     const right = label;
     const name = t(`score.board.${key}`);
     const selectedClass = key === selected ? ' is-selected' : '';
@@ -905,6 +961,15 @@ function renderScoreDisplay() {
       ? comparisonPresentationVerdict(wq, displayed.classifications, displayed.engineKey)
       : qualityPublishPresentation(wq, complianceStatus))
     : { tier: 'pending', label: '—', color: '#284dcd' };
+  if (S.publicScoreView && showScore && !showingComparison && Number.isFinite(Number(wq))) {
+    const share = customerShareCopy(wq);
+    verdict.tier = share.tier;
+    verdict.label = share.label;
+    verdict.color = share.color;
+    S.customerShareTier = share.key;
+  } else {
+    S.customerShareTier = '';
+  }
   const hero = document.getElementById('score-hero');
   const bandEl = document.getElementById('score-summary-band');
   const noteEl = document.getElementById('score-summary-note');
@@ -997,7 +1062,10 @@ function renderScoreDisplay() {
     bandEl.style.color = '';
   }
   if (noteEl) {
-    if (showScore) {
+    if (showScore && S.customerShareTier) {
+      noteEl.textContent = customerShareCopy(wq).note;
+      noteEl.hidden = false;
+    } else if (showScore) {
       // PD-007 D + PD-009 B: FAIL/WARNING get explicit hybrid notes on Quality/publish path.
       // Comparison path keeps the benchmark disclaimer (PD-005 / PD-001).
       if (!showingComparison && verdict.complianceOverride) {
@@ -1070,8 +1138,8 @@ function placeScoreAssessmentSections() {
   const progress = document.getElementById('score-status-bar');
   if (separator) {
     if (S.publicScoreView) {
-      separator.hidden = false;
-      separator.textContent = t('score.currentAssessment');
+      separator.hidden = true;
+      separator.textContent = '';
     } else {
       separator.hidden = true;
       separator.textContent = '';
@@ -1633,6 +1701,51 @@ function calcAndShowScore() {
   renderWaterScore(S.activeJob, { publicView: Boolean(S.publicScoreView) });
 }
 
+/** Localhost only. Shows the shared Full Assessment page with sample readings. */
+function mountLocalSharePreview(band) {
+  const host = window.location.hostname;
+  if (host !== 'localhost' && host !== '127.0.0.1') return;
+  const base = { ph: 7.2, tds: 103, chlorine: 0.1, turbidity: 0.7, orp: 187, do: 5.9, temp: 20.4 };
+  const samples = {
+    good: { score: 71, readings: base },
+    fair: { score: 61, readings: base },
+    attention: { score: 48, readings: base },
+    optimal: { score: 92, readings: { ...base, chlorine: 0.5, turbidity: 0.2 } }
+  };
+  const sample = samples[String(band || '').toLowerCase()] || samples.good;
+  const bathReadings = {
+    ...sample.readings,
+    chlorine: sample.readings.chlorine === 0.1 ? 0.4 : 0.6
+  };
+  const tap = (readings, photo) => ({
+    standardMeasurement: readings,
+    meterReadings: readings,
+    chlorineReadings: { freeChlorine: readings.chlorine },
+    photos: photo ? { tapphoto: photo } : {}
+  });
+  document.body.classList.add('public-report-mode');
+  S.publicScoreView = true;
+  S.lang = 'en';
+  S.scoreTargetsOn = false;
+  S.scoreStandardKey = 'thailand';
+  S.scoreTapFilter = 'Kitchen';
+  S.taps = ['Kitchen', 'Bath'];
+  S.activeJob = {
+    id: 'local-share-preview',
+    name: 'Sathorn',
+    date: '2026-10-07',
+    pkg: 'full',
+    result: { waterScore: sample.score },
+    draft: {
+      taps: ['Kitchen', 'Bath'],
+      fields: { 'ci-addr': 'Sathorn, Bangkok', 'ci-proptype': 'Condo' },
+      tapData: [tap(sample.readings, '/src/assets/score-first-page-kitchen.jpg?v=2'), tap(bathReadings)]
+    }
+  };
+  if (typeof setLanguage === 'function') setLanguage('en', { silent: true });
+  goScreen('s-score');
+}
+
 function renderPublishedScore(job) {
   // Explicit — renderWaterScore() no longer sets S.activeJob as a side effect.
   if (job) S.activeJob = job;
@@ -1761,6 +1874,59 @@ function getRoomReadings(tapKey, context = getScoreEvalContext()) {
   return { ...base };
 }
 
+/**
+ * Chlorine display only. Meter values are stored to 0.01 mg/L.
+ * One decimal turns 0.03 and 0.04 into "0.0". Other metrics keep fmt().
+ * Silence with S.chlorineDisplayLog = false. Removing the log call does not change the text.
+ */
+const _chlorineDisplayLogged = new Set();
+
+function describeChlorineDisplay(original, normalized) {
+  const missing = original === null || original === undefined || original === '' || original === false;
+  const finite = Number.isFinite(normalized);
+  if (!finite) {
+    return {
+      reading: original,
+      readingType: original === null ? 'null' : typeof original,
+      normalized: null,
+      precision: null,
+      display: '—',
+      status: missing ? 'missing' : 'invalid'
+    };
+  }
+  const hundredths = Math.round(Math.abs(normalized) * 100);
+  const precision = (normalized !== 0 && (Math.abs(normalized) < 0.05 || hundredths % 10 !== 0)) ? 2 : 1;
+  let status = 'measured';
+  if (normalized === 0) status = 'zero';
+  else if (Math.abs(normalized) < 0.05) status = 'non_zero_low_value';
+  return {
+    reading: original,
+    readingType: typeof original,
+    normalized,
+    precision,
+    display: `${normalized.toFixed(precision)} mg/L`,
+    status
+  };
+}
+
+function logChlorineDisplay(outcome) {
+  if (typeof S !== 'undefined' && S.chlorineDisplayLog === false) return;
+  const caseId = (typeof S !== 'undefined' && (S.activeJob?.id || S.activeJob?.notionId)) || 'none';
+  const key = `${caseId}|${outcome.status}|${String(outcome.reading)}|${outcome.display}`;
+  if (_chlorineDisplayLogged.has(key)) return;
+  if (_chlorineDisplayLogged.size > 40) _chlorineDisplayLogged.clear();
+  _chlorineDisplayLogged.add(key);
+  const line = `[MetricDisplay] metric=chlorine case=${caseId} reading=${String(outcome.reading)} type=${outcome.readingType} normalized=${outcome.normalized} precision=${outcome.precision} display="${outcome.display}" status=${outcome.status}`;
+  if (outcome.status === 'invalid') console.warn(line);
+  else console.info(line);
+}
+
+function formatChlorineMgL(original, normalized) {
+  const outcome = describeChlorineDisplay(original, normalized);
+  logChlorineDisplay(outcome);
+  return outcome.display;
+}
+
 /** Build metric rows for one room using selectedStandard limits — never shared across rooms. */
 function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
   const standardKey = context.selectedStandard || DEFAULT_SCORE_STANDARD_KEY;
@@ -1799,7 +1965,7 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
     if (!Number.isFinite(computedVal) && validationFields?.[key]?.state === 'IMPLAUSIBLE') {
       const rawVal = toFin(rawReadings[key]);
       if (Number.isFinite(rawVal)) {
-        return { p: label, r: fmtFn(rawVal), std, st: 'implausible', raw: rawVal };
+        return { key, p: label, r: fmtFn(rawVal), std, st: 'implausible', raw: rawVal };
       }
     }
     // A real value is present, but this standard's engine deliberately never
@@ -1808,24 +1974,127 @@ function buildMetricRowsForReadings(readings, context = getScoreEvalContext()) {
     // That is not "still loading" — show the measured value with a neutral
     // "not scored here" note instead of shimmering forever (2026-08-17 fix).
     if (status === 'pending' && Number.isFinite(computedVal)) {
-      return { p: label, r: fmtFn(computedVal), std, st: 'excluded', raw: computedVal };
+      return { key, p: label, r: fmtFn(computedVal), std, st: 'excluded', raw: computedVal };
     }
-    return { p: label, r: fmtFn(computedVal), std, st: paramStatusFromClassification(status, classifications?.[key]), raw: computedVal };
+    return { key, p: label, r: fmtFn(computedVal), std, st: paramStatusFromClassification(status, classifications?.[key]), raw: computedVal };
   };
 
-  return [
+  const rows = [
     buildRow('ph', 'pH', ph, (n) => fmt(n, 1), stdLabel(display.ph), evaluateParamStatus('ph', ph, standardKey)),
     buildRow('tds', 'TDS', tds, (n) => fmtInt(n, ' mg/L'), stdLabel(display.tds), evaluateParamStatus('tds', tds, standardKey)),
-    buildRow('chlorine', 'Chlorine', chlorine, (n) => fmt(n, 1, ' mg/L'), stdLabel(display.chlorine), evaluateParamStatus('chlorine', chlorine, standardKey)),
+    buildRow('chlorine', 'Chlorine', chlorine, (n) => formatChlorineMgL(readings.chlorine, n), stdLabel(display.chlorine), evaluateParamStatus('chlorine', chlorine, standardKey)),
     buildRow('turbidity', 'Turbidity', turbidity, (n) => fmt(n, 1, ' NTU'), stdLabel(display.turbidity), evaluateParamStatus('turbidity', turbidity, standardKey)),
     buildRow('orp', 'ORP', orp, (n) => fmtInt(n, ' mV'), stdLabel(display.orp), evaluateParamStatus('orp', orp, standardKey)),
     buildRow('do', 'DO', doVal, (n) => fmt(n, 1, ' mg/L'), stdLabel(display.do), evaluateParamStatus('do', doVal, standardKey)),
-    buildRow('temp', 'Temp', temp, (n) => fmt(n, 1, '°C'), stdLabel(display.temp), evaluateParamStatus('temp', temp, standardKey))
+    buildRow('temp', S.publicScoreView ? 'Temperature' : 'Temp', temp, (n) => fmt(n, 1, '°C'), stdLabel(display.temp), evaluateParamStatus('temp', temp, standardKey))
   ];
+  return rows;
 }
 
 function scoreTapRows(key, context = getScoreEvalContext()) {
   return buildMetricRowsForReadings(getRoomReadings(key, context), context);
+}
+
+function escapeScoreHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
+/** Presentation only. Compares a shown value with the selected standard's band. */
+function metricTargetSide(key, value, limits) {
+  const band = limits?.[key];
+  if (!band || !Number.isFinite(value)) return 'out';
+  if (Number.isFinite(band.min) && value < band.min) return 'below';
+  if (Number.isFinite(band.max) && value > band.max) return 'above';
+  if (Number.isFinite(band.passMax) && value > band.passMax) return 'above';
+  return 'out';
+}
+
+const CUSTOMER_THAI_TARGETS = Object.freeze({
+  ph: '6.5–8.5',
+  tds: '≤ 500 mg/L',
+  chlorine: '0.2–1.0 mg/L',
+  turbidity: '≤ 5 NTU',
+  orp: '200–600 mV',
+  do: '> 6 mg/L',
+  temp: '≤ 30°C'
+});
+
+function customerTargetLabel(key, context) {
+  const standardKey = context?.selectedStandard || S.scoreStandardKey || DEFAULT_SCORE_STANDARD_KEY;
+  if (standardKey === 'thailand' && CUSTOMER_THAI_TARGETS[key]) return CUSTOMER_THAI_TARGETS[key];
+  const display = context?.display || getWaterQualityStandard(standardKey).display || {};
+  const raw = String(display[key] || '').trim();
+  if (!raw || /not specified|not evaluated|pd-\d+/i.test(raw)) return '';
+  return raw.replace(/<=/g, '≤').replace(/>=/g, '≥').replace(/\s+-\s+/g, '–');
+}
+
+function scoreTargetNote(row, context) {
+  const statusKey = paramStatusUiKey(row.st);
+  if (statusKey === 'implausible') return t('score.targets.implausible');
+  const limits = getWaterQualityStandard(context.selectedStandard || DEFAULT_SCORE_STANDARD_KEY).limits;
+  const side = metricTargetSide(row.key, row.raw, limits);
+  if (side === 'below' && S.publicScoreView && S.customerShareTier === 'attention') return t('score.targets.recheck');
+  if (side === 'below') return t('score.targets.below');
+  if (side === 'above') return t('score.targets.above');
+  return t('score.targets.out');
+}
+
+function customerMetricCallout(row) {
+  if (!S.publicScoreView) return false;
+  const statusKey = paramStatusUiKey(row.st);
+  return row.key === 'chlorine' && ['fair', 'attn', 'implausible'].includes(statusKey);
+}
+
+function customerCalloutVisible(row) {
+  if (!customerMetricCallout(row)) return false;
+  if (S.scoreTargetsOn) return true;
+  return S.customerShareTier === 'fair' || S.customerShareTier === 'attention';
+}
+
+function scoreTargetDetail(row, context) {
+  const publicCallout = customerCalloutVisible(row);
+  if (!S.scoreTargetsOn && !publicCallout) return { html: '', warn: false };
+  const statusKey = paramStatusUiKey(row.st);
+  const offTarget = S.publicScoreView ? publicCallout : ['fair', 'attn', 'implausible'].includes(statusKey);
+  const labeled = customerTargetLabel(row.key, context);
+  const fallback = String(row.std || '').trim();
+  const range = labeled || (/not specified|not evaluated|pd-\d+/i.test(fallback) ? '' : fallback);
+  const unnamed = !range || range === 'Not specified' || range === t('score.std.notSpecified');
+  if (unnamed && !offTarget) return { html: '', warn: false };
+  const rangeLine = unnamed ? '' : `<p class="score-metric-target-range">${escapeScoreHtml(t('score.targets.range'))} ${escapeScoreHtml(range)}</p>`;
+  const note = offTarget ? `<p class="score-metric-target-note">${escapeScoreHtml(scoreTargetNote(row, context))}</p>` : '';
+  if (!rangeLine && !note) return { html: '', warn: false };
+  return { html: `<div class="score-metric-target">${rangeLine}${note}</div>`, warn: offTarget };
+}
+
+const SCORE_TARGET_WARN = '<svg class="score-metric-warn" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="#F58C8C" stroke-width="1.05" stroke-linejoin="round" d="M8 1.3Q9.55 4.15 12.74 3.26Q11.85 6.45 14.7 8Q11.85 9.55 12.74 12.74Q9.55 11.85 8 14.7Q6.45 11.85 3.26 12.74Q4.15 9.55 1.3 8Q4.15 6.45 3.26 3.26Q6.45 4.15 8 1.3Z"/><path d="M8 5.15v3.15" stroke="#F58C8C" stroke-width="1.05" stroke-linecap="round"/><circle cx="8" cy="10.35" r=".58" fill="#F58C8C"/></svg>';
+
+function syncScoreTargetsControl() {
+  const btn = document.getElementById('score-targets-toggle');
+  if (!btn || typeof btn.classList?.toggle !== 'function' || typeof btn.setAttribute !== 'function') return;
+  const on = Boolean(S.scoreTargetsOn);
+  btn.classList.toggle('is-on', on);
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
+function setScoreTargets(on) {
+  S.scoreTargetsOn = Boolean(on);
+  syncScoreTargetsControl();
+  renderScoreReadings();
+}
+
+function customerPipFilled(row, context, statusKey, callout) {
+  if (callout || statusKey !== 'good') return 3;
+  const band = getWaterQualityStandard(context.selectedStandard || DEFAULT_SCORE_STANDARD_KEY).limits?.[row.key];
+  const value = Number(row.raw);
+  if (!band || !Number.isFinite(value)) return 4;
+  const min = [band.preferredMin, band.excellentMin, band.goodMin].find(n => Number.isFinite(n));
+  const max = [band.preferredMax, band.excellentMax, band.goodMax, band.gradeExcellentMax].find(n => Number.isFinite(n));
+  if (Number.isFinite(min) && value < min) return 3;
+  if (Number.isFinite(max) && value > max) return 3;
+  return 4;
 }
 
 function renderScoreReadings(context = getScoreEvalContext()) {
@@ -1836,6 +2105,10 @@ function renderScoreReadings(context = getScoreEvalContext()) {
   const listEl = document.getElementById('score-readings-rows');
   const scopeEl = document.getElementById('score-params-scope');
   if (!listEl) return;
+  syncScoreTargetsControl();
+  if (typeof listEl.classList?.toggle === 'function') {
+    listEl.classList.toggle('is-targets', Boolean(S.scoreTargetsOn));
+  }
 
   if (scopeEl) scopeEl.hidden = true;
 
@@ -1869,16 +2142,29 @@ function renderScoreReadings(context = getScoreEvalContext()) {
 </div>`;
     }
     const statusLabel = statusLabels[statusKey];
-    const filled = statusKey === 'good' ? 4 : statusKey === 'fair' ? 2 : (statusKey === 'attn' || statusKey === 'implausible') ? 1 : 3;
+    const callout = customerCalloutVisible(r);
+    const filled = S.publicScoreView
+      ? customerPipFilled(r, context, statusKey, callout)
+      : (!S.scoreTargetsOn
+        ? 4
+        : (statusKey === 'good' || statusKey === 'excluded')
+          ? 4
+          : statusKey === 'fair'
+            ? 2
+            : (statusKey === 'attn' || statusKey === 'implausible') ? 1 : 3);
     const pips = Array.from({ length: 4 }, (_, index) => `<i class="${index < filled ? 'is-on' : ''}"></i>`).join('');
-    return `<div class="score-metric-item">
-  <div class="score-metric-row is-${statusKey}">
-    <span class="score-metric-name">${r.p}</span>
-    <span class="score-metric-range">${r.std}</span>
-    <span class="score-metric-value">${r.r}</span>
+    const detail = scoreTargetDetail(r, context);
+    const warn = detail.warn ? SCORE_TARGET_WARN : '';
+    const soft = S.publicScoreView && !callout && filled < 4;
+    return `<div class="score-metric-item${detail.html ? ' is-target' : ''}">
+  <div class="score-metric-row is-${statusKey}${callout ? ' is-callout' : ''}${soft ? ' is-soft' : ''}">
+    <span class="score-metric-name">${warn}${escapeScoreHtml(r.p)}</span>
+    <span class="score-metric-range">${escapeScoreHtml(r.std)}</span>
+    <span class="score-metric-value">${escapeScoreHtml(r.r)}</span>
     <span class="score-metric-pips" aria-hidden="true">${pips}</span>
-    <span class="score-metric-status"><i class="score-dot" aria-hidden="true"></i>${statusLabel}</span>
+    <span class="score-metric-status"><i class="score-dot" aria-hidden="true"></i>${escapeScoreHtml(statusLabel)}</span>
   </div>
+  ${detail.html}
 </div>`;
   }).join('');
 }
@@ -2031,6 +2317,133 @@ function thailandStandardPasses(readings) {
  * The after number is the current quality formula with those readings on its own ideal points.
  * It is not written back to the case score.
  */
+function scoreShiftRangeLabel(key, standardKey) {
+  const limits = benchmarkRegistry()?.get?.(standardKey)?.limits?.[key] || {};
+  const min = firstFiniteLimit(limits.preferredMin, limits.excellentMin, limits.idealMin)
+    ?? firstFiniteLimit(limits.min);
+  const max = firstFiniteLimit(limits.preferredMax, limits.excellentMax, limits.idealMax, limits.gradeExcellentMax)
+    ?? firstFiniteLimit(limits.passMax, limits.max);
+  const unit = { tds: ' mg/L', turbidity: ' NTU', chlorine: ' mg/L', orp: ' mV', do: ' mg/L', temp: '°C' }[key] || '';
+  const fmt = (n) => {
+    const rounded = Math.round(Number(n) * 10) / 10;
+    const text = Number.isInteger(rounded) ? String(rounded) : String(rounded);
+    return `${text}${unit}`;
+  };
+  if (min != null && max != null) return `${fmt(min)}–${fmt(max)}`.replace(`${unit}–`, '–');
+  if (max != null) return `≤ ${fmt(max)}`;
+  if (min != null) return `≥ ${fmt(min)}`;
+  return '';
+}
+
+function renderShiftImprove(readings, rows, standardKey) {
+  const section = document.getElementById('score-improve-section');
+  const listEl = document.getElementById('score-improve-list');
+  const countEl = document.getElementById('score-improve-count');
+  const headingEl = document.getElementById('score-improve-heading');
+  if (!section || !listEl) return;
+  const open = rows.filter(row => row.kind === 'above' || row.kind === 'below');
+  if (!open.length) {
+    section.hidden = true;
+    listEl.replaceChildren?.();
+    return;
+  }
+  const metric = typeof scoreTapRows === 'function' ? scoreTapRows(scorePointFilter()) : [];
+  section.hidden = false;
+  if (headingEl) headingEl.textContent = t('score.improveTitle');
+  if (countEl) countEl.textContent = `· ${open.length}`;
+  listEl.innerHTML = open.map(row => {
+    const found = metric.find(item => item.key === row.key);
+    const range = scoreShiftRangeLabel(row.key, standardKey);
+    const value = found?.r || (Number.isFinite(Number(readings?.[row.key])) ? String(readings[row.key]) : '');
+    return `<div class="score-improve-row is-fair">
+  <i class="score-flag" aria-hidden="true"></i>
+  <span class="score-improve-name">${escapeScoreText(row.label)}</span>
+  <span class="score-improve-range">${escapeScoreText(range)}</span>
+  <span class="score-improve-value">${escapeScoreText(value)}</span>
+  <span class="score-improve-status"></span>
+</div>`;
+  }).join('');
+}
+
+function setScoreNextFooter(open) {
+  const primary = document.querySelector('#s-score .foot .btn-primary');
+  if (!primary) return;
+  if (open) {
+    primary.setAttribute('data-i18n', 'common.complete');
+    primary.textContent = t('common.complete');
+    primary.onclick = () => { if (typeof completeScore === 'function') completeScore(); };
+    return;
+  }
+  primary.setAttribute('data-i18n', 'score.footer.next');
+  primary.textContent = t('score.footer.next');
+  primary.onclick = openScoreWhatsNext;
+}
+
+function scoreResultAlreadyOptimal(score) {
+  const n = Number(score);
+  if (!Number.isFinite(n)) return false;
+  if (S.publicScoreView) return customerShareCopy(n).key === 'optimal';
+  return typeof customerVerdict === 'function' && customerVerdict(n).tier === 'high';
+}
+
+function showScoreAlreadyOptimal(score) {
+  const card = document.getElementById('score-already');
+  const kicker = document.getElementById('score-already-kicker');
+  const title = document.getElementById('score-already-title');
+  const body = document.getElementById('score-already-body');
+  const n = Math.round(Number(score));
+  if (kicker) kicker.textContent = `${t('score.verdict.excellent')} · ${n}/100`;
+  if (title) title.textContent = t('score.already.title');
+  if (body) body.textContent = t('score.already.body');
+  if (card) card.hidden = false;
+  const upgrade = document.getElementById('score-upgrade-card');
+  const improve = document.getElementById('score-improve-section');
+  const allGood = document.getElementById('score-all-good');
+  if (upgrade) upgrade.hidden = true;
+  if (improve) improve.hidden = true;
+  if (allGood) allGood.hidden = true;
+}
+
+function openScoreWhatsNext() {
+  const screen = document.getElementById('s-score');
+  if (!screen) return;
+  S.scoreNextOpen = true;
+  screen.classList.add('is-next-view');
+  const score = Number(S.displayedScore?.score ?? S.scoreVal);
+  const already = scoreResultAlreadyOptimal(score);
+  screen.classList.toggle('is-already-optimal', already);
+  const heading = document.getElementById('score-whats-next');
+  if (heading) heading.hidden = false;
+  if (already) showScoreAlreadyOptimal(score);
+  else {
+    const card = document.getElementById('score-already');
+    if (card) card.hidden = true;
+    renderScoreShift(Number.isFinite(score), score);
+  }
+  setScoreNextFooter(true);
+  const scroll = screen.querySelector('.score-scroll');
+  if (scroll) scroll.scrollTop = 0;
+}
+
+function closeScoreWhatsNext() {
+  S.scoreNextOpen = false;
+  const screen = document.getElementById('s-score');
+  screen?.classList.remove('is-next-view', 'is-already-optimal');
+  const card = document.getElementById('score-already');
+  if (card) card.hidden = true;
+  setScoreNextFooter(false);
+  const scroll = document.querySelector('#s-score .score-scroll');
+  if (scroll) scroll.scrollTop = 0;
+}
+
+function scoreHeaderBack() {
+  if (S.scoreNextOpen) {
+    closeScoreWhatsNext();
+    return;
+  }
+  if (typeof goBack === 'function') goBack('s-assess');
+}
+
 function setScoreShiftMode(mode) {
   S.scoreShiftMode = mode === 'next' ? 'next' : 'now';
   const nowBtn = document.getElementById('score-shift-now');
@@ -2050,13 +2463,18 @@ function renderScoreShift(showScore, currentScore) {
   const noteEl = document.getElementById('score-summary-note');
   const compliance = document.getElementById('score-compliance-line')?.dataset?.status;
   const overallNote = Number(currentScore);
-  if (showScore && noteEl && compliance !== 'FAIL' && compliance !== 'WARNING'
+  if (!S.publicScoreView && showScore && noteEl && compliance !== 'FAIL' && compliance !== 'WARNING'
     && overallNote >= BENCHMARK_OVERALL_PASS_MIN.thailand && overallNote < 81) {
     noteEl.textContent = t('score.passesThai');
   }
   const upgrade = document.getElementById('score-upgrade-card');
   if (!upgrade) return;
-  const readings = readingsForScoreBoard({});
+  const point = scorePointFilter();
+  const pointReadings = point && point !== 'all' && typeof getRoomReadings === 'function'
+    ? getRoomReadings(point)
+    : null;
+  const pointHasNumbers = pointReadings && Object.keys(pointReadings).some(key => Number.isFinite(Number(pointReadings[key])));
+  const readings = pointHasNumbers ? pointReadings : readingsForScoreBoard({});
   const standardKey = benchmarkRegistry()?.has?.(S.scoreStandardKey) ? S.scoreStandardKey : DEFAULT_SCORE_STANDARD_KEY;
   const idealReadings = { ...(readings || {}) };
   Object.keys(SCORE_QUALITY_IDEAL).forEach(key => {
@@ -2126,6 +2544,7 @@ function renderScoreShift(showScore, currentScore) {
   if (mode === 'next') dotOptions.markIndex = 29;
   else dotOptions.pinBadge = true;
   paintScoreDotField(Number.isFinite(shown) ? shown : 0, dotOptions);
+  renderShiftImprove(readings || {}, afterRows, standardKey);
 }
 
 function syncScoreWhatsNext(showScore) {
@@ -2464,6 +2883,26 @@ function isFullAssessmentJob(job) {
  * shareCard=false skips the PNG: a Full Assessment shares its Water Score
  * page link, never the Essential poster image.
  */
+function absoluteReportUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  try {
+    return new URL(raw, location.origin).href;
+  } catch {
+    return raw;
+  }
+}
+
+/** Link already minted for this Full Assessment. Re-sharing must not publish again. */
+function readyFullReportUrl(job) {
+  if (!isFullAssessmentJob(job)) return '';
+  const stored = absoluteReportUrl(job?.result?.reportUrl);
+  if (stored) return stored;
+  const token = String(job?.result?.publicReportToken || '').trim();
+  if (!token) return '';
+  return absoluteReportUrl(`/r/${encodeURIComponent(token)}`);
+}
+
 async function shareScoreResult({ reportToken, reportUrl, title, text, shareCard = true }) {
   const file = shareCard ? await shareScoreCardImage({ reportToken, title, text }) : null;
   if (file && navigator.canShare?.({ files: [file] })) {
@@ -2476,11 +2915,19 @@ async function shareScoreResult({ reportToken, reportUrl, title, text, shareCard
     }
   }
 
-  if (navigator.share) {
-    await navigator.share({ title, text, url: reportUrl });
-    return 'url';
+  // navigator.share must run in the tap that asked for it. A publish that
+  // already finished loses that tap, so a refused sheet still leaves the link.
+  if (navigator.share && reportUrl) {
+    try {
+      await navigator.share({ title, text, url: reportUrl });
+      return 'url';
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error;
+      if (error?.name !== 'NotAllowedError') throw error;
+    }
   }
 
+  if (!reportUrl) throw new Error('Could not share score');
   await navigator.clipboard.writeText(reportUrl);
   return 'clipboard';
 }
@@ -2510,8 +2957,32 @@ async function shareScore() {
       return;
     }
   }
-  if (!Number.isFinite(Number(S.scoreVal))) {
+  if (!Number.isFinite(Number(S.scoreVal)) && !Number.isFinite(Number(job?.result?.waterScore))) {
     showToast('Please calculate the Water Score first');
+    return;
+  }
+
+  const readyUrl = readyFullReportUrl(job);
+  if (readyUrl) {
+    sharingScore = true;
+    setShareButtonLoading(true);
+    try {
+      const outcome = await shareScoreResult({
+        reportToken: job.result?.publicReportToken,
+        reportUrl: readyUrl,
+        title: 'Water Motion - Water Score',
+        text: `ผล Water Score ของคุณ: ${Number(job.result?.waterScore ?? S.scoreVal)}/100`,
+        shareCard: false
+      });
+      showToast(outcome === 'clipboard' ? 'Score link copied - share with client' : 'Score shared');
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      console.error('Share Score failed', error);
+      showToast('Could not share score');
+    } finally {
+      sharingScore = false;
+      setShareButtonLoading(false);
+    }
     return;
   }
 

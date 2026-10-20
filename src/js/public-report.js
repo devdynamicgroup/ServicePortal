@@ -29,16 +29,12 @@ function configurePublicScoreChrome() {
   const screen = document.getElementById('s-score');
   screen?.classList.add('active');
 
-  document.querySelector('#s-score .hdr-back')?.classList.add('hidden');
-
   const shareBtn = document.querySelector('#s-score .hdr-action');
   if (shareBtn) {
     shareBtn.removeAttribute('onclick');
     shareBtn.type = 'button';
     shareBtn.onclick = sharePublicReport;
   }
-
-  document.querySelector('#s-score .foot')?.classList.add('hidden');
 }
 
 async function sharePublicReport() {
