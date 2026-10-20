@@ -2075,7 +2075,7 @@ function setScoreTargets(on) {
 }
 
 function statusPipCount(statusKey) {
-  if (statusKey === 'good' || statusKey === 'excluded') return 4;
+  if (statusKey === 'good') return 4;
   if (statusKey === 'fair') return 2;
   if (statusKey === 'attn' || statusKey === 'implausible') return 1;
   return 3;
