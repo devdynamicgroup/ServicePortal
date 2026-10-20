@@ -208,7 +208,8 @@ function scoreSummaryNote(wq, findings, roomStatuses) {
     if (passesEveryCountryBenchmark(wq)) return t('score.share.note.optimal');
     return t('score.msg.excellent');
   }
-  if (wq >= 51) return t('score.passesThai');
+  if (wq >= BENCHMARK_OVERALL_PASS_MIN.thailand) return t('score.passesThai');
+  if (wq >= 51) return t('score.share.note.fair');
   return t('score.share.note.attention');
 }
 
