@@ -202,19 +202,14 @@ function isShowingCountryBenchmarkComparison() {
 }
 
 function scoreSummaryNote(wq, findings, roomStatuses) {
-  const attnCount = (findings || []).length;
   // 2026-08-18 (PO-approved): matches customerVerdict's tier boundaries (81+/51-80/0-50).
   if (wq >= 81) {
     if (roomStatusesNeedAttention(roomStatuses)) return t('score.msg.reviewRooms');
     if (passesEveryCountryBenchmark(wq)) return t('score.share.note.optimal');
     return t('score.msg.excellent');
   }
-  if (wq >= BENCHMARK_OVERALL_PASS_MIN.thailand) return t('score.passesThai');
-  if (wq >= 51) return t('score.msg.goodDetail');
-  if (attnCount > 0) {
-    return t('score.msg.attentionDetail').replace('{n}', String(attnCount));
-  }
-  return t('score.msg.low');
+  if (wq >= 51) return t('score.passesThai');
+  return t('score.share.note.attention');
 }
 
 let _scoreAnimToken = 0;
