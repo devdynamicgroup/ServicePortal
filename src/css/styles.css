@@ -1773,14 +1773,20 @@ body.public-report-mode #s-score .score-std-label.is-attn{color:#78716C}
 }
 #s-score .score-content-panel > *{align-self:stretch;width:100%;margin:0}
 #s-score .score-report-filters{
-  display:flex;flex-direction:row;align-items:flex-start;justify-content:space-between;
-  gap:8px;margin:0
+  display:flex;flex-direction:row;align-items:center;justify-content:flex-start;
+  gap:8px;margin:0;min-width:0;overflow:visible
 }
-#s-score .score-report-filters .score-location-row,
-#s-score .score-report-filters .score-benchmark-row{flex:none;align-items:flex-start}
-#s-score .score-filter-side{display:flex;align-items:center;gap:8px;margin-left:auto;flex:none}
+#s-score .score-report-filters .score-location-row{
+  flex:1 1 auto;min-width:0;max-width:100%;align-items:center;overflow:hidden
+}
+#s-score .score-report-filters .score-location-row .score-select-wrap{width:100%;min-width:0;max-width:100%}
+#s-score .score-report-filters .score-location-row .score-select{
+  width:100%;max-width:100%;min-width:0;text-overflow:ellipsis
+}
+#s-score .score-report-filters .score-benchmark-row{flex:0 0 auto;min-width:max-content;align-items:center}
+#s-score .score-filter-side{display:flex;align-items:center;gap:8px;margin-left:8px;flex:0 0 auto;min-width:max-content}
 #s-score .score-targets-toggle{
-  display:inline-flex;align-items:center;gap:6px;height:21px;padding:0 3px 0 8px;
+  display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 4px 0 10px;
   border:0;border-radius:100px;background:#FAFAF9;color:#1c1917;
   font:400 12px/13px inherit;cursor:pointer
 }
@@ -1795,12 +1801,14 @@ body.public-report-mode #s-score .score-std-label.is-attn{color:#78716C}
 #s-score .score-targets-toggle.is-on .score-targets-knob::after{transform:translateX(11px)}
 #s-score .score-report-filters .score-benchmark-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 #s-score .score-report-filters .score-select{
-  display:flex;flex-direction:row;align-items:center;flex:none;
-  width:auto;height:21px;padding:4px 20px 4px 8px;gap:4px;
+  display:block;box-sizing:border-box;flex:0 0 auto;
+  width:auto;height:28px;padding:0 28px 0 10px;
   border:0;border-radius:100px;background-color:#FAFAF9;
-  background-position:right 8px center;
-  font-size:12px;font-weight:400;line-height:13px;color:#1c1917
+  background-position:right 10px center;
+  font-size:12px;font-weight:400;line-height:28px;color:#1c1917;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
 }
+#s-score .score-report-filters .score-benchmark-row .score-select{min-width:64px;max-width:none}
 #s-score .score-metric-list{gap:0;margin:0}
 #s-score .score-metric-warn{display:inline-flex;margin-right:4px;vertical-align:-2px;color:#e11d48}
 #s-score .score-metric-target{padding:0 0 10px}
