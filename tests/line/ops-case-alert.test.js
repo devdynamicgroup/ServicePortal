@@ -75,28 +75,35 @@ async function run(name, fn) {
 
   await run('message carries case facts and leaves notification status untouched', async () => {
     const job = sampleJob();
-    const text = buildOpsCaseAlertText(job, { source: 'cal.com' });
-    assert.ok(text.includes('WATER MOTION | NEW CASE'));
-    assert.ok(text.includes('Ann Ada'));
-    assert.ok(text.includes('0812345678'));
-    assert.ok(text.includes('12 Test Road'));
-    assert.ok(text.includes('2026-10-22'));
-    assert.ok(text.includes('09:00'));
-    assert.ok(!text.includes('ช่องทางที่มา'), 'channel/source field is removed from the message');
-    assert.ok(text.includes('ann.line'));
-    assert.ok(text.includes('หน้าเว็บ/ระบบจองคิว'));
+    const text = buildOpsCaseAlertText(job);
+    const lines = text.split('\n');
+    assert.strictEqual(lines[0], '🆕 New Appointment');
+    assert.ok(/^https?:\/\//.test(lines[1]), 'second line is the portal link');
+    assert.deepStrictEqual(lines.slice(2), [
+      '----------------------',
+      'ชื่อลูกค้า: Ann Ada',
+      'เบอร์โทร: 0812345678',
+      'Line: ann.line',
+      'วันนัดหมาย: 2026-10-22',
+      'เวลา: 09:00–10:00 น.',
+      'ที่อยู่: 12 Test Road',
+      '----------------------',
+      '⚠️ กรุณาตรวจสอบข้อมูลลูกค้าและยืนยันที่อยู่ก่อนดำเนินการ'
+    ]);
     assert.strictEqual(job.notification.status, 'not_sent');
   });
 
-  await run('created-from label distinguishes portal vs cal.com', async () => {
+  await run('missing phone, LINE and appointment time show "-" (never NaN)', async () => {
     const job = sampleJob();
-    const portalText = buildOpsCaseAlertText(job, { source: 'portal' });
-    const calText = buildOpsCaseAlertText(job, { source: 'cal.com' });
-    const unknownText = buildOpsCaseAlertText(job, {});
-    assert.ok(/สร้างจาก: \S+/.test(portalText), 'portal source shows a host, not blank');
-    assert.ok(!portalText.includes('สร้างจาก: -'), 'portal source is not the blank fallback');
-    assert.ok(calText.includes('หน้าเว็บ/ระบบจองคิว'));
-    assert.ok(unknownText.includes('สร้างจาก: -'));
+    job.timeStart = 'NaN:00';
+    job.timeEnd = 'NaN:00';
+    delete job.draft.fields['ci-phone'];
+    delete job.draft.fields['ci-line'];
+    const text = buildOpsCaseAlertText(job);
+    assert.ok(text.includes('เบอร์โทร: -'));
+    assert.ok(text.includes('Line: -'));
+    assert.ok(text.includes('เวลา: -'));
+    assert.ok(!/nan/i.test(text));
   });
 
   await run('sends once per configured target and survives a push failure', async () => {

@@ -51,47 +51,41 @@ function displayDate(job) {
   return String(job?.date || '').trim() || '-';
 }
 
+// A Case with no Appointment Start/End in Notion maps to "NaN:00" (see
+// scheduleFromIndex in notion/mapper.js); show "-" instead of a broken time.
+function validTime(value) {
+  const text = String(value || '').trim();
+  return text && !/nan/i.test(text) ? text : '';
+}
+
 function displayTime(job) {
-  const time = [job?.timeStart, job?.timeEnd].filter(Boolean).join('–');
+  const time = [validTime(job?.timeStart), validTime(job?.timeEnd)].filter(Boolean).join('–');
   return time ? `${time} น.` : '-';
 }
 
-const SOURCE_LABELS = {
-  'cal.com': 'หน้าเว็บ/ระบบจองคิว'
-};
-
-function portalHost() {
+function portalLink() {
   try {
-    return publicBaseUrl().replace(/^https?:\/\//, '');
+    return publicBaseUrl();
   } catch {
-    return 'ระบบหลังบ้าน';
+    return '';
   }
 }
 
-function displayCreatedFrom(context = {}) {
-  if (context.source === 'portal') return portalHost();
-  return SOURCE_LABELS[context.source] || '-';
-}
-
-function buildOpsCaseAlertText(job = {}, context = {}) {
-  const lines = [
-    '💧 WATER MOTION | NEW CASE',
-    'มี Case ใหม่เข้าสู่ระบบ',
+function buildOpsCaseAlertText(job = {}) {
+  const lines = ['🆕 New Appointment'];
+  const link = portalLink();
+  if (link) lines.push(link);
+  lines.push(
     '----------------------',
-    `👤 ชื่อลูกค้า: ${displayName(job)}`,
-    `📞 เบอร์โทร: ${field(job, 'ci-phone') || '-'}`,
-    `📅 วันนัดหมาย: ${displayDate(job)}`,
-    `🕘 เวลา: ${displayTime(job)}`,
-    `📍 ที่อยู่: ${displayAddress(job)}`,
-    `🛠️ สร้างจาก: ${displayCreatedFrom(context)}`
-  ];
-  const lineId = field(job, 'ci-line');
-  if (lineId) lines.push(`💬 LINE: ${lineId}`);
-  lines.push('----------------------');
-  const caseId = String(job?.id || job?.notionId || '').trim();
-  lines.push(`🆔 Case ID: ${caseId || '-'}`);
-  lines.push('');
-  lines.push('⚠️ กรุณาตรวจสอบข้อมูลลูกค้าและยืนยันที่อยู่ก่อนดำเนินการ');
+    `ชื่อลูกค้า: ${displayName(job)}`,
+    `เบอร์โทร: ${field(job, 'ci-phone') || '-'}`,
+    `Line: ${field(job, 'ci-line') || '-'}`,
+    `วันนัดหมาย: ${displayDate(job)}`,
+    `เวลา: ${displayTime(job)}`,
+    `ที่อยู่: ${displayAddress(job)}`,
+    '----------------------',
+    '⚠️ กรุณาตรวจสอบข้อมูลลูกค้าและยืนยันที่อยู่ก่อนดำเนินการ'
+  );
   return lines.join('\n');
 }
 
@@ -101,7 +95,7 @@ async function notifyAdminsOfNewCase(job, context = {}) {
     return { ok: true, skipped: true, reason: 'no_targets', results: [] };
   }
 
-  const text = buildOpsCaseAlertText(job, context);
+  const text = buildOpsCaseAlertText(job);
   const results = [];
   for (const to of targets) {
     try {
