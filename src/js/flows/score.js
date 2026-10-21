@@ -2450,8 +2450,18 @@ function scoreHeaderBack() {
   if (typeof goBack === 'function') goBack('s-assess');
 }
 
+function playScoreShiftMotion(mode) {
+  const card = document.getElementById('score-upgrade-card');
+  if (!card) return;
+  card.classList.remove('is-shift-now', 'is-shift-next');
+  void card.offsetWidth;
+  card.classList.add(mode === 'next' ? 'is-shift-next' : 'is-shift-now');
+}
+
 function setScoreShiftMode(mode) {
-  S.scoreShiftMode = mode === 'next' ? 'next' : 'now';
+  const nextMode = mode === 'next' ? 'next' : 'now';
+  const changed = S.scoreShiftMode !== nextMode;
+  S.scoreShiftMode = nextMode;
   const nowBtn = document.getElementById('score-shift-now');
   const nextBtn = document.getElementById('score-shift-next');
   if (nowBtn) {
@@ -2462,6 +2472,9 @@ function setScoreShiftMode(mode) {
     nextBtn.classList.toggle('is-on', S.scoreShiftMode === 'next');
     nextBtn.setAttribute('aria-selected', S.scoreShiftMode === 'next' ? 'true' : 'false');
   }
+  const toggle = document.querySelector('#score-upgrade-card .score-now-next');
+  if (toggle) toggle.classList.toggle('is-next', S.scoreShiftMode === 'next');
+  if (changed) playScoreShiftMotion(S.scoreShiftMode);
   renderScoreShift(true, S.displayedScore?.score);
 }
 
@@ -2496,6 +2509,8 @@ function renderScoreShift(showScore, currentScore) {
   if (!showAfter) return;
   if (S.scoreShiftMode !== 'now' && S.scoreShiftMode !== 'next') S.scoreShiftMode = 'now';
   upgrade.dataset.mode = S.scoreShiftMode;
+  const shiftToggle = upgrade.querySelector('.score-now-next');
+  if (shiftToggle) shiftToggle.classList.toggle('is-next', S.scoreShiftMode === 'next');
   const nowBtn = document.getElementById('score-shift-now');
   const nextBtn = document.getElementById('score-shift-next');
   if (nowBtn) {
