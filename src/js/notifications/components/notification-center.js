@@ -17,10 +17,30 @@
     }
   }
 
+  function notificationCategory(type) {
+    return global.OperatorNotificationTypes?.TYPE_META?.[type]?.category || 'service';
+  }
+
+  async function renderNotificationFilterCounts() {
+    const all = await global.OperatorNotificationService.list('all');
+    const counts = {
+      all: all.length,
+      unread: all.filter(item => !item.read).length,
+      schedule: all.filter(item => notificationCategory(item.type) === 'schedule').length,
+      service: all.filter(item => notificationCategory(item.type) === 'service').length
+    };
+    document.querySelectorAll('#notif-filter .notif-filter-btn').forEach(btn => {
+      const type = btn.dataset.type || 'all';
+      const countEl = btn.querySelector('.notif-filter-count');
+      if (countEl) countEl.textContent = `(${counts[type] || 0})`;
+    });
+  }
+
   async function renderNotificationCenter() {
     const list = document.getElementById('notif-list');
     if (!list || !global.OperatorNotificationService) return;
 
+    await renderNotificationFilterCounts();
     const items = await global.OperatorNotificationService.list(filter);
     document.querySelectorAll('.notif-filter-btn').forEach(btn => {
       const type = btn.dataset.type || 'all';
