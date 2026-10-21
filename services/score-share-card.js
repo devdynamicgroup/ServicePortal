@@ -40,6 +40,7 @@ const CARD_H = 383;
 
 const ASSET_DIR = path.join(__dirname, '..', 'src', 'assets');
 const DEFAULT_PHOTO = path.join(ASSET_DIR, 'score-share-default-photo.jpg');
+const FACEBOOK_BG = path.join(ASSET_DIR, 'score-share-facebook-bg.jpg');
 const QR_ASSET = path.join(ASSET_DIR, 'score-share-qr.png');
 const CTA_BADGE_ASSET = path.join(ASSET_DIR, 'score-share-cta-badge.png');
 const WORDMARK_ASSET = path.join(ASSET_DIR, 'score-share-wordmark.png');
@@ -389,62 +390,66 @@ function shareContextLine(job = {}) {
   return [city, property, month].filter(Boolean).join(' · ');
 }
 
+const FB_CARD_W = 780;
+const FB_CARD_H = 360;
+
 function facebookScoreCard(opts) {
   const wq = Math.max(0, Math.min(100, Number(opts.score) || 0));
   const band = shareBandLabel(wq);
   const context = String(opts.contextLine || '').trim();
-  const dots = 42;
-  const dotGap = 14;
+  const dots = 52;
+  const dotGap = 12.2;
   const dotsW = (dots - 1) * dotGap;
-  const dotsX = (CARD_W - dotsW) / 2;
-  const filled = Math.round((wq / 100) * dots);
+  const dotsX = (FB_CARD_W - dotsW) / 2;
+  const center = Math.round((wq / 100) * (dots - 1));
   const dotMarks = Array.from({ length: dots }, (_, i) => {
-    const on = i < filled;
-    return `<circle cx="${dotsX + i * dotGap}" cy="228" r="4.2" fill="${on ? BRAND_BLUE : '#D6D3D1'}"/>`;
+    const on = Math.abs(i - center) <= 4;
+    return `<circle cx="${(dotsX + i * dotGap).toFixed(2)}" cy="214" r="3.6" fill="${on ? BRAND_BLUE : '#D9D6D1'}"/>`;
   }).join('');
   const countries = SHARE_FLOORS.map(([name, floor], index) => {
-    const x = 36 + index * 148;
+    const x = 28 + index * 150;
     const passed = wq >= floor;
     const mark = passed
-      ? `<circle cx="${x + 10}" cy="300" r="10" fill="${BRAND_BLUE}"/><path d="M${x + 5} 300 l3.2 3.2 6.2-6.4" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`
-      : `<circle cx="${x + 10}" cy="300" r="9" fill="none" stroke="#C4C1BC" stroke-width="1.6"/>`;
-    return `${mark}<text x="${x + 26}" y="305" fill="${passed ? INK : '#A8A29E'}" font-family="${FONT}" font-size="18">${escapeXml(name)}</text>`;
+      ? `<circle cx="${x + 9}" cy="292" r="9" fill="${BRAND_BLUE}"/><path d="M${x + 4.6} 292 l2.8 2.8 5.4-5.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<circle cx="${x + 9}" cy="292" r="8" fill="none" stroke="#C8C4BE" stroke-width="1.5"/>`;
+    return `${mark}<text x="${x + 24}" y="297" fill="${passed ? '#3F3C39' : '#B7B3AD'}" font-family="${FONT}" font-size="17">${escapeXml(name)}</text>`;
   }).join('');
+  const bandW = Math.max(64, band.length * 9.2 + 22);
   const contextText = context
-    ? `<text x="${CARD_W / 2}" y="42" text-anchor="middle" fill="${DIM}" font-family="${FONT}" font-size="16">${escapeXml(context)}</text>`
+    ? `<text x="${FB_CARD_W / 2}" y="46" text-anchor="middle" fill="#8A8681" font-family="${FONT}" font-size="15">${escapeXml(context)}</text>`
     : '';
 
   return `
-    <rect width="${CARD_W}" height="${CARD_H}" rx="28" fill="${CARD_BG}" filter="url(#cardShadow)"/>
+    <rect width="${FB_CARD_W}" height="${FB_CARD_H}" rx="26" fill="#F7F7F5" filter="url(#fbCardShadow)"/>
     ${contextText}
-    <text x="250" y="128" text-anchor="end" fill="${INK}" font-family="${FONT}" font-size="72" font-weight="700">${Math.round(wq)}</text>
-    <text x="262" y="128" fill="#A8A29E" font-family="${FONT}" font-size="28">/100</text>
-    <rect x="470" y="96" width="${Math.max(72, band.length * 11)}" height="28" rx="14" fill="#E7F0FE"/>
-    <text x="${470 + Math.max(72, band.length * 11) / 2}" y="115" text-anchor="middle" fill="${BRAND_BLUE}" font-family="${FONT}" font-size="15" font-weight="600">${escapeXml(band)}</text>
+    <text x="318" y="132" text-anchor="end" fill="${INK}" font-family="${FONT}" font-size="64" font-weight="700" letter-spacing="-1">${Math.round(wq)}</text>
+    <text x="330" y="128" fill="#B0ACA6" font-family="${FONT}" font-size="22">/100</text>
+    <rect x="520" y="168" width="${bandW}" height="26" rx="13" fill="#E4EEFC"/>
+    <text x="${520 + bandW / 2}" y="186" text-anchor="middle" fill="${BRAND_BLUE}" font-family="${FONT}" font-size="13" font-weight="600">${escapeXml(band)}</text>
     ${dotMarks}
-    <text x="${dotsX}" y="252" fill="${DIM}" font-family="${FONT}" font-size="13">0</text>
-    <text x="${dotsX + (dotsW * 80) / 100}" y="252" text-anchor="middle" fill="${DIM}" font-family="${FONT}" font-size="13">80 · Int'l</text>
-    <text x="${dotsX + dotsW}" y="252" text-anchor="end" fill="${DIM}" font-family="${FONT}" font-size="13">100</text>
+    <text x="${dotsX}" y="238" fill="#A7A39E" font-family="${FONT}" font-size="12">0</text>
+    <text x="${(dotsX + (dotsW * 80) / 100).toFixed(1)}" y="238" text-anchor="middle" fill="#A7A39E" font-family="${FONT}" font-size="12">80 · Int'l</text>
+    <text x="${(dotsX + dotsW).toFixed(1)}" y="238" text-anchor="end" fill="#A7A39E" font-family="${FONT}" font-size="12">100</text>
     ${countries}`;
 }
 
-/** Facebook / landscape plate. Photo is composited full-bleed behind this SVG. */
+/** Landscape plate sits on the water poster. QR, wordmark, and droplets stay in that image. */
 function buildLandscapeSvg(opts) {
   const { width, height } = FORMATS.landscape;
   const lines = shareHeadlineLines(opts.score);
+  const cardScale = (648 / FB_CARD_W).toFixed(5);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>${SHARED_DEFS}</defs>
-  <text x="48" y="64" fill="${INK}" font-family="${FONT}" font-size="32" font-weight="700">${escapeXml(lines[0])}</text>
-  <text x="48" y="104" fill="${INK}" font-family="${FONT}" font-size="32" font-weight="700">${escapeXml(lines[1])}</text>
-  <g transform="translate(230,132) scale(${(740 / CARD_W).toFixed(5)})">
+  <defs>
+    <filter id="fbCardShadow" x="-12%" y="-12%" width="124%" height="130%">
+      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#1C1917" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+  <text x="46" y="92" fill="${INK}" font-family="${FONT}" font-size="36" font-weight="700">${escapeXml(lines[0])}</text>
+  <text x="46" y="138" fill="${INK}" font-family="${FONT}" font-size="36" font-weight="700">${escapeXml(lines[1])}</text>
+  <g transform="translate(276,168) scale(${cardScale})">
     ${facebookScoreCard(opts)}
   </g>
-  ${assetLayer(opts.ctaBadge, { x: 48, y: 512, width: 84 })}
-  <text x="148" y="544" fill="${INK}" font-family="${FONT}" font-size="18" font-weight="700">Upgrade your tap</text>
-  <text x="148" y="566" fill="${INK}" font-family="${FONT}" font-size="18" font-weight="700">to international standards.</text>
-  <text x="148" y="588" fill="${DIM}" font-family="${FONT}" font-size="14">Scan or LINE @watermotion</text>
-  ${assetLayer(opts.wordmark, { right: width - 40, bottom: height - 28, height: 22 })}
 </svg>`;
 }
 
@@ -682,19 +687,23 @@ async function buildBackdrop(sharp, photoBuf, width, height) {
 
 async function compositeLandscape(sharp, photoBuf, svgBuffer) {
   const { width, height } = FORMATS.landscape;
-  const photo = await sharp(photoBuf)
-    .resize(width, height, { fit: 'cover', position: 'attention' })
-    .modulate({ brightness: 1.08, saturation: 0.9 })
+  const source = fs.existsSync(FACEBOOK_BG) ? FACEBOOK_BG : photoBuf;
+  let base = await sharp(source)
+    .resize(width, height, { fit: 'fill' })
     .png()
     .toBuffer();
-  const wash = Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="rgba(255,255,255,0.18)"/></svg>`
-  );
-  return sharp(photo)
-    .composite([
-      { input: wash, left: 0, top: 0 },
-      { input: svgBuffer, left: 0, top: 0 }
-    ])
+  // Hide the poster's baked headline so the live sentence can sit on the water.
+  const strip = await sharp(base)
+    .extract({ left: 36, top: 0, width: 860, height: 22 })
+    .resize(860, 130, { fit: 'fill' })
+    .png()
+    .toBuffer();
+  base = await sharp(base)
+    .composite([{ input: strip, left: 28, top: 24 }])
+    .png()
+    .toBuffer();
+  return sharp(base)
+    .composite([{ input: svgBuffer, left: 0, top: 0 }])
     .png({ compressionLevel: 8 })
     .toBuffer();
 }
