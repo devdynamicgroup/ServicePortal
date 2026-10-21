@@ -332,9 +332,9 @@ console.log('\nCustomer page stays read-only');
     assert.ok(!stripped.includes('completeScore()'));
     assert.ok(!stripped.includes('showPkgSheet()'));
   });
-  check('Essential packages stay on the poster and Full Assessment stays on the score page', () => {
+  check('Every package opens the Water Score page', () => {
     assert.ok(routes.includes("return String(job?.pkg || 'essential').trim() !== 'full'"));
-    assert.ok(routes.includes("return isFreeInspectionJob(job) ? 'card' : 'score'"));
+    assert.ok(routes.includes("return 'score'"));
   });
   const publicReport = fs.readFileSync(path.join(root, 'src/js/public-report.js'), 'utf8');
   check('the public report does not expose assessment editing', () => {

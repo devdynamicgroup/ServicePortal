@@ -1,8 +1,7 @@
 /**
  * Share target by package.
  *
- *   Full Assessment (job.pkg === 'full')  → Share passes on the Water Score page link
- *   Essential / free (anything else)      → Share passes on the poster image (unchanged)
+ *   Every package shares the Water Score page link. The poster image is not the share target.
  *
  * Loads the REAL src/js/flows/score.js and src/js/public-report.js into a vm
  * sandbox with a stubbed navigator / fetch. No network, no Case is touched.
@@ -156,7 +155,7 @@ const CARD_LINK = 'https://portal.example/card/tok-1';
     const c = makeSandbox({ job: essential, scorePublishResult: PUBLISHED });
     c.sandbox.navigator.share = refuse;
     await c.sandbox.shareScore();
-    assert(c.calls.clipboard[0] === CARD_LINK, 'Essential: the copied fallback link is the /card/{token} Postcard link');
+    assert(c.calls.clipboard[0] === PUBLISHED.reportUrl, 'Essential: the copied fallback link is the Water Score page');
   }
 
   console.log('\n=== Share button stops "Preparing" once the link is ready ===');
@@ -177,7 +176,7 @@ const CARD_LINK = 'https://portal.example/card/tok-1';
     assert(i18n.includes("'score.toast.linkReady': 'Share link is ready'") && i18n.includes("'score.toast.linkReady': 'ลิงก์พร้อมแชร์แล้ว'"), 'link-ready message exists in EN and TH');
   }
 
-  console.log('\n=== Essential + Backend Share → Postcard (unchanged) ===');
+  console.log('\n=== Essential + Backend Share → Water Score page ===');
   for (const job of [
     { id: 'c2', notionId: 'n2', pkg: 'essential', result: { waterScore: 84 } },
     { id: 'c3', notionId: 'n3', result: { waterScore: 84 } }
@@ -185,9 +184,9 @@ const CARD_LINK = 'https://portal.example/card/tok-1';
     const { sandbox, calls } = makeSandbox({ job, scorePublishResult: PUBLISHED });
     await sandbox.shareScore();
     const label = `pkg=${job.pkg || '(none)'}`;
-    assert(cardFetches(calls).length === 1 && cardFetches(calls)[0].url.includes('/api/public/score-card/tok-1'), `${label}: poster image is fetched`);
-    assert(calls.share.length === 1 && Array.isArray(calls.share[0].files) && calls.share[0].files.length === 1, `${label}: poster image file is shared`);
-    assert(calls.share[0] && calls.share[0].url === undefined, `${label}: not a link share`);
+    assert(cardFetches(calls).length === 0, `${label}: poster image is never fetched`);
+    assert(calls.share.length === 1 && calls.share[0].url === PUBLISHED.reportUrl, `${label}: shares the Water Score page link`);
+    assert(calls.share[0] && !calls.share[0].files, `${label}: no image file is attached`);
   }
 
   // What each report link opens — the real server route, with only the Case
@@ -218,23 +217,22 @@ const CARD_LINK = 'https://portal.example/card/tok-1';
       const full = await get('/score/tok-1');
       assert(full.status === 200 && full.body.includes('score-readings-rows') && full.body.includes('public-report.js'), 'Full: /score/tok-1 is the Water Score page');
       assert(full.body.includes('"token":"tok-1"'), 'Full: it is the Water Score of the same Case');
-      assert(!full.body.includes('/api/public/score-card/'), 'Full: the page is not the poster');
+      assert(!full.body.includes('class="score-img"'), 'Full: the page is not the poster');
       assert(full.body.includes('onclick="sharePublicReport()"'), 'Full: the customer page Share is wired to sharePublicReport()');
 
-      const card = await get('/card/tok-2');
-      assert(card.status === 200 && card.body.includes('/api/public/score-card/tok-2'), 'Essential: /card/tok-2 is the Postcard');
-      assert(!card.body.includes('score-readings-rows') && !card.body.includes('public-report.js'), 'Essential: no Water Score page');
+      const essential = await get('/score/tok-2');
+      assert(essential.status === 200 && essential.body.includes('score-readings-rows') && essential.body.includes('public-report.js'), 'Essential: /score/tok-2 is the same Water Score page');
+      assert(!essential.body.includes('class="score-img"'), 'Essential: the page is not the poster');
 
       const oldFull = await get('/r/tok-1');
       assert(oldFull.status === 302 && oldFull.location === '/score/tok-1', 'old /r link of a Full Case redirects to /score/tok-1');
       const oldCard = await get('/r/tok-2');
-      assert(oldCard.status === 302 && oldCard.location === '/card/tok-2', 'old /r link of an Essential Case redirects to /card/tok-2');
+      assert(oldCard.status === 302 && oldCard.location === '/score/tok-2', 'old /r link of an Essential Case redirects to /score/tok-2');
 
       const wrongForFull = await get('/card/tok-1');
       assert(wrongForFull.status === 302 && wrongForFull.location === '/score/tok-1', 'a /card link for a Full Case redirects to its Water Score');
-      const wrongForEssential = await get('/score/tok-2');
-      assert(wrongForEssential.status === 302 && wrongForEssential.location === '/card/tok-2', 'a /score link for an Essential Case redirects to the Postcard');
-      assert(!wrongForEssential.body.includes('score-readings-rows'), 'no Water Score content is served to an Essential Case');
+      const oldEssentialCard = await get('/card/tok-2');
+      assert(oldEssentialCard.status === 302 && oldEssentialCard.location === '/score/tok-2', 'a /card link for an Essential Case redirects to its Water Score');
 
       for (const prefix of ['r', 'score', 'card']) {
         const missing = await get(`/${prefix}/no-such-token`);

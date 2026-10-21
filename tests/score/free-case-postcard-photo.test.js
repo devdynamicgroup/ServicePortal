@@ -81,7 +81,7 @@ console.log('\n4. Failed or absent bytes resolve to the stock photo, not another
 
   console.log('\n5. Full Assessment share still skips the postcard');
   const scoreJs = fs.readFileSync(path.join(__dirname, '../../src/js/flows/score.js'), 'utf8');
-  assert(scoreJs.includes('shareCard: !isFullAssessmentJob(job)'), 'full assessment still shares the report link');
+  assert(scoreJs.includes('shareCard: false'), 'every package shares the score page link');
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);

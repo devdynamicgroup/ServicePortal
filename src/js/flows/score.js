@@ -2898,8 +2898,8 @@ function isFullAssessmentJob(job) {
  * Shared fallback cascade used by both shareScore() and sharePublicReport():
  * share the PNG as a file, else share the link, else copy it to clipboard.
  * Keeping this in one place is what stops the two callers from drifting.
- * shareCard=false skips the PNG: a Full Assessment shares its Water Score
- * page link, never the Essential poster image.
+ * shareCard=false skips the PNG. Every package shares its Water Score
+ * page link.
  */
 function absoluteReportUrl(url) {
   const raw = String(url || '').trim();
@@ -2911,9 +2911,8 @@ function absoluteReportUrl(url) {
   }
 }
 
-/** Link already minted for this Full Assessment. Re-sharing must not publish again. */
+/** Link already minted for this Case. Re-sharing must not publish again. */
 function readyFullReportUrl(job) {
-  if (!isFullAssessmentJob(job)) return '';
   const stored = absoluteReportUrl(job?.result?.reportUrl);
   if (stored) return stored;
   const token = String(job?.result?.publicReportToken || '').trim();
@@ -3046,7 +3045,7 @@ async function shareScore() {
       reportUrl: result.reportUrl,
       title: 'Water Motion - Water Score',
       text: `ผล Water Score ของคุณ: ${result.score}/100`,
-      shareCard: !isFullAssessmentJob(job)
+      shareCard: false
     });
     showToast(outcome === 'clipboard' ? 'Score link copied - share with client' : 'Score shared');
   } catch (error) {

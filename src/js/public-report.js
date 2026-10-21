@@ -51,8 +51,7 @@ async function sharePublicReport() {
       reportUrl: window.location.href,
       title,
       text,
-      // This page is only ever served for a Full Assessment (the server sends
-      // Essential Cases the poster instead), so Share passes on this page's link.
+      // Every package opens this page, so Share passes on this page's link.
       shareCard: false
     });
     showToast(outcome === 'clipboard' ? 'Score link copied' : 'Score shared');

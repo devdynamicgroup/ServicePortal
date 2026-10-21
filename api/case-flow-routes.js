@@ -185,9 +185,9 @@ function isFreeInspectionJob(job) {
   return String(job?.pkg || 'essential').trim() !== 'full';
 }
 
-/** Path segment of a Case's report link: 'card' (Essential poster) or 'score' (Full Water Score page). */
-function reportLinkKind(job) {
-  return isFreeInspectionJob(job) ? 'card' : 'score';
+/** Every package opens the Water Score page. Old /card and /r links redirect there. */
+function reportLinkKind() {
+  return 'score';
 }
 
 /**
@@ -324,7 +324,6 @@ async function buildLineConnectSection(job) {
 
 async function reportHtml(job) {
   if (!job) return reportNotFoundHtml();
-  if (isFreeInspectionJob(job)) return freeReportHtml(job);
 
   const token = String(job.result?.publicReportToken || '').trim();
   const cacheBust = Date.now();
@@ -896,11 +895,8 @@ async function handleCaseFlowRoute(req, res, urlPath) {
     return true;
   }
 
-  // Report links differ by package: /score/{token} is the Full Assessment
-  // Water Score page, /card/{token} is the Essential poster. /r/{token} (every
-  // link issued before this split) and a link for the wrong package both
-  // redirect to the Case's current one, so old links keep working and a
-  // package change is followed automatically.
+  // /score/{token} is the Water Score page for every package. /r/{token}
+  // and /card/{token} redirect there, so older links keep opening the page.
   const reportPageMatch = urlPath.match(/^\/(r|score|card)\/([^/]+)$/);
   if (reportPageMatch && req.method === 'GET') {
     try {
