@@ -390,46 +390,56 @@ function shareContextLine(job = {}) {
   return [city, property, month].filter(Boolean).join(' · ');
 }
 
-const FB_CARD_W = 780;
-const FB_CARD_H = 360;
+/** Card box measured on the 1024×537 poster, scaled onto the 1200×630 plate. */
+const FB_CARD_X = 280;
+const FB_CARD_Y = 168;
+const FB_CARD_W = 640;
+const FB_CARD_H = 286;
 
 function facebookScoreCard(opts) {
   const wq = Math.max(0, Math.min(100, Number(opts.score) || 0));
   const band = shareBandLabel(wq);
   const context = String(opts.contextLine || '').trim();
-  const dots = 52;
-  const dotGap = 12.2;
-  const dotsW = (dots - 1) * dotGap;
-  const dotsX = (FB_CARD_W - dotsW) / 2;
+  const dots = 48;
+  const dotGap = 12;
+  const dotsX = 38;
+  const dotsY = 172;
   const center = Math.round((wq / 100) * (dots - 1));
-  const dotMarks = Array.from({ length: dots }, (_, i) => {
-    const on = Math.abs(i - center) <= 4;
-    return `<circle cx="${(dotsX + i * dotGap).toFixed(2)}" cy="214" r="3.6" fill="${on ? BRAND_BLUE : '#D9D6D1'}"/>`;
-  }).join('');
+  const clusterX = dotsX + center * dotGap;
+  const dotFill = (distance) => {
+    if (distance <= 1) return '#689FEA';
+    if (distance === 2) return '#97C3F2';
+    if (distance === 3) return '#C5DCF5';
+    return '#D1D1CF';
+  };
+  const dotMarks = Array.from({ length: dots }, (_, i) => (
+    `<circle cx="${dotsX + i * dotGap}" cy="${dotsY}" r="4" fill="${dotFill(Math.abs(i - center))}"/>`
+  )).join('');
   const countries = SHARE_FLOORS.map(([name, floor], index) => {
-    const x = 28 + index * 150;
+    const x = 44 + index * 126;
     const passed = wq >= floor;
     const mark = passed
-      ? `<circle cx="${x + 9}" cy="292" r="9" fill="${BRAND_BLUE}"/><path d="M${x + 4.6} 292 l2.8 2.8 5.4-5.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`
-      : `<circle cx="${x + 9}" cy="292" r="8" fill="none" stroke="#C8C4BE" stroke-width="1.5"/>`;
-    return `${mark}<text x="${x + 24}" y="297" fill="${passed ? '#3F3C39' : '#B7B3AD'}" font-family="${FONT}" font-size="17">${escapeXml(name)}</text>`;
+      ? `<circle cx="${x}" cy="250" r="9" fill="${BRAND_BLUE}"/><path d="M${x - 4.2} 250 l2.6 2.7 5.2-5.4" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<circle cx="${x}" cy="250" r="8" fill="none" stroke="#C8C6C2" stroke-width="1.6"/>`;
+    return `${mark}<text x="${x + 16}" y="255" fill="${passed ? '#3A3836' : '#B5B2AD'}" font-family="${FONT}" font-size="16">${escapeXml(name)}</text>`;
   }).join('');
-  const bandW = Math.max(64, band.length * 9.2 + 22);
+  const bandW = Math.max(96, band.length * 8.4 + 28);
+  const bandX = Math.max(16, Math.min(FB_CARD_W - bandW - 16, clusterX - bandW / 2));
   const contextText = context
-    ? `<text x="${FB_CARD_W / 2}" y="46" text-anchor="middle" fill="#8A8681" font-family="${FONT}" font-size="15">${escapeXml(context)}</text>`
+    ? `<text x="${FB_CARD_W / 2}" y="42" text-anchor="middle" fill="#8A8681" font-family="${FONT}" font-size="15">${escapeXml(context)}</text>`
     : '';
 
   return `
-    <rect width="${FB_CARD_W}" height="${FB_CARD_H}" rx="26" fill="#F7F7F5" filter="url(#fbCardShadow)"/>
+    <rect width="${FB_CARD_W}" height="${FB_CARD_H}" rx="22" fill="#F7F8F9" filter="url(#fbCardShadow)"/>
     ${contextText}
-    <text x="318" y="132" text-anchor="end" fill="${INK}" font-family="${FONT}" font-size="64" font-weight="700" letter-spacing="-1">${Math.round(wq)}</text>
-    <text x="330" y="128" fill="#B0ACA6" font-family="${FONT}" font-size="22">/100</text>
-    <rect x="520" y="168" width="${bandW}" height="26" rx="13" fill="#E4EEFC"/>
-    <text x="${520 + bandW / 2}" y="186" text-anchor="middle" fill="${BRAND_BLUE}" font-family="${FONT}" font-size="13" font-weight="600">${escapeXml(band)}</text>
+    <text x="318" y="108" text-anchor="end" fill="${INK}" font-family="${FONT}" font-size="56" font-weight="700" letter-spacing="-1.5">${Math.round(wq)}</text>
+    <text x="330" y="86" fill="#B0ACA6" font-family="${FONT}" font-size="20">/100</text>
+    <rect x="${bandX.toFixed(1)}" y="122" width="${bandW}" height="34" rx="17" fill="#E4EEFC"/>
+    <text x="${(bandX + bandW / 2).toFixed(1)}" y="144" text-anchor="middle" fill="${BRAND_BLUE}" font-family="${FONT}" font-size="15" font-weight="600">${escapeXml(band)}</text>
     ${dotMarks}
-    <text x="${dotsX}" y="238" fill="#A7A39E" font-family="${FONT}" font-size="12">0</text>
-    <text x="${(dotsX + (dotsW * 80) / 100).toFixed(1)}" y="238" text-anchor="middle" fill="#A7A39E" font-family="${FONT}" font-size="12">80 · Int'l</text>
-    <text x="${(dotsX + dotsW).toFixed(1)}" y="238" text-anchor="end" fill="#A7A39E" font-family="${FONT}" font-size="12">100</text>
+    <text x="${dotsX}" y="198" fill="#A7A39E" font-family="${FONT}" font-size="13">0</text>
+    <text x="${(dotsX + (dots - 1) * dotGap * 0.8).toFixed(1)}" y="198" text-anchor="middle" fill="#A7A39E" font-family="${FONT}" font-size="13">80 · Int'l</text>
+    <text x="${dotsX + (dots - 1) * dotGap}" y="198" text-anchor="end" fill="#A7A39E" font-family="${FONT}" font-size="13">100</text>
     ${countries}`;
 }
 
@@ -437,17 +447,16 @@ function facebookScoreCard(opts) {
 function buildLandscapeSvg(opts) {
   const { width, height } = FORMATS.landscape;
   const lines = shareHeadlineLines(opts.score);
-  const cardScale = (648 / FB_CARD_W).toFixed(5);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
-    <filter id="fbCardShadow" x="-12%" y="-12%" width="124%" height="130%">
-      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#1C1917" flood-opacity="0.08"/>
+    <filter id="fbCardShadow" x="-8%" y="-8%" width="116%" height="124%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#1C1917" flood-opacity="0.08"/>
     </filter>
   </defs>
-  <text x="46" y="92" fill="${INK}" font-family="${FONT}" font-size="36" font-weight="700">${escapeXml(lines[0])}</text>
-  <text x="46" y="138" fill="${INK}" font-family="${FONT}" font-size="36" font-weight="700">${escapeXml(lines[1])}</text>
-  <g transform="translate(276,168) scale(${cardScale})">
+  <text x="41" y="70" fill="${INK}" font-family="${FONT}" font-size="36" font-weight="700">${escapeXml(lines[0])}</text>
+  <text x="41" y="114" fill="${INK}" font-family="${FONT}" font-size="36" font-weight="700">${escapeXml(lines[1])}</text>
+  <g transform="translate(${FB_CARD_X},${FB_CARD_Y})">
     ${facebookScoreCard(opts)}
   </g>
 </svg>`;
@@ -685,6 +694,59 @@ async function buildBackdrop(sharp, photoBuf, width, height) {
     .toBuffer();
 }
 
+/**
+ * The poster already has the sample headline painted on the water. Replace only
+ * those dark glyphs with the surrounding water so the live sentence can sit
+ * in the same place without a stretched patch.
+ */
+async function eraseBakedHeadline(sharp, base) {
+  const { data, info } = await sharp(base).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const w = info.width;
+  const h = info.height;
+  const ch = info.channels;
+  const x0 = 30;
+  const x1 = 840;
+  const y0 = 44;
+  const y1 = 132;
+  const yTop = 28;
+  const yBot = 150;
+  const at = (x, y) => (y * w + x) * ch;
+  const lumAt = (i) => (data[i] + data[i + 1] + data[i + 2]) / 3;
+  const ink = new Uint8Array(w * h);
+  for (let y = y0; y < y1; y++) {
+    const t = (y - yTop) / (yBot - yTop);
+    for (let x = x0; x < x1; x++) {
+      const i = at(x, y);
+      const top = at(x, yTop);
+      const bot = at(x, yBot);
+      const expected = lumAt(top) * (1 - t) + lumAt(bot) * t;
+      if (Math.abs(lumAt(i) - expected) > 14) ink[y * w + x] = 1;
+    }
+  }
+  const dil = new Uint8Array(ink);
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      if (!ink[y * w + x]) continue;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) dil[(y + dy) * w + (x + dx)] = 1;
+      }
+    }
+  }
+  for (let y = y0 - 2; y < y1 + 2; y++) {
+    const t = (y - yTop) / (yBot - yTop);
+    for (let x = x0 - 2; x < x1 + 2; x++) {
+      if (!dil[y * w + x]) continue;
+      const top = at(x, yTop);
+      const bot = at(x, yBot);
+      const i = at(x, y);
+      for (let c = 0; c < 3; c++) {
+        data[i + c] = Math.round(data[top + c] * (1 - t) + data[bot + c] * t);
+      }
+    }
+  }
+  return sharp(data, { raw: { width: w, height: h, channels: ch } }).png().toBuffer();
+}
+
 async function compositeLandscape(sharp, photoBuf, svgBuffer) {
   const { width, height } = FORMATS.landscape;
   const source = fs.existsSync(FACEBOOK_BG) ? FACEBOOK_BG : photoBuf;
@@ -692,16 +754,7 @@ async function compositeLandscape(sharp, photoBuf, svgBuffer) {
     .resize(width, height, { fit: 'fill' })
     .png()
     .toBuffer();
-  // Hide the poster's baked headline so the live sentence can sit on the water.
-  const strip = await sharp(base)
-    .extract({ left: 36, top: 0, width: 860, height: 22 })
-    .resize(860, 130, { fit: 'fill' })
-    .png()
-    .toBuffer();
-  base = await sharp(base)
-    .composite([{ input: strip, left: 28, top: 24 }])
-    .png()
-    .toBuffer();
+  base = await eraseBakedHeadline(sharp, base);
   return sharp(base)
     .composite([{ input: svgBuffer, left: 0, top: 0 }])
     .png({ compressionLevel: 8 })
