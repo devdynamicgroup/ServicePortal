@@ -14,6 +14,7 @@ const {
   resetCalBookingAdapterDependencies
 } = require('../../services/cal-booking-adapter');
 const { handleLineEvent } = require('../../api/line-routes');
+const { isPlaceholderCaseName } = require('../../services/case-creation-service');
 
 let passed = 0;
 let failed = 0;
@@ -81,7 +82,7 @@ async function run(name, fn) {
     assert.ok(text.includes('12 Test Road'));
     assert.ok(text.includes('2026-10-22'));
     assert.ok(text.includes('09:00'));
-    assert.ok(text.includes('cal.com'));
+    assert.ok(!text.includes('ช่องทางที่มา'), 'channel/source field is removed from the message');
     assert.ok(text.includes('ann.line'));
     assert.ok(text.includes('หน้าเว็บ/ระบบจองคิว'));
     assert.strictEqual(job.notification.status, 'not_sent');
@@ -169,6 +170,16 @@ async function run(name, fn) {
       resetOpsCaseAlertDependencies();
       resetCalBookingAdapterDependencies();
     }
+  });
+
+  await run('isPlaceholderCaseName recognizes the quick-create default and blanks', async () => {
+    assert.strictEqual(isPlaceholderCaseName('New Client'), true);
+    assert.strictEqual(isPlaceholderCaseName('New Client 3'), true);
+    assert.strictEqual(isPlaceholderCaseName(''), true);
+    assert.strictEqual(isPlaceholderCaseName(undefined), true);
+    assert.strictEqual(isPlaceholderCaseName('   '), true);
+    assert.strictEqual(isPlaceholderCaseName('Ann Ada'), false);
+    assert.strictEqual(isPlaceholderCaseName('Newark Client'), false);
   });
 
   await run('group chat is ignored and not treated as a customer message', async () => {

@@ -83,7 +83,6 @@ function buildOpsCaseAlertText(job = {}, context = {}) {
     `📅 วันนัดหมาย: ${displayDate(job)}`,
     `🕘 เวลา: ${displayTime(job)}`,
     `📍 ที่อยู่: ${displayAddress(job)}`,
-    `📡 ช่องทางที่มา: ${field(job, 'ci-source') || '-'}`,
     `🛠️ สร้างจาก: ${displayCreatedFrom(context)}`
   ];
   const lineId = field(job, 'ci-line');

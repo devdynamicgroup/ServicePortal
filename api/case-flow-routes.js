@@ -678,7 +678,14 @@ async function handleCaseFlowRoute(req, res, urlPath) {
           campaignOffer: body.campaignOffer,
           correlationId
         });
-        await notifyAdminsOfNewCase(created.case, { correlationId, source: 'portal' });
+        // Skip here when the quick "+ New Case" button seeded a placeholder
+        // "New Client" name -- submitCustomerPreassessment() sends the alert
+        // once the real name is saved instead, so admins see one usable
+        // message per Case, not a string of blank "New Client" ones.
+        const createdName = String(created.case?.name || '').trim();
+        if (createdName && !/^New Client\b/i.test(createdName)) {
+          await notifyAdminsOfNewCase(created.case, { correlationId, source: 'portal' });
+        }
         return created;
       }, BOOKING_IDEMPOTENCY_TTL_MS);
       if (wasReplayed(idempotencyKey)) {
