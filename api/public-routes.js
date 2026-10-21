@@ -1,5 +1,6 @@
 const { findClientByReportToken, getClient } = require('../services/notion/clients');
 const { resolveReportByToken } = require('../services/score-publication-service');
+const { downloadImageContent } = require('../services/google-drive');
 const {
   renderShareCardPng,
   cardOptionsFromJob,
@@ -60,7 +61,70 @@ function parseFormat(urlObj) {
   return resolveFormat(urlObj.searchParams.get('format') || 'landscape').key;
 }
 
+function collectReportPhotoFileIds(job) {
+  const ids = new Set();
+  const consider = (photo) => {
+    if (!photo) return;
+    if (typeof photo === 'string') {
+      const match = photo.match(/\/api\/drive\/images\/([^/?#]+)\/content/i);
+      if (match) ids.add(decodeURIComponent(match[1]));
+      return;
+    }
+    if (typeof photo !== 'object') return;
+    const fileId = String(photo.fileId || '').trim();
+    if (fileId) ids.add(fileId);
+    const match = String(photo.contentUrl || '').match(/\/api\/drive\/images\/([^/?#]+)\/content/i);
+    if (match) ids.add(decodeURIComponent(match[1]));
+  };
+  const taps = Array.isArray(job?.draft?.tapData) ? job.draft.tapData : [];
+  taps.forEach(tap => {
+    const photos = tap?.photos || {};
+    ['tapphoto', 'visual', 'meter'].forEach(key => consider(photos[key]));
+    const meterImages = Array.isArray(tap?.meterImages) ? tap.meterImages : [];
+    meterImages.forEach(entry => consider(entry?.photo || entry));
+  });
+  return ids;
+}
+
+async function loadReportJob(token) {
+  let job = null;
+  try {
+    job = await resolveReportByToken(token);
+  } catch (error) {
+    if (error.statusCode === 409) throw error;
+  }
+  if (job) return job;
+  const match = await findClientByReportToken(token);
+  if (!match?.clientPageId) return null;
+  return getClient(match.clientPageId);
+}
+
 async function handleScoreCardRoute(req, res, urlPath, urlObj) {
+  const photoMatch = urlPath.match(/^\/api\/public\/report-photo\/([^/]+)\/([^/]+)$/);
+  if (photoMatch && req.method === 'GET') {
+    try {
+      const token = decodeURIComponent(photoMatch[1]);
+      const fileId = decodeURIComponent(photoMatch[2]);
+      const job = await loadReportJob(token);
+      if (!job || !collectReportPhotoFileIds(job).has(fileId)) {
+        sendJson(res, 404, { ok: false, error: 'Photo not found' });
+        return true;
+      }
+      const { buffer, contentType } = await downloadImageContent(fileId);
+      const mime = contentType && String(contentType).startsWith('image/') ? contentType : 'image/jpeg';
+      res.writeHead(200, {
+        'Content-Type': mime,
+        'Content-Length': String(buffer.length),
+        'Cache-Control': 'public, max-age=300'
+      });
+      res.end(buffer);
+    } catch (error) {
+      console.warn('GET /api/public/report-photo failed', error.message);
+      sendJson(res, 404, { ok: false, error: 'Photo not found' });
+    }
+    return true;
+  }
+
   const demoMatch = urlPath.match(/^\/api\/public\/score-card\/demo$/);
   if (demoMatch && req.method === 'GET') {
     try {

@@ -351,19 +351,100 @@ const SHARED_DEFS = `
       <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#3F3F46" flood-opacity="0.35"/>
     </filter>`;
 
-/** Photo left, blurred wash right. Photo/backdrop are composited with sharp. */
+const SHARE_FLOORS = [
+  ['Thailand', 65],
+  ['WHO', 70],
+  ['EU', 75],
+  ['US EPA', 80],
+  ['Japan', 85]
+];
+
+function shareHeadlineLines(score) {
+  const wq = Number(score);
+  if (SHARE_FLOORS.every(([, floor]) => wq >= floor)) {
+    return ['Your tap water meets', 'international standards.'];
+  }
+  if (wq >= 65) {
+    return ['Your tap water passes the Thai standard.', 'International? Not yet.'];
+  }
+  return ['Your tap water needs attention.', 'Some values are below target.'];
+}
+
+function shareBandLabel(score) {
+  const wq = Number(score);
+  if (wq >= 81) return 'Excellent';
+  if (wq >= 65) return 'Good';
+  if (wq >= 51) return 'Fair';
+  return 'Needs attention';
+}
+
+function shareContextLine(job = {}) {
+  const fields = job.draft?.fields || {};
+  const city = String(fields['ci-city'] || '').trim();
+  const property = String(fields['ci-proptype'] || '').trim();
+  const rawDate = String(job.date || '').trim();
+  const month = /^\d{4}-\d{2}/.test(rawDate)
+    ? new Date(`${rawDate.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+    : '';
+  return [city, property, month].filter(Boolean).join(' · ');
+}
+
+function facebookScoreCard(opts) {
+  const wq = Math.max(0, Math.min(100, Number(opts.score) || 0));
+  const band = shareBandLabel(wq);
+  const context = String(opts.contextLine || '').trim();
+  const dots = 42;
+  const dotGap = 14;
+  const dotsW = (dots - 1) * dotGap;
+  const dotsX = (CARD_W - dotsW) / 2;
+  const filled = Math.round((wq / 100) * dots);
+  const dotMarks = Array.from({ length: dots }, (_, i) => {
+    const on = i < filled;
+    return `<circle cx="${dotsX + i * dotGap}" cy="228" r="4.2" fill="${on ? BRAND_BLUE : '#D6D3D1'}"/>`;
+  }).join('');
+  const countries = SHARE_FLOORS.map(([name, floor], index) => {
+    const x = 36 + index * 148;
+    const passed = wq >= floor;
+    const mark = passed
+      ? `<circle cx="${x + 10}" cy="300" r="10" fill="${BRAND_BLUE}"/><path d="M${x + 5} 300 l3.2 3.2 6.2-6.4" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<circle cx="${x + 10}" cy="300" r="9" fill="none" stroke="#C4C1BC" stroke-width="1.6"/>`;
+    return `${mark}<text x="${x + 26}" y="305" fill="${passed ? INK : '#A8A29E'}" font-family="${FONT}" font-size="18">${escapeXml(name)}</text>`;
+  }).join('');
+  const contextText = context
+    ? `<text x="${CARD_W / 2}" y="42" text-anchor="middle" fill="${DIM}" font-family="${FONT}" font-size="16">${escapeXml(context)}</text>`
+    : '';
+
+  return `
+    <rect width="${CARD_W}" height="${CARD_H}" rx="28" fill="${CARD_BG}" filter="url(#cardShadow)"/>
+    ${contextText}
+    <text x="250" y="128" text-anchor="end" fill="${INK}" font-family="${FONT}" font-size="72" font-weight="700">${Math.round(wq)}</text>
+    <text x="262" y="128" fill="#A8A29E" font-family="${FONT}" font-size="28">/100</text>
+    <rect x="470" y="96" width="${Math.max(72, band.length * 11)}" height="28" rx="14" fill="#E7F0FE"/>
+    <text x="${470 + Math.max(72, band.length * 11) / 2}" y="115" text-anchor="middle" fill="${BRAND_BLUE}" font-family="${FONT}" font-size="15" font-weight="600">${escapeXml(band)}</text>
+    ${dotMarks}
+    <text x="${dotsX}" y="252" fill="${DIM}" font-family="${FONT}" font-size="13">0</text>
+    <text x="${dotsX + (dotsW * 80) / 100}" y="252" text-anchor="middle" fill="${DIM}" font-family="${FONT}" font-size="13">80 · Int'l</text>
+    <text x="${dotsX + dotsW}" y="252" text-anchor="end" fill="${DIM}" font-family="${FONT}" font-size="13">100</text>
+    ${countries}`;
+}
+
+/** Facebook / landscape plate. Photo is composited full-bleed behind this SVG. */
 function buildLandscapeSvg(opts) {
   const { width, height } = FORMATS.landscape;
-  const verdict = customerVerdict(opts.score);
-  const note = opts.note || scoreSummaryNote(opts.score, opts.findingsCount);
-
+  const lines = shareHeadlineLines(opts.score);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>${SHARED_DEFS}</defs>
-  ${headline(662, 103, 48, 51)}
-  ${placedCard(660, 216, 480, opts, verdict, note)}
-  ${assetLayer(opts.ctaBadge, { x: 30, y: 428, width: 146 })}
-  ${assetLayer(opts.wordmark, { right: width - 28, bottom: height - 22, height: 20 })}
+  <text x="48" y="64" fill="${INK}" font-family="${FONT}" font-size="32" font-weight="700">${escapeXml(lines[0])}</text>
+  <text x="48" y="104" fill="${INK}" font-family="${FONT}" font-size="32" font-weight="700">${escapeXml(lines[1])}</text>
+  <g transform="translate(230,132) scale(${(740 / CARD_W).toFixed(5)})">
+    ${facebookScoreCard(opts)}
+  </g>
+  ${assetLayer(opts.ctaBadge, { x: 48, y: 512, width: 84 })}
+  <text x="148" y="544" fill="${INK}" font-family="${FONT}" font-size="18" font-weight="700">Upgrade your tap</text>
+  <text x="148" y="566" fill="${INK}" font-family="${FONT}" font-size="18" font-weight="700">to international standards.</text>
+  <text x="148" y="588" fill="${DIM}" font-family="${FONT}" font-size="14">Scan or LINE @watermotion</text>
+  ${assetLayer(opts.wordmark, { right: width - 40, bottom: height - 28, height: 22 })}
 </svg>`;
 }
 
@@ -601,17 +682,17 @@ async function buildBackdrop(sharp, photoBuf, width, height) {
 
 async function compositeLandscape(sharp, photoBuf, svgBuffer) {
   const { width, height } = FORMATS.landscape;
-  // Mock plate is ~40.6% photo / 59.4% wash.
-  const photoW = 488;
-  const backdrop = await buildBackdrop(sharp, photoBuf, width, height);
-  const leftPhoto = await sharp(photoBuf)
-    .resize(photoW, height, { fit: 'cover', position: 'centre' })
+  const photo = await sharp(photoBuf)
+    .resize(width, height, { fit: 'cover', position: 'attention' })
+    .modulate({ brightness: 1.08, saturation: 0.9 })
     .png()
     .toBuffer();
-
-  return sharp(backdrop)
+  const wash = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="rgba(255,255,255,0.18)"/></svg>`
+  );
+  return sharp(photo)
     .composite([
-      { input: leftPhoto, left: 0, top: 0 },
+      { input: wash, left: 0, top: 0 },
       { input: svgBuffer, left: 0, top: 0 }
     ])
     .png({ compressionLevel: 8 })
@@ -812,6 +893,7 @@ function cardOptionsFromJob(job = {}, overrides = {}) {
   const sitePhoto = caseSitePhoto(job);
   return {
     score: Number.isFinite(score) ? score : 0,
+    contextLine: overrides.contextLine || shareContextLine(job),
     note,
     findingsCount,
     indicators: overrides.indicators || 8,

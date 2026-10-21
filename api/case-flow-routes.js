@@ -195,6 +195,26 @@ function reportLinkKind(job) {
  * Mobile = vertical story plate (photo + CTA + score) matching the mock.
  * Desktop = landscape plate.
  */
+function sharePreviewMeta(job) {
+  const token = String(job?.result?.publicReportToken || '').trim();
+  if (!token) return '';
+  const pageUrl = escapeHtml(`${publicBaseUrl()}/r/${encodeURIComponent(token)}`);
+  const imageUrl = escapeHtml(`${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(token)}?format=landscape`);
+  return `
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Water Motion">
+  <meta property="og:title" content="Water Score · Water Motion">
+  <meta property="og:description" content="Your tap water score from Water Motion">
+  <meta property="og:url" content="${pageUrl}">
+  <meta property="og:image" content="${imageUrl}">
+  <meta property="og:image:secure_url" content="${imageUrl}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="${imageUrl}">`;
+}
+
 function freeReportHtml(job) {
   const token = String(job.result?.publicReportToken || '').trim();
   const cacheBust = Date.now();
@@ -207,6 +227,7 @@ function freeReportHtml(job) {
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#1a1a1a">
   <title>Water Score · Water Motion</title>
+  ${sharePreviewMeta(job)}
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: #121212; }
@@ -228,7 +249,7 @@ function freeReportHtml(job) {
       display: block;
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       object-position: center center;
     }
     @media (min-width: 720px) {
@@ -254,10 +275,7 @@ function freeReportHtml(job) {
 </head>
 <body>
   <div class="card-wrap">
-    <picture>
-      <source media="(min-width: 720px)" srcset="${cardUrl('landscape')}">
-      <img class="score-img" src="${cardUrl('story')}" alt="Water Score" decoding="async">
-    </picture>
+    <img class="score-img" src="${cardUrl('landscape')}" alt="Water Score" decoding="async">
   </div>
 </body>
 </html>`;
@@ -324,6 +342,7 @@ async function reportHtml(job) {
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#0c0a09">
   <title>Water Score · Water Motion</title>
+  ${sharePreviewMeta(job)}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/src/css/styles.css?v=${cacheBust}">

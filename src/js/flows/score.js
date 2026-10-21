@@ -2539,6 +2539,18 @@ function renderScorePhotos(readiness = getScoreDataReadiness(S.activeJob)) {
 
   const photoSrc = photo => {
     if (!photo) return '';
+    if (S.publicScoreView) {
+      const token = String(window.__WM_PUBLIC_REPORT__?.token || '').trim();
+      const fileId = typeof photo === 'object'
+        ? String(photo.fileId || '').trim()
+        : (String(photo).match(/\/api\/drive\/images\/([^/?#]+)\/content/i) || [])[1];
+      if (token && fileId) {
+        return `/api/public/report-photo/${encodeURIComponent(token)}/${encodeURIComponent(decodeURIComponent(fileId))}`;
+      }
+      if (typeof photo === 'string' && photo.startsWith('data:')) return photo;
+      if (typeof photo === 'string' && !photo.includes('/api/drive/images/')) return photo;
+      return '';
+    }
     if (typeof DrivePhoto !== 'undefined' && DrivePhoto.previewSrc) return DrivePhoto.previewSrc(photo) || '';
     return typeof photo === 'string' ? photo : '';
   };
@@ -2773,7 +2785,7 @@ const SHARE_CARD_FETCH_TIMEOUT_MS = 10000;
 // eslint-disable-next-line no-unused-vars
 async function shareScoreCardImage({ reportToken, preferredFormat, title, text } = {}) {
   if (!reportToken) return null;
-  const format = preferredFormat || (window.matchMedia('(min-width: 720px)').matches ? 'landscape' : 'story');
+  const format = preferredFormat || 'landscape';
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), SHARE_CARD_FETCH_TIMEOUT_MS);
   try {
