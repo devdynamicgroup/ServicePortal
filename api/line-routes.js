@@ -475,6 +475,23 @@ async function handleLineEvent(event) {
     return { handled: true, action: 'duplicate_ignored', webhookEventId: event.webhookEventId };
   }
 
+  const sourceType = String(event.source?.type || 'user');
+  if (sourceType === 'group' || sourceType === 'room') {
+    logLineLifecycle('info', 'line_ops_chat_ignored', {
+      correlationId: newCorrelationId('line'),
+      lineUserId: String(event.source?.userId || '').trim() || null,
+      eventType: event.type,
+      success: true,
+      action: 'ops_chat_ignored',
+      extra: {
+        sourceType,
+        groupId: event.source?.groupId || null,
+        roomId: event.source?.roomId || null
+      }
+    });
+    return { handled: true, action: 'ops_chat_ignored', sourceType };
+  }
+
   const lineUserId = String(event.source?.userId || '').trim();
   const correlationId = newCorrelationId('line');
   const decision = resolveInboundDecision(event);

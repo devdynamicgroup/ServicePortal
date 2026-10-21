@@ -28,6 +28,7 @@ const {
 } = require('../services/client-feedback');
 const { fingerprint, withIdempotency, wasReplayed } = require('../services/idempotency-store');
 const { newCorrelationId, logEvent } = require('../services/observability');
+const { notifyAdminsOfNewCase } = require('../services/ops-case-alert');
 const { publicBaseUrl, buildLiffBindUrl } = require('../services/url-builder');
 const { assertAppAuth } = require('../services/app-auth');
 const QRCode = require('qrcode');
@@ -667,15 +668,19 @@ async function handleCaseFlowRoute(req, res, urlPath) {
       const body = await readJson(req);
       const idempotencyKey = bookingIdempotencyKey(req, body);
       const correlationId = newCorrelationId('booking');
-      const result = await withIdempotency(idempotencyKey, () => createCase(body, {
-        startOnSite: Boolean(body.startOnSite),
-        skipMap: Boolean(body.skipMap),
-        // Launch-offer / Framer free-water-check bookings set launchOffer:true
-        // or send campaignOffer. Explicit campaignOffer always wins in createCase.
-        launchOffer: body.launchOffer === true,
-        campaignOffer: body.campaignOffer,
-        correlationId
-      }), BOOKING_IDEMPOTENCY_TTL_MS);
+      const result = await withIdempotency(idempotencyKey, async () => {
+        const created = await createCase(body, {
+          startOnSite: Boolean(body.startOnSite),
+          skipMap: Boolean(body.skipMap),
+          // Launch-offer / Framer free-water-check bookings set launchOffer:true
+          // or send campaignOffer. Explicit campaignOffer always wins in createCase.
+          launchOffer: body.launchOffer === true,
+          campaignOffer: body.campaignOffer,
+          correlationId
+        });
+        await notifyAdminsOfNewCase(created.case, { correlationId, source: 'portal' });
+        return created;
+      }, BOOKING_IDEMPOTENCY_TTL_MS);
       if (wasReplayed(idempotencyKey)) {
         logEvent('info', 'booking_duplicate_blocked', { correlationId, idempotencyKey });
       }
