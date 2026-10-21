@@ -1448,6 +1448,10 @@ function completeRoomTapsForAll(job, countryKey) {
       if (cleared.has(key)) return true;
       const value = resolved[key];
       if (typeof value !== 'number' || !Number.isFinite(value)) return true;
+      // The public report does not load MeasurementValidator. An empty STATE
+      // object would make `undefined === undefined` and mark every real
+      // reading implausible, so the other inspection points render blank.
+      if (!STATE.IMPLAUSIBLE) return false;
       const state = validation?.fields?.[key]?.state;
       return state === STATE.IMPLAUSIBLE || state === STATE.INVALID_TYPE;
     });
@@ -1812,6 +1816,46 @@ function readingsFromSingleTap(tap, fallback = {}) {
   return { ...realFallback, ...Object.fromEntries(Object.entries(mapped).filter(([, v]) => v !== undefined)) };
 }
 
+function scoredReadingCount(row) {
+  return SCORE_READY_KEYS.filter(key => Number.isFinite(Number(row?.[key]))).length;
+}
+
+/** A point's own numbers, ignoring the whole-house pool. */
+function ownPointReadings(tap, tapKey) {
+  if (hasTapReadingSource(tap)) {
+    const own = readingsFromSingleTap(tap, {});
+    if (scoredReadingCount(own)) return own;
+  }
+  const images = Array.isArray(tap?.meterImages) ? tap.meterImages : [];
+  for (let i = images.length - 1; i >= 0; i -= 1) {
+    const image = images[i];
+    if (!image || typeof image !== 'object') continue;
+    const synthetic = {
+      standardMeasurement: image.standardMeasurement,
+      meterReadings: image.meterReadings || image.detected,
+      chlorineReadings: image.chlorineReadings
+    };
+    if (!hasTapReadingSource(synthetic)) continue;
+    const row = readingsFromSingleTap(synthetic, {});
+    if (scoredReadingCount(row)) return row;
+  }
+  const points = S.activeJob?.result?.pointReadings;
+  if (Array.isArray(points)) {
+    const taps = S.taps?.length ? S.taps : [];
+    const index = taps.indexOf(tapKey);
+    const point = points.find(item => item && (item.ordinal === index || item.label === tapKey));
+    if (point?.readings && typeof point.readings === 'object') {
+      const row = {};
+      ['ph', 'tds', 'chlorine', 'turbidity', 'orp', 'do', 'temp'].forEach(key => {
+        const n = numOrUndefined(point.readings[key]);
+        if (n !== undefined) row[key] = n;
+      });
+      if (scoredReadingCount(row)) return row;
+    }
+  }
+  return null;
+}
+
 /** True when a tap has any Standard (Layer 2) or legacy reading with a real number. */
 function hasTapReadingSource(tap) {
   const hasFinite = (row) => row && typeof row === 'object'
@@ -1851,11 +1895,10 @@ function getRoomReadings(tapKey, context = getScoreEvalContext()) {
   const index = taps.indexOf(tapKey);
   const safeIndex = index >= 0 ? index : 0;
   const tap = tapData[safeIndex];
-  if (hasTapReadingSource(tap)) {
-    return readingsFromSingleTap(tap, {});
-  }
-  // Single room with no snapshot: show the case-resolved readings (Hero input),
-  // never synthetic per-room deltas.
+  const own = ownPointReadings(tap, tapKey);
+  if (own) return own;
+  // A point with no readings of its own shows the published whole-house set.
+  // Never invent per-room offsets.
   return { ...base };
 }
 
@@ -2741,8 +2784,8 @@ function readingsForCountryBenchmark(job = S.activeJob) {
   const tapData = resolveJobTapDataForScore(job) || [];
   const index = taps.indexOf(filter);
   const tap = index >= 0 ? tapData[index] : null;
-  if (!tap || !hasTapReadingSource(tap)) return {};
-  return getRoomReadings(filter);
+  const own = ownPointReadings(tap, filter);
+  return own || {};
 }
 
 /** Recompute the country comparison for the current filter. Does not touch Quality or publication. */
