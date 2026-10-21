@@ -29,6 +29,7 @@ const {
 const { fingerprint, withIdempotency, wasReplayed } = require('../services/idempotency-store');
 const { newCorrelationId, logEvent } = require('../services/observability');
 const { notifyAdminsOfNewCase } = require('../services/ops-case-alert');
+const { isPlaceholderCaseName } = require('../services/case-creation-service');
 const { publicBaseUrl, buildLiffBindUrl } = require('../services/url-builder');
 const { assertAppAuth } = require('../services/app-auth');
 const QRCode = require('qrcode');
@@ -679,11 +680,10 @@ async function handleCaseFlowRoute(req, res, urlPath) {
           correlationId
         });
         // Skip here when the quick "+ New Case" button seeded a placeholder
-        // "New Client" name -- submitCustomerPreassessment() sends the alert
-        // once the real name is saved instead, so admins see one usable
-        // message per Case, not a string of blank "New Client" ones.
-        const createdName = String(created.case?.name || '').trim();
-        if (createdName && !/^New Client\b/i.test(createdName)) {
+        // name -- submitCustomerPreassessment() sends the alert once the
+        // real name is saved instead, so admins see one usable message per
+        // Case, not a string of blank placeholder ones.
+        if (!isPlaceholderCaseName(created.case?.name)) {
           await notifyAdminsOfNewCase(created.case, { correlationId, source: 'portal' });
         }
         return created;

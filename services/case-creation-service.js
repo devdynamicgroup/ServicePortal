@@ -248,9 +248,15 @@ async function createCase(customerPayload = {}, options = {}) {
   };
 }
 
+// The quick "+ New Case" button seeds fullName 'New Client', but job.name
+// is never that raw string -- notionPageToJob() (services/notion/mapper.js)
+// always formats it as "<first> <last-initial>.", so 'New Client' reads
+// back as "New C." here. Match both forms.
 function isPlaceholderCaseName(name) {
   const trimmed = String(name || '').trim();
-  return !trimmed || /^New Client\b/i.test(trimmed);
+  if (!trimmed) return true;
+  if (/^New Client\b/i.test(trimmed)) return true;
+  return /^New C\.?$/i.test(trimmed);
 }
 
 async function submitCustomerPreassessment(caseId, customerPayload = {}) {

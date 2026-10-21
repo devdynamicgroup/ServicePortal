@@ -180,6 +180,11 @@ async function run(name, fn) {
     assert.strictEqual(isPlaceholderCaseName('   '), true);
     assert.strictEqual(isPlaceholderCaseName('Ann Ada'), false);
     assert.strictEqual(isPlaceholderCaseName('Newark Client'), false);
+    // The real value job.name actually holds after a fresh "+ New Case":
+    // notionPageToJob() formats 'New Client' as "New C." -- this is the
+    // exact regression that shipped and still fired the alert immediately.
+    assert.strictEqual(isPlaceholderCaseName('New C.'), true);
+    assert.strictEqual(isPlaceholderCaseName('New C'), true);
   });
 
   await run('group chat is ignored and not treated as a customer message', async () => {
