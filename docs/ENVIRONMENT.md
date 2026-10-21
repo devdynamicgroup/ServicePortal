@@ -199,6 +199,7 @@ This is **OAuth 2 client** credentials for Google Business Profile — not a ser
 | `LINE_CHANNEL_ACCESS_TOKEN` | Send messages | R for send | O | R if LINE live |
 | `LINE_BOOKING_URL` | M6 Book Again / นัดตรวจ URI (default `https://www.water-motion.co`) | O | O | O |
 | `LINE_MOCK_SEND` | Mock outbound LINE | O (`true` local) | Recommended `true` | `false` when live |
+| `OPS_ALERT_LINE_TO` | Admin-only LINE alert when a new Case is created. User ids (`U...`) or later one group id (`C...`). Empty = no send. Does not write Case `notificationStatus` | O | O | Set when the admin alert should send |
 | `CAL_WEBHOOK_SECRET` | Cal.com webhook HMAC (`X-Cal-Signature-256`) | O (Phase 1 receive-only; unset = accept + warn) | O | Recommended staging+ |
 
 Ops probes (no env required): `GET /api/ops/health`, `GET /api/ops/readiness` — read-only, no secrets.

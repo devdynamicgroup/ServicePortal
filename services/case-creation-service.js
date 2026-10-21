@@ -248,6 +248,17 @@ async function createCase(customerPayload = {}, options = {}) {
   };
 }
 
+// The quick "+ New Case" button seeds fullName 'New Client', but job.name
+// is never that raw string -- notionPageToJob() (services/notion/mapper.js)
+// always formats it as "<first> <last-initial>.", so 'New Client' reads
+// back as "New C." here. Match both forms.
+function isPlaceholderCaseName(name) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return true;
+  if (/^New Client\b/i.test(trimmed)) return true;
+  return /^New C\.?$/i.test(trimmed);
+}
+
 async function submitCustomerPreassessment(caseId, customerPayload = {}) {
   const { resolveJob } = require('./workflow-service');
   const job = await resolveJob(caseId);
@@ -257,6 +268,8 @@ async function submitCustomerPreassessment(caseId, customerPayload = {}) {
     throw error;
   }
 
+  const wasPlaceholder = isPlaceholderCaseName(job.name);
+
   const customer = mapPreassessmentPayload(customerPayload);
   validateCustomerInput(customer);
 
@@ -265,6 +278,23 @@ async function submitCustomerPreassessment(caseId, customerPayload = {}) {
     consentSigned: customer.consentSigned
   });
   const resolved = await getClient(updated.notionId) || updated;
+
+  // The admin alert for a portal-created Case fires here, once -- the first
+  // time a real customer name replaces the "New Client" placeholder set by
+  // the quick "+ New Case" button -- rather than at raw Case creation, so
+  // staff don't get a string of identical, unidentifiable "New Client"
+  // alerts before they've typed anything in (2026-10-21).
+  if (wasPlaceholder && !isPlaceholderCaseName(resolved?.name)) {
+    try {
+      const { notifyAdminsOfNewCase } = require('./ops-case-alert');
+      await notifyAdminsOfNewCase(resolved, {
+        correlationId: newCorrelationId('preassess'),
+        source: 'portal'
+      });
+    } catch (error) {
+      console.warn('[submitCustomerPreassessment] ops alert failed', error.message);
+    }
+  }
 
   return {
     ok: true,
@@ -353,5 +383,8 @@ module.exports = {
   createCase,
   submitCustomerPreassessment,
   createTestCase,
-  cancelAppointment
+  cancelAppointment,
+  // Test-only export (2026-10-21, deferred ops-alert timing) -- same
+  // function, same behavior, just reachable from a test file.
+  isPlaceholderCaseName
 };

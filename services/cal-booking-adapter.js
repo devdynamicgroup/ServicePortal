@@ -19,6 +19,9 @@
  *     reinvented).
  *  6. Call the existing, unmodified createCase() — this file never writes
  *     Notion directly and never owns Case/Offer/Workflow/Notification logic.
+ *     After a new Case is created it asks the admin ops alert to push.
+ *     That alert does not write Case notificationStatus and does not
+ *     message the customer. Duplicate deliveries do not alert again.
  */
 
 const { createCase } = require('./case-creation-service');
@@ -26,6 +29,7 @@ const { findClientByCalBookingId } = require('./notion/clients');
 const { withCaseLock } = require('./workflow-service');
 const { resolveCampaignAttribution } = require('./cal-offer-mapping');
 const { logEvent } = require('./observability');
+const { notifyAdminsOfNewCase } = require('./ops-case-alert');
 
 // Test-only DI seam (mirrors score-publication-service.js's
 // setPublicationCaseAdapter/resetPublicationDependencies pattern). Defaults to
@@ -148,6 +152,7 @@ async function processBookingCreated(rawPayload, correlationId) {
 
     const { customerPayload, options } = buildCreateCaseInput(fields, correlationId);
     const result = await deps.createCase(customerPayload, options);
+    await notifyAdminsOfNewCase(result.case, { correlationId, source: 'cal.com' });
 
     logEvent('info', 'cal_adapter_case_created', {
       correlationId,
