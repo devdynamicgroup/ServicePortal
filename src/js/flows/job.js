@@ -38,7 +38,8 @@ function openJob(id) {
   });
   S.activeJob = JOBS.find(j => String(j.id) === String(id));
   if (!S.activeJob) return;
-  if (S.activeJob.status !== 'done') S.activeJob.status = 'in_progress';
+  const lookback = typeof isHistoryLookbackCase === 'function' && isHistoryLookbackCase(S.activeJob);
+  if (!lookback && S.activeJob.status !== 'done') S.activeJob.status = 'in_progress';
   persistJobs();
   if (typeof persistActiveCaseRef === 'function') persistActiveCaseRef(S.activeJob);
   loadJobState(S.activeJob);
@@ -58,6 +59,7 @@ function openJob(id) {
     });
   }
   if (typeof maybeAutoPromptLineConnect === 'function') maybeAutoPromptLineConnect(S.activeJob);
+  if (lookback) return;
   pushCaseOpenToNotion(S.activeJob).then(result => {
     if (!result?.ok) return;
     if (result.deferred) return;

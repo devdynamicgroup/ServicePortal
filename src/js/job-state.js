@@ -820,7 +820,7 @@ function openJobMapsLink() {
 // invitation to keep editing. The LINE resend card stays visible/enabled:
 // resending a completed result to the customer is a legitimate action here.
 function updateJobEditability(job) {
-  const isDone = job?.status === 'done';
+  const isDone = job?.status === 'done' || (typeof isHistoryLookbackCase === 'function' && isHistoryLookbackCase(job));
   document.getElementById('job-foot')?.classList.toggle('hidden', isDone);
   document.getElementById('job-more-btn')?.classList.toggle('hidden', isDone);
 }

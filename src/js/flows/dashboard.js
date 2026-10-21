@@ -293,12 +293,12 @@ function buildApptCard(job, opts = {}) {
   const pkgTag = pkgFull ? t('dash.pkg.full') : t('dash.pkg.essential');
   const pkgClass = pkgFull ? 'tag-full-assessment' : 'tag-essential';
   let statusTag = '';
-  if (job.status === 'in_progress') {
-    statusTag = '<span class="tag tag-progress">' + t('dash.status.in_progress') + '</span>';
-  } else if (opts.showDate && job.status === 'done') {
-    statusTag = '<span class="tag tag-done">' + t('dash.status.done') + '</span>';
-  } else if (opts.showDate && job.status === 'cancelled') {
+  if (opts.showDate && isHistoryCancelledCase(job)) {
     statusTag = '<span class="tag tag-cancelled">' + t('history.cancelled') + '</span>';
+  } else if (opts.showDate && isHistoryFinishedCase(job)) {
+    statusTag = '<span class="tag tag-done">' + t('dash.status.done') + '</span>';
+  } else if (job.status === 'in_progress' || (opts.showDate && isHistoryInProgressCase(job))) {
+    statusTag = '<span class="tag tag-progress">' + t('dash.status.in_progress') + '</span>';
   }
   const contactLine = job.contact
     ? '<br>' + t('dash.contact') + ': ' + job.contact
@@ -536,6 +536,47 @@ function filterAppointments(q){
     );
   }).join('') || '<p style="color:var(--muted);font-size:14px">No matches</p>';
 }
+const HISTORY_FINISHED_WORKFLOW = new Set([
+  'completed',
+  'result_sent',
+  'feedback_submitted',
+  'review_requested',
+  'closed'
+]);
+
+function historyWorkflowStatus(job) {
+  return String(job?.workflow?.status || '').toLowerCase();
+}
+
+function isHistoryCancelledCase(job) {
+  const status = String(job?.status || '').toLowerCase();
+  const workflow = historyWorkflowStatus(job);
+  return status === 'cancelled' || status === 'canceled' || workflow === 'cancelled' || workflow === 'canceled';
+}
+
+function isHistoryFinishedCase(job) {
+  if (!job || isHistoryCancelledCase(job)) return false;
+  if (String(job.status || '').toLowerCase() === 'done') return true;
+  return HISTORY_FINISHED_WORKFLOW.has(historyWorkflowStatus(job));
+}
+
+function isHistoryLookbackCase(job) {
+  return isHistoryFinishedCase(job) || isHistoryCancelledCase(job);
+}
+
+function isHistoryInProgressCase(job) {
+  if (!job || job.manualPending || isHistoryLookbackCase(job)) return false;
+  const status = String(job.status || '').toLowerCase();
+  const workflow = historyWorkflowStatus(job);
+  return status === 'in_progress' || workflow === 'in_progress' || workflow === 'service_in_progress';
+}
+
+function historyCaseMatchesStatus(job, statusFilter) {
+  if (statusFilter === 'all') return true;
+  if (statusFilter === 'in_progress') return isHistoryInProgressCase(job);
+  return isHistoryFinishedCase(job);
+}
+
 function openHistoryModal() {
   document.getElementById('history-overlay').classList.remove('hidden');
   document.getElementById('history-search-input').value = '';
@@ -556,7 +597,7 @@ function renderHistory() {
 
   const jobs = JOBS
     .filter(j => !j.manualPending)
-    .filter(j => statusFilter === 'all' ? j.status !== 'new' : j.status === statusFilter)
+    .filter(j => historyCaseMatchesStatus(j, statusFilter))
     .filter(j => {
       if (!cutoffIso) return true;
       const jobIso = jobDateIso(j);
@@ -567,7 +608,16 @@ function renderHistory() {
       const hay = [j.name, j.addr, j.meta].map(v => String(v || '').toLowerCase());
       return hay.some(part => part.includes(needle));
     })
-    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.timeStart || '').localeCompare(String(a.timeStart || '')));
+    .sort((a, b) => {
+      const da = jobDateIso(a);
+      const db = jobDateIso(b);
+      if (da !== db) {
+        if (!da) return 1;
+        if (!db) return -1;
+        return db.localeCompare(da);
+      }
+      return String(b.timeStart || '').localeCompare(String(a.timeStart || ''));
+    });
 
   const list = document.getElementById('history-list');
   if (!list) return;
