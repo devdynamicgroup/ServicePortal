@@ -2268,14 +2268,30 @@ function firstFiniteLimit(...vals) {
   return null;
 }
 
+/** Presentation band for the Now list. Does not feed the score formula. */
+function scoreShiftBounds(limits) {
+  const band = limits && typeof limits === 'object' ? limits : {};
+  return {
+    min: firstFiniteLimit(band.preferredMin, band.excellentMin, band.idealMin, band.min),
+    max: firstFiniteLimit(
+      band.preferredMax,
+      band.excellentMax,
+      band.idealMax,
+      band.gradeExcellentMax,
+      band.passMax,
+      band.max,
+      band.displayMax,
+      band.smcl,
+      band.ttIdeal,
+      band.ideal
+    )
+  };
+}
+
 function scoreShiftDirection(key, value, standardKey) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 'pending';
-  const limits = benchmarkRegistry()?.get?.(standardKey)?.limits?.[key] || {};
-  const min = firstFiniteLimit(limits.preferredMin, limits.excellentMin, limits.idealMin)
-    ?? firstFiniteLimit(limits.min);
-  const max = firstFiniteLimit(limits.preferredMax, limits.excellentMax, limits.idealMax, limits.gradeExcellentMax)
-    ?? firstFiniteLimit(limits.passMax, limits.max);
+  const { min, max } = scoreShiftBounds(benchmarkRegistry()?.get?.(standardKey)?.limits?.[key]);
   if (min == null && max == null) return 'pending';
   if (min != null && n < min) return 'below';
   if (max != null && n > max) return 'above';
@@ -2324,11 +2340,7 @@ function thailandStandardPasses(readings) {
  * It is not written back to the case score.
  */
 function scoreShiftRangeLabel(key, standardKey) {
-  const limits = benchmarkRegistry()?.get?.(standardKey)?.limits?.[key] || {};
-  const min = firstFiniteLimit(limits.preferredMin, limits.excellentMin, limits.idealMin)
-    ?? firstFiniteLimit(limits.min);
-  const max = firstFiniteLimit(limits.preferredMax, limits.excellentMax, limits.idealMax, limits.gradeExcellentMax)
-    ?? firstFiniteLimit(limits.passMax, limits.max);
+  const { min, max } = scoreShiftBounds(benchmarkRegistry()?.get?.(standardKey)?.limits?.[key]);
   const unit = { tds: ' mg/L', turbidity: ' NTU', chlorine: ' mg/L', orp: ' mV', do: ' mg/L', temp: '°C' }[key] || '';
   const fmt = (n) => {
     const rounded = Math.round(Number(n) * 10) / 10;
