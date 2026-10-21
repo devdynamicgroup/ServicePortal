@@ -540,15 +540,15 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
 .search-inp{width:100%;margin-bottom:12px}
 .notif-sheet .modal-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:4px}
 .notif-sheet .modal-title{margin:0}
-.history-sheet{max-height:88vh;display:flex;flex-direction:column}
+.history-sheet{max-height:88vh;display:flex;flex-direction:column;overflow:hidden;padding-left:16px;padding-right:16px}
 .history-sheet .modal-title-row{margin-bottom:12px}
 .history-sheet .modal-title{margin:0}
-.history-filters{display:flex;align-items:center;gap:8px;margin:0 0 12px;flex-wrap:wrap}
+.history-sheet .search-inp{display:block;width:100%;max-width:none;min-width:0;align-self:stretch;box-sizing:border-box}
+.history-filters{display:flex;align-items:center;gap:8px;margin:0 0 12px;flex-wrap:nowrap;width:100%;align-self:stretch}
+.history-filters .score-select-wrap{flex:1 1 0;min-width:0}
 .history-filters .score-select{
-  flex:0 1 auto;
-  width:auto;
-  min-width:0;
-  max-width:170px;
+  width:100%;
+  max-width:none;
   padding:7px 30px 7px 13px;
   border:1px solid var(--border);
   border-radius:999px;
@@ -559,7 +559,9 @@ input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:3;po
   font-weight:600;
   color:var(--text);
 }
-.history-list{overflow-y:auto;flex:1;min-height:0}
+.history-list{overflow-x:hidden;overflow-y:auto;flex:1;min-height:0;width:100%;align-self:stretch;scrollbar-width:none}
+.history-list::-webkit-scrollbar{width:0;height:0}
+.history-list .appt-card{width:100%;max-width:100%;margin-left:0;margin-right:0;box-sizing:border-box}
 .history-list .appt-card:last-child{margin-bottom:0}
 .history-date{font-size:11px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.02em;margin:0 0 4px}
 .notif-toolbar{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
