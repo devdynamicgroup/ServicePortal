@@ -11,6 +11,7 @@
 
 const { sendLinePush } = require('./line-notifications');
 const { logEvent } = require('./observability');
+const { publicBaseUrl } = require('./url-builder');
 
 let deps = { sendLinePush };
 
@@ -42,28 +43,56 @@ function displayAddress(job) {
   const raw = field(job, 'ci-addr');
   if (raw) return raw;
   const addr = String(job?.addr || '').trim();
-  if (!addr || addr === 'Address to confirm') return '-';
+  if (!addr || addr === 'Address to confirm') return 'รอยืนยันข้อมูล';
   return addr;
 }
 
-function displayWhen(job) {
-  const time = [job?.timeStart, job?.timeEnd].filter(Boolean).join('–');
-  return [job?.date, time].filter(Boolean).join(' ') || '-';
+function displayDate(job) {
+  return String(job?.date || '').trim() || '-';
 }
 
-function buildOpsCaseAlertText(job = {}) {
+function displayTime(job) {
+  const time = [job?.timeStart, job?.timeEnd].filter(Boolean).join('–');
+  return time ? `${time} น.` : '-';
+}
+
+const SOURCE_LABELS = {
+  'cal.com': 'หน้าเว็บ/ระบบจองคิว'
+};
+
+function portalHost() {
+  try {
+    return publicBaseUrl().replace(/^https?:\/\//, '');
+  } catch {
+    return 'ระบบหลังบ้าน';
+  }
+}
+
+function displayCreatedFrom(context = {}) {
+  if (context.source === 'portal') return portalHost();
+  return SOURCE_LABELS[context.source] || '-';
+}
+
+function buildOpsCaseAlertText(job = {}, context = {}) {
   const lines = [
-    'มีเคสใหม่',
-    `ชื่อ: ${displayName(job)}`,
-    `เบอร์: ${field(job, 'ci-phone') || '-'}`,
-    `นัด: ${displayWhen(job)}`,
-    `ที่อยู่: ${displayAddress(job)}`,
-    `ช่องทาง: ${field(job, 'ci-source') || '-'}`
+    '💧 WATER MOTION | NEW CASE',
+    'มี Case ใหม่เข้าสู่ระบบ',
+    '----------------------',
+    `👤 ชื่อลูกค้า: ${displayName(job)}`,
+    `📞 เบอร์โทร: ${field(job, 'ci-phone') || '-'}`,
+    `📅 วันนัดหมาย: ${displayDate(job)}`,
+    `🕘 เวลา: ${displayTime(job)}`,
+    `📍 ที่อยู่: ${displayAddress(job)}`,
+    `📡 ช่องทางที่มา: ${field(job, 'ci-source') || '-'}`,
+    `🛠️ สร้างจาก: ${displayCreatedFrom(context)}`
   ];
   const lineId = field(job, 'ci-line');
-  if (lineId) lines.push(`LINE: ${lineId}`);
+  if (lineId) lines.push(`💬 LINE: ${lineId}`);
+  lines.push('----------------------');
   const caseId = String(job?.id || job?.notionId || '').trim();
-  if (caseId) lines.push(`เคส: ${caseId}`);
+  lines.push(`🆔 Case ID: ${caseId || '-'}`);
+  lines.push('');
+  lines.push('⚠️ กรุณาตรวจสอบข้อมูลลูกค้าและยืนยันที่อยู่ก่อนดำเนินการ');
   return lines.join('\n');
 }
 
@@ -73,7 +102,7 @@ async function notifyAdminsOfNewCase(job, context = {}) {
     return { ok: true, skipped: true, reason: 'no_targets', results: [] };
   }
 
-  const text = buildOpsCaseAlertText(job);
+  const text = buildOpsCaseAlertText(job, context);
   const results = [];
   for (const to of targets) {
     try {
