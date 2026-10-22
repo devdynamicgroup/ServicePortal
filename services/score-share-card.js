@@ -41,6 +41,8 @@ const CARD_H = 383;
 const ASSET_DIR = path.join(__dirname, '..', 'src', 'assets');
 const DEFAULT_PHOTO = path.join(ASSET_DIR, 'score-share-default-photo.jpg');
 const FACEBOOK_BG = path.join(ASSET_DIR, 'score-share-facebook-bg.jpg');
+const SQUARE_BG = path.join(ASSET_DIR, 'score-share-square-bg.jpg');
+const STORY_BG = path.join(ASSET_DIR, 'score-share-story-bg.jpg');
 const QR_ASSET = path.join(ASSET_DIR, 'score-share-qr.png');
 const CTA_BADGE_ASSET = path.join(ASSET_DIR, 'score-share-cta-badge.png');
 const WORDMARK_ASSET = path.join(ASSET_DIR, 'score-share-wordmark.png');
@@ -403,10 +405,10 @@ function facebookScoreCard(opts) {
   const wq = Math.max(0, Math.min(100, Number(opts.score) || 0));
   const band = shareBandLabel(wq);
   const context = String(opts.contextLine || '').trim();
-  const dots = 48;
-  const dotGap = 12;
-  const dotsX = 38;
-  const dotsY = 172;
+  const dots = 49;
+  const dotGap = 11.7;
+  const dotsX = 36;
+  const rowYs = [162, 173, 185];
   const center = Math.round((wq / 100) * (dots - 1));
   const clusterX = dotsX + center * dotGap;
   const dotFill = (distance) => {
@@ -416,10 +418,12 @@ function facebookScoreCard(opts) {
     if (distance === 4) return '#D7E7FA';
     return '#D6D6D4';
   };
-  const dotMarks = Array.from({ length: dots }, (_, i) => {
-    if (i === center) return '';
-    return `<circle cx="${dotsX + i * dotGap}" cy="${dotsY}" r="3" fill="${dotFill(Math.abs(i - center))}"/>`;
-  }).join('') + `<circle cx="${clusterX}" cy="${dotsY}" r="6.2" fill="#FFFFFF"/><circle cx="${clusterX}" cy="${dotsY}" r="3.5" fill="#4C92EA"/>`;
+  const dotMarks = rowYs.map((cy, row) => Array.from({ length: dots }, (_, i) => {
+    if (row === 1 && i === center) return '';
+    return `<circle cx="${(dotsX + i * dotGap).toFixed(1)}" cy="${cy}" r="2.7" fill="${dotFill(Math.abs(i - center))}"/>`;
+  }).join('')).join('')
+    + `<circle cx="${clusterX.toFixed(1)}" cy="${rowYs[1]}" r="5.6" fill="#FFFFFF"/>`
+    + `<circle cx="${clusterX.toFixed(1)}" cy="${rowYs[1]}" r="2.9" fill="#4C92EA"/>`;
   const countries = SHARE_FLOORS.map(([name, floor], index) => {
     const x = 44 + index * 126;
     const passed = wq >= floor;
@@ -434,17 +438,18 @@ function facebookScoreCard(opts) {
     ? `<text x="${FB_CARD_W / 2}" y="42" text-anchor="middle" fill="#8A8681" font-family="${FONT}" font-size="15">${escapeXml(context)}</text>`
     : '';
 
+  const chrome = opts.chrome !== false ? `<rect width="${FB_CARD_W}" height="${FB_CARD_H}" rx="22" fill="#F7F8F9" filter="url(#fbCardShadow)"/>` : '';
   return `
-    <rect width="${FB_CARD_W}" height="${FB_CARD_H}" rx="22" fill="#F7F8F9" filter="url(#fbCardShadow)"/>
+    ${chrome}
     ${contextText}
     <text x="328" y="108" text-anchor="end" fill="${INK}" font-family="${FONT}" font-size="56" font-weight="700" letter-spacing="-1.5">${Math.round(wq)}</text>
     <text x="346" y="108" fill="#B0ACA6" font-family="${FONT}" font-size="20">/100</text>
-    <rect x="${bandX.toFixed(1)}" y="130" width="${bandW}" height="34" rx="17" fill="#E4EEFC"/>
-    <text x="${(bandX + bandW / 2).toFixed(1)}" y="152" text-anchor="middle" fill="${BRAND_BLUE}" font-family="${FONT}" font-size="15" font-weight="600">${escapeXml(band)}</text>
+    <rect x="${bandX.toFixed(1)}" y="122" width="${bandW}" height="36" rx="18" fill="#E4EEFC"/>
+    <text x="${(bandX + bandW / 2).toFixed(1)}" y="145" text-anchor="middle" fill="${BRAND_BLUE}" font-family="${FONT}" font-size="15" font-weight="600">${escapeXml(band)}</text>
     ${dotMarks}
-    <text x="${dotsX}" y="198" fill="#A7A39E" font-family="${FONT}" font-size="13">0</text>
-    <text x="${(dotsX + (dots - 1) * dotGap * 0.8).toFixed(1)}" y="198" text-anchor="middle" fill="#A7A39E" font-family="${FONT}" font-size="13">80 · Int'l</text>
-    <text x="${dotsX + (dots - 1) * dotGap}" y="198" text-anchor="end" fill="#A7A39E" font-family="${FONT}" font-size="13">100</text>
+    <text x="${dotsX}" y="211" fill="#A7A39E" font-family="${FONT}" font-size="13">0</text>
+    <text x="${(dotsX + (dots - 1) * dotGap * 0.8).toFixed(1)}" y="211" text-anchor="middle" fill="#A7A39E" font-family="${FONT}" font-size="13">80 · Int'l</text>
+    <text x="${(dotsX + (dots - 1) * dotGap).toFixed(1)}" y="211" text-anchor="end" fill="#A7A39E" font-family="${FONT}" font-size="13">100</text>
     ${countries}`;
 }
 
@@ -569,8 +574,96 @@ function buildSquareSvg(opts) {
 </svg>`;
 }
 
+/**
+ * Square and story plates use the same score card as the Facebook poster.
+ * Coordinates are on the output canvas (1080 square, 1080×1920 story),
+ * measured from the 1024 and 576 design frames.
+ */
+const DESIGNED_PLATES = {
+  square: {
+    width: 1080,
+    height: 1080,
+    bg: SQUARE_BG,
+    radius: 34,
+    card: { x: 109, y: 331, w: 863, h: 419 },
+    erase: { x0: 50, x1: 710, y0: 70, y1: 300 },
+    headlines: {
+      thai: { x: 68, size: 60, lines: [
+        { text: 'Your tap water passes', y: 122 },
+        { text: 'the Thai standard.', y: 180 },
+        { text: 'International? Not yet.', y: 266 }
+      ] },
+      pass: { x: 68, size: 60, lines: [
+        { text: 'Your tap water meets', y: 122 },
+        { text: 'international standards.', y: 180 }
+      ] },
+      attention: { x: 68, size: 60, lines: [
+        { text: 'Your tap water needs', y: 122 },
+        { text: 'attention.', y: 180 },
+        { text: 'Some values are below', y: 248 },
+        { text: 'target.', y: 304 }
+      ] }
+    }
+  },
+  story: {
+    width: 1080,
+    height: 1920,
+    bg: STORY_BG,
+    radius: 36,
+    card: { x: 81, y: 707, w: 923, h: 506 },
+    erase: { x0: 60, x1: 820, y0: 70, y1: 420 },
+    headlines: {
+      thai: { x: 81, size: 58, lines: [
+        { text: 'Your tap water passes', y: 128 },
+        { text: 'the Thai standard.', y: 202 },
+        { text: 'International?', y: 314 },
+        { text: 'Not yet.', y: 384 }
+      ] },
+      pass: { x: 81, size: 58, lines: [
+        { text: 'Your tap water meets', y: 128 },
+        { text: 'international standards.', y: 202 }
+      ] },
+      attention: { x: 81, size: 58, lines: [
+        { text: 'Your tap water needs', y: 128 },
+        { text: 'attention.', y: 202 },
+        { text: 'Some values are', y: 314 },
+        { text: 'below target.', y: 384 }
+      ] }
+    }
+  }
+};
+
+function sharePlateBand(score) {
+  const wq = Number(score);
+  if (SHARE_FLOORS.every(([, floor]) => wq >= floor)) return 'pass';
+  if (wq >= 65) return 'thai';
+  return 'attention';
+}
+
+function buildDesignedPlateSvg(plateKey, opts) {
+  const plate = DESIGNED_PLATES[plateKey];
+  const spec = plate.headlines[sharePlateBand(opts.score)];
+  const headline = spec.lines.map((line) => (
+    `<text x="${spec.x}" y="${line.y}" fill="${INK}" font-family="${FONT}" font-size="${spec.size}" font-weight="700">${escapeXml(line.text)}</text>`
+  )).join('');
+  const card = plate.card;
+  const scale = card.w / FB_CARD_W;
+  const drawnH = FB_CARD_H * scale;
+  const cardY = card.y + (card.h - drawnH) / 2;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${plate.width}" height="${plate.height}" viewBox="0 0 ${plate.width} ${plate.height}">
+  ${headline}
+  <rect x="${card.x}" y="${card.y}" width="${card.w}" height="${card.h}" rx="${plate.radius}" fill="#F7F8F9"/>
+  <g transform="translate(${card.x},${cardY.toFixed(2)}) scale(${scale.toFixed(4)})">
+    ${facebookScoreCard({ ...opts, chrome: false })}
+  </g>
+</svg>`;
+}
+
 function buildShareCardSvg(format, options = {}) {
   const meta = resolveFormat(format);
+  if (meta.key === 'story' && fs.existsSync(STORY_BG)) return { ...meta, svg: buildDesignedPlateSvg('story', options) };
+  if (meta.key === 'square' && fs.existsSync(SQUARE_BG)) return { ...meta, svg: buildDesignedPlateSvg('square', options) };
   if (meta.key === 'story') return { ...meta, svg: buildStorySvg(options) };
   if (meta.key === 'square') return { ...meta, svg: buildSquareSvg(options) };
   return { ...meta, svg: buildLandscapeSvg(options) };
@@ -752,6 +845,67 @@ async function eraseBakedHeadline(sharp, base) {
   return sharp(data, { raw: { width: w, height: h, channels: ch } }).png().toBuffer();
 }
 
+/**
+ * The square and story posters have the sample headline painted on the water.
+ * Replace only those dark glyphs with the water beside them. A vertical blend
+ * leaves a gray stripe where the droplet crosses the line.
+ */
+async function eraseBakedRegion(sharp, base, region) {
+  const { data, info } = await sharp(base).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const w = info.width;
+  const h = info.height;
+  const ch = info.channels;
+  const clamp = (value, max) => Math.max(0, Math.min(max - 1, Math.round(value)));
+  const x0 = clamp(region.x0, w);
+  const x1 = clamp(region.x1, w);
+  const y0 = clamp(region.y0, h);
+  const y1 = clamp(region.y1, h);
+  const at = (x, y) => (y * w + x) * ch;
+  const lumAt = (i) => (data[i] + data[i + 1] + data[i + 2]) / 3;
+  const ink = new Uint8Array(w * h);
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      if (lumAt(at(x, y)) < 155) ink[y * w + x] = 1;
+    }
+  }
+  const dil = new Uint8Array(ink);
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      if (!ink[y * w + x]) continue;
+      for (let dy = -4; dy <= 4; dy++) {
+        const yy = y + dy;
+        if (yy < y0 || yy >= y1) continue;
+        for (let dx = -4; dx <= 4; dx++) {
+          const xx = x + dx;
+          if (xx < x0 || xx >= x1) continue;
+          dil[yy * w + xx] = 1;
+        }
+      }
+    }
+  }
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      if (!dil[y * w + x]) continue;
+      let source = -1;
+      for (let left = x - 1; left >= x0; left--) {
+        if (!dil[y * w + left]) { source = left; break; }
+      }
+      if (source < 0) {
+        for (let right = x + 1; right < x1; right++) {
+          if (!dil[y * w + right]) { source = right; break; }
+        }
+      }
+      if (source < 0) continue;
+      const i = at(x, y);
+      const s = at(source, y);
+      data[i] = data[s];
+      data[i + 1] = data[s + 1];
+      data[i + 2] = data[s + 2];
+    }
+  }
+  return sharp(data, { raw: { width: w, height: h, channels: ch } }).png().toBuffer();
+}
+
 let landscapeBasePromise = null;
 
 function preparedLandscapeBase(sharp) {
@@ -912,11 +1066,74 @@ async function renderFacebookPreview(options) {
   return result;
 }
 
+const designedPlateBases = new Map();
+
+function preparedDesignedBase(sharp, plateKey) {
+  const existing = designedPlateBases.get(plateKey);
+  if (existing) return existing;
+  const plate = DESIGNED_PLATES[plateKey];
+  const promise = (async () => {
+    const resized = await sharp(plate.bg)
+      .resize(plate.width, plate.height, { fit: 'fill' })
+      .png({ compressionLevel: 1 })
+      .toBuffer();
+    return eraseBakedRegion(sharp, resized, plate.erase);
+  })().catch((error) => {
+    designedPlateBases.delete(plateKey);
+    throw error;
+  });
+  designedPlateBases.set(plateKey, promise);
+  return promise;
+}
+
+const designedPlateCache = new Map();
+const DESIGNED_CACHE_MAX = 30;
+
+async function renderDesignedPlate(plateKey, options) {
+  const key = `${plateKey}|${landscapeCacheKey(options)}`;
+  const cached = designedPlateCache.get(key);
+  if (cached?.png) return cached;
+  if (cached?.promise) return cached.promise;
+  const sharp = require('sharp');
+  const plate = DESIGNED_PLATES[plateKey];
+  const promise = (async () => {
+    const built = buildShareCardSvg(plateKey, {
+      ...options,
+      score: Number(options.score),
+      indicators: options.indicators || 8
+    });
+    const base = await preparedDesignedBase(sharp, plateKey);
+    const composited = await sharp(base)
+      .composite([{ input: Buffer.from(built.svg), left: 0, top: 0 }])
+      .png()
+      .toBuffer();
+    const png = await sharp(composited)
+      .flatten({ background: '#E6EEF3' })
+      .png({ compressionLevel: 4 })
+      .toBuffer();
+    return { ...built, png };
+  })().catch((error) => {
+    if (designedPlateCache.get(key)?.promise) designedPlateCache.delete(key);
+    throw error;
+  });
+  designedPlateCache.set(key, { promise });
+  const result = await promise;
+  designedPlateCache.delete(key);
+  designedPlateCache.set(key, result);
+  while (designedPlateCache.size > DESIGNED_CACHE_MAX) {
+    const oldest = designedPlateCache.keys().next().value;
+    designedPlateCache.delete(oldest);
+  }
+  return result;
+}
+
 async function renderShareCardPng(format, options = {}) {
   ensureFontconfig();
   const sharp = require('sharp');
   const formatMeta = resolveFormat(format);
   if (formatMeta.key === 'facebook') return renderFacebookPreview(options);
+  if (formatMeta.key === 'square' && fs.existsSync(SQUARE_BG)) return renderDesignedPlate('square', options);
+  if (formatMeta.key === 'story' && fs.existsSync(STORY_BG)) return renderDesignedPlate('story', options);
   // The landscape plate is the water poster. Waiting on a Drive photo here
   // only delays the image Facebook has to fetch while the post is composed.
   if (formatMeta.key === 'landscape' && fs.existsSync(FACEBOOK_BG)) {
@@ -1073,6 +1290,12 @@ function cardOptionsFromJob(job = {}, overrides = {}) {
 
 if (fs.existsSync(FACEBOOK_BG)) {
   try { preparedLandscapeBase(require('sharp')); } catch { landscapeBasePromise = null; }
+}
+if (fs.existsSync(SQUARE_BG)) {
+  try { preparedDesignedBase(require('sharp'), 'square'); } catch { designedPlateBases.delete('square'); }
+}
+if (fs.existsSync(STORY_BG)) {
+  try { preparedDesignedBase(require('sharp'), 'story'); } catch { designedPlateBases.delete('story'); }
 }
 
 module.exports = {

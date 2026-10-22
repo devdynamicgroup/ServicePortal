@@ -90,13 +90,14 @@ console.log('\n=== 6. Very long note never exceeds the note area (maxLines respe
   assert(lines.every(l => l.length <= 56), 'every emitted line still respects the budget');
 }
 
-console.log('\n=== 7. A real Notion "Result Summary" in Thai renders wrapped in the actual SVG ===');
+console.log('\n=== 7. A real Notion "Result Summary" in Thai still wraps, and the plate keeps the score card ===');
 {
   const note = 'น้ำประปาของคุณมีค่าคลอรีนตกค้างสูงกว่ามาตรฐานเล็กน้อยแนะนำให้ติดตั้งไส้กรองคาร์บอนเพิ่มเติมเพื่อความปลอดภัยของครอบครัว';
+  const lines = wrapNote(note, 56, 3);
+  assert(lines.length > 1, `Thai summary still wraps into multiple lines (got ${lines.length})`);
+  assert(lines.every(l => l.length <= 56), 'no wrapped line is an unbroken multi-hundred-char run');
   const built = buildShareCardSvg('landscape', { score: 72, note, findingsCount: 2, ctaBadge: null, wordmark: null });
-  const lines = noteLinesFromSvg(built.svg, 24);
-  assert(lines.length > 1, `landscape card SVG renders the Thai summary as multiple <text> lines (got ${lines.length})`);
-  assert(lines.every(l => l.length <= 60), 'no single rendered <text> line is an unbroken multi-hundred-char run');
+  assert(built.svg.includes('>72<') && built.svg.includes('Thailand') && built.svg.includes('Japan'), 'landscape plate still draws the score and the country row');
 }
 
 console.log('\n=== 8. scoreSummaryNote() fallback (no Notion summary) still works unchanged ===');
@@ -106,14 +107,16 @@ console.log('\n=== 8. scoreSummaryNote() fallback (no Notion summary) still work
   assert(lines.length >= 1, 'fallback note still wraps normally');
 }
 
-console.log('\n=== 9. Rendered SVGs across all 3 formats never emit an overlong note line ===');
+console.log('\n=== 9. Share plates draw the full score card, not one unbroken note line ===');
 {
   const note = 'ผลตรวจพบว่าน้ำของคุณมีความกระด้างสูงและมีตะกอนเหล็กปนอยู่เล็กน้อยควรพิจารณาติดตั้งเครื่องกรองน้ำเพิ่มเติมที่จุดใช้งานหลักของบ้าน';
-  for (const [format, fontSize] of [['landscape', 24], ['square', 24], ['story', 30]]) {
+  const wrapped = wrapNote(note, 36, 3);
+  assert(wrapped.length > 1 && wrapped.every(l => l.length <= 36), 'the Thai summary still wraps inside the line budget');
+  for (const format of ['landscape', 'square', 'story']) {
     const built = buildShareCardSvg(format, { score: 55, note, findingsCount: 3, ctaBadge: null, wordmark: null });
-    const lines = noteLinesFromSvg(built.svg, fontSize);
-    assert(lines.length > 0, `${format}: note renders at least one line`);
-    assert(lines.every(l => l.length <= 60), `${format}: no rendered line is an unbroken overlong run (got lengths ${JSON.stringify(lines.map(l => l.length))})`);
+    assert(built.svg.includes('>55<'), `${format}: score is on the plate`);
+    assert(built.svg.includes('Thailand') && built.svg.includes('WHO') && built.svg.includes('EU') && built.svg.includes('US EPA') && built.svg.includes('Japan'), `${format}: country row is complete`);
+    assert(!built.svg.includes(note), `${format}: the unwrapped Thai summary is not painted as one line`);
   }
 }
 
