@@ -416,9 +416,10 @@ function facebookScoreCard(opts) {
     if (distance === 4) return '#D7E7FA';
     return '#D6D6D4';
   };
-  const dotMarks = Array.from({ length: dots }, (_, i) => (
-    `<circle cx="${dotsX + i * dotGap}" cy="${dotsY}" r="3" fill="${dotFill(Math.abs(i - center))}"/>`
-  )).join('');
+  const dotMarks = Array.from({ length: dots }, (_, i) => {
+    if (i === center) return '';
+    return `<circle cx="${dotsX + i * dotGap}" cy="${dotsY}" r="3" fill="${dotFill(Math.abs(i - center))}"/>`;
+  }).join('') + `<circle cx="${clusterX}" cy="${dotsY}" r="6.2" fill="#FFFFFF"/><circle cx="${clusterX}" cy="${dotsY}" r="3.5" fill="#4C92EA"/>`;
   const countries = SHARE_FLOORS.map(([name, floor], index) => {
     const x = 44 + index * 126;
     const passed = wq >= floor;
