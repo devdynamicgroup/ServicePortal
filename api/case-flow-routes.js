@@ -190,7 +190,7 @@ function warmFacebookCard(job) {
   const rawScore = job?.result?.waterScore;
   if (rawScore == null || !Number.isFinite(Number(rawScore))) return;
   if (!job?.result?.publicReportToken) return;
-  renderShareCardPng('landscape', cardOptionsFromJob(job)).catch((error) => {
+  renderShareCardPng('facebook', cardOptionsFromJob(job)).catch((error) => {
     console.warn('[score-share-card] warm failed', error.message);
   });
 }
@@ -208,8 +208,8 @@ function reportLinkKind() {
 function sharePreviewMeta(job) {
   const token = String(job?.result?.publicReportToken || '').trim();
   if (!token) return '';
-  const pageUrl = escapeHtml(`${publicBaseUrl()}/score/${encodeURIComponent(token)}?poster=3`);
-  const imageUrl = escapeHtml(`${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(token)}?format=landscape&poster=3`);
+  const pageUrl = escapeHtml(`${publicBaseUrl()}/score/${encodeURIComponent(token)}?poster=4`);
+  const imageUrl = escapeHtml(`${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(token)}?format=facebook&poster=4`);
   return `
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Water Motion">
@@ -220,7 +220,7 @@ function sharePreviewMeta(job) {
   <meta property="og:image:secure_url" content="${imageUrl}">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
+  <meta property="og:image:height" content="1200">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="${imageUrl}">`;
 }
@@ -914,7 +914,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
       const report = await getReportByToken(token);
       const kind = report ? reportLinkKind(report) : null;
       if (kind && reportPageMatch[1] !== kind) {
-        sendRedirect(res, `/${kind}/${encodeURIComponent(token)}?poster=3`);
+        sendRedirect(res, `/${kind}/${encodeURIComponent(token)}?poster=4`);
         return true;
       }
       if (report) warmFacebookCard(report);

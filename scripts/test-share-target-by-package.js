@@ -90,7 +90,7 @@ function makeSandbox({ job = null, publicView = false, scorePublishResult = null
 
 const cardFetches = (calls) => calls.fetch.filter(c => c.url.includes('/api/public/score-card/'));
 const PUBLISHED = { score: 84, reportUrl: 'https://portal.example/r/tok-1', reportToken: 'tok-1' };
-const FULL_LINK = 'https://portal.example/score/tok-1?poster=3';
+const FULL_LINK = 'https://portal.example/score/tok-1?poster=4';
 const CARD_LINK = 'https://portal.example/card/tok-1';
 
 (async () => {
@@ -121,7 +121,7 @@ const CARD_LINK = 'https://portal.example/card/tok-1';
     const { sandbox, calls } = makeSandbox({ job, publicView: true });
     await sandbox.sharePublicReport();
     assert(cardFetches(calls).length === 0, 'poster image is never fetched');
-    assert(calls.share.length === 1 && calls.share[0].url === 'https://portal.example/score/tok-full?poster=3', 'shares the current Water Score page URL');
+    assert(calls.share.length === 1 && calls.share[0].url === 'https://portal.example/score/tok-full?poster=4', 'shares the current Water Score page URL');
     assert(calls.share[0] && !calls.share[0].files, 'no image file is attached');
   }
 
@@ -132,7 +132,7 @@ const CARD_LINK = 'https://portal.example/card/tok-1';
     sandbox.navigator.share = undefined;
     await sandbox.sharePublicReport();
     assert(cardFetches(calls).length === 0, 'poster image is never fetched');
-    assert(calls.clipboard[0] === 'https://portal.example/score/tok-full?poster=3', 'Water Score link is copied');
+    assert(calls.clipboard[0] === 'https://portal.example/score/tok-full?poster=4', 'Water Score link is copied');
   }
 
   console.log('\n=== Slow publish — browser refuses the share sheet, link is copied instead ===');
@@ -226,14 +226,14 @@ const CARD_LINK = 'https://portal.example/card/tok-1';
       assert(!essential.body.includes('class="score-img"'), 'Essential: the page is not the poster');
 
       const oldFull = await get('/r/tok-1');
-      assert(oldFull.status === 302 && oldFull.location === '/score/tok-1?poster=3', 'old /r link of a Full Case redirects to /score/tok-1');
+      assert(oldFull.status === 302 && oldFull.location === '/score/tok-1?poster=4', 'old /r link of a Full Case redirects to /score/tok-1');
       const oldCard = await get('/r/tok-2');
-      assert(oldCard.status === 302 && oldCard.location === '/score/tok-2?poster=3', 'old /r link of an Essential Case redirects to /score/tok-2');
+      assert(oldCard.status === 302 && oldCard.location === '/score/tok-2?poster=4', 'old /r link of an Essential Case redirects to /score/tok-2');
 
       const wrongForFull = await get('/card/tok-1');
-      assert(wrongForFull.status === 302 && wrongForFull.location === '/score/tok-1?poster=3', 'a /card link for a Full Case redirects to its Water Score');
+      assert(wrongForFull.status === 302 && wrongForFull.location === '/score/tok-1?poster=4', 'a /card link for a Full Case redirects to its Water Score');
       const oldEssentialCard = await get('/card/tok-2');
-      assert(oldEssentialCard.status === 302 && oldEssentialCard.location === '/score/tok-2?poster=3', 'a /card link for an Essential Case redirects to its Water Score');
+      assert(oldEssentialCard.status === 302 && oldEssentialCard.location === '/score/tok-2?poster=4', 'a /card link for an Essential Case redirects to its Water Score');
 
       for (const prefix of ['r', 'score', 'card']) {
         const missing = await get(`/${prefix}/no-such-token`);

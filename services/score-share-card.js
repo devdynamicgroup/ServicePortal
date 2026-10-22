@@ -205,6 +205,9 @@ function wrapNote(text, maxCharsPerLine, maxLines = 3) {
 
 function resolveFormat(format) {
   const key = String(format || 'landscape').toLowerCase();
+  if (key === 'facebook' || key === 'fb') {
+    return { key: 'facebook', width: 1200, height: 1200, label: '1200×1200' };
+  }
   if (key === 'og' || key === '1200x630') return FORMATS.landscape;
   if (key === 'ig' || key === '1080x1080') return FORMATS.square;
   if (key === 'story' || key === '1080x1920') return FORMATS.story;
@@ -876,10 +879,43 @@ function landscapeCacheKey(options = {}) {
   return `${score}|${String(options.contextLine || '').trim()}`;
 }
 
+const facebookResultCache = new Map();
+
+async function renderFacebookPreview(options) {
+  const key = landscapeCacheKey(options);
+  const cached = facebookResultCache.get(key);
+  if (cached?.png) return cached;
+  if (cached?.promise) return cached.promise;
+  const sharp = require('sharp');
+  const promise = (async () => {
+    const plate = await renderShareCardPng('landscape', options);
+    const canvas = 1200;
+    const plateHeight = FORMATS.landscape.height;
+    const bar = Math.round((canvas - plateHeight) / 2);
+    // The Facebook composer shows this image in a square and cover-crops
+    // anything wider. The 1200×630 plate sits in the middle, so both the
+    // square composer and the wide feed show the whole poster.
+    const png = await sharp(plate.png)
+      .extend({ top: bar, bottom: canvas - plateHeight - bar, extendWith: 'copy' })
+      .flatten({ background: '#E6EEF3' })
+      .png({ compressionLevel: 4 })
+      .toBuffer();
+    return { ...plate, key: 'facebook', width: canvas, height: canvas, png };
+  })().catch((error) => {
+    if (facebookResultCache.get(key)?.promise) facebookResultCache.delete(key);
+    throw error;
+  });
+  facebookResultCache.set(key, { promise });
+  const result = await promise;
+  facebookResultCache.set(key, result);
+  return result;
+}
+
 async function renderShareCardPng(format, options = {}) {
   ensureFontconfig();
   const sharp = require('sharp');
   const formatMeta = resolveFormat(format);
+  if (formatMeta.key === 'facebook') return renderFacebookPreview(options);
   // The landscape plate is the water poster. Waiting on a Drive photo here
   // only delays the image Facebook has to fetch while the post is composed.
   if (formatMeta.key === 'landscape' && fs.existsSync(FACEBOOK_BG)) {
