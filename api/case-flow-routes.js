@@ -208,21 +208,27 @@ function reportLinkKind() {
 function sharePreviewMeta(job) {
   const token = String(job?.result?.publicReportToken || '').trim();
   if (!token) return '';
-  const pageUrl = escapeHtml(`${publicBaseUrl()}/score/${encodeURIComponent(token)}?poster=6`);
-  const imageUrl = escapeHtml(`${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(token)}?format=facebook&poster=6`);
+  const pageUrl = escapeHtml(`${publicBaseUrl()}/score/${encodeURIComponent(token)}?poster=7`);
+  const postImage = escapeHtml(`${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(token)}?format=landscape&poster=7`);
+  const storyImage = escapeHtml(`${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(token)}?format=story&poster=7`);
   return `
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Water Motion">
   <meta property="og:title" content="Water Score · Water Motion">
   <meta property="og:description" content="Your tap water score from Water Motion">
   <meta property="og:url" content="${pageUrl}">
-  <meta property="og:image" content="${imageUrl}">
-  <meta property="og:image:secure_url" content="${imageUrl}">
+  <meta property="og:image" content="${postImage}">
+  <meta property="og:image:secure_url" content="${postImage}">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image" content="${storyImage}">
+  <meta property="og:image:secure_url" content="${storyImage}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1080">
+  <meta property="og:image:height" content="1920">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="${imageUrl}">`;
+  <meta name="twitter:image" content="${postImage}">`;
 }
 
 function freeReportHtml(job) {
@@ -914,7 +920,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
       const report = await getReportByToken(token);
       const kind = report ? reportLinkKind(report) : null;
       if (kind && reportPageMatch[1] !== kind) {
-        sendRedirect(res, `/${kind}/${encodeURIComponent(token)}?poster=6`);
+        sendRedirect(res, `/${kind}/${encodeURIComponent(token)}?poster=7`);
         return true;
       }
       if (report) warmFacebookCard(report);
