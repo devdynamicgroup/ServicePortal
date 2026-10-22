@@ -2955,12 +2955,12 @@ function reportTokenFromJob(job) {
   return match ? decodeURIComponent(match[1]) : '';
 }
 
-// Facebook caches a preview against the exact URL. poster=2 is a new object,
+// Facebook caches a preview against the exact URL. poster=3 is a new object,
 // so the next share is not stuck on the cropped card.
 function facebookPreviewUrl(token) {
   const clean = String(token || '').trim();
   if (!clean) return '';
-  return absoluteReportUrl(`/score/${encodeURIComponent(clean)}?poster=2`);
+  return absoluteReportUrl(`/score/${encodeURIComponent(clean)}?poster=3`);
 }
 
 async function shareScoreResult({ reportToken, reportUrl, title, text, shareCard = true }) {
