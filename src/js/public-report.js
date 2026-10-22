@@ -48,7 +48,7 @@ async function sharePublicReport() {
   try {
     const outcome = await shareScoreResult({
       reportToken: window.__WM_PUBLIC_REPORT__?.token,
-      reportUrl: window.location.href,
+      reportUrl: (typeof facebookPreviewUrl === 'function' && facebookPreviewUrl(window.__WM_PUBLIC_REPORT__?.token)) || window.location.href,
       title,
       text,
       // Every package opens this page, so Share passes on this page's link.

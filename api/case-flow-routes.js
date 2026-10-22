@@ -31,6 +31,7 @@ const { newCorrelationId, logEvent } = require('../services/observability');
 const { notifyAdminsOfNewCase } = require('../services/ops-case-alert');
 const { isPlaceholderCaseName } = require('../services/case-creation-service');
 const { publicBaseUrl, buildLiffBindUrl } = require('../services/url-builder');
+const { renderShareCardPng, cardOptionsFromJob } = require('../services/score-share-card');
 const { assertAppAuth } = require('../services/app-auth');
 const QRCode = require('qrcode');
 
@@ -160,7 +161,7 @@ function preparePublicScoreMarkup(scoreMarkup) {
     ''
   );
 
-  // Public share uses current URL (wired in public-report.js).
+  // Public share uses the poster URL (wired in public-report.js).
   html = html.replace(
     /onclick="shareScore\(\)"/,
     'onclick="sharePublicReport()"'
@@ -185,6 +186,15 @@ function isFreeInspectionJob(job) {
   return String(job?.pkg || 'essential').trim() !== 'full';
 }
 
+function warmFacebookCard(job) {
+  const rawScore = job?.result?.waterScore;
+  if (rawScore == null || !Number.isFinite(Number(rawScore))) return;
+  if (!job?.result?.publicReportToken) return;
+  renderShareCardPng('landscape', cardOptionsFromJob(job)).catch((error) => {
+    console.warn('[score-share-card] warm failed', error.message);
+  });
+}
+
 /** Every package opens the Water Score page. Old /card and /r links redirect there. */
 function reportLinkKind() {
   return 'score';
@@ -198,8 +208,8 @@ function reportLinkKind() {
 function sharePreviewMeta(job) {
   const token = String(job?.result?.publicReportToken || '').trim();
   if (!token) return '';
-  const pageUrl = escapeHtml(`${publicBaseUrl()}/score/${encodeURIComponent(token)}`);
-  const imageUrl = escapeHtml(`${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(token)}?format=landscape`);
+  const pageUrl = escapeHtml(`${publicBaseUrl()}/score/${encodeURIComponent(token)}?poster=1`);
+  const imageUrl = escapeHtml(`${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(token)}?format=landscape&poster=1`);
   return `
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Water Motion">
@@ -904,9 +914,10 @@ async function handleCaseFlowRoute(req, res, urlPath) {
       const report = await getReportByToken(token);
       const kind = report ? reportLinkKind(report) : null;
       if (kind && reportPageMatch[1] !== kind) {
-        sendRedirect(res, `/${kind}/${encodeURIComponent(token)}`);
+        sendRedirect(res, `/${kind}/${encodeURIComponent(token)}?poster=1`);
         return true;
       }
+      if (report) warmFacebookCard(report);
       sendHtml(res, report ? 200 : 404, await reportHtml(report));
     } catch (error) {
       sendHtml(res, error.statusCode || 502, `<p>${escapeHtml(error.message || 'Report unavailable')}</p>`);

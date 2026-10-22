@@ -747,17 +747,40 @@ async function eraseBakedHeadline(sharp, base) {
   return sharp(data, { raw: { width: w, height: h, channels: ch } }).png().toBuffer();
 }
 
+let landscapeBasePromise = null;
+
+function preparedLandscapeBase(sharp) {
+  if (!landscapeBasePromise) {
+    const { width, height } = FORMATS.landscape;
+    landscapeBasePromise = (async () => {
+      const resized = await sharp(FACEBOOK_BG)
+        .resize(width, height, { fit: 'fill' })
+        .png({ compressionLevel: 1 })
+        .toBuffer();
+      return eraseBakedHeadline(sharp, resized);
+    })().catch((error) => {
+      landscapeBasePromise = null;
+      throw error;
+    });
+  }
+  return landscapeBasePromise;
+}
+
 async function compositeLandscape(sharp, photoBuf, svgBuffer) {
   const { width, height } = FORMATS.landscape;
-  const source = fs.existsSync(FACEBOOK_BG) ? FACEBOOK_BG : photoBuf;
-  let base = await sharp(source)
-    .resize(width, height, { fit: 'fill' })
-    .png()
-    .toBuffer();
-  base = await eraseBakedHeadline(sharp, base);
+  let base;
+  if (fs.existsSync(FACEBOOK_BG)) {
+    base = await preparedLandscapeBase(sharp);
+  } else {
+    base = await sharp(photoBuf)
+      .resize(width, height, { fit: 'fill' })
+      .png()
+      .toBuffer();
+    base = await eraseBakedHeadline(sharp, base);
+  }
   return sharp(base)
     .composite([{ input: svgBuffer, left: 0, top: 0 }])
-    .png({ compressionLevel: 8 })
+    .png({ compressionLevel: 4 })
     .toBuffer();
 }
 
@@ -838,6 +861,14 @@ async function resolveCtaBadge(feedbackToken) {
   return loadAsset(CTA_BADGE_ASSET) || loadAsset(QR_ASSET);
 }
 
+const landscapeResultCache = new Map();
+const LANDSCAPE_CACHE_MAX = 30;
+
+function landscapeCacheKey(options = {}) {
+  const score = Math.round(Number(options.score) || 0);
+  return `${score}|${String(options.contextLine || '').trim()}`;
+}
+
 async function renderShareCardPng(format, options = {}) {
   ensureFontconfig();
   const sharp = require('sharp');
@@ -845,13 +876,31 @@ async function renderShareCardPng(format, options = {}) {
   // The landscape plate is the water poster. Waiting on a Drive photo here
   // only delays the image Facebook has to fetch while the post is composed.
   if (formatMeta.key === 'landscape' && fs.existsSync(FACEBOOK_BG)) {
-    const built = buildShareCardSvg(format, {
-      ...options,
-      score: Number(options.score),
-      indicators: options.indicators || 8
+    const key = landscapeCacheKey(options);
+    const cached = landscapeResultCache.get(key);
+    if (cached?.png) return { ...cached.built, png: cached.png };
+    if (cached?.promise) return cached.promise;
+    const promise = (async () => {
+      const built = buildShareCardSvg(format, {
+        ...options,
+        score: Number(options.score),
+        indicators: options.indicators || 8
+      });
+      const png = await compositeLandscape(sharp, null, Buffer.from(built.svg));
+      const result = { ...built, png };
+      landscapeResultCache.delete(key);
+      landscapeResultCache.set(key, { png, built });
+      while (landscapeResultCache.size > LANDSCAPE_CACHE_MAX) {
+        const oldest = landscapeResultCache.keys().next().value;
+        landscapeResultCache.delete(oldest);
+      }
+      return result;
+    })().catch((error) => {
+      if (landscapeResultCache.get(key)?.promise) landscapeResultCache.delete(key);
+      throw error;
     });
-    const png = await compositeLandscape(sharp, null, Buffer.from(built.svg));
-    return { ...built, png };
+    landscapeResultCache.set(key, { promise });
+    return promise;
   }
   const photoDataUri = await resolvePhotoDataUri(options);
   const built = buildShareCardSvg(format, {
@@ -976,6 +1025,10 @@ function cardOptionsFromJob(job = {}, overrides = {}) {
     photoDataUri: overrides.photoDataUri || '',
     feedbackToken: overrides.feedbackToken || job.feedback?.token || ''
   };
+}
+
+if (fs.existsSync(FACEBOOK_BG)) {
+  try { preparedLandscapeBase(require('sharp')); } catch { landscapeBasePromise = null; }
 }
 
 module.exports = {

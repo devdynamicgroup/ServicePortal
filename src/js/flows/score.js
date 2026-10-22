@@ -2947,6 +2947,22 @@ function readyFullReportUrl(job) {
   return absoluteReportUrl(`/r/${encodeURIComponent(token)}`);
 }
 
+function reportTokenFromJob(job) {
+  const direct = String(job?.result?.publicReportToken || '').trim();
+  if (direct) return direct;
+  const stored = String(job?.result?.reportUrl || '');
+  const match = stored.match(/\/(?:r|score|card)\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+// Facebook caches a failed preview against the exact URL. poster=1 is a new
+// object, so the next share is not stuck on the blank card.
+function facebookPreviewUrl(token) {
+  const clean = String(token || '').trim();
+  if (!clean) return '';
+  return absoluteReportUrl(`/score/${encodeURIComponent(clean)}?poster=1`);
+}
+
 async function shareScoreResult({ reportToken, reportUrl, title, text, shareCard = true }) {
   const file = shareCard ? await shareScoreCardImage({ reportToken, title, text }) : null;
   if (file && navigator.canShare?.({ files: [file] })) {
@@ -3006,13 +3022,13 @@ async function shareScore() {
     return;
   }
 
-  const readyUrl = readyFullReportUrl(job);
+  const readyUrl = facebookPreviewUrl(reportTokenFromJob(job)) || readyFullReportUrl(job);
   if (readyUrl) {
     sharingScore = true;
     setShareButtonLoading(true);
     try {
       const outcome = await shareScoreResult({
-        reportToken: job.result?.publicReportToken,
+        reportToken: reportTokenFromJob(job),
         reportUrl: readyUrl,
         title: 'Water Motion - Water Score',
         text: `ผล Water Score ของคุณ: ${Number(job.result?.waterScore ?? S.scoreVal)}/100`,
@@ -3069,7 +3085,7 @@ async function shareScore() {
 
     const outcome = await shareScoreResult({
       reportToken: result.reportToken,
-      reportUrl: result.reportUrl,
+      reportUrl: facebookPreviewUrl(result.reportToken) || result.reportUrl,
       title: 'Water Motion - Water Score',
       text: `ผล Water Score ของคุณ: ${result.score}/100`,
       shareCard: false
