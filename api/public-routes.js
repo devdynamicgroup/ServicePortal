@@ -48,13 +48,13 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function sendPng(res, buffer, cacheSeconds = 300) {
+function sendPng(res, buffer, cacheSeconds = 300, headOnly = false) {
   res.writeHead(200, {
     'Content-Type': 'image/png',
     'Cache-Control': `public, max-age=${cacheSeconds}`,
     'Content-Length': buffer.length
   });
-  res.end(buffer);
+  res.end(headOnly ? undefined : buffer);
 }
 
 function parseFormat(urlObj) {
@@ -126,7 +126,7 @@ async function handleScoreCardRoute(req, res, urlPath, urlObj) {
   }
 
   const demoMatch = urlPath.match(/^\/api\/public\/score-card\/demo$/);
-  if (demoMatch && req.method === 'GET') {
+  if (demoMatch && (req.method === 'GET' || req.method === 'HEAD')) {
     try {
       const score = Number(urlObj.searchParams.get('score') || 65);
       const format = parseFormat(urlObj);
@@ -136,7 +136,7 @@ async function handleScoreCardRoute(req, res, urlPath, urlObj) {
         photoUrl,
         findingsCount: Number(urlObj.searchParams.get('findings') || 0)
       });
-      sendPng(res, png, 60);
+      sendPng(res, png, 60, req.method === 'HEAD');
     } catch (error) {
       console.warn('GET /api/public/score-card/demo failed', error.message);
       sendJson(res, 502, { ok: false, error: 'Score card unavailable' });
@@ -145,7 +145,7 @@ async function handleScoreCardRoute(req, res, urlPath, urlObj) {
   }
 
   const tokenMatch = urlPath.match(/^\/api\/public\/score-card\/([^/]+)$/);
-  if (tokenMatch && req.method === 'GET') {
+  if (tokenMatch && (req.method === 'GET' || req.method === 'HEAD')) {
     try {
       const token = decodeURIComponent(tokenMatch[1]);
       let job = null;
@@ -184,7 +184,7 @@ async function handleScoreCardRoute(req, res, urlPath, urlObj) {
       const { png } = await renderShareCardPng(format, cardOptionsFromJob(job, {
         photoUrl: urlObj.searchParams.get('photo') || undefined
       }));
-      sendPng(res, png, 300);
+      sendPng(res, png, 300, req.method === 'HEAD');
     } catch (error) {
       console.warn('GET /api/public/score-card/:token failed', error.message);
       sendJson(res, 502, { ok: false, error: 'Score card unavailable' });

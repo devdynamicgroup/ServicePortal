@@ -198,7 +198,7 @@ function reportLinkKind() {
 function sharePreviewMeta(job) {
   const token = String(job?.result?.publicReportToken || '').trim();
   if (!token) return '';
-  const pageUrl = escapeHtml(`${publicBaseUrl()}/r/${encodeURIComponent(token)}`);
+  const pageUrl = escapeHtml(`${publicBaseUrl()}/score/${encodeURIComponent(token)}`);
   const imageUrl = escapeHtml(`${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(token)}?format=landscape`);
   return `
   <meta property="og:type" content="website">

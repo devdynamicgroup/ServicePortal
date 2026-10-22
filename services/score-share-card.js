@@ -841,6 +841,18 @@ async function resolveCtaBadge(feedbackToken) {
 async function renderShareCardPng(format, options = {}) {
   ensureFontconfig();
   const sharp = require('sharp');
+  const formatMeta = resolveFormat(format);
+  // The landscape plate is the water poster. Waiting on a Drive photo here
+  // only delays the image Facebook has to fetch while the post is composed.
+  if (formatMeta.key === 'landscape' && fs.existsSync(FACEBOOK_BG)) {
+    const built = buildShareCardSvg(format, {
+      ...options,
+      score: Number(options.score),
+      indicators: options.indicators || 8
+    });
+    const png = await compositeLandscape(sharp, null, Buffer.from(built.svg));
+    return { ...built, png };
+  }
   const photoDataUri = await resolvePhotoDataUri(options);
   const built = buildShareCardSvg(format, {
     ...options,
