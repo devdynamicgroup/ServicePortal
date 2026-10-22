@@ -407,13 +407,14 @@ function facebookScoreCard(opts) {
   const center = Math.round((wq / 100) * (dots - 1));
   const clusterX = dotsX + center * dotGap;
   const dotFill = (distance) => {
-    if (distance <= 1) return '#689FEA';
-    if (distance === 2) return '#97C3F2';
+    if (distance <= 1) return '#7AADF0';
+    if (distance === 2) return '#A9CCF6';
     if (distance === 3) return '#C5DCF5';
-    return '#D1D1CF';
+    if (distance === 4) return '#D7E7FA';
+    return '#D6D6D4';
   };
   const dotMarks = Array.from({ length: dots }, (_, i) => (
-    `<circle cx="${dotsX + i * dotGap}" cy="${dotsY}" r="4" fill="${dotFill(Math.abs(i - center))}"/>`
+    `<circle cx="${dotsX + i * dotGap}" cy="${dotsY}" r="3" fill="${dotFill(Math.abs(i - center))}"/>`
   )).join('');
   const countries = SHARE_FLOORS.map(([name, floor], index) => {
     const x = 44 + index * 126;
@@ -432,10 +433,10 @@ function facebookScoreCard(opts) {
   return `
     <rect width="${FB_CARD_W}" height="${FB_CARD_H}" rx="22" fill="#F7F8F9" filter="url(#fbCardShadow)"/>
     ${contextText}
-    <text x="318" y="108" text-anchor="end" fill="${INK}" font-family="${FONT}" font-size="56" font-weight="700" letter-spacing="-1.5">${Math.round(wq)}</text>
-    <text x="330" y="86" fill="#B0ACA6" font-family="${FONT}" font-size="20">/100</text>
-    <rect x="${bandX.toFixed(1)}" y="122" width="${bandW}" height="34" rx="17" fill="#E4EEFC"/>
-    <text x="${(bandX + bandW / 2).toFixed(1)}" y="144" text-anchor="middle" fill="${BRAND_BLUE}" font-family="${FONT}" font-size="15" font-weight="600">${escapeXml(band)}</text>
+    <text x="328" y="108" text-anchor="end" fill="${INK}" font-family="${FONT}" font-size="56" font-weight="700" letter-spacing="-1.5">${Math.round(wq)}</text>
+    <text x="346" y="108" fill="#B0ACA6" font-family="${FONT}" font-size="20">/100</text>
+    <rect x="${bandX.toFixed(1)}" y="130" width="${bandW}" height="34" rx="17" fill="#E4EEFC"/>
+    <text x="${(bandX + bandW / 2).toFixed(1)}" y="152" text-anchor="middle" fill="${BRAND_BLUE}" font-family="${FONT}" font-size="15" font-weight="600">${escapeXml(band)}</text>
     ${dotMarks}
     <text x="${dotsX}" y="198" fill="#A7A39E" font-family="${FONT}" font-size="13">0</text>
     <text x="${(dotsX + (dots - 1) * dotGap * 0.8).toFixed(1)}" y="198" text-anchor="middle" fill="#A7A39E" font-family="${FONT}" font-size="13">80 · Int'l</text>
@@ -778,8 +779,14 @@ async function compositeLandscape(sharp, photoBuf, svgBuffer) {
       .toBuffer();
     base = await eraseBakedHeadline(sharp, base);
   }
-  return sharp(base)
+  const composited = await sharp(base)
     .composite([{ input: svgBuffer, left: 0, top: 0 }])
+    .png()
+    .toBuffer();
+  // Facebook crops a PNG that still has an alpha channel, even when every
+  // pixel is opaque. Flatten onto the plate color so the file is plain RGB.
+  return sharp(composited)
+    .flatten({ background: '#FAFAF9' })
     .png({ compressionLevel: 4 })
     .toBuffer();
 }

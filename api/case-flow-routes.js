@@ -208,8 +208,8 @@ function reportLinkKind() {
 function sharePreviewMeta(job) {
   const token = String(job?.result?.publicReportToken || '').trim();
   if (!token) return '';
-  const pageUrl = escapeHtml(`${publicBaseUrl()}/score/${encodeURIComponent(token)}?poster=1`);
-  const imageUrl = escapeHtml(`${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(token)}?format=landscape&poster=1`);
+  const pageUrl = escapeHtml(`${publicBaseUrl()}/score/${encodeURIComponent(token)}?poster=2`);
+  const imageUrl = escapeHtml(`${publicBaseUrl()}/api/public/score-card/${encodeURIComponent(token)}?format=landscape&poster=2`);
   return `
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Water Motion">
@@ -914,7 +914,7 @@ async function handleCaseFlowRoute(req, res, urlPath) {
       const report = await getReportByToken(token);
       const kind = report ? reportLinkKind(report) : null;
       if (kind && reportPageMatch[1] !== kind) {
-        sendRedirect(res, `/${kind}/${encodeURIComponent(token)}?poster=1`);
+        sendRedirect(res, `/${kind}/${encodeURIComponent(token)}?poster=2`);
         return true;
       }
       if (report) warmFacebookCard(report);
